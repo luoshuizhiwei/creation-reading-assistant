@@ -1900,7 +1900,13 @@ const isPureRingValue = (v) => {
   //   立项文字）；裁定之后它合规、条目消失，钉在它上面的「间距棘轮②」随之失去锚点，
   //   本批把它搬到仍有活债的 TSX 宿主（见 inject 脚本 BD-25 注释）。
   const SPACING_BUDGET = {
-    "src/features/creation/cards/cards-local.css": 18,
+    "src/features/creation/cards/cards-local.css": 15,
+    // 批次 BD-56（padding 9px 水平槽族·11 成员批，跨 4 文件）：18→15。本文件还 3 处：
+    //   .global-card-library-assets li `8px 9px`→8px 10px（附件行卡，双胞胎 delete-impact
+    //   li 8px 10px，零实拍如实记）、.global-card-library-usage li `4px 9px`→4px 8px（压缩档
+    //   药丸，双胞胎 usage header strong 3px 8px）、.global-card-library-policy
+    //   `padding-left: 9px`→10px（2px copper 强调条缩进，双胞胎 outline-revert 8px 10px）。
+    //   值账：本文件 padding 9px 桶 3→1、padding-left 9px 桶 1→0（清零移除），判据在各条上方。
     // 批次 BD-47（间距还债批·关系图）：条目 4→0 **整条移除**（空表=新增即红，比留 0 更诚实）。
     // .relation-graph-chip `padding: 3px 9px` 与 .relation-graph-zoom button `padding: 3px 7px`
     // 收成本文件 .relation-graph-search 已在用的 4px 8px——同族控件取同值，不是新造档。
@@ -1926,7 +1932,12 @@ const isPureRingValue = (v) => {
     //   不在本批顺手挑档。判据与两条读数（岛下块距 14 实测 = margin-bottom，
     //   覆盖 12/16/10 段距跟着走）都写在 scene-radar.css 各条上方。
     "src/features/creation/editor/scene-radar.css": 2,
-    "src/features/creation/editor/writing-quick-reference.css": 16,
+    "src/features/creation/editor/writing-quick-reference.css": 14,
+    // 批次 BD-56（padding 9px 水平槽族）：16→14。本文件还 2 处：
+    //   .writing-quick-search `7px 9px`→7px 8px（搜索输入容器，双胞胎 quick-field input 6px 8px、
+    //   relation-graph-search 4px 8px）、.writing-quick-toggle `6px 9px`→6px 8px（6px 顶槽小钮，
+    //   双胞胎 scene-radar writing-margin-tabs button 6px 8px）。值账：本文件 padding 9px 桶 4→2
+    //   （余 2 是 head 底槽 9px 与 tabs button 顶槽 9px，垂直槽、留给垂直槽批），判据在各条上方。
     // 批次 BD-55（padding 14px 左右档族·14 成员批，跨 5 文件）：17→16。本文件还 1 处：
     //   .writing-quick-reference-head `11px 14px 9px 16px`→`11px 16px 9px 16px`
     //   （右槽与左槽自己错位；头/面板档的在档先例全在 16，判据在该条上方。真宿主
@@ -2020,7 +2031,14 @@ const isPureRingValue = (v) => {
     // 「行号不进 key」同样适用于注释）：.cards-board-column-head button、
     // .creation-proof-ignore、.desktop-home-inbox-count。值账实测该桶 4→3 而不是
     // 消失，正是这条作用域边界的证据（选择器前缀限定了改动范围）。
-    "src/styles.css": 80,
+    "src/styles.css": 77,
+    // 批次 BD-56（padding 9px 水平槽族·styles.css 三条）：80→77。还 3 处：
+    //   .creation-proof-item-rule `2px 9px`→2px 8px（压缩档药丸规则徽标，零实拍如实记）、
+    //   .creation-proof-ignore `3px 9px`→3px 8px（压缩档药丸忽略钮，与 editorial
+    //   .inbox-save-status 逐字双胞胎同批同值，零实拍如实记）、.background-detail-kind
+    //   `2px 9px`→2px 8px（压缩档药丸类型徽标，探针 p2 实拍活）。值账：本文件 padding 9px
+    //   桶 9→6（余 6 全在垂直槽——card-board-card / creation-palette-command /
+    //   creation-palette-footer / migration-error 等的顶槽 9px，留给垂直槽批），判据在各条上方。
     // 批次 BD-55（padding 14px 左右档族·styles.css 六条）：84→80。还 5 处 + 记档 1 + 摘死 1：
     //   .scene-conflict-notice/.scene-save-error `12px 14px`→12px（告示条族票全在 12；
     //   零实拍如实记）、.migration-banner `10px 14px`→10px 12px（横幅族票 + 探针 3
@@ -2082,7 +2100,18 @@ const isPureRingValue = (v) => {
     //   .desktop-titlebar padding-left: 14px **记档不动**——标题栏的印与侧栏的印
     //   同列（sidebar 12 + brand margin 2 = 14，探针 01 实拍 x=14 全等），动它就
     //   把印章从整条左栏列线上扯下来；判据写在那条上方。
-    "src/styles/editorial-studio.css": 58
+    // 批次 BD-56（padding 9px 水平槽族·editorial 三条）：58→55。还 2 处 + 摘死 1：
+    //   .desktop-brand.nav-spine-item `6px 9px 14px`→6px 10px 14px（侧栏脊钮品牌行，
+    //   双胞胎同 .nav-spine-item 类的 desktop-nav button 7px 10px；探针 01 实拍活）、
+    //   .inbox-save-status `3px 9px`→3px 8px（压缩档药丸状态灯，与 styles.css
+    //   .creation-proof-ignore 逐字双胞胎同批同值；探针 2 实拍活）；
+    //   @media 1024 的 .project-nav button `6px 6px 6px 9px` **摘死声明**——被壳内
+    //   `.creation-writing-page--active .project-nav button:not(.project-nav-back)` 与
+    //   `.project-nav-back` 两条 `padding: 0 10px !important` 逐钮压死（探针 3 实拍
+    //   八个导航钮 computed 全 0/10/0/10、active:true），min-height/font-size 两活键保留，
+    //   与 BD-55 摘 @920 commandbar 死声明同法。值账：本文件 padding 9px 桶 4→1（余 1 是
+    //   @1024 .desktop-commandbar `9px 16px` 的顶槽 9px，垂直槽、留给垂直槽批），判据在各条上方。
+    "src/styles/editorial-studio.css": 55
   };
 
   const actual = {};
@@ -2167,7 +2196,7 @@ const isPureRingValue = (v) => {
   // key =「文件 ⑉ 原属性 ⑉ 折算 px ⑉ 处数」，排序后与钉死的账**逐字全等**比对——
   // 每桶计数写进 key，所以桶成员变化和桶内计数变化都红（BD-45 是多重集逐条比对，
   // 这里是压缩后的等价判据：见上面「为什么不是逐声明一行账」）。
-  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=105、总处数=209 都来自 dump（BD-53 还掉分段岛 3px 族 + chip 行 5px 族 + 页签基础档共 6 处，BD-54 还掉 gap 5px 族 12 处 / 跨 3 文件——chip 内档两笔收 6、11px 图标微标签族四笔收 4、字段堆叠三笔收 4、压缩档灯一笔收 4、动作行一笔收 6、item-main 一笔收 2；styles.css 那条 gap 5px ⑉ 1 是 .migration-report dl 的记档动，见那条上方；BD-55 还掉 padding 14px 左右档族 12 处 / 跨 5 文件——16 档五笔（quick-reference-head、stats-card>h3、writing-margin、reading-stat-tile、@920 commandbar 死声明摘除）、12 档七笔（history-item、history-restore-success、preview-block--letter、scene notice、migration-banner、background-card、inbox-load-more），.desktop-library-grid-head 与 .desktop-titlebar 两条记档不动）。
+  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=104、总处数=198 都来自 dump（BD-53 还掉分段岛 3px 族 + chip 行 5px 族 + 页签基础档共 6 处，BD-54 还掉 gap 5px 族 12 处 / 跨 3 文件——chip 内档两笔收 6、11px 图标微标签族四笔收 4、字段堆叠三笔收 4、压缩档灯一笔收 4、动作行一笔收 6、item-main 一笔收 2；styles.css 那条 gap 5px ⑉ 1 是 .migration-report dl 的记档动，见那条上方；BD-55 还掉 padding 14px 左右档族 12 处 / 跨 5 文件——16 档五笔（quick-reference-head、stats-card>h3、writing-margin、reading-stat-tile、@920 commandbar 死声明摘除）、12 档七笔（history-item、history-restore-success、preview-block--letter、scene notice、migration-banner、background-card、inbox-load-more），.desktop-library-grid-head 与 .desktop-titlebar 两条记档不动；BD-56 还掉 padding 9px 水平槽族 11 处 / 跨 4 文件——收 8 七笔（usage li、quick-search、quick-toggle、inbox-save-status、proof-item-rule、proof-ignore、background-detail-kind）、收 10 三笔（assets li、policy padding-left、brand nav-spine-item）、@1024 project-nav button 死声明摘除一笔）。
   const SPACING_VALUE_LEDGER = [
         "src/features/creation/cards/cards-local.css\tgap\t3px\t5",
         "src/features/creation/cards/cards-local.css\tgap\t7px\t2",
@@ -2175,8 +2204,7 @@ const isPureRingValue = (v) => {
         "src/features/creation/cards/cards-local.css\tmargin\t9px\t2",
         "src/features/creation/cards/cards-local.css\tpadding\t13px\t2",
         "src/features/creation/cards/cards-local.css\tpadding\t3px\t1",
-        "src/features/creation/cards/cards-local.css\tpadding\t9px\t3",
-        "src/features/creation/cards/cards-local.css\tpadding-left\t9px\t1",
+        "src/features/creation/cards/cards-local.css\tpadding\t9px\t1",
         "src/features/creation/editor/continuous-editor.css\tpadding\t120px\t1",
         "src/features/creation/editor/continuous-editor.css\tpadding\t18px\t1",
         "src/features/creation/editor/scene-radar.css\tgap\t14px\t1",
@@ -2189,7 +2217,7 @@ const isPureRingValue = (v) => {
         "src/features/creation/editor/writing-quick-reference.css\tpadding\t18px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tpadding\t5px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tpadding\t7px\t5",
-        "src/features/creation/editor/writing-quick-reference.css\tpadding\t9px\t4",
+        "src/features/creation/editor/writing-quick-reference.css\tpadding\t9px\t2",
         "src/features/creation/history/history-local.css\tgap\t22px\t1",
         "src/features/creation/history/history-local.css\tmargin-bottom\t3px\t1",
         "src/features/creation/history/history-local.css\tpadding\t11px\t1",
@@ -2242,7 +2270,7 @@ const isPureRingValue = (v) => {
         "src/styles.css\tpadding\t5px\t7",
         "src/styles.css\tpadding\t7px\t3",
         "src/styles.css\tpadding\t96px\t1",
-        "src/styles.css\tpadding\t9px\t9",
+        "src/styles.css\tpadding\t9px\t6",
         "src/styles.css\tpadding-left\t18px\t1",
         "src/styles.css\tpadding-left\t7px\t1",
         "src/styles.css\tpadding-right\t18px\t1",
@@ -2269,7 +2297,7 @@ const isPureRingValue = (v) => {
         "src/styles/editorial-studio.css\tpadding\t50px\t1",
         "src/styles/editorial-studio.css\tpadding\t5px\t1",
         "src/styles/editorial-studio.css\tpadding\t7px\t5",
-        "src/styles/editorial-studio.css\tpadding\t9px\t4",
+        "src/styles/editorial-studio.css\tpadding\t9px\t1",
         "src/styles/editorial-studio.css\tpadding-bottom\t13px\t2",
         "src/styles/editorial-studio.css\tpadding-left\t14px\t1",
         "src/styles/editorial-studio.css\tpadding-left\t44px\t1",

@@ -103,11 +103,18 @@ select:focus-visible,
 }
 
 /* Brand: a carved seal stamp — 阅 in vermilion. */
+/* 批次 BD-56（padding 9px 水平槽族·侧栏脊钮品牌行）：左右槽 9→10（三值简写 6px 9px 14px
+ * 的中间值 = 左右槽；顶 6/底 14 两槽不动，14 是垂直槽、留给垂直槽批）。9px 落 8/10 正中，
+ * 就近不裁决 ⇒ 数同角色在档双胞胎：同 .nav-spine-item 类的侧栏脊钮 .desktop-nav button
+ * .nav-spine-item 就是逐字 7px 10px，左右槽收 10——品牌行与导航钮同挂脊条、同一族，
+ * 9 是本族孤档 ⇒ 收 10，与导航钮同值。真宿主实拍（/tmp/bd56-probe.json 01-brand）：
+ * pl/pr 9px、盒 x 14/w 191/h 59，导航钮 pl/pr 已是 10px/w 187——改 10 后品牌行「阅」印
+ * 与下方导航图标左缘对齐（都从内缩 10px 起），盒宽 −2、min-height 52 与底槽 14 定高不变。 */
 .desktop-brand.nav-spine-item {
   gap: 11px;
   min-height: 52px;
   margin: 0 2px 4px;
-  padding: 6px 9px 14px;
+  padding: 6px 10px 14px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.09) !important;
   border-radius: 0 !important;
   color: var(--studio-cloth-text);
@@ -1719,14 +1726,25 @@ select:focus-visible,
    * A/B 补到了真宿主读数（06 屏速记条目详情头）：两侧 h 同 22.5、w 同 40——灯盒本身
    * 零变化，正是「单子节点、gap 不吃进布局」那条（同 .creation-chip 的向导周几芯片）。
    * 该屏 11498 个像素差全部来自同屏 .inbox-item-main（5→2 掉 6px 高）与文字重排。
-   * padding 3px 9px 属压缩档药丸 padding 族、BD-53 已判不动，这里一个字没碰。 */
+   * padding 3px 9px 属压缩档药丸 padding 族、BD-53 只收 gap 没碰它。 */
+  /* 批次 BD-56（padding 9px 水平槽族·压缩档药丸状态灯）：右/左槽 9→8。9px 落 8/10 正中，
+   * 就近不裁决 ⇒ 数压缩档药丸在档票：全仓 999px 药丸里「≤4px 顶槽」的压缩档水平槽全是 8px
+   * （cards-local .project-card-link-status 4px 8px、.global-card-library-usage header strong
+   * 3px 8px；styles.css .card-board-card-status 2px 8px、.inbox-item-title em 2px 8px、
+   * .writing-annotation-relocate 2px 8px、.creation-proof-rules label 4px 11px 的 11 是
+   * 另一枚离档债）。10px 只在 5px/6px 顶槽的基础档药丸上（.creation-chip 5px 10px、
+   * .writing-focus-status 6px 10px）——BD-14「压缩档比基础档低一档」⇒ 压缩档收 8。
+   * 与 BD-54 那条 gap 注释互证：.creation-proof-ignore 是本条逐字 3px 9px 双胞胎，本批
+   * 同批同值一起收 8，两枚灯/钮内档塌回同值。真宿主实拍（/tmp/bd56-probe2.json
+   * p3-save-status，速记条目详情头「已保存」灯）：pl/pr 9px、盒 w 40/h 22.5——改 8 后
+   * 灯宽 −2、顶槽 3px 定高 h 22.5 不变（BD-54 已证单子节点、gap 不吃布局）。 */
   gap: 4px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--border-strong) 34%, transparent);
   color: var(--text-muted);
   font-size: 11px;
   font-weight: 650;
-  padding: 3px 9px;
+  padding: 3px 8px;
 }
 
 .inbox-save-status--saving {
@@ -2762,7 +2780,15 @@ input[type="text"],
 
   .project-nav button {
     min-height: 36px;
-    padding: 6px 6px 6px 9px;
+    /* 批次 BD-56 摘死声明：原 `padding: 6px 6px 6px 9px` 从未渲染——真产物里项目导航恒挂
+     * .creation-writing-page--active 壳，壳内两条 !important 覆盖同键：
+     * `.creation-writing-page--active .project-nav button:not(.project-nav-back)
+     * { padding: 0 10px !important }` 与 `.project-nav-back { padding: 0 10px !important }`
+     * 逐钮压死本条——!important 胜过非 important，与发射次序无关，本条永不胜出。
+     * 真宿主实拍（/tmp/bd56-probe3.json narrow-nav-all，窄窗 1000 概览页八个导航钮）：
+     * 每钮 computed 都是 0px/10px/0px/10px、active:true——左槽那个 9px 从没上过屏。
+     * 摘除后 min-height/font-size 两条仍活（未被覆盖），保留。这条水平槽 9px 是死副本，
+     * 摘掉即还清一格 padding 9px 账，与 BD-55 摘 @920 commandbar 死声明同法。 */
     font-size: 11px;
   }
 

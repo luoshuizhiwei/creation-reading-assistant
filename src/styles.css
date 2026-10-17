@@ -3188,6 +3188,14 @@ button:disabled {
   background: var(--paper-soft);
 }
 
+/* 批次 BD-56（padding 9px 水平槽族·压缩档药丸规则徽标）：右/左槽 9→8。9px 落 8/10 正中，
+ * 就近不裁决 ⇒ 数压缩档药丸在档票：全仓 999px 药丸里「2px 顶槽」的压缩档水平槽全是 8px
+ * （同文件 .card-board-card-status 2px 8px、.inbox-item-title em 2px 8px、
+ * .writing-annotation-relocate 2px 8px；cards-local .project-card-link-status 4px 8px 等）。
+ * 10px 只在 5px/6px 顶槽的基础档药丸上——BD-14「压缩档比基础档低一档」⇒ 压缩档收 8。
+ * 9 是本族孤档 ⇒ 收 8，与 .background-detail-kind（同 2px 9px 规则徽标）同批同值。
+ * 零实拍（/tmp/bd56-probe3.json proof-scan：seed 项目扫描后「未发现问题」，proof-item 0 条、
+ * 规则徽标 0 枚）——判据只有家族票，记在这里。 */
 .creation-proof-item-rule {
   flex-shrink: 0;
   align-self: flex-start;
@@ -3197,7 +3205,7 @@ button:disabled {
   color: var(--proof-mark);
   font-size: 11px;
   font-weight: 700;
-  padding: 2px 9px;
+  padding: 2px 8px;
 }
 
 .creation-proof-item-main {
@@ -3313,6 +3321,12 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+/* 批次 BD-56（padding 9px 水平槽族·压缩档药丸「忽略」钮）：右/左槽 9→8。判据同上一条
+ * .creation-proof-item-rule（3px 顶槽压缩档药丸，全仓同类水平槽票全 8px）。本条与
+ * editorial-studio.css .inbox-save-status 是逐字 3px 9px 双胞胎，本批同批同值一起收 8，
+ * 两枚内档塌回同值（BD-54 已把它们的 gap 一起收到 4px，见那条注释）。9 是本族孤档 ⇒ 收 8。
+ * 零实拍（/tmp/bd56-probe3.json proof-scan：seed 项目扫描后「未发现问题」，忽略钮 0 枚）
+ * ——判据只有家族票 + 双胞胎，记在这里。 */
 .creation-proof-ignore {
   flex-shrink: 0;
   display: inline-flex;
@@ -3320,7 +3334,7 @@ button:disabled {
   gap: 4px;
   border: 1px solid var(--paper-line);
   border-radius: 999px;
-  padding: 3px 9px;
+  padding: 3px 8px;
   background: transparent;
   color: var(--paper-muted);
   font-size: 12px;
@@ -4283,13 +4297,20 @@ button:disabled {
   /* BD-37 摘死声明：font-weight: 800 从未渲染——「.background-detail-head h3」被 src/styles/editorial-studio.css:1487 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
+/* 批次 BD-56（padding 9px 水平槽族·压缩档药丸类型徽标）：右/左槽 9→8。判据同本文件
+ * .creation-proof-item-rule（2px 顶槽压缩档药丸，全仓同类水平槽票全 8px；10px 只在
+ * 5px/6px 顶槽基础档药丸上，BD-14「压缩档比基础档低一档」⇒ 压缩档收 8）。它与
+ * .creation-proof-item-rule 是逐字 2px 9px 双胞胎（铜色规则徽标 vs 校对色规则徽标），
+ * 本批同批同值一起收 8。9 是本族孤档 ⇒ 收 8。
+ * 真宿主实拍（/tmp/bd56-probe2.json p2-detail-kind，背景设定页选中卡详情头「地点」徽标）：
+ * pl/pr 9px、盒 w 40/h 20.5——改 8 后徽标宽 −2、顶槽 2px 定高 h 20.5 不变。 */
 .background-detail-kind {
   border-radius: 999px;
   background: color-mix(in srgb, var(--copper) 12%, var(--paper-panel));
   color: var(--copper);
   font-size: 11px;
   font-weight: 700;
-  padding: 2px 9px;
+  padding: 2px 8px;
 }
 
 .background-detail-fields {

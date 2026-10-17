@@ -353,10 +353,17 @@
   list-style: none;
 }
 
+/* 批次 BD-56（padding 9px 水平槽族·附件行卡角色）：右/左槽 9→10。9px 落 8/10 正中，
+ * 就近不裁决 ⇒ 数同角色在档双胞胎：同文件「8px 顶槽 + 1px 描边 + radius-2」的行卡
+ * .global-card-delete-impact li 就是逐字 8px 10px（附件行卡与删除影响行卡同形同角色）。
+ * 9 是这一族孤档 ⇒ 收 10。
+ * 真宿主实拍（/tmp/bd56-probe.json 02-cards-selected，选中卡附件区）：seed 该卡附件 0 条
+ * （assetsLi=0，附件行卡不渲染），故本条零实拍——盒形随删/附件条目才出现，同族双胞胎
+ * 8px 10px 已证在档，收 10 与它们同值。 */
 .global-card-library-assets li {
   border: 1px solid var(--paper-line);
   border-radius: var(--radius-2);
-  padding: 8px 9px;
+  padding: 8px 10px;
 }
 
 .global-card-library-assets li > div { display: grid; gap: 2px; min-width: 0; }
@@ -372,17 +379,33 @@
   list-style: none;
 }
 
+/* 批次 BD-56（padding 9px 水平槽族·压缩档药丸）：右/左槽 9→8。9px 落 8/10 正中，就近
+ * 不裁决 ⇒ 数压缩档药丸在档票：全仓 999px 药丸里「≤4px 顶槽」的压缩档水平槽全是 8px
+ * （同文件 .project-card-link-status 4px 8px、.global-card-library-usage header strong
+ * 3px 8px——后者与本条同在「使用项目」区块、逐字双胞胎；scene-radar .scene-radar-tag
+ * 2px 8px、operation .resource-scan-item-category 2px 8px 等）。10px 只出现在 5px/6px
+ * 顶槽的基础档药丸（.creation-chip 5px 10px、.writing-focus-status 6px 10px）——按
+ * BD-14「压缩档比基础档低一档」结构，压缩档收 8、不收 10。9 是本族孤档 ⇒ 收 8。
+ * 真宿主实拍（/tmp/bd56-probe.json 02-cards-selected，选中卡「使用项目」药丸）：
+ * pl/pr 9px→8px、盒 w 107.83/h 28，改 8 后两侧盒形只差水平内档、高度不受顶槽影响。 */
 .global-card-library-usage li {
   border: 1px solid var(--paper-line);
   border-radius: 999px;
-  padding: 4px 9px;
+  padding: 4px 8px;
   color: var(--paper-ink);
   font-size: 12px;
 }
 
+/* 批次 BD-56（padding 9px 水平槽族·2px 强调条缩进）：padding-left 9→10。9px 落 8/10 正中，
+ * 就近不裁决 ⇒ 数「2px solid copper 左条 + 缩进」在档双胞胎：全仓同为 2px copper 左条的
+ * .writing-outline-revert（writing-reference.css）padding 就是逐字 8px 10px，其缩进 10px；
+ * 同族 3px 左条 .preview-block--letter/.pe-warning/.pe-description 缩进也都收在 12（更高一档
+ * 因左条更粗）。9 是这一族孤档 ⇒ 收 10，与 2px 左条双胞胎同缩进。
+ * 真宿主实拍（/tmp/bd56-probe.json 02-cards-selected，选中卡底部政策段）：pl 9px、
+ * pr 0px（单侧缩进条），改 10 后文字左移基线随左条内缩 1px，段宽 h 不受水平内档影响。 */
 .global-card-library-policy {
   border-left: 2px solid var(--studio-seal, var(--copper));
-  padding-left: 9px;
+  padding-left: 10px;
 }
 
 .global-card-delete-impact,

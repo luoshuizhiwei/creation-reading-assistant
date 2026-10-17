@@ -111,6 +111,14 @@
 .writing-quick-tabs button.active { border-bottom-color: var(--accent-spine); color: var(--text-main); font-weight: 700; }
 .writing-quick-tabs span { color: var(--text-meta); font-family: var(--font-mono); }
 
+/* 批次 BD-56（padding 9px 水平槽族·搜索输入容器）：右/左槽 9→8。9px 落 8/10 正中，就近
+ * 不裁决 ⇒ 数「1px 描边 + radius-2 + bg-subtle 的搜索/输入容器」在档票：全仓同类容器
+ * 水平槽全是 8px——同文件 .writing-quick-field input / .writing-quick-detail .cards-input
+ * 6px 8px、relation-graph.css .relation-graph-search 4px 8px（逐字同形搜索框）。10px
+ * 只出现在带图标的动作钮（.writing-outline-revert 8px 10px 等），非搜索容器。9 是本族
+ * 孤档 ⇒ 收 8。真宿主实拍（/tmp/bd56-probe.json 03b-quick-search，速查面板「全局搜索」
+ * tab 下的搜索框）：pl/pr 9px、盒 w 295/h 40，input 宽 255.02——改 8 后两侧各收 1px、
+ * input 让宽 2px，盒高 h 40 不受水平内档影响。 */
 .writing-quick-search {
   display: flex;
   align-items: center;
@@ -120,7 +128,7 @@
   border-radius: var(--radius-2);
   background: var(--bg-subtle);
   color: var(--text-muted);
-  padding: 7px 9px;
+  padding: 7px 8px;
 }
 
 .writing-quick-search input,
@@ -179,7 +187,12 @@
 .writing-quick-detail--empty p { margin: 8px 0 2px; color: var(--text-main); font-family: var(--font-serif); font-size: 14px; }
 .writing-quick-detail--empty small { font-size: 11px; }
 
-.writing-quick-toggle { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-subtle); border-radius: var(--radius-1); background: var(--bg-subtle); color: var(--text-main); padding: 6px 9px; font-size: 11px; cursor: pointer; }
+/* 批次 BD-56（padding 9px 水平槽族·6px 顶槽小钮）：右/左槽 9→8。9px 落 8/10 正中，就近
+ * 不裁决 ⇒ 数「6px 顶槽 + radius-1 的小切换钮」在档票：同族 scene-radar.css
+ * .writing-margin-tabs button 6px 8px 逐字同顶槽、水平槽收 8。9 是本族孤档 ⇒ 收 8。
+ * 真宿主实拍（/tmp/bd56-probe.json 03-quick-toggle，写作台头「速查」切换钮）：pl/pr 9px、
+ * 盒 w 107.75/h 30.5，改 8 后两侧各收 1px、钮宽 −2，顶槽 6px 定高 h 不受水平内档影响。 */
+.writing-quick-toggle { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-subtle); border-radius: var(--radius-1); background: var(--bg-subtle); color: var(--text-main); padding: 6px 8px; font-size: 11px; cursor: pointer; }
 .writing-quick-toggle.active { color: var(--accent-spine); border-color: color-mix(in srgb, var(--accent-spine) 32%, var(--border-subtle)); background: var(--accent-hover); }
 .writing-quick-toggle kbd { color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
 
