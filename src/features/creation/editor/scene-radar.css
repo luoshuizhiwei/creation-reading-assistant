@@ -3,8 +3,35 @@
 .writing-margin-tabs {
   display: flex;
   gap: 4px;
+  /* ⚠ 批次 BD-53 记档**不动**的一条：margin-bottom 14px 离 §5.1 刻度（14∈12/16 平票）。
+   * 不动的理由不是没看见，是这一族没有「在档先例」可投：全仓同为「控件行 → 内容块」
+   * 块距的声明一共六个、三种档：12px×1（.project-home .stats-grid）、16px×3
+   * （.cards-type-list、.writing-boundary、.inbox-detail-head）、14px×2
+   * （本条 + .creation-goals-grid）——投 12 是一票、投 16 是三票、但两档都还要把
+   * 14px 那两笔一起搬家才不留半还，那是「定档」不是「还债」，动的是全站头一档的
+   * 节奏表，留给规格批。实测（/tmp/bd53-probe2.json，写作台右栏真宿主）：岛
+   * border-box 底到 .scene-radar 顶段距 = margin-bottom 本身（14→14、覆盖 12→12、
+   * 16→16、10→10，无折叠无吸收，岛高恒 32.5）——收哪一档都是整栏上移，像素代价
+   * 明码标价，不是零成本归位。 */
   margin-bottom: 14px;
-  padding: 3px;
+  /* 批次 BD-53（分段岛外壳内衬族，跨 2 文件 3 条声明一次还）：3px→4px。
+   * 3 落在 §5.1 的 2/4 正中，「就近」不裁决 ⇒ 先数同角色在档成员：全仓「岛形壳」
+   * （display:inline-flex|flex + 1px solid 边框 + --radius-2 + 表面底色、里面装互斥页签）
+   * 的 padding 只有这一个值——3px（本条 + editorial-studio.css 的
+   * .writing-mode-switch,.writing-outline-view-switch,.cards-view-switch 三条 +
+   * 同文件 .writing-outline-view-switch 的 !important 副本），**一个在档都没有**，
+   * 2 也是零票 ⇒ 角色投票失灵，退到 BD-48 立的那条同形状判据：带 1px 实边框的控件
+   * 内衬取 4（.outline-numbering-select / .card-board-move-select 的 3px 8px→4px 8px，
+   * 当时实测记着「2px 会把整行压到命中区退化」）；4px 也是这一族子件的本档
+   * （editorial 那条 :not 压缩页签就是 4px 6px）。取 4 不取 2 的第二条理由：岛内
+   * 那颗 .writing-margin-collapse 是点击钮（高 22 被 editorial 的 height:22px 锁死，
+   * 宽度被 flex:1 撑开实测 78），外壳环就是它与岛边的唯一间隙，收 2 把环压薄、
+   * 涨 4 把它加厚——方向与 BD-49「可增大、不缩点击件」一致。
+   * 真宿主实测（写作台右栏，/tmp/bd53-probe3.json）：3px→岛 32.5、4px→34.5（+2）、
+   * 2px→30.5（−2）；宽 242 不变（岛撑满栏宽）。岛高由页签行定（24.5 + 上下环 + 边框），
+   * 与折叠钮的 22 无关，所以三档的增量都是 ±2 整。同族两条 editorial 声明见
+   * 那边注释，三胞胎同批同值，不拆（BD-51 规矩）。 */
+  padding: 4px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--bg-subtle) 65%, transparent);
@@ -12,7 +39,19 @@
 
 .writing-margin-tabs button {
   flex: 1;
-  padding: 5px 8px;
+  /* 批次 BD-53（本批勘误 + 还债）：5px 8px→6px 8px。
+   * ⚠ 勘误：BD-51 立项时把这条记成「被 editorial :not(.writing-margin-collapse)
+   * (0,2,1) 压死的整条死副本」——只对了一半。那条 :not 排除了折叠钮，而
+   * `.writing-margin-tabs button`(0,1,1) 压过 `.writing-margin-collapse`(0,1,0)，
+   * 所以 **5px 8px 对折叠钮「»」一直是活的**（真宿主实测 pad 5px 8px、字形 top 4，
+   * /tmp/bd53-probe3.json）。普通页签渲染 4px 6px 不假，本条不是死的。
+   * 还法：纵向 5 落在 4/6 正中（平票）⇒ BD-14 早就把这条的结构写进判例：
+   * 「压缩档 = 比基础档低一档（从 5px 8px 缩到 4px 6px）」——基础档本来就该是
+   * 压缩档上头的刻度档 6；同族旁证 .cards-view-switch button 正是 6px 11px。
+   * 横向 8 在刻度上、不动。真宿主：钮高 22 锁死（height 生效），5→6 只把 » 字形
+   * top 4→5（1px），岛整高由页签定、不受它影响；取 4 则与压缩档同值、
+   * 「基础/压缩两档」的结构塌掉，否决。 */
+  padding: 6px 8px;
   border: none;
   border-radius: var(--radius-1);
   background: transparent;
@@ -29,6 +68,14 @@
 .scene-radar {
   display: flex;
   flex-direction: column;
+  /* ⚠ 批次 BD-53 记档**不动**的第二条：gap 14px 同样离刻度（14∈12/16 平票），
+   * 与上面那条 margin-bottom 是同一个「14px 族」的题，一起留给规格批——
+   * 本条的族旁证更薄：全仓 flex-direction:column + 单值 gap 的堆叠里 14px 只有
+   * 两处（本条与 styles.css 的 .creation-writing-stack），12px×4、16px×3、
+   * 8px×8、10px×8 都在档上；而 .creation-writing-stack 那条在写作页接管态被
+   * editorial 的 `gap: 0 !important` 整条压住（实测 row-gap 恒 0，
+   * /tmp/bd53-probe2.json），等于「另一个 14px 成员根本不渲染自己的值」——
+   * 拿它当先例投票就是投给一条死副本。所以这一族欠的不是本条的档，是规格档。 */
   gap: 14px;
 }
 
@@ -110,7 +157,17 @@
 .scene-radar-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  /* 批次 BD-53（chip 行间隙族，跨 2 文件双胞胎）：5px→6px。与 search.css 的
+   * .uni-search-filters 是**逐字同值的两胞胎**（全仓 flex-wrap:wrap + 单值 gap 的行里，
+   * 5px 只有这两条），按 BD-51/52 的族规矩同批同值还，不拆。
+   * 平票裁决（5 落在 4/6 正中）⇒ 数同角色在档：这一族的档位分布实测 6px×6
+   * （.creation-chip-row、.creation-proof-rules、.card-board-card-actions、
+   * .writing-quick-actions、.relation-graph-chips、.global-card-library-usage ul）、
+   * 8px×12——**4px 一档零成员**，5 是孤档 ⇒ 收 6，一步到族内最低在档档。
+   * 真宿主实测（写作台右栏雷达标签行，/tmp/bd53-probe3.json）：5→行高 23.59、
+   * 6→23.59、8→23.59——种子场景标签短，单行，无换行触发；宽度 242 由栏宽锁死。
+   * 涨 1px 间隙不推进行数，零成本归位。 */
+  gap: 6px;
 }
 
 .scene-radar-tag {

@@ -1235,7 +1235,13 @@ select:focus-visible,
   display: inline-flex;
   gap: 2px;
   overflow: hidden;
-  padding: 3px;
+  /* 批次 BD-53（分段岛外壳内衬族，同 scene-radar.css .writing-margin-tabs 三胞胎）：
+   * 3px→4px。判据与实测写在那条上方（同角色在档零票 ⇒ BD-48 带边框控件取 4 +
+   * 子件本档 4px 6px；真宿主 .writing-mode-switch 岛 32→34，+2）。本条覆盖三个岛
+   * （写作模式 / 大纲视图 / 设定卡视图切换），下面那条 !important 副本是第四张
+   * 岛壳（.writing-outline-view-switch 的接管态），两条必须同值——不同值等于同一
+   * 族在产物里有两个档。 */
+  padding: 4px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-2);
   background: var(--bg-subtle);
@@ -3665,7 +3671,12 @@ input[type="text"],
   display: flex !important;
   gap: 2px !important;
   margin: 8px 12px !important;
-  padding: 3px !important;
+  /* 批次 BD-53（岛族 !important 副本，与上面本文件那条
+   * .writing-mode-switch,.writing-outline-view-switch,.cards-view-switch 同族同值）：
+   * 3px→4px。这条是接管态大纲页的岛壳（子件 .writing-outline-view-switch button
+   * 被本文件那条 height: 28px !important 锁高，壳 3→4 后岛高 28+8+2=38，+2 与族增量
+   * 一致）。不动它，族里就留下一个 3px 的半还档（BD-48「不留半还」规矩）。 */
+  padding: 4px !important;
   border: 1px solid var(--border-subtle) !important;
   border-radius: var(--radius-2) !important;
   background: var(--bg-subtle) !important;

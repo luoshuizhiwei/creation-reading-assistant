@@ -79,7 +79,20 @@
 .uni-search-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  /* 批次 BD-53（chip 行间隙族，跨 2 文件双胞胎的另一半）：5px→6px。与
+   * scene-radar.css 的 .scene-radar-tags 逐字同值（全仓 flex-wrap:wrap + 单值 gap
+   * 的行里 5px 只有这两条），同批同值还；档位投票与实测写在那条上方
+   * （同角色在档 6px×6、8px×12，4px 零成员，5 是孤档 ⇒ 收 6）。
+   * 真宿主实测（搜索面板六枚筛选钮那行，/tmp/bd53-probe2.json）：
+   * 5px→行高 30 / 内容宽 313.09、6px→30 / 318.09、8px→30 / 328.09、4px→30 / 308.09。
+   * 四个档行高纹丝不动（六个钮 max-content ≈ 328 < 栏宽，单行装得下），只有整行宽
+   * 随间隙线性涨（5 个缝 × 每档 1px）⇒ 收 6 零行数代价。⚠ 这里要写明一次自我纠正：
+   * 写注释时曾按「8px 会让这行多占一行」推断过否决 8，探针真值否掉了它——
+   * 行数变化必须实测，不许纸上算（BD-51/52 的教训又应验一次）。
+   * ⚠ 族豁免：同文件 .uni-search-filters button 的 `padding: 5px 10px` 与
+   * .uni-search-close 的 `padding: 5px` 本批**不动**——那是钮的内衬（竖向 5∈4/6 平票），
+   * 与「行间隙」是两个族，凑数一起改就是把两本账混成一本。 */
+  gap: 6px;
 }
 
 .uni-search-filters button,

@@ -1905,9 +1905,27 @@ const isPureRingValue = (v) => {
     // .relation-graph-chip `padding: 3px 9px` 与 .relation-graph-zoom button `padding: 3px 7px`
     // 收成本文件 .relation-graph-search 已在用的 4px 8px——同族控件取同值，不是新造档。
     // 值账同批重钉：本文件 3 桶消失（padding 3px ⑉ 2、7px ⑉ 1、9px ⑉ 1——4 处债、
-    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump（BD-48 之后是 131 桶 / 263 处，BD-49 之后是 124 桶 / 256 处，BD-50 之后是 121 桶 / 252 处，BD-51 之后是 117 桶 / 248 处，BD-52 之后是 114 桶 / 239 处）。
+    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump（BD-48 之后是 131 桶 / 263 处，BD-49 之后是 124 桶 / 256 处，BD-50 之后是 121 桶 / 252 处，BD-51 之后是 117 桶 / 248 处，BD-52 之后是 114 桶 / 239 处，BD-53 之后是 110 桶 / 233 处）。
     "src/features/creation/editor/continuous-editor.css": 2,
-    "src/features/creation/editor/scene-radar.css": 5,
+    // 批次 BD-53（族批次·分段岛外壳 3px 族 + chip 行间隙 5px 族 + 页签基础档）：条目 5→2。
+    // 本文件还 3 处：.writing-margin-tabs `padding: 3px`→4px（岛族三胞胎之一，另两个
+    //   成员在 editorial-studio.css：那条覆盖三座岛的 .writing-mode-switch 组规则与
+    //   .writing-outline-view-switch 的 !important 副本，同批同值 ⇒ editorial 条目 65→63）、
+    //   .writing-margin-tabs button `padding: 5px 8px`→6px 8px（只还那个 5，8 在档上；
+    //   BD-51 当年把它整条判成「被 :not 压死的死副本」是**半错**——:not 排除了折叠钮，
+    //   这条对 .writing-margin-collapse 一直是活的，真宿主实测 pad 5px 8px 为证，勘误
+    //   写进条内注释）、.scene-radar-tags `gap: 5px`→6px（与 search.css 的
+    //   .uni-search-filters 是逐字同值的双胞胎 ⇒ search 条目 7→6）。
+    // ⚠ 本文件**留下 2 处不还**：`.scene-radar` gap 14px 与 `.writing-margin-tabs`
+    //   margin-bottom 14px 都是两档正中的平票（14∈12/16），而同角色的另一侧证据在
+    //   别的文件里自己还欠着账：14px 那一族的成员（.creation-writing-stack、
+    //   .creation-goals-grid 的 12px 14px、.writing-margin dl、.desktop-sidebar 窄屏档）
+    //   没有一条能当「在档先例」投——它们全是同一种离刻度值。按 BD-51 立的规矩，
+    //   族里找不到在档成员 ⇒ 这一族不是「还债」而是「定档」，得先由规格批给 14px
+    //   一个去向（收 12 还是 16 会推着 styles.css / editorial 一批文件一起动），
+    //   不在本批顺手挑档。判据与两条读数（岛下块距 14 实测 = margin-bottom，
+    //   覆盖 12/16/10 段距跟着走）都写在 scene-radar.css 各条上方。
+    "src/features/creation/editor/scene-radar.css": 2,
     "src/features/creation/editor/writing-quick-reference.css": 18,
     // 批次 BD-49（间距还债批·写作台侧栏）：条目 7→0 **整条移除**（空表=新增即红）。
     // 还的是 writing-reference.css 全部七处，每处都是**两档正中的平票**（1/3/5/7/9/18px，
@@ -1955,7 +1973,12 @@ const isPureRingValue = (v) => {
     //   `padding: 1px 7px`（2 处，1 与 7 各算一笔）⇒ 收 2px 8px，判据在 styles.css
     //   .card-board-card-status 条上方（同族三胞胎一起还）。.uni-hit `padding: 0 1px`
     //   本批**不动**：那是 <mark> 命中高亮的左右 1px 间隙，不是徽标内衬，族不同。
-    "src/features/search/search.css": 7,
+    // 批次 BD-53（chip 行间隙族，跨 2 文件）：条目 7→6。还的是 .uni-search-filters
+    //   `gap: 5px`→6px（与 scene-radar.css 的 .scene-radar-tags 逐字同值的双胞胎，
+    //   同批同值；档位投票 6px×6、8px×12、4px 零成员，判据在两条各自上方）。
+    //   ⚠ .uni-search-filters button `5px 10px` 与 .uni-search-close `5px` **不动**——
+    //   那是钮的内衬，与「行间隙」两个族（条内注释已记）。
+    "src/features/search/search.css": 6,
     // 批次 BD-51：encryption.css 条目 1→0 **整条移除**（.pe-input 8px 11px→8px 10px，判据见上方
     // replace.css 的 BD-51 批注与 encryption.css 条内注释）。
     // 批次 BD-33（还死声明账第二批，桌面壳三族）：119→112。摘掉的 22 条死声明里 7 处同时
@@ -1999,7 +2022,15 @@ const isPureRingValue = (v) => {
     // ⚠ 数字来自判据本体重扫（--show-spacing-ledger 本批实测 288 行台账 / 计数 293 处；
     //   台账只登 CSS 侧，TSX 那几处只进计数不进台账，两个数天生不相等，别拿台账核总数）。
     // 批次 BD-32：66→65。摘掉的 .overview-status-list `gap: 9px` 是死声明，9px 离刻度。
-    "src/styles/editorial-studio.css": 65
+    // 批次 BD-53（分段岛外壳内衬族，跨 2 文件）：65→63。本文件还 2 处：
+    //   .writing-mode-switch,.writing-outline-view-switch,.cards-view-switch 这条组规则
+    //   （一条声明覆盖三座岛，但值账按声明计数，只算 1 处）与
+    //   .writing-outline-view-switch 的 !important 副本各 3px→4px——两条必须同值，
+    //   否则同一族在产物里出现两个档（判据与实测在 scene-radar.css 的
+    //   .writing-margin-tabs 条上方，那三胞胎的第三胞胎与本文件这两条同批还掉）。
+    //   ⚠ BD-51 曾把 scene-radar 那条页签基础档整条判死，本批勘误为「半死半活」，
+    //   见那边注释；这条族里的 editorial 两条**本来就活着**，不属勘误范围。
+    "src/styles/editorial-studio.css": 63
   };
 
   const actual = {};
@@ -2084,7 +2115,7 @@ const isPureRingValue = (v) => {
   // key =「文件 ⑉ 原属性 ⑉ 折算 px ⑉ 处数」，排序后与钉死的账**逐字全等**比对——
   // 每桶计数写进 key，所以桶成员变化和桶内计数变化都红（BD-45 是多重集逐条比对，
   // 这里是压缩后的等价判据：见上面「为什么不是逐声明一行账」）。
-  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=114、总处数=239 都来自 dump（BD-52 还掉行内徽标族 9 处后）。
+  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=110、总处数=233 都来自 dump（BD-53 还掉分段岛 3px 族 + chip 行 5px 族 + 页签基础档共 6 处后）。
   const SPACING_VALUE_LEDGER = [
         "src/features/creation/cards/cards-local.css\tgap\t3px\t5",
         "src/features/creation/cards/cards-local.css\tgap\t7px\t2",
@@ -2097,10 +2128,7 @@ const isPureRingValue = (v) => {
         "src/features/creation/editor/continuous-editor.css\tpadding\t120px\t1",
         "src/features/creation/editor/continuous-editor.css\tpadding\t18px\t1",
         "src/features/creation/editor/scene-radar.css\tgap\t14px\t1",
-        "src/features/creation/editor/scene-radar.css\tgap\t5px\t1",
         "src/features/creation/editor/scene-radar.css\tmargin-bottom\t14px\t1",
-        "src/features/creation/editor/scene-radar.css\tpadding\t3px\t1",
-        "src/features/creation/editor/scene-radar.css\tpadding\t5px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tgap\t5px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tgap\t7px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tmargin\t9px\t1",
@@ -2136,7 +2164,6 @@ const isPureRingValue = (v) => {
         "src/features/library/LibraryPage.tsx\tpl\t36px\t1",
         "src/features/library/reader/components/ReaderSearchOverlay.tsx\tpl\t28px\t1",
         "src/features/library/toc/TocList.tsx\tpr\t28px\t1",
-        "src/features/search/search.css\tgap\t5px\t1",
         "src/features/search/search.css\tgap\t7px\t1",
         "src/features/search/search.css\tpadding\t14px\t1",
         "src/features/search/search.css\tpadding\t1px\t1",
@@ -2190,7 +2217,7 @@ const isPureRingValue = (v) => {
         "src/styles/editorial-studio.css\tpadding\t26px\t3",
         "src/styles/editorial-studio.css\tpadding\t30px\t3",
         "src/styles/editorial-studio.css\tpadding\t36px\t1",
-        "src/styles/editorial-studio.css\tpadding\t3px\t5",
+        "src/styles/editorial-studio.css\tpadding\t3px\t3",
         "src/styles/editorial-studio.css\tpadding\t44px\t1",
         "src/styles/editorial-studio.css\tpadding\t50px\t1",
         "src/styles/editorial-studio.css\tpadding\t5px\t1",
