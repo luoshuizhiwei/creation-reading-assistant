@@ -64,7 +64,15 @@
 .snapshot-category-badge {
   display: inline-block;
   margin-left: 6px;
-  padding: 1px 7px;
+  /* 批次 BD-52（行内徽标族整族还债，6 条规则 9 处债）：1px 7px→2px 8px。两个数各自都是
+   * 两档正中的平票（1 落在 0/2、7 落在 6/8）⇒「就近」不裁决，同族在档三票全是
+   * 2px 8px（.scene-radar-tag、.resource-scan-item-category、.cards-relation-delete），
+   * 完整判据与实测写在 src/styles.css 的 .card-board-card-status 条上方。
+   * 本条与 .card-board-card-status、.uni-result-pending（search.css）是**逐字同值的三胞胎**
+   * （同为 11px 行内分类角标），按 BD-51 立的规矩同批同值还掉，不拆。
+   * 实测（/tmp/bd52-probe.json，历史页真宿主在场、块级表已载入）：
+   * 1px 7px→20.5 高、2px 8px→22.5 高（+2），字号 11 与族一致。 */
+  padding: 2px 8px;
   border-radius: 6px;
   border: 1px solid transparent;
   font-size: 11px;
@@ -372,7 +380,15 @@
 .history-protection-id {
   font-family: var(--font-mono);
   background: var(--bg-subtle);
-  padding: 1px 6px;
+  /* 批次 BD-52（行内徽标族整族还债）：1px 6px→2px 6px。本条只有那个 1 欠债（6 在刻度上）
+   * ⇒ 只动它，横向 6 保留：这条不是 11px 角标而是 **16px 等宽 ID 片**（font-family mono），
+   * 横向不该跟着角标族涨到 8。纵向取族的地板 2px（判据在 src/styles.css 的
+   * .card-board-card-status 条上方）。
+   * ⚠ 探针 v1 在**没进历史页**时的离屏读数把本条算成 16px 字号 + 0 padding——那是
+   * history-local.css（块级表）尚未注入的假数，BD-51 那条懒加载纪律的同一种坑；
+   * 下面这组是进页后重读的真值（/tmp/bd52-probe.json）：1px 6px→21 高、
+   * 2px 6px→23 高（+2）、1px 8px→21 高（横向不改高度）。只读片，非命中区。 */
+  padding: 2px 6px;
   border-radius: 6px;
   word-break: break-all;
 }

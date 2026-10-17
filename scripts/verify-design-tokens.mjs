@@ -1905,7 +1905,7 @@ const isPureRingValue = (v) => {
     // .relation-graph-chip `padding: 3px 9px` 与 .relation-graph-zoom button `padding: 3px 7px`
     // 收成本文件 .relation-graph-search 已在用的 4px 8px——同族控件取同值，不是新造档。
     // 值账同批重钉：本文件 3 桶消失（padding 3px ⑉ 2、7px ⑉ 1、9px ⑉ 1——4 处债、
-    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump（BD-48 之后是 131 桶 / 263 处，BD-49 之后是 124 桶 / 256 处，BD-50 之后是 121 桶 / 252 处，BD-51 之后是 117 桶 / 248 处）。
+    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump（BD-48 之后是 131 桶 / 263 处，BD-49 之后是 124 桶 / 256 处，BD-50 之后是 121 桶 / 252 处，BD-51 之后是 117 桶 / 248 处，BD-52 之后是 114 桶 / 239 处）。
     "src/features/creation/editor/continuous-editor.css": 2,
     "src/features/creation/editor/scene-radar.css": 5,
     "src/features/creation/editor/writing-quick-reference.css": 18,
@@ -1920,7 +1920,10 @@ const isPureRingValue = (v) => {
     //   （竖向本在档上，只还横向那 1px——见该条的读账勘误）；actions margin-top 18→16
     //   （对话框底部动作行的收敛写法 mt-4=16px，两处同形）。
     // 值账同批重钉：本文件 7 桶全消失；全站 131 桶 → 124 桶、263 处 → 256 处，数字来自 dump。
-    "src/features/creation/history/history-local.css": 9,
+    // 批次 BD-52（行内徽标族整族还债，跨 3 文件）：本文件条目 9→6。还的是
+    //   .snapshot-category-badge 1px 7px→2px 8px 与 .history-protection-id 1px 6px→2px 6px
+    //   （共 3 处）；判据与实测在 history-local.css 各条上方。
+    "src/features/creation/history/history-local.css": 6,
     "src/features/creation/inbox/components/InboxQuickInput.tsx": 1,
     // 批次 BD-50（间距还债批·长任务对话框）：条目 4→0 **整条移除**（空表=新增即红）。
     // 三处规则、四处债（.bundle-import-result li 是 7px 与 9px 两个平票叠在一处）：
@@ -1948,7 +1951,11 @@ const isPureRingValue = (v) => {
     "src/features/library/toc/TocList.tsx": 1,
     // 批次 BD-32（还死声明账第一批）：10→9。摘掉的 .uni-search-state `padding: 26px 12px`
     // 是从不渲染的死声明，26px 又离刻度——一条墓碑同时还了两本账。
-    "src/features/search/search.css": 9,
+    // 批次 BD-52（行内徽标族整族还债，跨 3 文件）：条目 9→7。还的是 .uni-result-pending
+    //   `padding: 1px 7px`（2 处，1 与 7 各算一笔）⇒ 收 2px 8px，判据在 styles.css
+    //   .card-board-card-status 条上方（同族三胞胎一起还）。.uni-hit `padding: 0 1px`
+    //   本批**不动**：那是 <mark> 命中高亮的左右 1px 间隙，不是徽标内衬，族不同。
+    "src/features/search/search.css": 7,
     // 批次 BD-51：encryption.css 条目 1→0 **整条移除**（.pe-input 8px 11px→8px 10px，判据见上方
     // replace.css 的 BD-51 批注与 encryption.css 条内注释）。
     // 批次 BD-33（还死声明账第二批，桌面壳三族）：119→112。摘掉的 22 条死声明里 7 处同时
@@ -1976,7 +1983,14 @@ const isPureRingValue = (v) => {
     // 「行号不进 key」同样适用于注释）：.cards-board-column-head button、
     // .creation-proof-ignore、.desktop-home-inbox-count。值账实测该桶 4→3 而不是
     // 消失，正是这条作用域边界的证据（选择器前缀限定了改动范围）。
-    "src/styles.css": 98,
+    "src/styles.css": 94,
+    // 批次 BD-52（行内徽标族整族还债，跨 3 文件）：98→94。本文件还 4 处：
+    //   .card-board-card-status 1px 7px→2px 8px（2 处，两个数各算一笔）、
+    //   .inbox-item-title em 1px 8px→2px 8px（1 处）、.writing-annotation-relocate
+    //   1px 8px→2px 8px（1 处）。这一族六条规则里本文件占三条，其中两条是逐字同值
+    //   的双胞胎（1px 8px）⇒ 同批同值还，判据与实测写在 .card-board-card-status 条上方。
+    //   同族在 src/styles.css 里的另一支 .desktop-home-inbox-count 3px 7px 本批不动：
+    //   它是朱砂计数印（line-height 1.1 的圆点），不是文字角标，族不同。
     // 批次 BD-26（写作页迁移批）：68→66。这 2 处不是「收敛成令牌」还掉的，是随第 6 步
     // 12 条容器接管规则**一起删掉**的——`.creation-writing-hero .desktop-page-actions
     // button` 的 `padding: 0 9px`（9px 离刻度）与 `.desktop-page-actions button,
@@ -2070,7 +2084,7 @@ const isPureRingValue = (v) => {
   // key =「文件 ⑉ 原属性 ⑉ 折算 px ⑉ 处数」，排序后与钉死的账**逐字全等**比对——
   // 每桶计数写进 key，所以桶成员变化和桶内计数变化都红（BD-45 是多重集逐条比对，
   // 这里是压缩后的等价判据：见上面「为什么不是逐声明一行账」）。
-  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=117、总处数=248 都来自 dump（BD-51 还掉查找替换浮层与口令框 4 处后）。
+  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=114、总处数=239 都来自 dump（BD-52 还掉行内徽标族 9 处后）。
   const SPACING_VALUE_LEDGER = [
         "src/features/creation/cards/cards-local.css\tgap\t3px\t5",
         "src/features/creation/cards/cards-local.css\tgap\t7px\t2",
@@ -2102,8 +2116,6 @@ const isPureRingValue = (v) => {
         "src/features/creation/history/history-local.css\tmargin-bottom\t3px\t1",
         "src/features/creation/history/history-local.css\tpadding\t11px\t1",
         "src/features/creation/history/history-local.css\tpadding\t14px\t2",
-        "src/features/creation/history/history-local.css\tpadding\t1px\t2",
-        "src/features/creation/history/history-local.css\tpadding\t7px\t1",
         "src/features/creation/history/history-local.css\tpadding\t9px\t1",
         "src/features/creation/inbox/components/InboxQuickInput.tsx\tpr\t56px\t1",
         "src/features/creation/preview/preview-local.css\tgap\t3px\t1",
@@ -2127,10 +2139,9 @@ const isPureRingValue = (v) => {
         "src/features/search/search.css\tgap\t5px\t1",
         "src/features/search/search.css\tgap\t7px\t1",
         "src/features/search/search.css\tpadding\t14px\t1",
-        "src/features/search/search.css\tpadding\t1px\t2",
+        "src/features/search/search.css\tpadding\t1px\t1",
         "src/features/search/search.css\tpadding\t5px\t2",
         "src/features/search/search.css\tpadding\t64px\t1",
-        "src/features/search/search.css\tpadding\t7px\t1",
         "src/styles.css\tgap\t11px\t1",
         "src/styles.css\tgap\t14px\t8",
         "src/styles.css\tgap\t18px\t1",
@@ -2149,12 +2160,12 @@ const isPureRingValue = (v) => {
         "src/styles.css\tpadding\t11px\t4",
         "src/styles.css\tpadding\t14px\t15",
         "src/styles.css\tpadding\t18px\t2",
-        "src/styles.css\tpadding\t1px\t5",
+        "src/styles.css\tpadding\t1px\t2",
         "src/styles.css\tpadding\t26px\t1",
         "src/styles.css\tpadding\t28px\t1",
         "src/styles.css\tpadding\t3px\t3",
         "src/styles.css\tpadding\t5px\t7",
-        "src/styles.css\tpadding\t7px\t4",
+        "src/styles.css\tpadding\t7px\t3",
         "src/styles.css\tpadding\t96px\t1",
         "src/styles.css\tpadding\t9px\t9",
         "src/styles.css\tpadding-left\t18px\t1",

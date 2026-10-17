@@ -2147,7 +2147,18 @@ button:disabled {
   background: color-mix(in srgb, var(--paper-line) 40%, transparent);
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.card-board-card-status」 在产物里被 editorial-studio.css:3350 同键更晚的一条整条压住 */
   font-size: 11px;
-  padding: 1px 7px;
+  /* 批次 BD-52（行内徽标族整族还债，6 条规则 9 处债）：1px 7px→2px 8px。
+   * 两个数**各自**都是两档正中的平票（1 落在 0/2、7 落在 6/8），「就近」不裁决
+   * ⇒ 按同族在档成员投票：全站同为「行内小徽标（11px 字 + 圆角药丸/6px 圆角 + 底色）」
+   * 且两个数都在 §5.1 刻度上的，只有三条，全是 2px 8px——.scene-radar-tag、
+   * .resource-scan-item-category（operation.css）、.cards-relation-delete（cards-local.css）。
+   * 横向 8px 是这一族压倒性的一档（.project-card-link-status 4px 8px、
+   * .global-card-library-usage header strong 3px 8px 也都取 8）。
+   * ⚠ 层叠复核：本类在 editorial-studio.css 也出现，但那条（与 .outline-scene-status 同组）
+   * 只带 white-space/color/font-size，**不碰 padding**，本条就是产物胜者（不是死副本）。
+   * 实测（/tmp/bd52-probe.json，离屏合成宿主，styles.css 是主 bundle 早已载入）：
+   * 1px 7px→15×36、2px 8px→17×38、0px 8px→13×38、2px 6px→17×34；取 2px 8px 命中区 +2。 */
+  padding: 2px 8px;
 }
 
 .card-board-empty {
@@ -3542,7 +3553,13 @@ button:disabled {
   font-size: 11px;
   font-style: normal;
   font-weight: 700;
-  padding: 1px 8px;
+  /* 批次 BD-52（行内徽标族整族还债）：1px 8px→2px 8px。只有那个 1 欠债（8 在刻度上），
+   * 就只动它——族的判据写在同文件 .card-board-card-status 条上方（同族在档三票全是
+   * 2px 8px）。本条与下条 .writing-annotation-relocate 是**逐字同值的双胞胎**（同为
+   * 11px 粗体行内角标），按 BD-51 立的规矩必须同批还，不拆。
+   * 实测（/tmp/bd52-probe.json）：1px 8px→18.5 高、2px 8px→20.5 高（+2）；
+   * 0px 8px→16.5 高被否决——那是往「文字贴住药丸底边」的方向缩，与族的地板相反。 */
+  padding: 2px 8px;
 }
 
 .inbox-item-title em.used {
@@ -3670,7 +3687,10 @@ button:disabled {
   font-size: 11px;
   font-style: normal;
   font-weight: 700;
-  padding: 1px 8px;
+  /* 批次 BD-52（行内徽标族整族还债）：1px 8px→2px 8px。与上一条 .inbox-item-title em
+   * 逐字同值的双胞胎，同批同值还掉（判据在同文件 .card-board-card-status 条上方）。
+   * 实测（/tmp/bd52-probe.json）：1px 8px→15 高、2px 8px→17 高（+2）。 */
+  padding: 2px 8px;
   justify-self: start;
 }
 

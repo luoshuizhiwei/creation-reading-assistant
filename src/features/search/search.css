@@ -189,7 +189,12 @@
   font-size: 11px;
   font-style: normal;
   font-weight: 700;
-  padding: 1px 7px;
+  /* 批次 BD-52（行内徽标族整族还债，6 条规则 9 处债）：1px 7px→2px 8px。与
+   * src/styles.css 的 .card-board-card-status、history-local.css 的 .snapshot-category-badge
+   * 逐字同值的三胞胎（同为 11px 行内分类角标），同批同值还掉；完整判据与族票写在
+   * src/styles.css 那条上方。实测（/tmp/bd52-probe.json，search.css 已载入）：
+   * 1px 7px→17 高 49 宽、2px 8px→19 高 51 宽（+2/+2）。 */
+  padding: 2px 8px;
 }
 
 .uni-result-snippet {
