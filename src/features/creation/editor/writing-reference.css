@@ -6,7 +6,15 @@
 
 .writing-annotation-selection {
   display: grid;
-  gap: 3px;
+  /* 批次 BD-49（间距还债批·写作台侧栏）：原 3px 落在 2/4 正中，「就近」不裁决 ⇒ 同面板
+     邻居投票裁决：这块 label→value 网格的**直系邻居** .writing-margin dl > div
+     （同一个侧栏、同样是「标签一行 + 值一行」）用的就是 gap: 4px；
+     全仓 display:grid 的 gap 里 4px 12 次 vs 2px 8 次。
+     ⚠ 本条**单独**的实渲增量是 +1（/tmp/bd49-probe2.json：48 → 49），但同批 ② 也把
+     value 块撑高 2px，A/B 截图侧读到的**整块终值**是 48 → 51（/tmp/bd49-shots-before
+     与 /tmp/bd49-shots-after 各自的 meta.json）。
+     写注释时我只量了单变量就下了「整块 +1」的结论——那是把隔离读数当成了合成读数。 */
+  gap: 4px;
 }
 
 .writing-annotation-selection-label {
@@ -22,7 +30,18 @@
   color: var(--paper-muted);
   font-size: 11px;
   line-height: 1.5;
-  padding: 5px 8px;
+  /* 批次 BD-49：原 5px 8px 的 5px 落在 4/6 正中，「就近」不裁决 ⇒ 按**角色族**裁决，
+     而不是按像素距离。本块是「框内只读文字」（11px 字 + line-height 1.5 + 1px 边框 +
+     color-mix 染色底），仓内同族（框内文字、横向 8px）的写法是 6px 8px：
+     .relation-graph-summary-list button、.writing-quick-detail .cards-input；
+     而 4px 8px 那一族全是**控件/药丸**（BD-48 记过这条分界：.relation-graph-search、
+     .relation-graph-chip、.project-card-link-status 那枚 999px 药丸）。本块不是控件 ⇒ 取 6px 8px。
+     实测**隔离增量** +2（/tmp/bd49-probe2.json 绝对值 25 → 27；A/B 截图里因真实文本更长，
+     绝对值是 28.5 → 30.5，增量同为 +2）。绝对值随注入文本变，**只有增量可跨来源比对**。
+     ⚠ 这里第三版曾写成 `.cards-filter-pill`——全仓查无此选择器，是我凭印象造的名字
+        （grep 全仓 + 全 scripts 零命中）。先例引用必须能 grep 到宿主，造名等于假证据。
+     ⚠ 先例按选择器记、不钉行号（BD-48 的教训：注释自己一改，行号就自漂）。 */
+  padding: 6px 8px;
 }
 
 .writing-annotation-selection-value.has-selection {
@@ -85,7 +104,21 @@
   border-radius: 6px;
   background: transparent;
   color: var(--paper-muted);
-  padding: 3px;
+  /* 批次 BD-49：原 3px 落在 2/4 正中，「就近」不裁决 ⇒ 拿**同族实渲命中尺寸**裁决。
+     本钮是 @ 引用搜索头里的裸图标关闭钮（border:0、透明底、内含 X size=14）。
+     仓内同族（图标关闭/清除钮）的**产物层叠胜者**尺寸（不是源码第一眼读到的值）：
+       .uni-search-close             padding 5px + X16 → 26×26（那 5px 自身也是账上的债）
+       .cards-close                  padding 6px + X15 → 27×27
+       .creation-search-close        显式 28×28
+       .migration-banner-dismiss     30×30（editorial 的高特异度覆盖，padding 归 0）
+     ⇒ 族内地板 26px。本钮现状 padding 3px + 14px 字形 = **20×20，比地板低 6px，
+     整族最低**；4px 只有 22 仍够不到，6px → 26×26 正好落在地板（探针实测钮 20→26）。
+     ⚠ 它会把搜索头从 37 撑到 43（+6）——这是**有意的命中区修复**，不是顺带收敛。
+     ⚠ 这条依据改过两版，都是我的错，留作勘误：第一版引 editorial 的
+     .desktop-dock-entry{min-height:24px} 当规范线（那是 dock 文字条，不是图标钮）；
+     第二版把 .migration-banner-dismiss 读成 24×24（styles.css 那条同特异度更靠前的
+     **死副本**，胜者是 30×30）。⇒ 尺寸断言一律按产物层叠算胜者，源码第一眼看不得。 */
+  padding: 6px;
   cursor: pointer;
 }
 
@@ -117,7 +150,20 @@
   background: transparent;
   color: var(--paper-ink);
   text-align: left;
-  padding: 7px 8px;
+  /* 批次 BD-49：原 7px 8px 的 7px 落在 6/8 正中，「就近」不裁决 ⇒ 按行族先例 + 命中方向。
+     ① 全仓「可点击 + 带边框」的列表行最强档是 8px 10px（.cards-list-item、
+        .overview-recent-item、.uni-search-group li button——最后这条与本条同角色：
+        搜索浮层里可点的一条结果）；同浮层的 .card-reference-head 也是 8px 10px。
+     ② 方向：6px 会把行**压矮**（实测两行 51.5 → 49.5、单行 40 → 38），搜索结果是
+        可点条目，压矮等于缩命中区；8px 是长高（53.5 / 42）⇒ 取 8px 10px。
+     ⚠ 第一版这里写的是「行与 head 共用左右内衬、8px 会少缩进 2px」——实测推翻：
+        行文字左起点 14px、head 是 11px，差 3px（来自 .card-reference-list 的 4px
+        内衬 + 行自身 1px 边框），改成 10px 后行文字到 16px、差变 5px。缩进本来就
+        不对齐，这条不是对齐问题，是行族档与命中方向问题 ⇒ 依据换成上面两条。
+     ⚠ 上面的 53.5 是本条**单独**改的隔离读数（⑤ 的 gap 仍是旧值 1px）；同批 ⑤ 又给
+        内层 +1，所以 A/B 截到的行**终值**是 51.5 → 54.5。两笔别混着读，也别拿 53.5
+        去核对截图。 */
+  padding: 8px 10px;
   cursor: pointer;
 }
 
@@ -135,7 +181,14 @@
 .card-reference-item-main {
   display: grid;
   min-width: 0;
-  gap: 1px;
+  /* 批次 BD-49：原 1px 落在 0/2 正中，「就近」不裁决 ⇒ 按同形态先例。仓内「主标题 +
+     元信息」双行紧凑块（display:grid 的 *-main）全部 ≥2px：.cards-list-main 2px、
+     .project-home-item-main 2px、.writing-annotation-main 3px、.creation-proof-item-main
+     3px、.inbox-item-main 5px；**没有任何一处用 0**（0 等于两行贴死）。⇒ 取 2px。
+     实测内层 35.5 → 36.5（+1）。
+     ⚠ 上一版写「行总高由 ④ 定，这里不再叠加」——被 A/B 实测推翻：行的整高
+     51.5 → 54.5 正好是 ④ 的 +2 **与** 本条 +1 之和，gap 一样叠加进行高。 */
+  gap: 2px;
 }
 
 .card-reference-item-main strong {
@@ -158,7 +211,14 @@
   border-left: 2px solid var(--copper);
   background: color-mix(in srgb, var(--copper) 7%, transparent);
   color: var(--paper-muted);
-  padding: 8px 9px;
+  /* 批次 BD-49：⚠ 这条先纠正一处**读账错误**——值账记的是 `padding 9px ⑉ 1`，我第一版
+     据此以为整块要上到提示条族的 10px 12px（.outline-impact-notice / .history-impact-notice
+     / .pe-warning 那三处同角色先例）。实测本条竖向 8px **本来就在档上**，离刻度的只有横向
+     那一个 9px ⇒ 真正的债只有 1px，不该顺手改版整块（10px 12px 会把这条侧栏细条从 32.5
+     撑到 36.5，那是改版不是还债）。⇒ 收 8px 10px：竖向不动，横向取同文件
+     .card-reference-head 已经用的 8px 10px（同竖向档、先例就在本文件内）。
+     探针实测高度 32.5 → 32.5（零变化），只有左右内衬 +1px。 */
+  padding: 8px 10px;
   font-size: 11px;
 }
 
@@ -236,5 +296,12 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 18px;
+  /* 批次 BD-49：原 18px 落在 16/20 正中，「就近」不裁决 ⇒ 同角色先例裁决。仓内
+     「对话框底部动作行」的收敛写法是 Tailwind mt-4=16px，两处实测同形：
+       （ai-send-confirm、OutlineTree 的确认框，两处都是 mt-4 + justify-end + gap-2）
+     CSS 侧的两个同类（.session-edit-actions 14px、.background-detail-actions 12px）
+     都不在档上、且是 1 处孤例 ⇒ 不采信。本 dialog 卡 body 节奏是 margin: 8px 0 0
+     累加，底部比正文块多一档 16 而不是 20 也更贴这个节奏。
+     实测整张 dialog 高 170.8 → 168.8（−2，18→16 线性无跳变）。 */
+  margin-top: 16px;
 }
