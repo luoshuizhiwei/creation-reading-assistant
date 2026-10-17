@@ -1905,7 +1905,7 @@ const isPureRingValue = (v) => {
     // .relation-graph-chip `padding: 3px 9px` 与 .relation-graph-zoom button `padding: 3px 7px`
     // 收成本文件 .relation-graph-search 已在用的 4px 8px——同族控件取同值，不是新造档。
     // 值账同批重钉：本文件 3 桶消失（padding 3px ⑉ 2、7px ⑉ 1、9px ⑉ 1——4 处债、
-    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump（BD-48 之后是 131 桶 / 263 处，BD-49 之后是 124 桶 / 256 处，BD-50 之后是 121 桶 / 252 处，BD-51 之后是 117 桶 / 248 处，BD-52 之后是 114 桶 / 239 处，BD-53 之后是 110 桶 / 233 处）。
+    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump（BD-48 之后是 131 桶 / 263 处，BD-49 之后是 124 桶 / 256 处，BD-50 之后是 121 桶 / 252 处，BD-51 之后是 117 桶 / 248 处，BD-52 之后是 114 桶 / 239 处，BD-53 之后是 110 桶 / 233 处，BD-54 之后是 108 桶 / 221 处）。
     "src/features/creation/editor/continuous-editor.css": 2,
     // 批次 BD-53（族批次·分段岛外壳 3px 族 + chip 行间隙 5px 族 + 页签基础档）：条目 5→2。
     // 本文件还 3 处：.writing-margin-tabs `padding: 3px`→4px（岛族三胞胎之一，另两个
@@ -1926,7 +1926,11 @@ const isPureRingValue = (v) => {
     //   不在本批顺手挑档。判据与两条读数（岛下块距 14 实测 = margin-bottom，
     //   覆盖 12/16/10 段距跟着走）都写在 scene-radar.css 各条上方。
     "src/features/creation/editor/scene-radar.css": 2,
-    "src/features/creation/editor/writing-quick-reference.css": 18,
+    "src/features/creation/editor/writing-quick-reference.css": 17,
+    // 批次 BD-54（gap 5px 族整族清算，跨 3 文件）：18→17。本文件还 1 处：
+    //   .writing-quick-context `gap: 5px`→4px（裸的 11px 图标+文字状态标签族第四条，
+    //   判据与票形见 styles.css .writing-watch 条上方；本文件头部按钮与 .writing-quick-field
+    //   早就都在 4px 上）。真宿主实测盒形零变化（h 30.5、w 319 全档恒定）。
     // 批次 BD-49（间距还债批·写作台侧栏）：条目 7→0 **整条移除**（空表=新增即红）。
     // 还的是 writing-reference.css 全部七处，每处都是**两档正中的平票**（1/3/5/7/9/18px，
     // 刻度 0/2/4/6/8/10/12/16/20…），「就近」一律不裁决 ⇒ 逐条按同角色先例 + 实渲探针定档，
@@ -2006,7 +2010,23 @@ const isPureRingValue = (v) => {
     // 「行号不进 key」同样适用于注释）：.cards-board-column-head button、
     // .creation-proof-ignore、.desktop-home-inbox-count。值账实测该桶 4→3 而不是
     // 消失，正是这条作用域边界的证据（选择器前缀限定了改动范围）。
-    "src/styles.css": 94,
+    "src/styles.css": 84,
+    // 批次 BD-54（gap 5px 族整族清算，跨 3 文件）：94→84。本文件还 10 处（本族在
+    //   styles.css 有 11 条，其中 .migration-report dl 普查后判为 dl 族「定档」问题、
+    //   记档不动，见那条上方）：.creation-chip 与 .creation-proof-rules label
+    //   5px→6px（药丸基础档，票 3:1）、.writing-annotation-actions 5px→6px
+    //   （动作按钮行，票 7:2 加 .inbox-item-actions 双胞胎）、.writing-watch /
+    //   .scene-save-status / .background-card-kind 5px→4px（裸的 11px 图标微标签
+    //   三胞胎，票 4×2 压 6×1）、.cards-field / .creation-proof-banned /
+    //   .inbox-target-project 5px→4px（label→控件字段堆叠，票 4×5 压 6×4；后者
+    //   inbox-local.css 里那条 hero 覆盖档本来就是 4px）、.inbox-item-main
+    //   5px→2px（*item-main 三胞胎全 2px，族同值优先于就近）。
+    //   editorial 条目同批 63→62（.inbox-save-status 压缩档灯 5→4，与 styles.css 的
+    //   .creation-proof-ignore 同 padding 同 gap），writing-quick-reference.css
+    //   18→17（.writing-quick-context 5→4，11px 微标签族第四条）。
+    //   ⚠ 值账 110→108 桶、233→221 处（dump 实测）：还掉的 12 处全部收进刻度上的
+    //   4/6/2，不产生新桶；消失的两桶是 editorial 与 wqr 的 gap 5px（各自整桶还清），
+    //   styles.css 的 gap 5px 桶剩 .migration-report dl 1 处（记档动）。
     // 批次 BD-52（行内徽标族整族还债，跨 3 文件）：98→94。本文件还 4 处：
     //   .card-board-card-status 1px 7px→2px 8px（2 处，两个数各算一笔）、
     //   .inbox-item-title em 1px 8px→2px 8px（1 处）、.writing-annotation-relocate
@@ -2030,7 +2050,10 @@ const isPureRingValue = (v) => {
     //   .writing-margin-tabs 条上方，那三胞胎的第三胞胎与本文件这两条同批还掉）。
     //   ⚠ BD-51 曾把 scene-radar 那条页签基础档整条判死，本批勘误为「半死半活」，
     //   见那边注释；这条族里的 editorial 两条**本来就活着**，不属勘误范围。
-    "src/styles/editorial-studio.css": 63
+    // 批次 BD-54（gap 5px 族整族清算，跨 3 文件）：63→62。本文件还 1 处：
+    //   .inbox-save-status `gap: 5px`→4px（压缩档药丸灯，与 styles.css 的
+    //   .creation-proof-ignore 3px 9px 逐字双胞胎 ⇒ 同值 4px；判据写在那条上方）。
+    "src/styles/editorial-studio.css": 62
   };
 
   const actual = {};
@@ -2115,7 +2138,7 @@ const isPureRingValue = (v) => {
   // key =「文件 ⑉ 原属性 ⑉ 折算 px ⑉ 处数」，排序后与钉死的账**逐字全等**比对——
   // 每桶计数写进 key，所以桶成员变化和桶内计数变化都红（BD-45 是多重集逐条比对，
   // 这里是压缩后的等价判据：见上面「为什么不是逐声明一行账」）。
-  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=110、总处数=233 都来自 dump（BD-53 还掉分段岛 3px 族 + chip 行 5px 族 + 页签基础档共 6 处后）。
+  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=108、总处数=221 都来自 dump（BD-53 还掉分段岛 3px 族 + chip 行 5px 族 + 页签基础档共 6 处，BD-54 还掉 gap 5px 族 12 处 / 跨 3 文件——chip 内档两笔收 6、11px 图标微标签族四笔收 4、字段堆叠三笔收 4、压缩档灯一笔收 4、动作行一笔收 6、item-main 一笔收 2；styles.css 那条 gap 5px ⑉ 1 是 .migration-report dl 的记档动，见那条上方）。
   const SPACING_VALUE_LEDGER = [
         "src/features/creation/cards/cards-local.css\tgap\t3px\t5",
         "src/features/creation/cards/cards-local.css\tgap\t7px\t2",
@@ -2129,7 +2152,6 @@ const isPureRingValue = (v) => {
         "src/features/creation/editor/continuous-editor.css\tpadding\t18px\t1",
         "src/features/creation/editor/scene-radar.css\tgap\t14px\t1",
         "src/features/creation/editor/scene-radar.css\tmargin-bottom\t14px\t1",
-        "src/features/creation/editor/writing-quick-reference.css\tgap\t5px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tgap\t7px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tmargin\t9px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tmargin-bottom\t9px\t1",
@@ -2174,7 +2196,7 @@ const isPureRingValue = (v) => {
         "src/styles.css\tgap\t18px\t1",
         "src/styles.css\tgap\t1px\t1",
         "src/styles.css\tgap\t3px\t4",
-        "src/styles.css\tgap\t5px\t11",
+        "src/styles.css\tgap\t5px\t1",
         "src/styles.css\tgap\t7px\t7",
         "src/styles.css\tgap\t9px\t1",
         "src/styles.css\tmargin\t18px\t2",
@@ -2203,7 +2225,6 @@ const isPureRingValue = (v) => {
         "src/styles/editorial-studio.css\tgap\t14px\t1",
         "src/styles/editorial-studio.css\tgap\t18px\t2",
         "src/styles/editorial-studio.css\tgap\t3px\t2",
-        "src/styles/editorial-studio.css\tgap\t5px\t1",
         "src/styles/editorial-studio.css\tgap\t7px\t1",
         "src/styles/editorial-studio.css\tmargin\t14px\t2",
         "src/styles/editorial-studio.css\tmargin-top\t3px\t2",

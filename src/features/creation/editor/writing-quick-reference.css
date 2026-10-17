@@ -67,7 +67,14 @@
 .writing-quick-context {
   display: flex;
   align-items: center;
-  gap: 5px;
+  /* 批次 BD-54（gap 5px 族·裸的 11px 图标+文字状态标签，styles.css 三胞胎的同族第四条）：
+   * 5px→4px。判据抄同仓 .writing-watch 条上方那段（11px 裸微标签在档票 4px×2 压 6px×1）；
+   * 本文件自己也是这个档——头部按钮与 .writing-quick-field 全 4px。它虽是整幅条带
+   * （padding 7px 15px、尾部 span 带 margin-left: auto），自由空间由 auto 边距吸收，
+   * 收档只挪「图标↔文字」那一段。真宿主实测（/tmp/bd54-probe3.json
+   * writing-quick-context，打开速查面板后的 AI 上下文条）：h 恒 30.5、w 恒 319
+   * ——盒形零变化，纯内档收口。padding 7px 15px 是本文件内边距族的债，不在本批。 */
+  gap: 4px;
   padding: 7px 15px;
   background: color-mix(in srgb, var(--accent-hover) 62%, transparent);
   color: var(--accent-spine);

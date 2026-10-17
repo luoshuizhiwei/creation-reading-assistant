@@ -1679,7 +1679,17 @@ select:focus-visible,
 .inbox-save-status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  /* 批次 BD-54（gap 5px 族·压缩档药丸灯）：5px→4px。它与 styles.css 的
+   * .creation-proof-ignore 是逐字同 padding（3px 9px）的双胞胎，而 proof-ignore 的
+   * 内档早就收在 4px 上——BD-14 的「压缩档比基础档低一档」结构把这一对钉死同值
+   * （基础档药丸 chip 收 6，见 .creation-chip；压缩档收 4）。真宿主探针缺席：它的
+   * 宿主（条目详情头）没有图标子元素，文本单跑，gap 从未有可见效果——合成实测
+   * （/tmp/bd54-probe3.json inbox-save-synth）h 恒 22.5、w 逐档 ±1，收口不伤灯形。
+   * A/B 补到了真宿主读数（06 屏速记条目详情头）：两侧 h 同 22.5、w 同 40——灯盒本身
+   * 零变化，正是「单子节点、gap 不吃进布局」那条（同 .creation-chip 的向导周几芯片）。
+   * 该屏 11498 个像素差全部来自同屏 .inbox-item-main（5→2 掉 6px 高）与文字重排。
+   * padding 3px 9px 属压缩档药丸 padding 族、BD-53 已判不动，这里一个字没碰。 */
+  gap: 4px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--border-strong) 34%, transparent);
   color: var(--text-muted);

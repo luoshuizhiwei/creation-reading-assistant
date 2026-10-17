@@ -1128,7 +1128,17 @@ button:disabled {
 .creation-chip {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  /* 批次 BD-54（gap 5px 族·药丸 chip 子族）：5px→6px。同角色在档先例逐字投票
+   * 3:1 压向 6px（.inbox-filter-chip / .resource-scan-category / .overview-chip 全是
+   * 12px 字号带描边药丸、内档 6px；4px 那票只有 .creation-proof-ignore，它是 3px 9px
+   * 的压缩档，同 BD-14 的「压缩档比基础档低一档」结构 ⇒ 基础档收 6，压缩档收 4）。
+   * 真宿主实测（/tmp/bd54-probe5.json，向导「每周更新日」周日/周一/周二三枚）：h 恒 30、
+   * w 恒 46.03，gap 从 4 改到 8 一像素不动——因为这枚芯片只有一个文字子节点，flex 的
+   * gap 在单子节点上不参与布局。合成 icon+text 宿主（probe3）才会 w 64.02→65.02（+1）。
+   * 也就是说本条 5→6 在向导这一屏是「账上收档、像素零变化」，只有带图标的用法
+   * （.creation-chip.workflow-stage 那类 span+button）才真吃这 1px。本条 padding 5px 10px
+   * 是按钮内边距族，BD-53 已判不动，这里一个字没碰。 */
+  gap: 6px;
   padding: 5px 10px;
   border: 1px solid var(--paper-line);
   border-radius: 999px;
@@ -1318,7 +1328,13 @@ button:disabled {
 .writing-watch {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  /* 批次 BD-54（gap 5px 族·裸的 11px 图标+文字状态微标签）：5px→4px。同角色在档票
+   * 4px×2（.desktop-dock-label / .desktop-dock-status，都是 11px 裸微标签、12px 图标
+   * 前置）压 6px×1（.creation-palette-footer-hint，13px 图标）与 8px×1（.desktop-titlebar-title，
+   * 那是文字 mark+标题不是图标行）。真宿主实测（/tmp/bd54-probe3.json writing-watch，
+   * 写作台头栏）：h 恒 16.5，w 72→71（−1）——只收窄 1px，不掉行。
+   * 同判据的两条双胞胎在本文件 .scene-save-status 与 .background-card-kind，同批同值。 */
+  gap: 4px;
   flex: 0 0 auto;
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.writing-watch」 在产物里被 editorial-studio.css:1372 同键更晚的一条整条压住 */
   font-size: 11px;
@@ -1416,7 +1432,12 @@ button:disabled {
 .scene-save-status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  /* 批次 BD-54（gap 5px 族·裸的 11px 图标+文字状态微标签，双胞胎之一）：5px→4px，
+   * 判据见同文件 .writing-watch 条上方。真宿主实测（/tmp/bd54-probe3.json
+   * scene-save-status，场景编辑器头栏）：h 恒 16.5，w 61→60（−1）。
+   * ⚠ 本条 padding: 0 5px 是内边距族的 5px（BD-53 已判「按钮/芯片内边距」不动），
+   * 这条只收 gap——那个 5px 还挂在账上，别误读成整条已清。 */
+  gap: 4px;
   flex: 0 0 auto;
   padding: 0 5px;
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.scene-save-status」 在产物里被 editorial-studio.css:1372 同键更晚的一条整条压住 */
@@ -2429,7 +2450,20 @@ button:disabled {
 
 .cards-field {
   display: grid;
-  gap: 5px;
+  /* 批次 BD-54（gap 5px 族·label→控件字段堆叠）：5px→4px。同角色在档票 4px×5
+   * （.writing-quick-field 那条声明、.replace-query-form label、.pe-field、
+   * .scene-planning-grid label，加 inbox-local.css 的 .inbox-hero-actions
+   * .inbox-target-project——它同时是 .inbox-target-project 自己那条的覆盖档）
+   * 对 6px×4（.creation-field / .history-field / .writing-annotation-form /
+   * .background-detail-fields，多是「标题+副标题+控件」三段容器）。本条与 .pe-field
+   * 那族同形（单 label 单控件），投 4px 一侧。
+   * ⚠ 级联自证（BD-53 立的「死亡判决按元素、不按整条规则」）：本条**不是**死副本，
+   * 但在速查面板里确实是哑的——.writing-quick-detail .cards-field（(0,2,0)）长期压着它
+   * 渲染 4px（/tmp/bd54-probe2.json casc：两条命中、面板内活的是 4px 那条）。所以收 4px
+   * 之后：面板里像素不动（本来就 4），面板外每个字段行 −1。合成实测
+   * （/tmp/bd54-probe3.json cards-field）4px→56、5px→57、6px→58；A/B 真宿主同读数
+   * （05b 卡片类型对话框：57→56，字段内 label↔输入框接缝收窄 1px）。 */
+  gap: 4px;
 }
 
 .cards-field-inline {
@@ -3077,7 +3111,14 @@ button:disabled {
 .creation-proof-rules label {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  /* 批次 BD-54（gap 5px 族·药丸 chip 内档基础档，与同文件 .creation-chip 同批同值）：
+   * 5px→6px。判据抄 .creation-chip 条上方那段（12px 字号带描边药丸、内档在档票 3:1
+   * 压向 6px；4px 那一票是 3px 9px 压缩档，不投给基础档）。
+   * 真宿主实测（/tmp/bd54-probe3.json proof-rules-label，校对浮层规则药丸四条）：
+   * h 恒 28、w 102.02→103.02（+1），与 .creation-chip 的合成读数同形。
+   * ⚠ 本条 padding 4px 11px 的那个 11 是**离刻度债**、挂在值账的 padding 11px 桶里，
+   * BD-53 已把 chip/按钮内边距族整体判给内边距账，本批只收 gap，那个 11 留着。 */
+  gap: 6px;
   border: 1px solid var(--paper-line);
   border-radius: 999px;
   padding: 4px 11px;
@@ -3098,7 +3139,14 @@ button:disabled {
 
 .creation-proof-banned {
   display: grid;
-  gap: 5px;
+  /* 批次 BD-54（gap 5px 族·label→控件字段堆叠，与同文件 .cards-field 同判据同批）：
+   * 5px→4px。本条是「单 label 行 + 单控件行」的两段字段（校对面板禁用词 / 超长阈值，
+   * 卡片导入对话框借同一个类名做列映射），投 .pe-field / .replace-query-form label 那侧。
+   * 真宿主实测（/tmp/bd54-probe5.json，当前构建上逐值改 gap 直读，A/B 截图同结论）：
+   * 3px→54、4px→54、5px→55、6px→56、7px→57——收 4px 后盒高 55→54 掉 1px，
+   * 不是零位移。⚠ 早先 /tmp/bd54-probe3.json 那组读数（3/4/5 全 55）与这条冲突，
+   * 以 probe5 + A/B 为准；写注释时照抄了 probe3，属于把没复核的数当事实。 */
+  gap: 4px;
   color: var(--paper-muted);
   font-size: 12px;
 }
@@ -3473,6 +3521,14 @@ button:disabled {
 
 .migration-report dl {
   display: grid;
+  /* 批次 BD-54（gap 5px 族普查后**记档不动**）：这一条不随族一起收，因为它是 dl 族的
+   * 成员而不是字段堆叠：仓库里三张 dl 的行间距各自是 5（本条）、7（.cards-fields-list）、
+   * 14（.writing-margin dl），**全族零在档成员**——按 BD-53 立的规矩（族里找不到在档
+   * 先例 ⇒ 这不是「还债」而是「定档」，须由规格批给一个去向），本批挑哪一个都等于
+   * 替规格造档。且三条互相投不了票：5 的两侧 4/6 谁都不是 dl 族先例，而 14 那一条
+   * BD-53 已经记档（scene-radar.css 岛下块距同款平票）。行内 .migration-report dl > div
+   * 的 10px 在档（BD-25 加档），照旧。判据留给规格批：若 dl 行距定 4，本条与
+   * .cards-fields-list 一起收、.writing-margin dl 另议；定 6/8 同理。 */
   gap: 5px;
   margin: 0;
 }
@@ -3533,7 +3589,17 @@ button:disabled {
   min-width: 0;
   flex: 1;
   display: grid;
-  gap: 5px;
+  /* 批次 BD-54（gap 5px 族·条目列表 main 堆叠）：5px→2px。同角色三胞胎全在档 2px：
+   * 同文件 .project-home-item-main（强项+元信息+进度条）与 .cards-list-main，加
+   * writing-reference.css 的 .card-reference-item-main——本条（标题/正文/元信息三段）
+   * 是这一族里唯一的离档值。行高类列表收 2px 的语义是「同一张卡内的三行」，
+   * 段间距本来就归 line-height 管。真宿主 A/B（06 屏速记条目，两条同值）：5px→h49、
+   * 2px→h43（−6），与合成实测（/tmp/bd54-probe4.json itemMain，挂在 .inbox-item 真父下：
+   * 2px→62.19、4px→66.19、5px→68.19、6px→70.19，每档 2px 线性）同向。收 2 后列表整体
+   * 变紧，密度与项目首页行一致。
+   * ⚠ 这一票跨度大（5→2 是三档），裁量点是「族」而不是「就近」：离刻度 5 无论收
+   * 4 还是 6 都留着与三胞胎的不一致，族内唯一同值才是还债。 */
+  gap: 2px;
 }
 
 .inbox-item-title {
@@ -3715,7 +3781,20 @@ button:disabled {
 
 .writing-annotation-actions {
   display: inline-flex;
-  gap: 5px;
+  /* 批次 BD-54（gap 5px 族·行内动作按钮对）：5px→6px。逐字双胞胎是同文件
+   * .inbox-item-actions（同为 inline-flex、同为行尾两个 <Button size=sm variant=outline>
+   * 文字钮）——它挂着 6px；同角色在档票 6px×7（.history-item-actions /
+   * .card-board-card-actions / .writing-quick-actions / .cards-type-list-actions /
+   * .global-card-library-asset-actions / .background-detail-actions 在内）对 4px×2。
+   * ⚠ 诚实记录 4px 那票里 .stats-session-actions 与本条角色几乎相同（也是 Button sm
+   * 图标+文字钮对），本票形不是干净一边倒——裁决靠的是 7:2 多数 + .inbox-item-actions
+   * 双胞胎同值（BD-51 规矩）；就近本身在两档正中不裁决。另一票 .cards-detail-actions
+   * 是 15px 纯图标裸 button 行，角色可辩。合成实测（/tmp/bd54-probe3.json
+   * annotation-actions）：h 恒 24、两钮间距增 1px、行宽不敏感，无换行风险。
+   * ⚠ 本条 A/B 没吃到像素证据：批注动作行要选中一条批注才渲染，九屏流程里没打开
+   * 那个面板，所以 5→6 在截图上是零观察——裁决只靠上面的票形与双胞胎，视觉侧仅
+   * 由合成宿主背书。这条债记在这里，留给后续带批注数据的捕获批次补。 */
+  gap: 6px;
 }
 
 .writing-annotation-empty {
@@ -4112,7 +4191,14 @@ button:disabled {
 .background-card-kind {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  /* 批次 BD-54（gap 5px 族·裸的 11px 图标+文字状态微标签，三胞胎的第三条）：5px→4px，
+   * 判据见同文件 .writing-watch 条上方。真宿主在设定卡二级页实测 5px 活着、h 恒 16.5
+   * （/tmp/bd54-probe2.json 04-background）。⚠ 合成宿主（bgkind-synth）的 w 全档恒定 738——
+   * 它是 .background-card 网格的拉伸项，图标与文字之间的收口吃不进盒宽，只挪文字起点；
+   * 这条的可见效果因此比另两条更弱，但族是族，同批同值。A/B 截图印证了「更弱」：
+   * 05 屏真宿主 w 恒 204.39（网格拉伸）、h 恒 16.5，整屏只有图标与文字接缝处 184 个像素
+   * 差（bbox 23×13）；同族的 .writing-watch / .scene-save-status 在 02 屏两条合计 2072。 */
+  gap: 4px;
   color: var(--copper);
   font-size: 11px;
   font-weight: 700;
@@ -4230,7 +4316,17 @@ button:disabled {
 
 .inbox-target-project {
   display: grid;
-  gap: 5px;
+  /* 批次 BD-54（gap 5px 族·label→控件字段堆叠，与同文件 .cards-field 同判据同批）：
+   * 5px→4px。字段票 4px×5 对 6px×4（判据抄 .cards-field 条上方）。级联自证比另两条
+   * 更硬：这个类自己就有一条在档活副本——inbox-local.css 的
+   * .inbox-hero-actions .inbox-target-project (0,2,0) 在「新建想法」速入行里一直压着
+   * 本条渲染 4px（/tmp/bd54-probe2.json 01-inbox live 4px/4px + casc 两条命中、
+   * /tmp/bd54-probe4.json targetBase：4px→h42、5px→43、6px→44）。收 4px = 把 hero
+   * 档推广成基线，转换对话框里的字段行 −1，hero 里像素不动。
+   * A/B 只吃到 hero 那一侧（06 屏两侧同 4px/4px、h68 w202 逐像素同形，符合「像素不动」）；
+   * 转换对话框没在九屏流程里，「字段行 −1」仍只有 probe4 的合成背书。
+   * ⚠ 本条 margin-top: 10px 在档（BD-25 加档），没碰。 */
+  gap: 4px;
   margin-top: 10px;
   color: var(--paper-muted);
   font-size: 12px;
