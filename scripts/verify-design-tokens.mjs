@@ -1905,7 +1905,7 @@ const isPureRingValue = (v) => {
     // .relation-graph-chip `padding: 3px 9px` 与 .relation-graph-zoom button `padding: 3px 7px`
     // 收成本文件 .relation-graph-search 已在用的 4px 8px——同族控件取同值，不是新造档。
     // 值账同批重钉：本文件 3 桶消失（padding 3px ⑉ 2、7px ⑉ 1、9px ⑉ 1——4 处债、
-    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump（BD-48 之后是 131 桶 / 263 处，BD-49 之后是 124 桶 / 256 处）。
+    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump（BD-48 之后是 131 桶 / 263 处，BD-49 之后是 124 桶 / 256 处，BD-50 之后是 121 桶 / 252 处）。
     "src/features/creation/editor/continuous-editor.css": 2,
     "src/features/creation/editor/scene-radar.css": 5,
     "src/features/creation/editor/writing-quick-reference.css": 18,
@@ -1922,7 +1922,14 @@ const isPureRingValue = (v) => {
     // 值账同批重钉：本文件 7 桶全消失；全站 131 桶 → 124 桶、263 处 → 256 处，数字来自 dump。
     "src/features/creation/history/history-local.css": 9,
     "src/features/creation/inbox/components/InboxQuickInput.tsx": 1,
-    "src/features/creation/operation/operation.css": 4,
+    // 批次 BD-50（间距还债批·长任务对话框）：条目 4→0 **整条移除**（空表=新增即红）。
+    // 三处规则、四处债（.bundle-import-result li 是 7px 与 9px 两个平票叠在一处）：
+    //   .operation-result padding 14→12（对话框体内状态块族 = 12px，页面级大面才是 16px）；
+    //   .resource-scan-empty padding 14→12（直系同族 .scene-radar-empty 就是 12px，且与本条
+    //     同一次渲染里是父子，两处同步降档）；.bundle-import-result li 7px 9px→8px 10px
+    //     （同文件同角色兄弟 .resource-scan-item 与 .operation-commit-note 都是 8px 10px）。
+    //   三处全是两档正中的平票 ⇒ 「就近」不裁决，判据与实渲读数写在 operation.css 各条上方。
+    // 值账同批重钉：本文件 3 桶全消失；全站 124 桶 → 121 桶、256 处 → 252 处，数字来自 dump。
     // 批次 BD-48（间距还债批·大纲）：条目 3→0 **整条移除**（空表=新增即红）。
     // 还的是 .outline-numbering-select / .card-board-move-select 的 `padding: 3px 8px`
     // 与 .outline-impact-notice 的 `padding: 9px 12px`——三处收 4px 8px / 10px 12px，
@@ -2056,16 +2063,16 @@ const isPureRingValue = (v) => {
   // key =「文件 ⑉ 原属性 ⑉ 折算 px ⑉ 处数」，排序后与钉死的账**逐字全等**比对——
   // 每桶计数写进 key，所以桶成员变化和桶内计数变化都红（BD-45 是多重集逐条比对，
   // 这里是压缩后的等价判据：见上面「为什么不是逐声明一行账」）。
-  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=124、总处数=256 都来自 dump（BD-49 还掉写作台侧栏 7 处后）。
+  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=121、总处数=252 都来自 dump（BD-50 还掉长任务对话框 4 处后）。
   const SPACING_VALUE_LEDGER = [
         "src/features/creation/cards/cards-local.css\tgap\t3px\t5",
         "src/features/creation/cards/cards-local.css\tgap\t7px\t2",
         "src/features/creation/cards/cards-local.css\tmargin\t14px\t2",
         "src/features/creation/cards/cards-local.css\tmargin\t9px\t2",
-        "src/features/creation/cards/cards-local.css\tpadding-left\t9px\t1",
         "src/features/creation/cards/cards-local.css\tpadding\t13px\t2",
         "src/features/creation/cards/cards-local.css\tpadding\t3px\t1",
         "src/features/creation/cards/cards-local.css\tpadding\t9px\t3",
+        "src/features/creation/cards/cards-local.css\tpadding-left\t9px\t1",
         "src/features/creation/editor/continuous-editor.css\tpadding\t120px\t1",
         "src/features/creation/editor/continuous-editor.css\tpadding\t18px\t1",
         "src/features/creation/editor/scene-radar.css\tgap\t14px\t1",
@@ -2075,8 +2082,8 @@ const isPureRingValue = (v) => {
         "src/features/creation/editor/scene-radar.css\tpadding\t5px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tgap\t5px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tgap\t7px\t1",
-        "src/features/creation/editor/writing-quick-reference.css\tmargin-bottom\t9px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tmargin\t9px\t1",
+        "src/features/creation/editor/writing-quick-reference.css\tmargin-bottom\t9px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tpadding\t11px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tpadding\t14px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tpadding\t15px\t1",
@@ -2092,16 +2099,12 @@ const isPureRingValue = (v) => {
         "src/features/creation/history/history-local.css\tpadding\t7px\t1",
         "src/features/creation/history/history-local.css\tpadding\t9px\t1",
         "src/features/creation/inbox/components/InboxQuickInput.tsx\tpr\t56px\t1",
-        "src/features/creation/operation/operation.css\tpadding\t14px\t2",
-        "src/features/creation/operation/operation.css\tpadding\t7px\t1",
-        "src/features/creation/operation/operation.css\tpadding\t9px\t1",
         "src/features/creation/preview/preview-local.css\tgap\t3px\t1",
-        "src/features/creation/preview/preview-local.css\tmargin-top\t34px\t1",
         "src/features/creation/preview/preview-local.css\tmargin\t14px\t3",
         "src/features/creation/preview/preview-local.css\tmargin\t18px\t1",
         "src/features/creation/preview/preview-local.css\tmargin\t26px\t1",
         "src/features/creation/preview/preview-local.css\tmargin\t3px\t1",
-        "src/features/creation/preview/preview-local.css\tpadding-top\t26px\t1",
+        "src/features/creation/preview/preview-local.css\tmargin-top\t34px\t1",
         "src/features/creation/preview/preview-local.css\tpadding\t14px\t1",
         "src/features/creation/preview/preview-local.css\tpadding\t18px\t1",
         "src/features/creation/preview/preview-local.css\tpadding\t22px\t2",
@@ -2109,6 +2112,7 @@ const isPureRingValue = (v) => {
         "src/features/creation/preview/preview-local.css\tpadding\t30px\t3",
         "src/features/creation/preview/preview-local.css\tpadding\t34px\t1",
         "src/features/creation/preview/preview-local.css\tpadding\t44px\t1",
+        "src/features/creation/preview/preview-local.css\tpadding-top\t26px\t1",
         "src/features/creation/replace/replace.css\tpadding\t18px\t1",
         "src/features/creation/replace/replace.css\tpadding\t22px\t1",
         "src/features/creation/replace/replace.css\tpadding\t7px\t1",
@@ -2132,17 +2136,13 @@ const isPureRingValue = (v) => {
         "src/styles.css\tgap\t5px\t11",
         "src/styles.css\tgap\t7px\t7",
         "src/styles.css\tgap\t9px\t1",
+        "src/styles.css\tmargin\t18px\t2",
+        "src/styles.css\tmargin\t28px\t1",
         "src/styles.css\tmargin-bottom\t14px\t1",
         "src/styles.css\tmargin-top\t14px\t1",
         "src/styles.css\tmargin-top\t1px\t1",
         "src/styles.css\tmargin-top\t3px\t1",
         "src/styles.css\tmargin-top\t7px\t1",
-        "src/styles.css\tmargin\t18px\t2",
-        "src/styles.css\tmargin\t28px\t1",
-        "src/styles.css\tpadding-left\t18px\t1",
-        "src/styles.css\tpadding-left\t7px\t1",
-        "src/styles.css\tpadding-right\t18px\t1",
-        "src/styles.css\tpadding-right\t7px\t1",
         "src/styles.css\tpadding\t11px\t4",
         "src/styles.css\tpadding\t14px\t15",
         "src/styles.css\tpadding\t18px\t2",
@@ -2154,19 +2154,19 @@ const isPureRingValue = (v) => {
         "src/styles.css\tpadding\t7px\t4",
         "src/styles.css\tpadding\t96px\t1",
         "src/styles.css\tpadding\t9px\t9",
+        "src/styles.css\tpadding-left\t18px\t1",
+        "src/styles.css\tpadding-left\t7px\t1",
+        "src/styles.css\tpadding-right\t18px\t1",
+        "src/styles.css\tpadding-right\t7px\t1",
         "src/styles/editorial-studio.css\tgap\t11px\t1",
         "src/styles/editorial-studio.css\tgap\t14px\t1",
         "src/styles/editorial-studio.css\tgap\t18px\t2",
         "src/styles/editorial-studio.css\tgap\t3px\t2",
         "src/styles/editorial-studio.css\tgap\t5px\t1",
         "src/styles/editorial-studio.css\tgap\t7px\t1",
+        "src/styles/editorial-studio.css\tmargin\t14px\t2",
         "src/styles/editorial-studio.css\tmargin-top\t3px\t2",
         "src/styles/editorial-studio.css\tmargin-top\t7px\t1",
-        "src/styles/editorial-studio.css\tmargin\t14px\t2",
-        "src/styles/editorial-studio.css\tpadding-bottom\t13px\t2",
-        "src/styles/editorial-studio.css\tpadding-left\t14px\t1",
-        "src/styles/editorial-studio.css\tpadding-left\t44px\t1",
-        "src/styles/editorial-studio.css\tpadding-top\t28px\t1",
         "src/styles/editorial-studio.css\tpadding\t11px\t1",
         "src/styles/editorial-studio.css\tpadding\t13px\t4",
         "src/styles/editorial-studio.css\tpadding\t14px\t9",
@@ -2182,6 +2182,10 @@ const isPureRingValue = (v) => {
         "src/styles/editorial-studio.css\tpadding\t5px\t1",
         "src/styles/editorial-studio.css\tpadding\t7px\t5",
         "src/styles/editorial-studio.css\tpadding\t9px\t4",
+        "src/styles/editorial-studio.css\tpadding-bottom\t13px\t2",
+        "src/styles/editorial-studio.css\tpadding-left\t14px\t1",
+        "src/styles/editorial-studio.css\tpadding-left\t44px\t1",
+        "src/styles/editorial-studio.css\tpadding-top\t28px\t1",
   ].sort();
   {
     const measuredSp = [...spValMap.entries()]

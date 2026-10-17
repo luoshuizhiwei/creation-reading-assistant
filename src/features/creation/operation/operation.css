@@ -76,7 +76,22 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 14px;
+  /* 批次 BD-50（间距还债批·长任务对话框）：原 14px 落在 12/16 正中，「就近」不裁决
+     ⇒ 按同角色先例投票。本块是**对话框体内的状态/结果块**（宿主 OperationProgressDialog
+     的 <Dialog width="max-w-md">，内容区 px-5 py-4 ⇒ 实宽 408px），仓内同角色的写法是 12px：
+       .history-impact-list、.history-authoritative-preview（都在恢复确认框里，与本条同位置）
+       .cards-fields-manager、.relation-graph-summary、.cards-board-pane、.outline-loading
+     而 16px 那一族全是**页面级/对话框主体级**的大面（.history-page、.migration-body、
+     .background-detail），本块不是那一档。⇒ 取 12px。
+     实测块高 105.98 → 101.98（−4，四档线性无跳变，/tmp/bd50-probe.json A 组），
+     单段短文本形状同样线性（A2 组 52.09 → 48.09）⇒ 这一档不会引起换行跳。
+     ⚠ 上面两个是**只含文本**的隔离形状。扫描结果页里本块内嵌 .resource-scan-empty，
+        同批内层也降 4 ⇒ 真宿主截图读到的是**合成终值** 82.09 → 74.09（−8 = 本条 −4
+        与内层 −4 之和，/tmp/bd50-shots-before 与 after 的 meta.json）。别拿 −4 去核对截图。
+     ⚠ 嵌套节奏：本块从 14 降到 12 后，与内层 .resource-scan-list 的 10px 只差 2px。
+        这是**核对过才接受的**：两块各有边框与染色底，层级靠边框/底色区分而不是靠内衬差；
+        同形态先例 .history-impact-list 也是 12px 容器套 8px 10px 行。 */
+  padding: 12px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 78%, transparent);
   border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--paper-soft) 42%, transparent);
@@ -112,7 +127,21 @@
   gap: 2px 10px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 74%, transparent);
   border-radius: var(--radius-2);
-  padding: 7px 9px;
+  /* 批次 BD-50：这一处是**两个平票叠在一起**（7px 落在 6/8 正中、9px 落在 8/10 正中），
+     账上算 2 处。裁决按「同文件同角色兄弟条 + 方向」两条：
+     ① 同角色兄弟：本文件里与它同层、同形状（结果容器内的带边框条目）的是
+        .resource-scan-item = 8px 10px，两处都在档上；.operation-commit-note 也是 8px 10px。
+        全仓「带边框列表行」最强档同样是 8px 10px（.global-card-delete-impact li、
+        .cards-list-item、.overview-recent-item、.card-reference-item）。
+     ② 方向：本块是**只读信息行**（不点击），所以 BD-49 那条「别压矮命中区」不适用，
+        真正要保的是与兄弟条一致的内衬。取 8px 10px 后与 .resource-scan-item 逐字同值。
+     实测两列形状 34 → 36（+2），带 → 目标 ID 第三行的形状 52.5 → 54.5（/tmp/bd50-probe.json
+     C / C2 组，宿主宽按对话框实宽 408px）；C3 组同时复核了先例 .resource-scan-item 在
+     8px 10px 下的真实高度 52.5，本条改后与它同档同形。
+     ⚠ 10px 12px（.project-card-link-list li / .global-card-trash-list li）是更高一档的先例，
+        但那是「一行一条链接」的宽松列表；本块在 max-height:240px 的滚动容器里，
+        每行 +6 会明显吃掉可视条数 ⇒ 不采纳，记在这里免得下批又投它。 */
+  padding: 8px 10px;
   background: color-mix(in srgb, var(--paper-panel) 72%, transparent);
 }
 
@@ -269,7 +298,16 @@
 
 .resource-scan-empty {
   margin: 0;
-  padding: 14px;
+  /* 批次 BD-50：原 14px 同样落在 12/16 正中 ⇒ 本条**直系同族**就是 12px：
+     .scene-radar-empty（同为「1px dashed + 圆角 + 说明性文字」的空态块，实测在档 12px）、
+     .cards-empty（同为空态提示，12px——⚠ 它没有边框，只能当「空态文字块」的先例，
+     别当成虚线框先例。全仓带 dashed 边框的块一共 8 条（含本条），其余 7 条内衬从 6px 到
+     30px 都有 ⇒ 「dashed」本身不构成一档，本条靠的是与 .scene-radar-empty 同角色同档）。
+     实测 49.5 → 45.5（−4，/tmp/bd50-probe.json B 组；B2 组顺手复核了先例 .scene-radar-empty
+     在 12px 下的真实高度 46.39，与本条改后同档同形）。
+     ⚠ 本条与上一条 .operation-result 是**同一次渲染里的父子**（扫描完成时本块就画在
+     结果块内），两处一起从 14 降到 12 ⇒ 内外节奏同步，不会出现父紧子松。 */
+  padding: 12px;
   border: 1px dashed color-mix(in srgb, var(--moss) 44%, var(--paper-line));
   border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--moss) 8%, transparent);
