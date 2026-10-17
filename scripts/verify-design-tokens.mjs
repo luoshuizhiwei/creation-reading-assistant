@@ -1905,7 +1905,7 @@ const isPureRingValue = (v) => {
     // .relation-graph-chip `padding: 3px 9px` 与 .relation-graph-zoom button `padding: 3px 7px`
     // 收成本文件 .relation-graph-search 已在用的 4px 8px——同族控件取同值，不是新造档。
     // 值账同批重钉：本文件 3 桶消失（padding 3px ⑉ 2、7px ⑉ 1、9px ⑉ 1——4 处债、
-    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump。
+    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump（BD-48 之后是 131 桶 / 263 处）。
     "src/features/creation/editor/continuous-editor.css": 2,
     "src/features/creation/editor/scene-radar.css": 5,
     "src/features/creation/editor/writing-quick-reference.css": 18,
@@ -1913,7 +1913,10 @@ const isPureRingValue = (v) => {
     "src/features/creation/history/history-local.css": 9,
     "src/features/creation/inbox/components/InboxQuickInput.tsx": 1,
     "src/features/creation/operation/operation.css": 4,
-    "src/features/creation/outline/outline-reorg.css": 3,
+    // 批次 BD-48（间距还债批·大纲）：条目 3→0 **整条移除**（空表=新增即红）。
+    // 还的是 .outline-numbering-select / .card-board-move-select 的 `padding: 3px 8px`
+    // 与 .outline-impact-notice 的 `padding: 9px 12px`——三处收 4px 8px / 10px 12px，
+    // 档位由实渲高度探针 + 同角色邻居先例裁决（见 outline-reorg.css 的批注）。
     "src/features/creation/preview/preview-local.css": 19,
     "src/features/creation/replace/replace.css": 3,
     "src/features/library/ExcerptPicker.tsx": 1,
@@ -1942,7 +1945,14 @@ const isPureRingValue = (v) => {
     // 的 `padding: 18px`——18 不在 §5.1 八档上（胜者 history-local.css:19 是 32px 16px，
     // 两个数也都不在档上，那是块级表自己的债，不在本文件账上）。同批另两条间距
     // gap: 6px / gap: 10px / padding: 10px 12px 全在档上，不连带。全站同批 272→271。
-    "src/styles.css": 99,
+    // 批次 BD-48（间距还债批·大纲）：99→98。这 1 处来自 .outline-node-actions button
+    // 的 `padding: 3px`→4px（同批把 outline-reorg.css 那三处 3px 族一起收掉，不留半还）。
+    // ⚠ 本文件另有三处 `padding: 3px` **不在本批账上**——按宿主记而不是按行号记
+    // （行号随注释增删自漂：本批一条注释就把首处从 :2640 顶到 :2651，BD-46 的
+    // 「行号不进 key」同样适用于注释）：.cards-board-column-head button、
+    // .creation-proof-ignore、.desktop-home-inbox-count。值账实测该桶 4→3 而不是
+    // 消失，正是这条作用域边界的证据（选择器前缀限定了改动范围）。
+    "src/styles.css": 98,
     // 批次 BD-26（写作页迁移批）：68→66。这 2 处不是「收敛成令牌」还掉的，是随第 6 步
     // 12 条容器接管规则**一起删掉**的——`.creation-writing-hero .desktop-page-actions
     // button` 的 `padding: 0 9px`（9px 离刻度）与 `.desktop-page-actions button,
@@ -2036,7 +2046,7 @@ const isPureRingValue = (v) => {
   // key =「文件 ⑉ 原属性 ⑉ 折算 px ⑉ 处数」，排序后与钉死的账**逐字全等**比对——
   // 每桶计数写进 key，所以桶成员变化和桶内计数变化都红（BD-45 是多重集逐条比对，
   // 这里是压缩后的等价判据：见上面「为什么不是逐声明一行账」）。
-  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=133、总处数=267 都来自 dump（BD-47 还掉关系图 4 处后）。
+  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=131、总处数=263 都来自 dump（BD-48 还掉大纲 4 处后）。
   const SPACING_VALUE_LEDGER = [
         "src/features/creation/cards/cards-local.css\tgap\t3px\t5",
         "src/features/creation/cards/cards-local.css\tgap\t7px\t2",
@@ -2082,8 +2092,6 @@ const isPureRingValue = (v) => {
         "src/features/creation/operation/operation.css\tpadding\t14px\t2",
         "src/features/creation/operation/operation.css\tpadding\t7px\t1",
         "src/features/creation/operation/operation.css\tpadding\t9px\t1",
-        "src/features/creation/outline/outline-reorg.css\tpadding\t3px\t2",
-        "src/features/creation/outline/outline-reorg.css\tpadding\t9px\t1",
         "src/features/creation/preview/preview-local.css\tgap\t3px\t1",
         "src/features/creation/preview/preview-local.css\tmargin\t14px\t3",
         "src/features/creation/preview/preview-local.css\tmargin\t18px\t1",
@@ -2134,7 +2142,7 @@ const isPureRingValue = (v) => {
         "src/styles.css\tpadding\t1px\t5",
         "src/styles.css\tpadding\t26px\t1",
         "src/styles.css\tpadding\t28px\t1",
-        "src/styles.css\tpadding\t3px\t4",
+        "src/styles.css\tpadding\t3px\t3",
         "src/styles.css\tpadding\t5px\t7",
         "src/styles.css\tpadding\t7px\t4",
         "src/styles.css\tpadding\t96px\t1",

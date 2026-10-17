@@ -1929,7 +1929,24 @@ button:disabled {
   border-radius: var(--radius-1);
   background: transparent;
   color: var(--paper-muted);
-  padding: 3px;
+  /* 批次 BD-48（间距还债批·大纲）：原 3px 离 §5.1 刻度，就近上档 4px。
+     撑不撑行分两种行，都是实测（同一份构建内注入 <style> 覆写做变量隔离，
+     /tmp/bd48-rowattrib.json）：
+       章行（.outline-chapter-row，行内有 .outline-numbering-select）：
+         select 4 + button 3 → 行 36；select 3 + button 4 → 行 34
+         ⇒ 章行 34→36 全是同排 select（24→26）撑的，按钮 18→20 仍在行内、不撑行。
+       卷行（.outline-volume-row，volumeButtons 只有 5 个图标按钮、无 select）：
+         button 3 → 行 31.5；button 4 → 行 32 ⇒ 卷行的 +0.5px 由这条按钮独占。
+     ⚠ 第一版注释写成「这条不撑行」，那是只看了章行读数的以偏概全——卷行同样走
+     这个选择器（.outline-node-actions 在卷/章/场景三处都有）。改回来记全。
+     同批把这一族的三处 3px 一起收掉，不留半还状态。
+     ⚠ 只改这一条规则。styles.css 另外三处 `padding: 3px` 不在本批账上，按宿主
+     记（行号会随注释自增而漂，本批就从 :2640 漂到 :2651，正是 BD-46「行号不进
+     key、写注释别钉行号」防的那种漂移）：.cards-board-column-head button、
+     .creation-proof-ignore、.desktop-home-inbox-count。作用域含写作台左栏——它内嵌同一个 OutlineTree
+     （WritingDeskOutlineSidebar.tsx:159），所以 03-写作台 屏本批确实有差异，
+     属预期而非污染。 */
+  padding: 4px;
   cursor: pointer;
 }
 

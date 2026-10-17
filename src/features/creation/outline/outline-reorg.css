@@ -28,7 +28,11 @@
 
 .outline-impact-notice {
   margin: 10px 0 0;
-  padding: 9px 12px;
+  /* 批次 BD-48（间距还债批·大纲）：原 9px 离 §5.1 刻度，收成 10px 12px——对齐同角色
+     三处先例（history-local.css:228 .history-impact-notice、:237 .history-impact-danger、
+     encryption.css:15 .pe-warning 都是 10px 12px，同 radius-2、同 color-mix 染色底、
+     同 13px 字）。不是本批挑的档，是邻居已经替它投过票。实测 37.5px 高 → 39.5px。 */
+  padding: 10px 12px;
   border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--warning) 10%, var(--bg-surface));
   color: var(--warning);
@@ -43,7 +47,17 @@
 
 .outline-numbering-select {
   max-width: 8rem;
-  padding: 3px 8px;
+  /* 批次 BD-48：原 3px 8px 的 3px 离刻度。2px 与 4px 各差 1，「就近」不裁决 ⇒ 拿实渲
+     高度裁决（Electron 离屏注入探针，同结构复刻 .outline-node-actions 行）：
+       2px 8px → select 22 / 行 22；3px 8px（现状）→ 24 / 24；4px 8px → 26 / 26。
+     这一行的兄弟图标按钮实渲 18px（padding 3px + 12px 字形 + 边框 0），行高由 select 定，
+     收 2px 会把整行压到 22（命中区退化），收 4px 行高 26 但控件族本来就比按钮高。
+     取 4px 8px 的第二条理由：仓内 2px 8px 的五处先例全是**无边框标签/徽章族**
+     （.cards-relation-delete、.resource-scan-item-category、.history-item-type、
+     .scene-radar-tag、.import-chapter-toggle），而带边框的控件族用的是 4px 8px
+     （本仓 .relation-graph-search / :21、cards-local.css:215 药丸）——这条 select
+     有 1px solid 边框，属后者。实测 75×24 → 75×26。 */
+  padding: 4px 8px;
   border-radius: 6px;
   border: 1px solid var(--border-strong);
   background: var(--bg-surface);
@@ -86,7 +100,9 @@
 
 .card-board-move-select {
   max-width: 9rem;
-  padding: 3px 8px;
+  /* 批次 BD-48：与上面 .outline-numbering-select 同族同判据（同 1px solid 边框、
+     同 12px 字、同 3px 8px 原值），收同一档，理由见那条的实测记录。 */
+  padding: 4px 8px;
   border-radius: 6px;
   border: 1px solid var(--border-strong);
   background: var(--bg-surface);
