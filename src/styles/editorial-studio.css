@@ -821,7 +821,7 @@ select:focus-visible,
    * （styles.css `padding: 14px 16px`，实测 06 屏 pl/pr 16px）；本条把左右压成 14
    * 是同族内部的自相矛盾。面板头角色的其余在档先例也全在 16：
    * .uni-search-head 14px 16px、.creation-search-head 14px 16px、
-   * .desktop-commandbar 窄屏两档 12px 16px / 9px 16px。
+   * .desktop-commandbar 窄屏两档 12px 16px / 9px 16px（后者 BD-57 已收 10px 16px）。
    * 实拍（1360 窗口，/tmp/bd55-probe2.json C-项目首页）：卡片 border-box 左缘 x=276、
    * 卡片 pl 6px（!important 的 18px 6px 8px，非本批成员）⇒ h3 盒子 x=283；
    * 标题文字距卡片 border-box 左缘 = 边框 1 + 卡片内衬 6 + h3 内衬 14 = 21px，收 16 后 23px。
@@ -2726,7 +2726,15 @@ input[type="text"],
 
   .desktop-commandbar {
     grid-template-columns: minmax(0, 1fr) auto;
-    padding: 9px 16px;
+    /* 批次 BD-57（padding 9px 垂直槽族·窄屏命令条）：顶/底槽 9→10。就近不裁决 ⇒ 数
+     * h=16px 横槽家族顶槽在档票：10px 有逐字同槽兄弟 .creation-palette-footer 本批同值、
+     * .creation-proof-summary 10px 16px，12px 有 styles.css 的 @1180 commandbar 档
+     * （同一条窄屏链的上一档）——本条是 commandbar 自己的 @1024 档，基档 pt=10
+     * （10px 26px）就是这一条的直系先例：窄屏收的是横槽 26→16，垂直槽该留在基档 10。
+     * BD-55 已实证这条 @1024 是真胜者（860–1024 非项目屏 computed 9px 16px）。
+     * 真宿主实拍（/tmp/bd57-probe2.json 01-commandbar@1000，项目列表屏 1000px 窗）：
+     * pt/pb 恒 9px、h 恒 68——h 被 min-height:68 钳住，改 10 后无像素差，A/B 预期一致。 */
+    padding: 10px 16px;
   }
 
   .desktop-commandbar > div > span,

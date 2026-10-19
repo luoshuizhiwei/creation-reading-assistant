@@ -45,9 +45,16 @@
    * 这条声明左槽本来就是 16，右槽 14 是同一根横条自己跟自己错位；同角色的在档先例
    * 全部落在 16：.uni-search-head 14px 16px、.creation-search-head 14px 16px、
    * .stats-card 14px 16px、.desktop-commandbar @1180 12px 16px / @1024 9px 16px
-   * （@1024 那条经窄窗探针实测是真胜者：900px 窗口下 computed 9px 16px）。
-   * 真宿主实测（速查面板，面板宽恒 320）：改动前 pl 16 / pr 14，关闭钮右缘内收 2px。 */
-  padding: 11px 16px 9px 16px;
+   * （@1024 那条经窄窗探针实测是真胜者：900px 窗口下 computed 9px 16px；BD-57 把它
+   * 的垂直槽收成了 10px 16px，横槽 16 不动）。
+   * 真宿主实测（速查面板，面板宽恒 320）：改动前 pl 16 / pr 14，关闭钮右缘内收 2px。
+   * 批次 BD-57（padding 9px 垂直槽族·速查面板头）：底槽 9→10。就近不裁决 ⇒ 数横槽 16px
+   * 家族的底槽在档票：8px 零票，10px 有 .creation-proof-summary 10px 16px，12 及以上是
+   * 更重的横幅/英雄档（14px×4、16px×6）——本条 320px 侧栏面板头落在家族轻档一侧，
+   * 投 10。顶槽 11px 是离刻度债、挂 padding 11px 桶，不在本批。探针一 05-quick-head
+   * 实拍：pb 9px、盒 h 67px（h 由 min-height:67 钳住，改后无像素差，见 A/B 屏）；
+   * 本头无下边框补偿，底槽与对面顶槽 11px 差 2px 是欠账不是工艺。 */
+  padding: 11px 16px 10px 16px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -104,7 +111,19 @@
   background: transparent;
   color: var(--text-muted);
   font-size: 11px;
-  padding: 9px 4px 7px;
+  /* 批次 BD-57（padding 9px 垂直槽族·速查 tab 条钮）：顶槽 9→8、底槽 7→6。就近不裁决
+   * ⇒ 看这一条自己的家族：4px 侧槽的紧凑档，全仓 h=4px 家族顶槽在档票 4px×10、2px×5、
+   * 6px×2——8/10 都零票，族活在更密一档 ⇒ 顶槽收 8 不收 10（本条 pt 9 是全仓 h=4px 族
+   * 唯一 9，孤档）。底槽 7 本身是离刻度债（值账 padding 7px 桶），同批下移落 6，保住
+   * pt−pb=2px 的光学居中不对称（2px 下划线走 border、active 不移盒，text 中线在 2px
+   * 透明带+2px 铜线互换下恒定）——只动顶槽会把不对称差从 2px 抹平成 1px，那是改动前
+   * 设计意图的一半。同尺工艺先例：写作页场景编辑器底条 .scene-target-progress
+   * （SceneEditor.tsx footer）11px 字 + 16.5px 行 + 6px/6px 内档 + 1px 上边 = 34.5px，
+   * 与本钮条改动前的 34.5px（9+16.5+7+2）同尺——写作台两条 11px 紧凑横条共用一条
+   * 34px 线高工艺带；收档后钮条 32.5、线高带下沿让 2px，由 h 恒 34.5 变为 32.5，
+   * A/B 须见钮条 −2。真宿主实拍（/tmp/bd57-probe.json
+   * 05-quick-head，写作页速查面板三 tab）：h 恒 34.5、pt/pb 9/7。 */
+  padding: 8px 4px 6px;
   cursor: pointer;
 }
 

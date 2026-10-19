@@ -340,7 +340,13 @@
   box-sizing: border-box;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-2);
-  padding: 9px 10px;
+  /* 批次 BD-57（padding 9px 垂直槽族·永久删除确认输入框）：顶/底槽 9→8。9 落 8/10 正中，
+   * 就近不裁决 ⇒ 数「h=10px 行/输入容器」家族顶槽在档票：8px×20、10px×6、9px×5，8 绝对
+   * 多数；直系逐字同族本文件 .history-field select / .history-field input[type="text"]
+   * 8px 10px（同页筛选输入，形状描边圆角全同）⇒ 收 8。真宿主实拍
+   * （/tmp/bd57-probe2.json 05b-confirm，预置一条软删场景后点「永久删除」弹出的
+   * 对话框）：pt/pb 恒 9px、输入框 w 478/h 39.5——改 8 后框高 −2 到 37.5。 */
+  padding: 8px 10px;
   color: var(--text-main);
   background: var(--bg-surface);
 }

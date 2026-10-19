@@ -26,7 +26,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 10px;
+  /* 批次 BD-57（padding 9px 垂直槽族·卡片类型列表行）：顶/底槽 9→8。9 落 8/10 正中，
+   * 就近不裁决 ⇒ 数「10px 侧槽 + 单行标题+操作 的行/条容器」在档票：全仓 h=10px 家族
+   * 顶槽 8px×20、10px×6、9px×5（本族五枚 9 债全在此批），8 是绝对多数票、且 9 是本族孤档。
+   * 直系同族逐字同形先例 .cards-attachment-note 8px 10px、.global-card-library-assets li
+   * 8px 10px（BD-56 已定档）。真宿主实拍（/tmp/bd57-probe.json 04-typeitem，设定卡
+   * 页卡片类型列表 8 行）：pt/pb 恒 9px、h 恒 83px——改 8 后行高 −2 到 81px。 */
+  padding: 8px 10px;
   border: 1px solid var(--border, #e2e2ea);
   border-radius: var(--radius-2);
   background: var(--surface-alt, #fafafe);
