@@ -90,7 +90,13 @@
 .preview-jump {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  /* 批次 BD-58（gap 3px 族·label→控件纵向堆叠 6 成员批之一）：3→4。本条是
+   * 「11px 文字标签 + 30px 高 select」的 label→控件栈，同族在档票全在 4：
+   * encryption.css .pe-field 4px、replace.css .replace-query-form label 4px、
+   * styles.css .scene-planning-grid label 4px（BD-54 定的「单 label 单控件」档）；
+   * 纯文本双行栈才是 2px。真宿主实拍（/tmp/bd58-probe3.json 05-preview，全书预览
+   * 工具栏右侧）：盒 w 200/h 49.5——改 4 后该块 +1。 */
+  gap: 4px;
   font-size: 11px;
   color: var(--text-tertiary);
 }

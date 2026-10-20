@@ -1900,7 +1900,18 @@ const isPureRingValue = (v) => {
   //   立项文字）；裁定之后它合规、条目消失，钉在它上面的「间距棘轮②」随之失去锚点，
   //   本批把它搬到仍有活债的 TSX 宿主（见 inject 脚本 BD-25 注释）。
   const SPACING_BUDGET = {
-    "src/features/creation/cards/cards-local.css": 14,
+    "src/features/creation/cards/cards-local.css": 9,
+    // 批次 BD-58（gap 3px 族整族清算，跨 4 文件）：14→9。本文件还 4 处：
+    //   .cards-type-list-item > div:first-child、.project-card-link-list li > div、
+    //   .global-card-trash-list li > div、.global-card-library-heading 全 `gap: 3px`→2px
+    //   （「行/卡内层 strong+说明双行 grid 栈」族，在档票 .global-card-library-assets
+    //   li > div 2px + styles.css .cards-list-main/.inbox-item-main/.project-home-item-main
+    //   2px + operation.css .bundle-import-result li 2px 10px，零 4px 票）；
+    //   .cards-relation-delete `gap: 3px`→4px（行内裸图标+11px 字小控件族，在档票
+    //   .cards-relations-head button/.cards-view-switch button/.writing-watch/
+    //   .scene-save-status/.creation-proof-ignore/.desktop-dock-* 全 4px，零 2px 票）。
+    //   值账：本文件 gap 3px 桶 5→0（整桶移除）。实拍三枚（03-type-item w132/h63、
+    //   03-link-item w96.02/h45、02-trash w199.3/h43.5）、零实拍一枚（relation-delete）。
     // 批次 BD-57（padding 9px 垂直槽族·11 成员批，跨 5 文件）：15→14。本文件还 1 处：
     //   .cards-type-list-item `9px 10px`→8px 10px（卡片类型列表行，h=10px 行容器族顶槽票
     //   8×20 对 10×6，9 为孤档；探针一 04-typeitem 实拍 8 行 h 83）。值账：本文件 padding 9px 桶
@@ -1996,7 +2007,12 @@ const isPureRingValue = (v) => {
     // 批次 BD-55（padding 14px 左右档族）：条目 19→18。还 1 处：
     //   .preview-block--letter `10px 14px`→10px 12px（直系双胞胎 .preview-block--note
     //   就是 8px 12px；seed 里两种插块各 0 个 ⇒ 零实拍如实记在条上）。
-    "src/features/creation/preview/preview-local.css": 18,
+    "src/features/creation/preview/preview-local.css": 17,
+    // 批次 BD-58（gap 3px 族整族清算，跨 4 文件）：18→17。本文件还 1 处：
+    //   .preview-jump `gap: 3px`→4px（「11px 文字标签 + 30px select」的 label→控件
+    //   栈，同族在档票全在 4：encryption.css .pe-field、replace.css
+    //   .replace-query-form label、styles.css .scene-planning-grid label）。
+    //   值账：本文件 gap 3px 桶 1→0（整桶移除）。探针三 05-preview 实拍 w 200/h 49.5。
     // 批次 BD-51（间距还债批·查找替换浮层 + 口令框）：条目 3→0 **整条移除**（空表=新增即红）。
     //   .replace-panel padding 18→16（同角色 fixed 浮层只有 .background-detail 在档，它就是 16px）；
     //   .replace-progress-card 22→20（同角色居中卡只有 .writing-reanchor-dialog 在档，20px）；
@@ -2047,7 +2063,15 @@ const isPureRingValue = (v) => {
     // 「行号不进 key」同样适用于注释）：.cards-board-column-head button、
     // .creation-proof-ignore、.desktop-home-inbox-count。值账实测该桶 4→3 而不是
     // 消失，正是这条作用域边界的证据（选择器前缀限定了改动范围）。
-    "src/styles.css": 71,
+    "src/styles.css": 67,
+    // 批次 BD-58（gap 3px 族整族清算，跨 4 文件）：71→67。本文件还 4 处：
+    //   .scene-tool-group、.cards-board-card 两条 `gap: 3px`→4px（工具条内联按钮组、
+    //   看板列内可拖卡：同角色在档票分别全在 4——.cards-detail-actions/
+    //   .cards-view-switch button/.relation-graph-zoom 与 live 的 outline-reorg.css
+    //   .card-board-card 4px）；.creation-proof-item-main、.writing-annotation-main
+    //   `gap: 3px`→2px（双行紧凑文本栈，同族 *-main/li>div 全 2px）。
+    //   值账：本文件 gap 3px 桶 4→0（整桶移除）。实拍两枚（04-write 首组 w71/h30、
+    //   03-cards-board w178/h37.5、03-ann w224/h59.69 三处），零实拍一枚（proof-item-main）。
     // 批次 BD-57（padding 9px 垂直槽族·styles.css 六条）：77→71。还 6 处：
     //   .card-board-card / .cards-board-column-head / .cards-board-card 三条 `9px 10px`
     //   →8px 10px（h=10px 行容器族顶槽票 8×20 多数；探针一 04-typeitem、探针二
@@ -2137,7 +2161,14 @@ const isPureRingValue = (v) => {
     //   八个导航钮 computed 全 0/10/0/10、active:true），min-height/font-size 两活键保留，
     //   与 BD-55 摘 @920 commandbar 死声明同法。值账：本文件 padding 9px 桶 4→1（余 1 是
     //   @1024 .desktop-commandbar `9px 16px` 的顶槽 9px，垂直槽、留给垂直槽批），判据在各条上方。
-    "src/styles/editorial-studio.css": 54
+    "src/styles/editorial-studio.css": 52
+  // 批次 BD-58（gap 3px 族整族清算）：54→52。还 2 处：.desktop-nav `gap: 3px`→4px
+  //   （侧栏竖排导航栈；同文件 .desktop-sidebar--rail .desktop-nav 已写 4px 自证、
+  //   .settings-nav 4px 同向，对 .project-nav 2px 一票，取多数）、
+  //   .stats-rhythm-chart `gap: 3px`→4px（按天柱图列间距，同角色
+  //   overview-local.css .overview-daily 4px）。值账：本文件 gap 3px 桶 2→0
+  //   （整桶移除——全站 gap 3px 桶随本批清零：4 个文件 12 处）。实拍两枚
+  //   （01-nav w191/h444.5、07-stats w667/h144）。判据在各条上方。
   // 批次 BD-57（padding 9px 垂直槽族）：55→54。还 1 处：.desktop-commandbar
   //   @1024 `9px 16px`→10px 16px（commandbar 自己窄屏链的垂直槽回到基档 10，
   //   基档 10px 26px 即直系票；探针二 01 实拍 1000px 窗 computed 9px 16px、h 恒 68
@@ -2228,9 +2259,8 @@ const isPureRingValue = (v) => {
   // key =「文件 ⑉ 原属性 ⑉ 折算 px ⑉ 处数」，排序后与钉死的账**逐字全等**比对——
   // 每桶计数写进 key，所以桶成员变化和桶内计数变化都红（BD-45 是多重集逐条比对，
   // 这里是压缩后的等价判据：见上面「为什么不是逐声明一行账」）。
-  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=99、总处数=186 都来自 dump（BD-53 还掉分段岛 3px 族 + chip 行 5px 族 + 页签基础档共 6 处，BD-54 还掉 gap 5px 族 12 处 / 跨 3 文件——chip 内档两笔收 6、11px 图标微标签族四笔收 4、字段堆叠三笔收 4、压缩档灯一笔收 4、动作行一笔收 6、item-main 一笔收 2；styles.css 那条 gap 5px ⑉ 1 是 .migration-report dl 的记档动，见那条上方；BD-55 还掉 padding 14px 左右档族 12 处 / 跨 5 文件——16 档五笔（quick-reference-head、stats-card>h3、writing-margin、reading-stat-tile、@920 commandbar 死声明摘除）、12 档七笔（history-item、history-restore-success、preview-block--letter、scene notice、migration-banner、background-card、inbox-load-more），.desktop-library-grid-head 与 .desktop-titlebar 两条记档不动；BD-56 还掉 padding 9px 水平槽族 11 处 / 跨 4 文件——收 8 七笔（usage li、quick-search、quick-toggle、inbox-save-status、proof-item-rule、proof-ignore、background-detail-kind）、收 10 三笔（assets li、policy padding-left、brand nav-spine-item）、@1024 project-nav button 死声明摘除一笔；BD-57 还掉 padding 9px **垂直槽**族 11 成员 / 12 处离刻度值 / 跨 5 文件——收 8 五笔（cards-type-list-item、history-confirm-name input、card-board-card、cards-board-column-head、cards-board-card，h=10px 行容器族顶槽票 8×20 多数）、收 10 五笔（quick-reference-head 底槽、commandbar @1024、palette-command、palette-footer、migration-error，h=12/16px 直系票）、quick-tabs button 一笔声明还两处值（顶槽 9→8 + 底槽 7→6，故 11 成员 = 12 值）。至此全站 padding 9px 桶清零：9px 五桶尽除、wqr padding 7px 桶 5→4（净 104→99 桶）、总处数 198→186，数字来自 dump）。
+  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=95、总处数=174 都来自 dump（BD-53 还掉分段岛 3px 族 + chip 行 5px 族 + 页签基础档共 6 处，BD-54 还掉 gap 5px 族 12 处 / 跨 3 文件——chip 内档两笔收 6、11px 图标微标签族四笔收 4、字段堆叠三笔收 4、压缩档灯一笔收 4、动作行一笔收 6、item-main 一笔收 2；styles.css 那条 gap 5px ⑉ 1 是 .migration-report dl 的记档动，见那条上方；BD-55 还掉 padding 14px 左右档族 12 处 / 跨 5 文件——16 档五笔（quick-reference-head、stats-card>h3、writing-margin、reading-stat-tile、@920 commandbar 死声明摘除）、12 档七笔（history-item、history-restore-success、preview-block--letter、scene notice、migration-banner、background-card、inbox-load-more），.desktop-library-grid-head 与 .desktop-titlebar 两条记档不动；BD-56 还掉 padding 9px 水平槽族 11 处 / 跨 4 文件——收 8 七笔（usage li、quick-search、quick-toggle、inbox-save-status、proof-item-rule、proof-ignore、background-detail-kind）、收 10 三笔（assets li、policy padding-left、brand nav-spine-item）、@1024 project-nav button 死声明摘除一笔；BD-57 还掉 padding 9px **垂直槽**族 11 成员 / 12 处离刻度值 / 跨 5 文件——收 8 五笔（cards-type-list-item、history-confirm-name input、card-board-card、cards-board-column-head、cards-board-card，h=10px 行容器族顶槽票 8×20 多数）、收 10 五笔（quick-reference-head 底槽、commandbar @1024、palette-command、palette-footer、migration-error，h=12/16px 直系票）、quick-tabs button 一笔声明还两处值（顶槽 9→8 + 底槽 7→6，故 11 成员 = 12 值）。至此全站 padding 9px 桶清零：9px 五桶尽除、wqr padding 7px 桶 5→4（净 104→99 桶）、总处数 198→186，数字来自 dump；BD-58 还掉 **gap 3px** 族 12 成员 / 12 处 / 跨 4 文件——收 2 六笔（cards-type-list-item > div:first-child、project-card-link-list li > div、global-card-trash-list li > div、global-card-library-heading、creation-proof-item-main、writing-annotation-main；「行/卡内层 strong+说明双行 grid 栈」族，在档票 *-main 与 li > div 全 2px、零 4px）、收 4 六笔（cards-relation-delete、preview-jump、desktop-nav、stats-rhythm-chart、scene-tool-group、cards-board-card；依次为行内图标+文字小控件族、label→控件栈、侧栏竖排导航（rail 态自写 4px）、按天柱图同角色、工具条内联按钮组、live 看板卡双胞胎，全在 4px、零 2px）。至此全站 gap 3px 桶清零：四桶尽除、95 桶 / 174 处，数字来自 dump）。
   const SPACING_VALUE_LEDGER = [
-        "src/features/creation/cards/cards-local.css\tgap\t3px\t5",
         "src/features/creation/cards/cards-local.css\tgap\t7px\t2",
         "src/features/creation/cards/cards-local.css\tmargin\t14px\t2",
         "src/features/creation/cards/cards-local.css\tmargin\t9px\t2",
@@ -2252,7 +2282,6 @@ const isPureRingValue = (v) => {
         "src/features/creation/history/history-local.css\tmargin-bottom\t3px\t1",
         "src/features/creation/history/history-local.css\tpadding\t11px\t1",
         "src/features/creation/inbox/components/InboxQuickInput.tsx\tpr\t56px\t1",
-        "src/features/creation/preview/preview-local.css\tgap\t3px\t1",
         "src/features/creation/preview/preview-local.css\tmargin\t14px\t3",
         "src/features/creation/preview/preview-local.css\tmargin\t18px\t1",
         "src/features/creation/preview/preview-local.css\tmargin\t26px\t1",
@@ -2278,7 +2307,6 @@ const isPureRingValue = (v) => {
         "src/styles.css\tgap\t14px\t8",
         "src/styles.css\tgap\t18px\t1",
         "src/styles.css\tgap\t1px\t1",
-        "src/styles.css\tgap\t3px\t4",
         "src/styles.css\tgap\t5px\t1",
         "src/styles.css\tgap\t7px\t7",
         "src/styles.css\tgap\t9px\t1",
@@ -2306,7 +2334,6 @@ const isPureRingValue = (v) => {
         "src/styles/editorial-studio.css\tgap\t11px\t1",
         "src/styles/editorial-studio.css\tgap\t14px\t1",
         "src/styles/editorial-studio.css\tgap\t18px\t2",
-        "src/styles/editorial-studio.css\tgap\t3px\t2",
         "src/styles/editorial-studio.css\tgap\t7px\t1",
         "src/styles/editorial-studio.css\tmargin\t14px\t2",
         "src/styles/editorial-studio.css\tmargin-top\t3px\t2",
@@ -2328,7 +2355,7 @@ const isPureRingValue = (v) => {
         "src/styles/editorial-studio.css\tpadding-bottom\t13px\t2",
         "src/styles/editorial-studio.css\tpadding-left\t14px\t1",
         "src/styles/editorial-studio.css\tpadding-left\t44px\t1",
-        "src/styles/editorial-studio.css\tpadding-top\t28px\t1",
+        "src/styles/editorial-studio.css\tpadding-top\t28px\t1"
   ].sort();
   {
     const measuredSp = [...spValMap.entries()]

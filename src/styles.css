@@ -1406,7 +1406,14 @@ button:disabled {
 .scene-tool-group {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  /* 批次 BD-58（gap 3px 族·工具条内联按钮组）：3→4。同角色在档票全在 4：
+   * 本文件 .cards-detail-actions 4px、.cards-view-switch button 4px、
+   * .creation-proof-ignore 4px，relation-graph.css .relation-graph-zoom 4px
+   * （都是「工具条里裸图标按钮的小组」），对 2px 一票（outline-reorg.css
+   * .card-board-reorder 2px，那是两枚小钮的排序组）——取多数。真宿主实拍
+   * （/tmp/bd58-probe3.json 04-write，写作页场景编辑器工具条）：4 组、首组
+   * w 71/h 30——改 4 后每组内各 +1。 */
+  gap: 4px;
   padding-right: 7px;
   border-right: 1px solid color-mix(in srgb, var(--paper-line) 75%, transparent);
 }
@@ -2739,7 +2746,15 @@ button:disabled {
 
 .cards-board-card {
   display: grid;
-  gap: 3px;
+  /* 批次 BD-58（gap 3px 族·列内可拖卡片）：3→4。直系双胞胎是 live 的
+   * outline-reorg.css .card-board-card 4px（同为「看板列内可点击/可拖卡片、
+   * 内部 strong+别名+标签」，同批 BD-57 两条还并排还过 padding 9→8，是族内
+   * 公认的一对）；本文件同名的 .card-board-card 4px 是死副本（注释已判被上述
+   * 整条压住），不计票。列头/列体那一档记在 .cards-board-column-head 6px。
+   * 对 2px 零票（2px 是纯文本双行堆叠，卡片是带边框的多段容器）。
+   * 真宿主实拍（/tmp/bd58-probe.json 03-cards-board，设定卡看板 3 卡）：盒
+   * w 178/h 37.5——改 4 后每卡 +1（strong 与别名行之间）。 */
+  gap: 4px;
   border: 1px solid var(--paper-line);
   /* 批次 AQ：删掉 border-radius: 10px。editorial-studio.css 里同特异度且加载更晚的
    * L1187（家族 var(--radius-2)）+ L3012（单条 4px）一直压着它，胜者表实测 4px——
@@ -3226,7 +3241,14 @@ button:disabled {
 .creation-proof-item-main {
   min-width: 0;
   display: grid;
-  gap: 3px;
+  /* 批次 BD-58（gap 3px 族·双行紧凑文本栈 7 成员批之一）：3→2，判据见
+   * cards-local.css .cards-type-list-item > div:first-child 条上方（同族：
+   * .cards-list-main / .inbox-item-main / .project-home-item-main /
+   * .card-reference-item-main 皆 2px）。本条内层是 message+meta+snippet+desc
+   * 多段纯文本，与元信息行同性质。零实拍如实记：校对面板需命中问题才渲染
+   * .creation-proof-item（探针 v3 点「开始检查」后 items=0，干净正文无告警），
+   * 未能实读盒形——改动只涉 1px 内部间距。 */
+  gap: 2px;
 }
 
 .creation-proof-item-message {
@@ -3815,7 +3837,12 @@ button:disabled {
 
 .writing-annotation-main {
   display: grid;
-  gap: 3px;
+  /* 批次 BD-58（gap 3px 族·双行紧凑文本栈 7 成员批之一）：3→2，判据见
+   * cards-local.css .cards-type-list-item > div:first-child 条上方。本条内层是
+   * 待定位徽标+摘录+批注+元信息的多段纯文本栈，与 .cards-list-main 同性质。
+   * 真宿主实拍（/tmp/bd58-probe4.json 03-ann，写作页右栏「批注」tab）：盒
+   * w 224/h 59.69——改 2 后该块 −1。 */
+  gap: 2px;
 }
 
 .writing-annotation-relocate {

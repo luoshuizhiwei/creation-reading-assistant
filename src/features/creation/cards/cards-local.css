@@ -40,7 +40,15 @@
 
 .cards-type-list-item > div:first-child {
   display: grid;
-  gap: 3px;
+  /* 批次 BD-58（gap 3px 族·行内双行堆叠 6 成员批之一）：3→2。3 落 2/4 正中，就近
+   * 不裁决 ⇒ 数「行/卡内层 strong+说明双行 grid 堆叠」在档票：本文件
+   * .global-card-library-assets li > div 2px，styles.css .cards-list-main、
+   * .inbox-item-main、.project-home-item-main，operation.css .bundle-import-result li
+   * 2px 10px，writing-reference.css .card-reference-item-main 2px（BD-49 立的同族票形，
+   * 那批点名的 3px 两枚正是本批成员）——这一族在档零 4px 票。真宿主实拍
+   * （/tmp/bd58-probe.json 03-type-item，卡片类型编辑器 8 行）：盒 w 132/h 63——
+   * 改 2 后行内双行堆 −1。 */
+  gap: 2px;
   min-width: 0;
 }
 
@@ -208,7 +216,10 @@
 .project-card-link-list li > div {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  /* 批次 BD-58（gap 3px 族·双行紧凑文本栈 7 成员批）：3→2，判据见本文件
+   * .cards-type-list-item > div:first-child 条上方。真宿主实拍（/tmp/bd58-probe.json
+   * 03-link-item，关联对话框 4 行）：盒 w 96.02/h 45——改 2 后行内双行堆 −1。 */
+  gap: 2px;
 }
 
 .project-card-link-list strong { color: var(--paper-ink, var(--text, #2a2a33)); }
@@ -233,7 +244,16 @@
 .cards-relation-delete {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  /* 批次 BD-58（gap 3px 族·行内图标+文字小控件 6 成员批之一）：3→4。同角色在档票
+   * 压倒性在 4：styles.css .cards-relations-head button 4px、.cards-view-switch button
+   * 4px、.writing-watch 4px、.scene-save-status 4px、.creation-proof-ignore 4px，
+   * editorial-studio.css .desktop-dock-label/.desktop-dock-status/.desktop-dock-entry 4px，
+   * relation-graph.css .relation-graph-zoom 4px——「裸图标 12-15px + 11-12px 字」的
+   * 内联小控件族零 2px 票（2px 那一档全是纯文本双行堆叠，不是控件）。零实拍如实记：
+   * 本枚挂在设定卡详情的关系列表里，探针四进列表视图后 .cards-list-item 命中 0
+   * （项目卡列表在该空态下未渲染），未能实读盒形——改动只涉 1px 内部间距，
+   * 不参与任何尺寸裁决。 */
+  gap: 4px;
   margin-left: auto;
   padding: 2px 8px;
   border: 1px solid var(--border, #d8d8e0);
@@ -253,7 +273,13 @@
 /* 全局卡片库：以世界观索引和作品使用账册区分于项目内的设定卡工作台。 */
 .global-card-library-heading {
   display: grid;
-  gap: 3px;
+  /* 批次 BD-58（gap 3px 族·双行紧凑文本栈 7 成员批之一）：3→2。本条是「11px
+   * 大写 eyebrow（World bible）+ 12px 一行摘要」的纯文本双行栈，与同文件
+   * .global-card-library-assets li > div 2px、styles.css 的 .cards-list-main /
+   * .inbox-item-main / .project-home-item-main 同形态（strong+说明的 grid 内层），
+   * 族内在档零 4px 票。真宿主实拍（/tmp/bd58-probe.json 02-heading，全局卡片库
+   * 工具栏左端）：盒 w 247.91/h 37.5——改 2 后头块 −1。 */
+  gap: 2px;
 }
 
 .global-card-library-heading p {
@@ -454,7 +480,10 @@
 .global-card-trash-list li > div {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  /* 批次 BD-58（gap 3px 族·双行紧凑文本栈 7 成员批之一）：3→2，判据见本文件
+   * .cards-type-list-item > div:first-child 条上方。真宿主实拍（/tmp/bd58-probe3.json
+   * 02-trash，全局卡片回收站 1 行）：盒 w 199.3/h 43.5、父 li 65.5——改 2 后行 −1。 */
+  gap: 2px;
 }
 
 .global-card-trash-list strong {

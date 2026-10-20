@@ -191,7 +191,16 @@ select:focus-visible,
 .desktop-nav {
   display: grid;
   align-content: start;
-  gap: 3px;
+  /* 批次 BD-58（gap 3px 族·侧栏导航栈）：3→4，档位由本族自证——同文件
+   * .desktop-sidebar--rail .desktop-nav 已写 4px（同一元素在收窄态的胜者档，
+   * 改 4 等于让宽窄两态取同值）。竖排导航栈族在档票：.settings-nav 4px、
+   * .desktop-sidebar--rail .desktop-nav 4px，对 .project-nav 2px 一票——
+   * 3 落 2/4 正中「就近」不裁决，按多数票与 rail 自证取 4；2px 那一票记在
+   * .project-nav 名下（同为竖排 flex-column，是族内最紧的一档，本条的
+   * 五项导航带 secondary 文案、行高更高，取紧档会与 rail 态打架）。
+   * 真宿主实拍（/tmp/bd58-probe.json 01-nav，桌面壳常驻侧栏）：盒 w 191/h 444.5、
+   * 5 枚 .nav-spine-item——改 4 后五项间共 +4px。 */
+  gap: 4px;
   padding: 0 2px;
 }
 
@@ -2054,7 +2063,12 @@ select:focus-visible,
 .stats-rhythm-chart {
   display: flex;
   align-items: flex-end;
-  gap: 3px;
+  /* 批次 BD-58（gap 3px 族·柱图列间距）：3→4。同角色在档先例：
+   * overview-local.css .overview-daily 4px（同一「按天柱图」角色的 14 列版），
+   * 对本条 30 列——柱图族取同一间距，列宽随容器自适应即可。真宿主实拍
+   * （/tmp/bd58-probe.json 07-stats，阅读统计·近 30 天节律）：盒 w 667/h 144、
+   * display flex——改 4 后 30 列共 +29px 列间，柱子仍是 flex:1 自适应。 */
+  gap: 4px;
   height: 144px;
   padding: 4px 10px 0;
   border-bottom: 1px solid var(--border-strong);
