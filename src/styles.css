@@ -529,7 +529,14 @@ button:disabled {
   align-items: center;
   gap: 9px;
   min-height: 48px;
-  padding: 7px 10px;
+  /* 批次 BD-64 摘死声明：padding: 7px 10px 从未渲染——「.desktop-nav button」在本文件里
+   * (0,1,1)，而 editorial-studio.css:245 的 `.desktop-nav button.nav-spine-item` 是
+   * (0,2,1) 且发射更晚，逐字压住四边。实验（/tmp/bd64-verify.json E_*，1360 窗首页）：
+   * 本条 computed 恒 7px 10px 来自 editorial；往 head 末尾插一条普通选择器
+   * `.desktop-nav button{padding:33px 34px}`（无 !important）**改不动** computed（仍 7px 10px），
+   * 而插 `.desktop-nav button.nav-spine-item{padding:5px 9px}` 立刻生效——由此确证
+   * 供值的是 (0,2,1) 那条、本条从未上屏。与 BD-63 摘 .desktop-sidebar gap 副本同法。
+   * 值账 styles.css padding 7px 桶随此少一笔。 */
   border: 1px solid transparent;
   border-radius: var(--radius-2);
   background: transparent;
@@ -776,8 +783,13 @@ button:disabled {
 }
 
 .desktop-page-hero p {
-  margin-top: 7px;
-  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-page-hero p」 在产物里被 editorial-studio.css:675 同键更晚的一条整条压住 */
+  /* 批次 BD-64 摘死声明：margin-top: 7px 从未渲染——「.desktop-page-hero p」在
+   * editorial-studio.css:748 有一条同键规则（`margin: 6px 0 0`，静态表、发射更晚、
+   * 同特异度），整条把本条的 margin-top 压死。逐屏实拍（/tmp/bd64-probe2.json
+   * readingStats，阅读统计页 hero 说明段）：computed `6px 0px 0px`——供值的是
+   * editorial 的 6，不是本条的 7。「6px 0 0」这一档在 hero 族里另有
+   * .overview-status-list / .overview-recent-list 同值，收 6 不会破坏族内一致。
+   * 值账 styles.css margin-top 7px 桶随此少一笔。 */
   font-size: 13px;
   line-height: 1.7;
 }
@@ -1538,7 +1550,15 @@ button:disabled {
    * （/tmp/bd58-probe3.json 04-write，写作页场景编辑器工具条）：4 组、首组
    * w 71/h 30——改 4 后每组内各 +1。 */
   gap: 4px;
-  padding-right: 7px;
+  /* 批次 BD-64（padding 7px 桶·工具条分组的分隔线内距）：右槽 7→8。
+   * 7px 落 6/8 正中、就近不裁决 ⇒ 数「竖细线分隔的工具条分组」在档票：本工具条自己的
+   * 组间缝就是 .scene-editor-toolbar `gap: 8px`，分隔线左侧取 8 之后形成 8｜1px 线｜8
+   * 的对称节奏（右侧那 8 由 flex gap 供）；同族 .cards-detail-actions / .scene-tool-group
+   * 内部 4px 是**组内**按钮缝，不是线前留白，不计。6px 在该角色零票。
+   * 真宿主实拍（/tmp/bd64-mutate.json group_base → group_8，写作页场景工具条）：
+   * computed 7px、四组盒宽 72/124/72/106；改 8 后 73/125/73/107，末组 x 832.81→831.81
+   * （组变宽 1、整串向左挤 1），行高 h 30 不变。 */
+  padding-right: 8px;
   border-right: 1px solid color-mix(in srgb, var(--paper-line) 75%, transparent);
 }
 
@@ -4123,7 +4143,16 @@ button:disabled {
   font-size: 12px;
   font-weight: 650;
   border-left: 3px solid color-mix(in srgb, var(--copper) 45%, var(--paper-line));
-  padding-left: 7px;
+  /* 批次 BD-64（padding 7px 桶·铜色引线标注文）：左槽 7→8。7px 落 6/8 正中、就近不裁决 ⇒
+   * 数「border-left 竖线 + 内缩文字」这一族在档票：同文件 .creation-proof-item-snippet
+   * 是逐字同形（`border-left: 3px solid color-mix(in srgb, var(--copper) 45%, …)`，
+   * 线宽相同、铜色相同）且左槽就是 8px——这是本条的直系双胞胎、一票定死；
+   * .paste-preview-note `20px` 是信纸插块、.global-card-library-policy `10px` 配 2px 线，
+   * 都不是这一档。6px 在该族零票。
+   * 实拍（/tmp/bd64-verify2.json H_synthetic）：种子数据里右栏没有正在编辑的批注，
+   * 把真标记注入真父容器 .writing-margin 后读到 computed `0px 0px 0px 7px`、
+   * 线宽 3px、盒 h 14；改 8 后文字左缘 +1、盒宽 +1。 */
+  padding-left: 8px;
 }
 
 .writing-annotation-note {
@@ -4274,7 +4303,15 @@ button:disabled {
   font-size: 11px;
   font-weight: 700;
   line-height: 1.1;
-  padding: 3px 7px;
+  /* 批次 BD-64（padding 7px 桶·首页收件箱计数徽标）：右槽 7→6，左槽 3 不动。
+   * 7px 落 6/8 正中、就近不裁决 ⇒ 数「小药丸计数徽标」水平槽在档票：
+   * .history-protection-id `2px 6px`、.paper-slider-value `2px 6px`、
+   * .inbox-filter-chip em `0 6px` 三票全 6，.outline-status-select `1px 2px` 更紧；
+   * 8 在该族零票（.snapshot-category-badge `2px 8px` 是宽一点的字标签，不是计数）。
+   * 实拍（/tmp/bd64-verify2.json homeToolbar）：种子里待处理为 0、真宿主不渲染，
+   * 把 <em class="desktop-home-inbox-count">3</em> 注入真父 .desktop-page-actions
+   * 后读到 computed 3px 7px、盒 w21.66/h18.09；右槽收 6 后 w20.66、h 不变。 */
+  padding: 3px 6px;
 }
 
 .project-home-list {
@@ -4386,7 +4423,14 @@ button:disabled {
   color: var(--paper-muted);
   font-size: 12px;
   font-weight: 650;
-  padding: 7px 10px;
+  /* 批次 BD-64 摘死声明：padding: 7px 10px 从未渲染——editorial-studio.css:1110 的
+   * `.project-nav-back` 用 `padding-left: 10px !important`（同文件 :3882 的
+   * `.creation-writing-page--active .project-nav-back` 更是整条 `padding: 0 10px
+   * !important`）压住；本项目里 `.project-nav-back` 只在
+   * `.creation-writing-page--active` 分支渲染，故四边恒为 0/10/0/10。
+   * 逐态实拍（/tmp/bd64-verify2.json projectNav_1360 / projectNav_writing /
+   * projectNav_1024）：computed 恒 `0px 10px`，写作与非写作、1360 与 1024 都一样。
+   * 值账 styles.css padding 7px 桶随此少一笔。 */
   margin-bottom: 4px;
   cursor: pointer;
 }

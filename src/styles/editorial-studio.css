@@ -247,7 +247,15 @@ select:focus-visible,
   grid-template-columns: 24px minmax(0, 1fr);
   gap: 10px;
   min-height: 44px;
-  padding: 7px 10px;
+  /* 批次 BD-64（padding 7px 桶·侧栏脊钮）：竖槽 7→8，左右 10 在档原样。
+   * 7px 落 6/8 正中、就近不裁决 ⇒ 数「侧栏/项目导航竖排钮」竖槽在档票：
+   * .project-nav button `7px 10px 7px 12px`（同角色、本批同还）、.settings-nav button
+   * `8px 12px`、.writing-margin-tabs button `6px 8px`；窄屏档 @1024 本条自己收 6px、
+   * @920 styles.css 同名收 6px——竖槽在窄档更紧，宽档该贴在档上沿 8 而非 6。
+   * 真宿主实拍（/tmp/bd64-mutate.json nav_base → nav_6/nav_8，1360 窗一级导航）：
+   * computed 7px 10px、盒 w187/h52；改 6 后 h50，改 8 后 h54——取 8 与
+   * .desktop-brand 的 6px 顶槽形成 8/6 的层级差，窄档 6px 保持更紧。 */
+  padding: 8px 10px;
   border: 0;
   background: transparent;
   color: var(--studio-cloth-muted);
@@ -668,7 +676,13 @@ select:focus-visible,
 }
 
 .desktop-search-command kbd {
-  padding: 3px 7px;
+  /* 批次 BD-64（padding 7px 桶·命令条键帽）：右槽 7→6，左槽 3 不动。
+   * 7px 落 6/8 正中、就近不裁决 ⇒ 数「键帽」水平槽在档票：.creation-palette-command kbd /
+   * .creation-palette-footer kbd `1px 5px`、.uni-search-shell kbd 无 padding——
+   * 键帽族全在 ≤6 的极紧档，8 零票；同页 .desktop-search-command 自身的 10px 横槽是
+   * 容器不是键帽。真宿主实拍（/tmp/bd64-probe2.json home）：computed 3px 7px、
+   * 盒 w55.75/h24.5；右槽收 6 后 w54.75、h24.5（垂直不动）。 */
+  padding: 3px 6px;
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   background: var(--bg-subtle);
@@ -1084,7 +1098,14 @@ select:focus-visible,
   display: flex;
   gap: 8px;
   min-height: 38px;
-  padding: 7px 10px 7px 12px;
+  /* 批次 BD-64 摘死声明：padding: 7px 10px 7px 12px 从未渲染——「.project-nav button」
+   * 只出现在 `.creation-writing-page--active` 的项目工作台里（CreationProjectsPage.tsx:451
+   * 的类名随 `selected` 同步加上，:532 的 project-nav 也只在该分支渲染），而同文件
+   * :3893 的 `.creation-writing-page--active .project-nav button:not(.project-nav-back)`
+   * 以 `padding: 0 10px !important` 整条压住四边。逐态实拍（/tmp/bd64-verify2.json
+   * projectNav_1360 / projectNav_writing / projectNav_1024）：back 与 item 的 computed
+   * padding 恒为 `0px 10px`，1360 与 1024 两档、写作/非写作两态都一样。值账 editorial
+   * padding 7px 桶随此少 2 笔。 */
   border: 0;
   border-left: 3px solid transparent;
   border-radius: var(--radius-1);
@@ -2171,7 +2192,18 @@ select:focus-visible,
 }
 
 .reading-stat-value {
-  margin-top: 7px;
+  /* 批次 BD-64（margin 7px 桶·统计瓦片内 label→数值）：7→6。7px 落 6/8 正中、就近不裁决 ⇒
+   * 先分清两个角色：8px 那一批（.scene-candidate-note、.project-home-list、
+   * .cards-relation-form、.inbox-load-more、.replace-hit-list、.uni-search-group）全是
+   * **块与块之间**的分隔；而本条是同一语义单元内部「小标签 → 它自己的数字」的紧距。
+   * 同角色在档票全在 6：.desktop-page-hero p `margin: 6px 0 0`（标题→其说明）、
+   * .stats-note `margin: 6px 0 0`、.overview-status-list 与 .overview-recent-list
+   * `margin: 6px 0 0`、.outline-volume + .outline-volume 与
+   * .import-volume + .import-volume `margin-top: 6px`——六票；8px 在该角色零票。
+   * 真宿主实拍（/tmp/bd64-mutate.json stat_base → stat_6/stat_8，阅读统计四枚瓦片全同）：
+   * computed margin-top 7px、瓦片 h 83；改 6 后 h 82，改 8 后 h 84——取 6 让瓦片内两行
+   * 更抱团，瓦片高度 −1 不影响栅格。 */
+  margin-top: 6px;
   color: var(--text-main);
   font-size: 20px;
   font-weight: 700;
@@ -2851,7 +2883,16 @@ input[type="text"],
 
   .desktop-sidebar {
     gap: 12px;
-    padding: 12px 7px;
+    /* 批次 BD-64（padding 7px 桶·≤1024 窄栏左右槽）：左右 7→8，顶/底 12 不动。
+     * 7px 落 6/8 正中、就近不裁决 ⇒ 数「同一根 64px 窄栏」自己的水平槽在档票：
+     * 项目态的 .desktop-sidebar--rail（styles.css:432）是 `padding: 16px 8px`，
+     * 逐窗实拍（/tmp/bd64-verify2.json）1024 窗项目屏读 16px 8px、书库屏读 12px 7px
+     * ——同一根 64px 柱子，rail 档 8、非 rail 档 7，正是本批要合掉的分叉；品牌行 5px
+     * 与导航钮 6px 是栏**内部**的钮内衬，不是栏自己的边。8px 取 rail 档。
+     * 实拍（/tmp/bd64-verify2.json sidebar_1024，1024 窗书库屏）：computed 12px 7px、
+     * 栏宽 64、导航钮 w47/x9；A/B 改 8 后（/tmp/bd64-ab-*，18/19 两屏）栏宽仍 64、
+     * 钮宽仍 47（rail 态把左右内衬按 0 算，宽度由栅格列定），只有钮 x 9→10 右移 1。 */
+    padding: 12px 8px;
   }
 
   .desktop-brand.nav-spine-item {

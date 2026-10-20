@@ -73,7 +73,13 @@
   border-radius: var(--radius-1);
   background: var(--bg-subtle);
   color: var(--text-muted);
-  padding: 5px 7px;
+  /* 批次 BD-64（padding 7px 桶·面板头裸图标关闭钮）：右槽 7→6，左槽 5 与顶/底 5 不动。
+   * 7px 落 6/8 正中、就近不裁决 ⇒ 数「描边小方钮（radius-1 + 1px 边）」水平槽在档票：
+   * 同族 .card-reference-close `6px`、.cards-close `6px` 两票，.uni-search-close `5px`
+   * 一票，同文件 .writing-quick-field input `6px 8px` 的内衬也是 6 侧；8 在该族零票。
+   * 真宿主实拍（/tmp/bd64-mutate.json quick_base → headbtn_8）：computed 5px 7px、
+   * 盒 w32/h28；右槽收 6 后 w30、h28（垂直 5 未动，行盒不变）。 */
+  padding: 5px 6px;
   cursor: pointer;
 }
 
@@ -88,7 +94,15 @@
    * writing-quick-context，打开速查面板后的 AI 上下文条）：h 恒 30.5、w 恒 319
    * ——盒形零变化，纯内档收口。padding 7px 15px 是本文件内边距族的债，不在本批。 */
   gap: 4px;
-  padding: 7px 15px;
+  /* 批次 BD-64（padding 7px 桶·AI 上下文整幅条带）：竖槽 7→6，左右 15 不动。
+   * 7px 落 6/8 正中、就近不裁决 ⇒ 数「整幅横条」的竖槽在档票：.uni-search-error
+   * `8px 10px`、.writing-focus-status `6px 10px`、.migration-banner `10px 12px`
+   * ——条带族竖槽全在 ≤10 的轻档，6px 有 .writing-focus-status / .writing-quick-toggle
+   * 两票；本条是面板内的一条「状态说明带」而非常规内容块，取下沿 6。
+   * 真宿主实拍（/tmp/bd64-mutate.json quick_base → quick_ctx6/quick_ctx8）：computed
+   * 7px 15px、盒 w319/h30.5；改 6 后 h28.5，改 8 后 h32.5——取 6 让条带比周围
+   * 的 8px 区块更紧一档。 */
+  padding: 6px 15px;
   background: color-mix(in srgb, var(--accent-hover) 62%, transparent);
   color: var(--accent-spine);
   font-size: 11px;
@@ -155,7 +169,14 @@
   border-radius: var(--radius-2);
   background: var(--bg-subtle);
   color: var(--text-muted);
-  padding: 7px 8px;
+  /* 批次 BD-64（padding 7px 桶·面板内搜索壳）：竖槽 7→6，左右 8 在档原样。
+   * 7px 落 6/8 正中、就近不裁决 ⇒ 数同文件、同水平槽（8px）的搜索/字段壳在档票：
+   * .writing-quick-toggle `6px 8px`、.writing-quick-field input `6px 8px` 两票逐字同槽，
+   * 同文件 8px 竖槽零票；跨文件 .relation-graph-search `4px 8px`、.uni-search-bar
+   * `8px 12px` 各一票——本条是 295px 窄面板里的壳，跟同文件那两条同取 6。
+   * 真宿主实拍（/tmp/bd64-mutate.json search_base → search_6/8）：computed 7px 8px、
+   * 盒 w295/h40；改 6 后 h38，改 8 后 h42——6 与面板内其它 6px 壳齐平。 */
+  padding: 6px 8px;
 }
 
 .writing-quick-search input,
@@ -170,7 +191,14 @@
 
 .writing-quick-body { display: grid; grid-template-rows: minmax(120px, 0.8fr) minmax(230px, 1.2fr); min-height: 0; }
 .writing-quick-list { min-height: 0; margin: 0; padding: 8px; overflow: auto; list-style: none; border-bottom: 1px solid var(--border-subtle); }
-.writing-quick-list li > button { display: grid; grid-template-columns: 3px minmax(0, 1fr) auto; gap: 8px; width: 100%; align-items: center; border: 1px solid transparent; border-radius: var(--radius-1); background: transparent; color: var(--text-main); text-align: left; padding: 7px; cursor: pointer; }
+/* 批次 BD-64（padding 7px 桶·速查列表行按钮）：7→8。7px 落 6/8 正中、就近不裁决 ⇒
+ * 数「列表行按钮」四边内衬在档票：.cards-type-list-item `8px 10px`（同仓列表行）、
+ * .overview-recent-item `8px 10px`、.uni-search-group li button `8px 10px`、
+ * .cards-list-item `8px 10px` 四票全 8，且 .relation-graph-summary-list button
+ * `6px 8px` 是更紧的弹窗小列表；本条所在的 .writing-quick-list 自身内衬就是 8px，
+ * 行按钮取 8 与外框齐平。真宿主实拍（/tmp/bd64-mutate.json quick_base → listbtn_8）：
+ * computed 7px、盒 w294/h52.5；改 8 后 h54.5（+2），列表容器 h 122.66 不变。 */
+.writing-quick-list li > button { display: grid; grid-template-columns: 3px minmax(0, 1fr) auto; gap: 8px; width: 100%; align-items: center; border: 1px solid transparent; border-radius: var(--radius-1); background: transparent; color: var(--text-main); text-align: left; padding: 8px; cursor: pointer; }
 .writing-quick-list li > button:hover,
 .writing-quick-list li > button.active { border-color: var(--border-subtle); background: var(--bg-subtle); }
 .writing-quick-list li > button.active { box-shadow: inset 2px 0 0 var(--accent-spine); }
