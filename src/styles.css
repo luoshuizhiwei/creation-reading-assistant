@@ -819,7 +819,8 @@ button:disabled {
    * 真宿主实测（/tmp/bd60-probe4.json，种了两本书）：表头 gap 14px、w 1084 / h 39.5 /
    * 列轨 78 · 255.7 · 276.2 · 184.1 · 108 · 84，两条数据行 h 79 / 78——14 确实在画；
    * 5 条缝各 −2 ⇒ 列轨共让出 10px 给 fr 列，行高由内容定、不受影响。
-   * 同条的 padding 14px（行）与 11px 14px（表头）是另一族（BD-55 记档），本批不动。 */
+   * 同条的 padding 14px（行）与 11px 14px（表头）是另一族——BD-60 时留作记档，
+   * **BD-61 已成对收掉**（行 14→12、表头左右 14→12，见下面两条各自的注释）。 */
   gap: 12px;
   align-items: center;
 }
@@ -830,21 +831,28 @@ button:disabled {
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-library-grid-head」 在产物里被 editorial-studio.css:1830 同键更晚的一条整条压住 */
   /* BD-38 摘死声明：font-size: 12px 从未渲染——「.desktop-library-grid-head」被 src/styles/editorial-studio.css:1831 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-38 摘死声明：font-weight: 650 从未渲染——「.desktop-library-grid-head」被 src/styles/editorial-studio.css:1832 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
-  /* 批次 BD-55 记档（padding 14px 左右档族·表头条）：这条 14 不动，不是漏判——
-   * ① 对齐绑定：它与 .desktop-library-row `padding: 14px`（四边档，BD-55 明示的
-   *   范围外成员）共用 .desktop-library-grid-head/.desktop-library-row 同一条
-   *   grid-template-columns 声明，表头与数据行的水平槽必须逐像素等值，单还一条
-   *   就是让列起点错开 2px；要动只能成对动，那归「padding 14px 四边档」批一起收。
-   * ② 零实拍：seed 书库为空态，LibraryPage.tsx 的书表容器（含本表头）在
-   *   filteredAndSorted.length===0 时整块不渲染——探针 3 三试 .desktop-library-grid-head
-   *   全 null（/tmp/bd55-probe3.json screens.library），连改动前的宿主都拍不到。
-   * 两条都在账上挂着：row 收档时本条同批同值。 */
-  padding: 11px 14px;
+  /* 批次 BD-61（padding 14px 族·表头/数据行这一对，BD-55 挂的记档在此兑现）：
+   * 左右 14→12，与 .desktop-library-row 的四边 14→12 同批同值——BD-55 定的规矩是
+   * 两条共用同一条 grid-template-columns，水平槽必须逐像素等值，单动一条就是让列
+   * 起点错开 2px。落点不是「就近」：14 是 12/16 正中、就近不裁决，而这张表自己的
+   * 列缝在 BD-60 已经收到 12，行内衬与列缝自此同值、表内只剩 12 一档。
+   * 顶槽 11px 不在本批轴上，原样留着（11px 桶计数不变）。
+   * 真宿主实拍（/tmp/bd61-probe.json 与 /tmp/bd61-mutate.json，种两本书）：
+   * 表头 w1084/h39.5、数据行 w1084/h79；11px 14px→11px 12px 表头 h 与列轨纹丝不动，
+   * 数据行 14→12 时 h 79→75、行内 span 上移 2px（408.25→406.25）。 */
+  padding: 11px 12px;
 }
 
 .desktop-library-row {
   border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 66%, transparent);
-  padding: 14px;
+  /* 批次 BD-61（padding 14px 族·记录行四边档）：14→12。与表头 .desktop-library-grid-head
+   * 同批同值（对齐绑定，见那条上方）。落点按「记录行」角色投票：同角色在档先例里
+   * 8px×6（.cards-list-item / .overview-recent-item / .card-reference-item /
+   * .resource-scan-item / .cards-type-list-item / .history-diff-row）、10px×2、6px×2，
+   * 16px 零票——12 这一票虽然少，但行内衬必须与同表列缝（BD-60 已收 12）同值，
+   * 表头/列轨/列缝三者只能有一个档，故取 12 而不是 8。
+   * 实测：h 79→75，行高由内容定、-4 全来自上下槽；列轨 w 不变（1084）。 */
+  padding: 12px;
   /* BD-38 摘死声明：transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease 从未渲染——「.desktop-library-row」被 src/styles/editorial-studio.css:1838 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
@@ -933,7 +941,15 @@ button:disabled {
 .creation-wizard-steps {
   display: flex;
   gap: 16px;
-  padding: 0 20px 14px;
+  /* 批次 BD-61（padding 14px 族·向导步骤条底槽）：14→12。这是「带底边的工具/步骤带」
+   * 的底槽，同角色在档先例全在 12：.project-home-toolbar / .library-toolbar /
+   * .inbox-toolbar 三条 `2px 4px 12px`、.writing-manuscript-head `12px 20px`；
+   * .cards-board-column-head 与 .card-reference-head 取 10、属更紧的列头族，不投票。
+   * 16 在本角色零票。
+   * 顶槽 0 与左右 20 不动（左右 20 是本向导独有的大内衬，不在本批轴上）。
+   * 实测（/tmp/bd61-mutate.json 向导屏）：0 20px 14px → h 35；改 12 → h 33；
+   * 改 16 → h 37。步骤条本身是 flex 单行、高度完全由上下槽决定。 */
+  padding: 0 20px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent);
 }
 
@@ -1031,7 +1047,17 @@ button:disabled {
 .creation-template-card {
   display: grid;
   gap: 6px;
-  padding: 14px;
+  /* 批次 BD-61（padding 14px 族·可选磁贴）：14→12。落点看同角色在档先例：
+   * 全站「cursor: pointer + 1px 边框 + 圆角 + grid 竖向栈」的可选磁贴只有两条——
+   * 本条与 .background-card（12px，BD-55 收），后者连 gap 都是同值的 6px；
+   * 其余同族（.cards-board-card 8px 10px、.cards-list-item 8px 10px、
+   * .overview-recent-item 8px 10px）都是「行形小磁贴」，比它紧一档，不投票。
+   * 16 在本角色零票。14→12 后磁贴内衬与 .background-card 逐像素同值。
+   * 实测（/tmp/bd61-mutate.json 向导屏）：14px→w222/h95.38、16px→w222/h99.38；
+   * ⚠ 单卡就地改 12px 时高度不动（95.38）——那不是「12 无影响」，而是三张卡在同一
+   * grid 行里被最高者拉伸（siblings 仍是 14）。真 A/B（/tmp/bd61-capture-*.json，
+   * 三条一起改）读数：h 95.38→91.38，宽恒 222（列宽由网格定死）。收 12 不换行。 */
+  padding: 12px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
   border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--paper-panel) 76%, var(--paper-soft));
@@ -1735,7 +1761,17 @@ button:disabled {
   min-height: 160px;
   margin: 0 20px;
   overflow: auto;
-  padding: 14px;
+  /* 批次 BD-61（padding 14px 族·对话框体内的代码/文本块）：14→12。这是「1px 边框 +
+   * 圆角 + 单值内衬」的内容块族，在档先例以 12 为最密：.scene-conflict-notice /
+   * .scene-save-error 12px、.history-authoritative-preview 12px、
+   * .history-restore-success 12px、.operation-result 12px、.resource-scan-empty 12px、
+   * .cards-fields-manager 12px、.relation-graph-summary 12px——共七票；8px 那侧
+   * （.cards-list-pane / .scene-candidate-diff / .settings-nav）是面板/侧栏，不是块；
+   * 16px 只有 .replace-panel / .background-detail 两票、且都是整面板。
+   * 零实拍（seed 无粘贴预览触发），改由离屏合成宿主证活（/tmp/bd61-synth.json）：
+   * pre.paste-preview-body 的 computed 就是 14px，12px 时 w 560 / h 160 不变
+   * （min-height 托底，四边各 −2 不进高度）。 */
+  padding: 12px;
   border: 1px solid var(--paper-line);
   border-radius: var(--radius-2);
   background: var(--paper-soft);
@@ -1764,15 +1800,16 @@ button:disabled {
     grid-template-columns: 196px minmax(0, 1fr);
   }
 
-  .desktop-sidebar {
-    /* 批次 BD-60 摘死声明：gap: 14px 从未渲染——[同特异度 (0,1,0) 且 editorial-studio.css 的
-     * 基础档 `.desktop-sidebar { gap: 18px }` 发射更晚]，媒体查询不加特异度，故 @1180 这条
-     * 压不过它。逐窗实拍（/tmp/bd60-probe2.json）：1150 与 1100 两档 computed gap 恒 18px、
-     * padding 恒 18px 12px 14px——同一条里的 padding 也是死的，但 padding 14px 属 BD-55
-     * 记档族（四边档），本批只摘 gap，padding 留在原处不扩大改动面。
-     * 值账 gap 14px 桶随此少一笔。 */
-    padding: 14px 10px;
-  }
+  /* 批次 BD-60/BD-61 摘死整条：@media ≤1180 的 `.desktop-sidebar { gap: 14px;
+   * padding: 14px 10px }` 两个键**全部从未渲染**——[同特异度 (0,1,0) 且
+   * editorial-studio.css 的基础档 `.desktop-sidebar { gap: 18px; padding: 18px 12px 14px }`
+   * 发射更晚]，媒体查询不加特异度，故 @1180 这条压不过它。逐窗实拍
+   * （/tmp/bd60-probe2.json）：1150 与 1100 两档 computed gap 恒 18px、
+   * padding 恒 `18px 12px 14px`（= editorial 基础档），本档的 14px 10px 从没上过屏；
+   * BD-61 复测（/tmp/bd61-probe.json sidebar@1150）同窗仍读到侧栏态值。
+   * BD-60 先摘 gap、BD-61 把剩下的 padding 一并摘掉，整条规则随之外壳清空，
+   * 故此处只留墓碑、不留空规则（与 BD-59 摘 @1180 `.desktop-nav button` 同法）。
+   * 值账：styles.css gap 14px 桶 BD-60 少一笔、padding 14px 桶本批少一笔。 */
 
   /* 批次 BD-59 摘死整条：`.desktop-nav button { grid-template-columns: 30px minmax(0, 1fr);
    * gap: 7px; padding-right: 8px; padding-left: 8px }`（原 @media ≤1180 档）四个键
@@ -1825,9 +1862,14 @@ button:disabled {
     display: none;
   }
 
-  .desktop-sidebar {
-    padding: 14px 10px;
-  }
+  /* 批次 BD-61 摘死整条：@media ≤920 的 `.desktop-sidebar { padding: 14px 10px }` 从未渲染
+   * ——同一条 14px 10px 在 @1180 / @920 两档都输给 editorial 基础档
+   * `padding: 18px 12px 14px`（同特异度、媒体查询不加特异度、后者发射更晚）。
+   * 逐窗实拍：/tmp/bd60-probe2.json 在 900 窗读到 `padding: 12px 7px`
+   * （= editorial @1024 的窄栏档），/tmp/bd61-probe.json sidebar@900 同窗同值；
+   * 两档都没有一档出现过 14px 10px。整条规则摘除、不留空壳，
+   * 与 BD-55 摘 @920 `.desktop-commandbar` 死声明同法；值账 styles.css
+   * padding 14px 桶随此再少一笔。 */
 
   .desktop-nav button {
     grid-template-columns: 1fr;
@@ -2303,7 +2345,15 @@ button:disabled {
 }
 
 .card-board-empty {
-  padding: 14px;
+  /* 批次 BD-61（padding 14px 族·看板列内空态）：14→12。落点看空态族在档先例，
+   * 竖向 12 有四票：.scene-radar-empty 12px、.resource-scan-empty 12px、
+   * .cards-empty 12px、.card-reference-empty `12px 8px`（竖向即 12）；
+   * 4px 那侧（.cards-board-empty `4px`、.outline-empty-hint `4px 6px`）是列内
+   * 11px 小字标签，比空态正文紧一档，不投票。16 在本角色零票。
+   * 零实拍（seed 大纲无空卷，CardBoard 的 allScenes.length===0 分支不渲染），
+   * 离屏合成宿主实测（/tmp/bd61-synth.json）：p.card-board-empty computed 14px，
+   * 12px 时 h 46→42、16px 时 50——高度线性随上下槽，无换行风险（单行 11-12 字）。 */
+  padding: 12px;
   color: var(--paper-muted);
   font-size: 12px;
 }
@@ -3001,7 +3051,15 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 16px;
+  /* 批次 BD-61（padding 14px 族·弹层搜索头）：14px 16px→12px 16px。改的只有竖向 14。
+   * 竖向落点看「弹层标题带」在档先例：.creation-proof-controls `12px 16px`、
+   * .writing-manuscript-head `12px 20px`、.desktop-commandbar `10px 26px`；
+   * 同族的 .uni-search-head 逐字同值 14px 16px，两条同批同值收 12（同族双胞胎不许分裂）。
+   * 左右 16 不动——它与弹层左右内衬（.uni-search-head 16、.creation-search-results 8）
+   * 一起构成的水平槽，不在本批轴上；16 也是「面板/头部」角色左右槽的多数票。
+   * 实测（/tmp/bd61-mutate.json、probe2，Ctrl+P 真弹窗）：14px 16px→w558/h57、
+   * 改 12px 16px→h53、改 16px→h61；输入框 y 随之上移 2px。 */
+  padding: 12px 16px;
   border-bottom: 1px solid var(--paper-line);
 }
 
@@ -3082,7 +3140,17 @@ button:disabled {
   /* 批次 G：删掉这里的 border-radius: 14px，同 .desktop-panel-card 的 20px——
    * 被 editorial-studio.css 的面板家族规则压制，从未画出来过。 */
   background: var(--paper-panel);
-  padding: 14px 16px;
+  /* 批次 BD-61（padding 14px 族·统计/概览页卡）：14px 16px→16px。两个槽一起收成 16：
+   * 竖直 14 是 12/16 正中、就近不裁决 ⇒ 数「带标题的面板」族在档先例——12 只有
+   * 本条自己刚收的那批内容块、16 有 .stats-card 家族自己的左右槽（本来就是 16）、
+   * .cards-detail-pane 16px、.writing-margin 16px（BD-55 收）、.background-detail 16px、
+   * .replace-panel 16px；8 那侧是行形磁贴，不投票。故竖向与横向同收 16，卡内衬
+   * 自此是一个值（14px 16px 这种「上紧下松」的混合档在本族没有第二个成员）。
+   * 真宿主实拍（概览页三卡 + 统计页）：computed 14px 16px → w312/h163.19；
+   * 就地改 16px 时单卡高度不动（同为 163.19）——那是同排兄弟卡拉伸所致；真 A/B
+   * （/tmp/bd61-capture-*.json）三条一起改为 16px 后 h 163.19→167.19（上下槽各 +2），
+   * 宽恒 312（列宽由网格定死），h3 上移 2px（277.09→279.09）。收 16 只增 4px 卡高。 */
+  padding: 16px;
 }
 
 .stats-card h3 {
@@ -4328,7 +4396,16 @@ button:disabled {
 .outline-page-side {
   /* BD-29 摘死色：border: 1px solid var(--paper-line) 从未渲染——「.outline-page-side」 在产物里被 editorial-studio.css:1439 同键更晚的一条整条压住 */
   /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——「.outline-page-side」 在产物里被 editorial-studio.css:1433 同键更晚的一条整条压住 */
-  padding: 14px;
+  /* 批次 BD-61（padding 14px 族·两栏页右侧板）：14→16。这不是就近：14 是 12/16 正中、
+   * 就近不裁决 ⇒ 数同角色在档先例，而这一族的判据是**同一份样式表里的孪生选择器**——
+   * editorial-studio.css:1488 的 `.cards-detail-pane, .outline-page-side { border-left:
+   * 1px solid var(--border-subtle); background: var(--studio-paper) }` 把两者写成同一条
+   * 规则，即「右侧详情栏」是同一个角色；孪生的 .cards-detail-pane 基础档就是 16px。
+   * 同族其余：.writing-margin 16px（BD-55 收）、.background-detail 16px、.replace-panel 16px；
+   * 8 那侧（.cards-list-pane / .settings-nav）是左列清单，不是右侧详情栏，不投票。
+   * 真宿主实拍（/tmp/bd61-probe.json 大纲页）：computed 14px、w300/h595；
+   * 就地改 16px 后 h3 下移 2px（279.5→281.5），盒 w/h 不变（列宽由 grid 定死）。 */
+  padding: 16px;
   /* BD-37 摘死声明：align-self: start 从未渲染——「.outline-page-side」被 src/styles/editorial-studio.css:2805 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-37 摘死声明：max-height: calc(100vh - 260px) 从未渲染——「.outline-page-side」被 src/styles/editorial-studio.css:1438 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   overflow-y: auto;

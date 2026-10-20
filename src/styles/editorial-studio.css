@@ -79,7 +79,17 @@ select:focus-visible,
   grid-template-rows: auto minmax(0, 1fr) auto auto;
   gap: 18px;
   min-height: 0;
-  padding: 18px 12px 14px;
+  /* 批次 BD-61（padding 14px 族·侧栏布脊底槽）：18px 12px 14px→18px 12px 12px。
+   * 只动底槽。14 是 12/16 正中、就近不裁决 ⇒ 数「同一块布脊上的分区底槽」在档先例：
+   * .writing-project-switcher 底 10、.desktop-sidebar-card 底 10、.desktop-dock 顶 8、
+   * .library-toolbar / .project-home-toolbar / .inbox-toolbar 底 12——全 ≤12，12 是这族上限；
+   * 16 在深色布脊这一侧零票。另一条同向证据是本声明自己的左右槽就是 12：收 12 后
+   * 布脊三边（左右底）同值 12，只剩顶槽 18 是有意的「印台抬升」。
+   * ⚠ 顶槽 18 **不动**：18 离 §5.1 刻度，属于 padding 18px 桶（本文件 7 处），
+   *   要动只能与那批一起动，本批只收 14。
+   * 真宿主实拍（/tmp/bd61-probe.json 项目首页 1360 窗）：computed 18px 12px 14px、
+   * 侧栏 w216/h820；就地改底槽 12 → dock 下沉 2（底 846→848），改 16 → 上移 2（844）。 */
+  padding: 18px 12px 12px;
   border-right: 1px solid color-mix(in srgb, var(--studio-cloth) 70%, var(--border-strong));
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 34%),
@@ -114,7 +124,16 @@ select:focus-visible,
   gap: 11px;
   min-height: 52px;
   margin: 0 2px 4px;
-  padding: 6px 10px 14px;
+  /* 批次 BD-61（padding 14px 族·布脊品牌行底槽）：6px 10px 14px→6px 10px 12px。
+   * 只动底槽（顶 6 / 左右 10 在档，BD-56 刚定过左右，不动）。
+   * 14 是 12/16 正中、就近不裁决 ⇒ 数「同一块布脊上的内衬档」：这块布脊自己的水平槽
+   * 与本批刚收的底槽都是 12（.desktop-sidebar `18px 12px 12px`），
+   * 布脊上的分区底槽 10（.desktop-sidebar-card）与 8（.desktop-dock 顶槽）都是更紧的
+   * 子块档；16 在布脊这一侧零票。收 12 后布脊内衬只剩 12 与「印台 18」两档。
+   * 真宿主实拍（/tmp/bd61-rhythm.json 项目首页 1360 窗）：computed 6px 10px 14px、
+   * 盒 w191/h59；改底槽 12 → h57、nav 起点 139→137；改 16 → h61、nav 141。
+   * 品牌行 min-height 52 不咬（内容撑到 59），故 h 随底槽线性变化。 */
+  padding: 6px 10px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.09) !important;
   border-radius: 0 !important;
   color: var(--studio-cloth-text);
@@ -838,9 +857,11 @@ select:focus-visible,
   margin: 0;
   /* 批次 BD-55（padding 14px 左右档族·面板头角色）：左右槽 14→16。
    * 这个 h3 的宿主同时是 .stats-card——那条基础档的左右槽本来就是 16
-   * （styles.css `padding: 14px 16px`，实测 06 屏 pl/pr 16px）；本条把左右压成 14
+   * （styles.css `padding: 14px 16px`，实测 06 屏 pl/pr 16px；BD-61 起为 `16px`）；
+ * 本条把左右压成 14
    * 是同族内部的自相矛盾。面板头角色的其余在档先例也全在 16：
-   * .uni-search-head 14px 16px、.creation-search-head 14px 16px、
+   * .uni-search-head 14px 16px、.creation-search-head 14px 16px（BD-61 勘误：两条的竖向
+   * 14 本批已收 12，左右槽仍是 16——本句引的是那个左右槽，结论不变）、
    * .desktop-commandbar 窄屏两档 12px 16px / 9px 16px（后者 BD-57 已收 10px 16px）。
    * 实拍（1360 窗口，/tmp/bd55-probe2.json C-项目首页）：卡片 border-box 左缘 x=276、
    * 卡片 pl 6px（!important 的 18px 6px 8px，非本批成员）⇒ h3 盒子 x=283；
@@ -862,7 +883,17 @@ select:focus-visible,
   position: relative;
   gap: 12px;
   min-height: 78px;
-  padding: 14px 16px 14px 50px;
+  /* 批次 BD-61（padding 14px 族·大记录行上下槽）：14px 16px 14px 50px→12px 16px 12px 50px。
+   * 只动上下槽（右 16 在档、左 50 是序号印栏的定宽槽：::before 印在 left:16px、
+   * 标题实测从行左缘 50px 起，动它会扯掉整列序号对齐）。
+   * 14 是 12/16 正中、就近不裁决 ⇒ 按同角色在档先例投票：App 外壳里的「大记录行」
+   * 三家——本条、.desktop-library-row（本批刚收 12）、.inbox-item（13px 12px 13px 17px）——
+   * 12 已在库行落定，13 是另一桶的债、16 零票；紧凑行族（.cards-list-item /
+   * .overview-recent-item 8px 10px）是另一档密度，不投票。
+   * 真宿主实拍（/tmp/bd61-mutate.json 项目首页 1360 窗）：computed 14px 16px 14px 50px、
+   * w1010/h94.5；改 12px 16px 12px 50px → h90.5（item-main 上移 2）；改 8px… → h82.5。
+   * 收 12 行高 −4，列表仍远高于 min-height 78 的下限之上（90.5），不会触发塌陷。 */
+  padding: 12px 16px 12px 50px;
   border: 0;
   border-bottom: 1px solid var(--border-subtle);
   border-radius: 0;
@@ -1196,7 +1227,8 @@ select:focus-visible,
   border-left: 1px solid var(--border-subtle);
   /* 批次 BD-55（padding 14px 左右档族·面板角色）：左右 14→16，上值 16 与下值 40 不动。
    * 落点看角色：这块右栏是一块**面板**，而面板档的在档先例全在 16——
-   * .stats-card 14px 16px（探针 06 实测 pl/pr 16px）、.uni-search-head 14px 16px
+   * .stats-card 14px 16px（探针 06 实测 pl/pr 16px；BD-61 起四边统一 16px）、
+   * .uni-search-head 14px 16px（BD-61 起竖向 12、左右 16）
    * （探针 08 实测 16px）、.cards-detail-pane 16px、.history-page 16px；
    * 12 那一侧的成员（.history-impact-notice、.creation-proof-item、
    * .project-card-link-list li、.replace-error-banner）没有一条是面板，全是行/条。
@@ -2044,11 +2076,12 @@ select:focus-visible,
 .reading-stat-tile {
   /* 批次 BD-55（padding 14px 左右档族·卡角色）：左右 14→16（!important 保留——
    * 它压的是 .stats-card `padding: 14px 16px` 的上下槽，本条把上/下按到 13）。
+ * （BD-61 勘误：.stats-card 四边已统一收 16，本条的 13 上下槽与 !important 不受影响）
    * 这条规则的宿主每一枚都同时挂 .stats-card（ReadingStatsPage.tsx
    * `stats-card reading-stat-tile`，TSX 核实两处）——宿主自己的另一条档左右槽
    * 本来就是 16；本条把左右按到 14 是同宿主自相矛盾。上值 13 是上下档成员，本批不动。
    * 实拍（探针 3 stats 屏，四枚全同）：computed 13px 14px 13px 14px——改动前活着，
-   * 且证实 !imp 整条压住了 .stats-card 的 14px 16px。 */
+   * 且证实 !imp 整条压住了 .stats-card 的 14px 16px（BD-61 起为 16px）。 */
   padding: 13px 16px !important;
 }
 
@@ -2624,7 +2657,8 @@ input[type="text"],
   gap: 12px;
   position: relative;
   /* 批次 BD-55 记档（padding 14px 左右档族·标题栏左内衬）：这条 14 不动，不是漏判——
-   * 它和左栏的「印章列」是逐像素绑定的：.desktop-sidebar `padding: 18px 12px 14px`
+   * 它和左栏的「印章列」是逐像素绑定的：.desktop-sidebar `padding: 18px 12px 12px`
+ * （BD-61 勘误：底槽 14→12，左右槽仍是 12，下列算式不变）
    * + .desktop-brand.nav-spine-item 与 .desktop-nav button 的 `margin: 0 2px` 的 2px
    * = 14，标题栏的印（.desktop-titlebar-mark x=14）与侧栏的印（.desktop-brand-mark
    * x=14 = 侧栏 12 + 2 margin + 3px 透明左边框起点内）在实拍里同列——探针 01：
@@ -2840,7 +2874,16 @@ input[type="text"],
   }
 
   .writing-scroll {
-    padding: 14px;
+    /* 批次 BD-61（padding 14px 族·窄窗写作区四边档）：14→12。这是「写作滚动容器」在
+     * 窄窗的整块内衬，14 是 12/16 正中、就近不裁决 ⇒ 数同容器自己在大窗那档的
+     * `20px clamp(14px,2vw,28px) 44px`：两个在档的水平槽是 20 / 28，竖向 44——
+     * 都不给 16 投票；而窄窗这一侧的判据是**列宽守恒**：写作区在 ≤1024 是满宽滚动，
+     * 内衬两倍即纸壳宽度的直接让出量。实测（/tmp/bd61-paper.json，1024/1000/1100/1180
+     * 四窗各就地改三值）：14→纸壳 719 / 正文可写宽 717；12→723 / 721；16→715 / 713。
+     * 收 12 让正文多 2px、收 16 少 2px——按「窄窗优先保正文宽度」取 12，
+     * 且 12 与同批 .writing-scroll 大窗水平槽的下限 clamp 下界 14 只差 2、不跨档。
+     * 值账 editorial padding 14px 桶本批少一笔。 */
+    padding: 12px;
   }
 
   .cards-board-layout {
