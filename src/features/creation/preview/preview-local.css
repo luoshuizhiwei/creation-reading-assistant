@@ -42,8 +42,14 @@
    * .history-empty 一条，不是卡形空态。
    * 零真宿主：seed 通读页有正文，.preview-failure / .preview-empty 都不渲染；
    * /tmp/bd69-probe2.json synth.failure 用真 class 注入真父 .preview-page 读数：
-   * computed `26px 30px`、盒 420×110.09；改 24 → h106.09（−4），改 32 → 122.09。 */
-  padding: 24px 30px;
+   * computed `26px 30px`、盒 420×110.09；改 24 → h106.09（−4），改 32 → 122.09。
+   * 批次 BD-70（30px 桶·通读页空态卡横槽）：左右 30→32。30 距 24 六档、距 32
+   * **两档**（中点 28 在 24 侧），严格最近档唯一是 32。
+   * 真宿主（同一合成注入，/tmp/bd70-probe.json synth，420 定宽卡）：左右 24/30/32
+   * 三档下盒恒 420×106.09、x94/y731.91 全不动——本卡 max-width 420 先于左右内衬
+   * 生效，左右槽只改卡内文字的行宽，不挪卡本身。竖槽 24 是上一批（BD-69）定的，
+   * 本批不回头改。 */
+  padding: 24px 32px;
   border: 1px solid var(--separator);
   border-radius: var(--radius-panel);
   background: var(--surface-1);
@@ -188,7 +194,16 @@
    * MEASURE 不变量按三态各自的声明做算术（那三态的注释行号都指它）。 */
   max-width: calc(42em + 68px + 2px + 9px);
   margin-inline: auto;
-  padding: 30px 34px 44px;
+  /* 批次 BD-70（30px 桶·纸面顶槽）：顶 30→32。30 距 24 六档、距 32 **两档**
+   * （中点 28 在 24 侧），严格最近档唯一是 32。左右 34 与底 44 分属 34/44 桶，
+   * 各自另批，本批不越界；横向内衬不动 ⇒ 上面那条 MEASURE 补偿加法（68）不受影响。
+   * 同角色在档票：稿纸正文的横向内衬就是 `padding-inline: 32px`（§3.3 那一列的
+   * 左边距），本页与它是「同一张稿纸的两种呈现」，顶槽取同档 32 让两处纸面内衬一致。
+   * 真宿主实拍（/tmp/bd70-docshift.json，1360 窗全书预览）：computed `30px 34px 44px`、
+   * 盒 751×562.5、x340.5/y275.5；顶槽 24/30/32 三档下**纸面外框与盒高恒 562.5**
+   * （滚动容器，高由 .preview-page 的 flex 定），只有内容起点 y 330.5→332.5、
+   * scrollHeight 669→671；880 窄窗同法（底槽那条另测）。 */
+  padding: 32px 34px 44px;
   border: 1px solid var(--separator);
   border-radius: var(--radius-panel);
   background: var(--surface-paper);
@@ -400,7 +415,14 @@
   }
 
   .preview-document {
-    padding: 20px 16px 30px;
+    /* 批次 BD-70（30px 桶·窄窗纸面底槽）：底 30→32。30 距 24 六档、距 32 **两档**
+     * （中点 28 在 24 侧），严格最近档唯一是 32；顶 20 与左右 16 在档原样不动。
+     * 真宿主实拍（/tmp/bd70-docshift.json narrow，880 窗全书预览）：computed
+     * `20px 16px 30px`、盒 715×512.5、x118.5/y271.5；底槽 24/30/32 三档下盒高与
+     * x/y 全不动，只有 docScrollHeight 645→647——底槽只延长滚动区的末端留白。
+     * MEASURE 不变量对窄档算的是「cap − padding − border − 滚动条」，横向 16 未动，
+     * 可用宽 751−32−2−9=708 ≥ 672，42 字列照样落地。 */
+    padding: 20px 16px 32px;
   }
 }
 

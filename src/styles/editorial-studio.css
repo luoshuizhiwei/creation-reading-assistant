@@ -773,8 +773,15 @@ select:focus-visible,
    * **外框一字不动**（h 752 恒定），只有内容起点随顶槽上移 2px——本元素是页壳
    * 滚动容器，高度由父级 100% 定，不随内衬变。
    * ⚠ 与 .desktop-commandbar 是否同值：大窗这一档今天就不等（bar 26 / scroll 30），
-   * 见命令条那条的记载；本批命令条收 24 后两者仍差 6px，不制造新的绑定义务。 */
-  padding: 24px 30px 36px;
+   * 见命令条那条的记载；本批命令条收 24 后两者仍差 6px，不制造新的绑定义务。
+   * 批次 BD-70（30px 桶·外壳页壳横槽）：左右 30→32。30 距 24 六档、距 32 **两档**
+   * （中点 28 已越过 30 在另一侧），严格最近档唯一是 32，不需投票。
+   * 真宿主实拍（/tmp/bd70-align.json，1360 窗书库/项目/设置三屏一致）：页壳左右槽
+   * 24/30/32 三档下内容列 x 依次 240/246/248、宽 1096/1084/1080——改 32 后内容列
+   * 右移 2px 并变窄 4px，页壳外框恒 1144×752/y108。**与命令条标题 h1.x=240 的不对齐
+   * 从 6px 变成 8px**：这不是本批制造的断口，BD-69 已实测确认两者从来不是绑定
+   * （bar 26 / scroll 30 时 h1.x 242 vs 列 246），节距各自独立。 */
+  padding: 24px 32px 36px;
 }
 
 .desktop-page-stack {
@@ -2759,7 +2766,18 @@ input[type="text"],
    * 零实拍：seed 有 1 个项目，.project-home-empty 只在 entries.length===0 时渲染，
    * 本屏捕获不到；判据是同族票 + 父级覆盖的实际内衬。 */
   margin: 8px 12px 12px;
-  padding: 30px 20px;
+  /* 批次 BD-70（30px 桶·空态虚线托盘的竖槽）：顶/底 30→32。30 距 24 六档、距 32
+   * **两档**（中点 28 在 24 侧），严格最近档唯一是 32。
+   * 同角色在档票：空态托盘族的内衬上限本来就在 32——页级 .history-empty 早已是
+   * `32px 16px`（本批不动它），本托盘与 .uni-search-state `30px 12px`（本批同收 32）
+   * 向它看齐；上下都由「图标 + 两行说明」撑开。
+   * 零真宿主：seed 有 1 个项目，本托盘只在 entries.length===0 时渲染；真 class 注入
+   * 真父 .project-home > .stats-card（/tmp/bd70-probe.json home）：盒 986×112.19、
+   * 改 24 → h106.19、改 32 → h114.19，y 441.5 三档不动（父级 16px 6px 8px 内衬
+   * 与自身 margin 都不在本批轴上）。
+   * ⚠ A/B 里本托盘盒宽 986→978：那是同批 .desktop-page-scroll 横槽 30→32 把整列
+   * 内容宽 1084→1080 带下来的，不是本条的竖槽所为；本条只贡献高度 +4。 */
+  padding: 32px 20px;
   border: 1px dashed var(--border-strong);
   border-radius: 10px;
   text-align: center;
@@ -2796,7 +2814,16 @@ input[type="text"],
   display: grid;
   justify-items: center;
   gap: 4px;
-  padding: 30px 12px;
+  /* 批次 BD-70（30px 桶·全局搜索空态竖槽）：顶/底 30→32。30 距 24 六档、距 32 **两档**
+   * （中点 28 在 24 侧），严格最近档唯一是 32。
+   * 同角色在档票：本元素与 .project-home-empty、.history-empty 是同一条「虚线托盘 +
+   * 圆章 + 一行说明」族（三者的 ::before 圆章同为 44px，另外两条本批一起收到 32），
+   * 那一族的内衬最大档是 32；别处弹层内空态（.creation-search-state
+   * `24px 16px`）是更紧的一族，本元素属于「弹层整幅空态」，与页级空态同档。
+   * 真宿主实拍（/tmp/bd70-probe.json uni，项目列表屏 Ctrl+K 输入无结果串）：
+   * computed `30px 12px`、盒 702×133.5、x329/y173；改 24 → h127.5、改 32 → h135.5，
+   * x/y/宽 702 三档全不动。 */
+  padding: 32px 12px;
 }
 
 .uni-search-state::before {
