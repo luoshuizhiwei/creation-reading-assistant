@@ -45,8 +45,18 @@
    * 的规矩，行族投 12。
    * ⚠ 零实拍：seed 的版本历史页 0 条 .history-item（/tmp/bd55-probe2.json E-历史，
    *   items 0 / empties 1——列表要有删除记录或快照才渲染），这条的判据只有家族票。
-   * 本文件页级留白另说：.history-page 16px、.history-empty 32px 16px 都是面板/空态角色。 */
-  padding: 11px 12px;
+   * 本文件页级留白另说：.history-page 16px、.history-empty 32px 16px 都是面板/空态角色。
+   * 批次 BD-67（padding 11px 桶·行条目竖槽）：11→10。判据与上一段同源：既然左右槽按
+   * 「一行条目」族落 12，竖槽就跟着那三条**逐字 `10px 12px` 的双胞胎**走——
+   * .creation-proof-item、.project-card-link-list li、.replace-error-banner/
+   * .replace-done-banner，四边里已有三边同值，只差本条的竖槽。8px 那一侧
+   * （.cards-list-item / .overview-recent-item / .card-reference-item 等）是单行紧凑行，
+   * 本条是「类型徽标 + 标题 + 时间 + 对象 + 恢复钮」的多段行，取它们的 8 会压扁。
+   * 真级联实测（/tmp/bd67-probe5.json synth，版本历史页 history-local.css 已注入后
+   * 在真宿主里合成两行：回收站行与快照行）：computed `11px 12px`、行高 141 / 84；
+   * 就地把竖槽改 10 → 139 / 82；改 8 → 135 / 78；改 12 → 143 / 86。三种行的列轨与
+   * 宽度（980）纹丝不动，只有行高随竖槽线性变化。 */
+  padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border-subtle);
   background: var(--bg-surface);

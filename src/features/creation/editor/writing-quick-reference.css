@@ -53,8 +53,19 @@
    * 更重的横幅/英雄档（14px×4、16px×6）——本条 320px 侧栏面板头落在家族轻档一侧，
    * 投 10。顶槽 11px 是离刻度债、挂 padding 11px 桶，不在本批。探针一 05-quick-head
    * 实拍：pb 9px、盒 h 67px（h 由 min-height:67 钳住，改后无像素差，见 A/B 屏）；
-   * 本头无下边框补偿，底槽与对面顶槽 11px 差 2px 是欠账不是工艺。 */
-  padding: 11px 16px 10px 16px;
+   * 本头无下边框补偿，底槽与对面顶槽 11px 差 2px 是欠账不是工艺。
+   * 批次 BD-67（padding 11px 桶·面板头条）：顶槽 11→10，与上一批刚定的底槽 10 对齐。
+   * 这段注释上一句已经把账记在此处——「无下边框补偿、顶底差 2px 是欠账」——本批就是
+   * 还这笔：横槽 16 的描边底带里，10 的在档票是 .creation-proof-summary `10px 16px`
+   * （同为 16 横槽 + 单行内容 + 细底的分区带，与本条同形）；12px 那四票
+   * （.uni-search-head / .creation-search-head / .creation-proof-controls 与表头
+   * .project-home-item）是弹层头与表格行，比 320px 侧栏面板头重一档。收 10 后本头
+   * 三边 10/10/10 自洽，底槽与顶槽同值。
+   * 真宿主实拍（/tmp/bd67-probe.json quick，速查面板，1360 窗，面板宽恒 319）：
+   * computed `11px 16px 10px` 盒 h67（由 min-height:67 钳住）、h3 y201.75、关闭钮 y189.5；
+   * 就地改顶槽 10 → h3 y201.25、钮 y189；改 12 → h3 y202.25、钮 y190。盒高恒定，
+   * 只有内容整体上移 0.5px。 */
+  padding: 10px 16px 10px 16px;
   border-bottom: 1px solid var(--border-subtle);
 }
 

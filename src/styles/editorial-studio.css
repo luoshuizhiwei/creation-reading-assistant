@@ -140,7 +140,16 @@ select:focus-visible,
  * pl/pr 9px、盒 x 14/w 191/h 59，导航钮 pl/pr 已是 10px/w 187——改 10 后品牌行「阅」印
  * 与下方导航图标左缘对齐（都从内缩 10px 起），盒宽 −2、min-height 52 与底槽 14 定高不变。 */
 .desktop-brand.nav-spine-item {
-  gap: 11px;
+  /* 批次 BD-67（gap 11px 桶·布脊品牌行的图标↔文字缝）：11→10。11 落 10/12 正中、
+   * 就近不裁决 ⇒ 数「布脊上图标↔文字两列」的同角色在档票：同一根脊条上的导航钮
+   * .desktop-nav button.nav-spine-item 就是 `gap: 10px`（BD-58 定的，且同一文件、
+   * 同一 .nav-spine-item 类、同样 grid 两列），12px 这一侧在布脊上零票；12 只出现在
+   * 宽面板的头/栅格（.desktop-page-stack、.cards-page 等），不是这一角色。
+   * 真宿主实拍（/tmp/bd67-probe.json home + homeMut，1360 窗项目首页侧栏）：
+   * computed gap 11px、brand 盒 191×57、文字列 `.desktop-brand strong` x76；
+   * 就地改 10 → x75；改 8 → x73；改 12 → x77。盒宽高全程不变（57 由 min-height
+   * 与内容撑，gap 只推文字列）。收 10 后品牌行与下方每颗导航钮同一缝宽。 */
+  gap: 10px;
   min-height: 52px;
   margin: 0 2px 4px;
   /* 批次 BD-61（padding 14px 族·布脊品牌行底槽）：6px 10px 14px→6px 10px 12px。
@@ -312,7 +321,17 @@ select:focus-visible,
 
 .desktop-sidebar-card {
   margin: 0 2px;
-  padding: 12px 11px 10px;
+  /* 批次 BD-67（padding 11px 桶·布脊状态卡左右槽）：左右 11→12。11 落 10/12 正中、
+   * 就近不裁决 ⇒ 数「同一根布脊上的分区左右内衬」：布脊 `.desktop-sidebar` 自己的
+   * 左右槽就是 12（BD-61 把它的底槽也收成 12，三边同值），状态卡 `margin: 0 2px`
+   * 让出的也是这 2px；12px 这一侧在布脊上一票，10px 那侧零票——10 只出现在
+   * 布脊之外的窄控件（.desktop-dock-entry、.desktop-nav button 的竖槽）
+   * 真宿主实拍（/tmp/bd67-probe.json homeMut + probe6 align，1360 窗项目首页）：
+   * computed `12px 11px 10px`、卡盒 x14/w187、内容列（.desktop-card-label 与
+   * .desktop-sidebar-stats span）x26；就地改 10 → x25、改 12 → x27。
+   * 收 12 后卡内文字列 x27，与品牌行文字列（收 10 后 x75 那一侧不动）、
+   * 上下分区同用布脊的 12 内衬；卡盒 x/w 不变（margin 定宽）。 */
+  padding: 12px 12px 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 0;
   background: transparent;

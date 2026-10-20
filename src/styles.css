@@ -470,7 +470,14 @@ button:disabled {
 .desktop-brand {
   display: flex;
   align-items: center;
-  gap: 11px;
+  /* 批次 BD-67 摘死声明：gap: 11px 从未渲染——「.desktop-brand」的 gap 由
+   * src/styles/editorial-studio.css:142 的 `.desktop-brand.nav-spine-item` 供值
+   * （(0,2,0) 对 (0,1,0)，且静态表发射更晚）。实验（/tmp/bd67-probe5.json dead，
+   * 1360 窗项目首页侧栏）：computed gap 11px；往 head 末尾插普通选择器
+   * `.desktop-brand{gap:33px}` **改不动** computed（仍 11px），而插
+   * `.desktop-brand.nav-spine-item{gap:33px}` 立刻变 33px——供值的确是 (0,2,0) 那条。
+   * 本批胜者已收 10，这条副本若留着就变成一份「值不同、仍被压死」的死声明，
+   * 故按 BD-35/BD-63 同一路摘除。值账 styles.css gap 11px 桶随此少一笔。 */
   width: 100%;
   padding: 10px;
   border: 0;
@@ -856,8 +863,19 @@ button:disabled {
    * 顶槽 11px 不在本批轴上，原样留着（11px 桶计数不变）。
    * 真宿主实拍（/tmp/bd61-probe.json 与 /tmp/bd61-mutate.json，种两本书）：
    * 表头 w1084/h39.5、数据行 w1084/h79；11px 14px→11px 12px 表头 h 与列轨纹丝不动，
-   * 数据行 14→12 时 h 79→75、行内 span 上移 2px（408.25→406.25）。 */
-  padding: 11px 12px;
+   * 数据行 14→12 时 h 79→75、行内 span 上移 2px（408.25→406.25）。
+   * 批次 BD-67（padding 11px 桶·记录表表头竖槽）：11→12，与同表数据行四边 12 同值。
+   * BD-61 那条注释已经把账挂在这里——「顶槽 11px 不在本批轴上，原样留着」——本批就是
+   * 回填这笔。落点不是就近（11 落 10/12 正中），而是**同一张表自己的行**：表头与
+   * 数据行共用一条 grid-template-columns，BD-61 把数据行四边收成 12、表头左右也收成 12，
+   * 表头竖槽留 11 就成了这张表里唯一一个非 12 的槽。同角色在档票：描边底带
+   * `.project-home-item` 12px、`.creation-proof-controls` 12px、`.uni-search-head` 12px；
+   * 10px 那侧只有 `.creation-proof-summary` 一条，且它是 16 横槽的面板带、不是表。
+   * 真宿主实拍（/tmp/bd67-probe.json library + libMut，1360 窗书库页）：
+   * computed `11px 12px`、表头 w1084/h39.5、数据行 w1084/h75；就地改竖槽 10 →
+   * 表头 h37.5、数据行 y380.5→378.5；改 12 → 表头 h41.5、数据行 y382.5。
+   * 取 12：表头 +2px、整列数据行下移 2px，列轨与行高不变。 */
+  padding: 12px;
 }
 
 .desktop-library-row {
@@ -2934,7 +2952,20 @@ button:disabled {
   color: var(--paper-muted);
   font-size: 12px;
   font-weight: 600;
-  padding: 6px 11px;
+  /* 批次 BD-67（padding 11px 桶·导出格式岛的段钮右槽）：右槽 11→10，左槽 6 不动。
+   * 同一套分段岛（`.writing-mode-switch, .writing-outline-view-switch, .cards-view-switch`
+   * 共用一条岛壳规则）的三个子件里，本条是唯一写了横槽的：另外两条
+   * （.writing-mode-switch button / .writing-outline-view-switch button）在产物里实测
+   * 都是 `padding: 0`（写作台实拍 button 盒 48.02×24、`0px 8px` 那条是接管态大纲页的
+   * !important 副本），所以 12px 文字页签的横槽票只能从同类「岛内页签」借：
+   * .writing-margin-tabs button `6px 8px`、.uni-search-filters button `6px 10px`
+   * （BD-66 刚定）、.cards-view-switch-button `6px 10px`（本批同还）——10 三票，
+   * 11 零票。竖槽 6 已合族，不动。
+   * 真宿主实拍（/tmp/bd67-probe3.json exportMut，设定卡页「导出」对话框，岛宽不设限）：
+   * computed `6px 11px`、钮 48.97 / 92.41 宽、岛 153.38×40；就地改左右 10 →
+   * 钮 46.97 / 90.41、岛 149.38；改 8 → 42.97 / 86.41、岛 141.38；改 12 →
+   * 50.97 / 94.41、岛 157.38。岛高 40 恒定（子件高 30 + 壳 4×2 + 边 1×2）。 */
+  padding: 6px 10px;
   cursor: pointer;
 }
 
@@ -3476,7 +3507,17 @@ button:disabled {
   gap: 6px;
   border: 1px solid var(--paper-line);
   border-radius: 999px;
-  padding: 4px 11px;
+  /* 批次 BD-67（padding 11px 桶·校对规则药丸右槽）：右槽 11→10，左槽 4 不动。
+   * 上一段注释已经点过这笔债（「那个 11 是离刻度债、挂在 padding 11px 桶里」），本批回填。
+   * 11 落 10/12 正中、就近不裁决 ⇒ 数同角色药丸的横槽在档票：`.creation-chip 4px 10px`、
+   * `.overview-chip 4px 10px`、`.resource-scan-category 4px 10px` 三票在 10；12 那侧
+   * `.inbox-filter-chip 4px 12px` 是收件箱筛选条的压缩档、只一票；8 那侧
+   * （`.relation-graph-chip` / `.global-card-library-usage li`）是更紧的行内小签。
+   * 真宿主实拍（/tmp/bd67-probe4.json proof + proofMut，项目内 hero「校对」→ 规则栏，
+   * 1360 窗，10 枚药丸）：computed `4px 11px`、宽 103.02 / 91.02 / … / 79.02、高恒 28；
+   * 就地改左右 10 → 各 −2（101.02 / 89.02 / 77.02）；改 8 → 各 −6；改 12 → 各 +2。
+   * 高与换行数不变（657px 栏内 10 枚仍两行排下）。 */
+  padding: 4px 10px;
   color: var(--paper-muted);
   font-size: 12px;
   cursor: pointer;
@@ -4542,7 +4583,16 @@ button:disabled {
   color: var(--paper-muted);
   font-size: 12px;
   font-weight: 600;
-  padding: 6px 11px;
+  /* 批次 BD-67（padding 11px 桶·卡片库视图切换钮横槽）：右槽 11→10，左槽 6 不动。
+   * 与同批的 .cards-view-switch button 是一对：两条同为 12px 描边钮、同为 `6px Npx`、
+   * 同挂 .cards-page 工具条一族；上面那条已收 10，本条若留 11 就是同一族两个档。
+   * 在档票：.writing-margin-tabs button `6px 8px`、.uni-search-filters button `6px 10px`、
+   * .background-detail-actions button `6px 10px`（BD-66）——10 三票、11 零票。
+   * 真宿主实拍（/tmp/bd67-probe2.json cardsMut，项目「设定卡」页工具栏，1360 窗）：
+   * computed `6px 11px`、钮 89.02×32、工具条 1256×52.5；就地改左右 10 → 87.02、
+   * 改 8 → 83.02、改 12 → 91.02。钮高 32 与工具条高度纹丝不动（有图标 + 文字，
+   * 单行不折）。 */
+  padding: 6px 10px;
   cursor: pointer;
 }
 
