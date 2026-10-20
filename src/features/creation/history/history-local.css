@@ -308,7 +308,16 @@
 
 .history-diff-row small {
   display: block;
-  margin-bottom: 3px;
+  /* 批次 BD-65（margin 3px 桶·diff 行的原值小字）：3→2。3 落 2/4 正中、就近不裁决 ⇒
+   * 数「块内最后一行小字（small/label）的底距」在档票：同族 .writing-quick-list small
+   * `margin-top: 2px`、.desktop-nav small `margin-top: 2px`、
+   * .history-item-retention `margin-top: 2px`、.migration-error svg `margin-top: 2px`
+   * ——四票全 2；4px 只出现在**块与块之间**（.project-home-progress、.cards-form-actions），
+   * 不是同一语义单元内的行距。本条是「正文行 → 它的原值小字」，取 2。
+   * 实拍（/tmp/bd65-ab-before.json 12b-history-synth，种子无命名快照、恢复对话框打不开，
+   * 注入真结构 .history-diff-row > span > small）：3 时 small margin 0 0 3px、行盒 h62.19；
+   * 收 2 后 0 0 2px、行盒 h61.19——整行矮 1px，三列不折行。 */
+  margin-bottom: 2px;
   color: var(--text-meta);
 }
 

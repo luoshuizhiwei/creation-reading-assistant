@@ -341,7 +341,17 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--studio-seal, var(--copper)) 12%, transparent);
   color: var(--studio-seal, var(--copper));
-  padding: 3px 8px;
+  /* 批次 BD-65（padding 3px 桶·朱砂计数药丸）：竖槽 3→2，左右 8 在档原样。
+   * 3 落 2/4 正中、就近不裁决 ⇒ 数「≤4px 顶槽的压缩档 999px 药丸」竖槽在档票：
+   * .scene-radar-tag `2px 8px`、.snapshot-category-badge `2px 8px`、
+   * .card-board-card-status `2px 8px`（BD-52 整族已经定档）、.history-item-type
+   * `2px 8px`、.history-protection-id `2px 6px`——五票全 2；4px 在该族只有
+   * .project-card-link-status `4px 8px` 一票（那是一整行文字的状态标签、字重不同）。
+   * 本条是「数字 + 底色」的计数徽标，与 .card-board-card-status 同角色 ⇒ 收 2。
+   * 实拍（/tmp/bd65-ab-before.json 10b-synthetic，把真 class 的 <strong> 注入真头容器）：
+   * 3px 8px 时 computed 3px 8px、盒 h24；收 2 后 computed 2px 8px、h22。
+   * 族内 .format-chip 同批读数 2→22.5 / 3→24.5 / 4→26.5，同比。 */
+  padding: 2px 8px;
   text-align: center;
   font-size: 12px;
 }

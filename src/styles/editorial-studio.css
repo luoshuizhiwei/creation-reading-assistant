@@ -220,7 +220,15 @@ select:focus-visible,
 }
 
 .desktop-brand small {
-  margin-top: 3px;
+  /* 批次 BD-65（margin 3px 桶·布脊品牌行的副题）：3→2。3 落 2/4 正中、就近不裁决 ⇒
+   * 直系双胞胎就在同文件：.desktop-nav small `margin-top: 2px`（同一块布脊上的导航钮
+   * 副题，字号同为 11px），另有 .writing-quick-list small `2px`、
+   * .history-item-retention `2px` 两票；4px 全是块间距（.project-home-progress、
+   * .cards-form-actions），不在这一角色。品牌行与导航钮同挂脊条 ⇒ 取 2 与 brothers 齐平。
+   * 实拍（/tmp/bd65-ab-before.json 10-home，1360 窗首页）：3 时副题 y83.34、brand 盒 h57；
+   * 收 2 后 y82.84、h57；4 时 h57.69（撑高 0.69，越过 min-height 52）。
+   * 取 2：品牌副题上移 0.5px、脊条总高不动，与导航钮副题同节奏。 */
+  margin-top: 2px;
   color: var(--studio-cloth-muted);
   font-size: 11px;
   letter-spacing: 0.05em;
@@ -632,7 +640,14 @@ select:focus-visible,
 
 .desktop-commandbar > div > span {
   display: block;
-  margin-top: 3px;
+  /* 批次 BD-65（margin 3px 桶·命令条的主副标题）：3→2。3 落 2/4 正中、就近不裁决 ⇒
+   * 同角色票：.desktop-brand small（本批同降 2）、.desktop-nav small `2px`、
+   * .writing-quick-list small `2px`——「大标题 → 其小字副题」全在 2；
+   * styles.css 的 .desktop-commandbar span `margin-top: 4px` 是死副本（被本条同键
+   * 更晚压住），不能投票。命令条高 68 由 .desktop-canvas 之外的栅格定，2/3/4 三档
+   * 都不改它。实拍（/tmp/bd65-ab-before.json 10-home，1360 窗）：3 时副题 y78.5；
+   * 收 2 后 y78（4 时 y79），命令条 h68 恒不变。 */
+  margin-top: 2px;
   overflow: hidden;
   color: var(--text-muted);
   font-size: 12px;
@@ -682,13 +697,15 @@ select:focus-visible,
    * 键帽族全在 ≤6 的极紧档，8 零票；同页 .desktop-search-command 自身的 10px 横槽是
    * 容器不是键帽。真宿主实拍（/tmp/bd64-probe2.json home）：computed 3px 7px、
    * 盒 w55.75/h24.5；右槽收 6 后 w54.75、h24.5（垂直不动）。 */
-  padding: 3px 6px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  background: var(--bg-subtle);
-  color: var(--text-meta);
-  font-family: var(--font-mono);
-  font-size: 11px;
+  /* 批次 BD-65（padding 3px 桶·命令条键帽）：竖槽 3→2，左右 6 不动。
+   * 3 落 2/4 正中、就近不裁决 ⇒ 数「键帽」竖槽在档票：.creation-palette-command kbd /
+   * .creation-palette-footer kbd `1px 5px`——键帽族竖槽全在极紧档（1），4px 零票；
+   * 同页 .desktop-search-command 的 10px 横槽是容器不是键帽。
+   * 键帽高度受行盒约束（11px mono + line-height 1.4 ≈ 15.4），2 与 3 的差别直接落在
+   * 盒高上。实拍（/tmp/bd65-ab-before.json 10-home，1360 窗首页命令条）：
+   * 3 时 computed 3px 6px、盒 w51.75/h22.5；收 2 后 h20.5（4 时 24.5），
+   * 命令条容器 h38 三档不变，键帽在自己的 38 内居中、不撑条。 */
+  padding: 2px 6px;
 }
 
 /* --------------------------------------------------------------------------
@@ -1894,7 +1911,14 @@ select:focus-visible,
   color: var(--text-muted);
   font-size: 11px;
   font-weight: 650;
-  padding: 3px 8px;
+  /* 批次 BD-65（padding 3px 桶·收件箱保存状态灯）：竖槽 3→2，左右 8 不动。
+   * 3 落 2/4 正中、就近不裁决 ⇒ 同角色在档票：本文件 .format-chip（本批同降）与
+   * .card-board-card-status、.scene-radar-tag、.snapshot-category-badge 全 2px；
+   * 4px 侧只有 .project-card-link-status。本条是 11px 压缩档药丸灯，
+   * 与 .creation-proof-ignore（同为 3px 8px 双胞胎、本批同降）同族 ⇒ 收 2。
+   * 实拍（/tmp/bd65-ab-before.json 10b-synthetic，注入真 class 的 <span>）：
+   * 3px 8px 时 h22.5；收 2 后 h20.5（4 时 24.5），w49 三档不变。 */
+  padding: 2px 8px;
 }
 
 .inbox-save-status--saving {
@@ -2073,7 +2097,14 @@ select:focus-visible,
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 3px 8px;
+  /* 批次 BD-65（padding 3px 桶·书库格式徽标）：竖槽 3→2，左右 8 不动。
+   * 3 落 2/4 正中、就近不裁决 ⇒ 同角色在档票：.scene-radar-tag `2px 8px`、
+   * .snapshot-category-badge `2px 8px`、.history-item-type `2px 8px`、
+   * .card-board-card-status `2px 8px`——「11px 字 + 短标签 + 圆角 + 底色」四票全 2；
+   * 4 只有 .project-card-link-status 一票（12px 整行状态）。本条 11px 大写字标签 ⇒ 收 2。
+   * 实拍（/tmp/bd65-ab-before.json 14-library/15-narrow1024，1360 与 1024 两窗同值）：
+   * computed 3px 8px、盒 w44/h24.5；收 2 后 h22.5、y +1.5；4 时 h26.5，w 恒 44。 */
+  padding: 2px 8px;
 }
 
 .format-chip--epub {

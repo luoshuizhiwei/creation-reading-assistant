@@ -1822,7 +1822,15 @@ button:disabled {
 
 .writing-boundary svg {
   flex: 0 0 auto;
-  margin-top: 3px;
+  /* 批次 BD-65（margin 3px 桶·图标与多行说明的基线微调）：3→2。
+   * 3 落 2/4 正中、就近不裁决 ⇒ 直系双胞胎在同文件：.migration-error svg
+   * `margin-top: 2px`（同为 flex-start 的多行告警段 + 14px 图标，BD-59 已把这
+   * 两条 gap 一起收成 8，图标微调这里也同批同值）；4px 在「图标基线微调」这个
+   * 角色里全仓零票。本条图标 14 + 正文 11px/1.7（行盒 18.7），2px 让图标上缘与
+   * 首行 x-height 居中对齐。实拍（/tmp/bd65-ab-before.json 10b-synthetic，注入真结构
+   * .writing-boundary > svg + span）：3 时 svg margin-top 3px；收 2 后 2px，
+   * 图标上缘随之上移 1px、说明文字行盒不动。 */
+  margin-top: 2px;
 }
 
 .paste-preview-note {
@@ -2963,7 +2971,18 @@ button:disabled {
   border-radius: 6px;
   background: transparent;
   color: var(--paper-muted);
-  padding: 3px;
+  /* 批次 BD-65（padding 3px 桶·看板列头的裸图标钮）：3→4。
+   * 3 落 2/4 正中、就近不裁决 ⇒ 数「裸图标方钮」在档票：同文件
+   * .outline-node-actions button `4px`（BD-48 已把这一族定档，同为大纲/看板里
+   * 的行内裸图标钮）、relation-graph .relation-graph-zoom button `4px 8px` 是带字按钮；
+   * 2px 侧只有 .outline-volume-toggle / .outline-chapter-toggle，那两个是**带边框**的
+   * 折叠箭头，形状不同不投票。裸图标、无边框、圆角方钮这一支 4px 两票。
+   * 实拍（/tmp/bd65-ab-before.json 11-board，设定卡看板三列）：
+   * 3 时 computed 3px、钮盒 19×19（13px 图标 + 2×3）；收 4 后 21×21、x −2。
+   * 列头盒 h 36.5→38、列体 h 156→157.5（三列同值，差值同为 1.5）。
+   * 仍取 4：同族先例在 4，21px 也比 19px 更接近可点最小尺寸；撑高的 1.5px
+   * 落在列头自己的 8px 内衬余量里，卡片本体与列宽 194 均不动。 */
+  padding: 4px;
   cursor: pointer;
 }
 
@@ -3625,7 +3644,14 @@ button:disabled {
   gap: 4px;
   border: 1px solid var(--paper-line);
   border-radius: 999px;
-  padding: 3px 8px;
+  /* 批次 BD-65（padding 3px 桶·校对面板的忽略钮）：竖槽 3→2，左右 8 不动。
+   * 3 落 2/4 正中、就近不裁决 ⇒ 与 editorial-studio.css 的 .inbox-save-status 是
+   * 逐字 3px 8px 双胞胎（BD-54/BD-56 已把这两条的 gap 与水平槽钉成同值），本批
+   * 同批同值一起收 2；同族 .card-board-card-status / .scene-radar-tag /
+   * .snapshot-category-badge 全 2px，4px 侧只有 .project-card-link-status。
+   * 实拍（/tmp/bd65-ab-before.json 10b-synthetic，注入真 class 的 <button>）：
+   * 3px 8px 时 h26（与 .inbox-save-status 同一行盒）；收 2 后 h24（4 时 28）。 */
+  padding: 2px 8px;
   background: transparent;
   color: var(--paper-muted);
   font-size: 12px;
@@ -4311,7 +4337,13 @@ button:disabled {
    * 实拍（/tmp/bd64-verify2.json homeToolbar）：种子里待处理为 0、真宿主不渲染，
    * 把 <em class="desktop-home-inbox-count">3</em> 注入真父 .desktop-page-actions
    * 后读到 computed 3px 7px、盒 w21.66/h18.09；右槽收 6 后 w20.66、h 不变。 */
-  padding: 3px 6px;
+  /* 批次 BD-65（padding 3px 桶·收件箱计数药丸）：竖槽 3→2，左右 6 不动（BD-64 刚定）。
+   * 3 落 2/4 正中、就近不裁决 ⇒ 同角色在档票：.history-protection-id `2px 6px`、
+   * .paper-slider-value `2px 6px`（同为「窄水平槽 + 计数/数值」的小药丸）两票全 2；
+   * .card-board-card-status / .scene-radar-tag 等 2px 8px 族也全在 2，4px 零票。
+   * 实拍（/tmp/bd65-ab-before.json 10b-synthetic，注入真父 .desktop-page-actions）：
+   * 3px 6px 时 computed 3px 6px、盒 w21.66/h18.09；收 2 后 h16.09，w 不变。 */
+  padding: 2px 6px;
 }
 
 .project-home-list {

@@ -78,7 +78,17 @@
 }
 
 .preview-toolbar-meta p {
-  margin: 3px 0 0;
+  /* 批次 BD-65（margin 3px 桶·通读工具栏的标题下说明）：上距 3→2。
+   * 3 落 2/4 正中、就近不裁决 ⇒ 数「hero/工具栏标题 → 其说明段」同角色在档票：
+   * .desktop-page-hero p `margin: 6px 0 0`（editorial，本批同族但档更高——那是 h1 20px
+   * 的大标题）、.overview-status-list / .overview-recent-list `6px 0 0`、
+   * .writing-quick-reference-head h3 `margin: 2px 0 0`、.desktop-brand small
+   * `margin-top: 3px`（本批同降）——小字号说明的紧距档是 2。
+   * 本条 h2 是 16px、说明 12px，取 2px 让两行成一组。
+   * 实拍（/tmp/bd65-ab-before.json 13-preview，全书预览工具栏）：3 时 toolbar-meta 盒
+   * h45/y192.5；收 2 后 h44/y193.5，说明段自身 y 219.5 不动——组盒矮 1px、随栏居中上移 1，
+   * 工具栏总高 50.5 不变。 */
+  margin: 2px 0 0;
   font-size: 12px;
   color: var(--text-secondary);
 }
