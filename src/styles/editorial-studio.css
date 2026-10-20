@@ -637,7 +637,19 @@ select:focus-visible,
   align-items: center;
   gap: 20px;
   min-height: 68px;
-  padding: 10px 26px;
+  /* 批次 BD-69（26px 桶·外壳命令条横槽）：左右 26→24，垂直 10 在档不动。
+   * 26 严格最近 24（距 2，距 32 是 6；中点 28 在另一侧），没有两档平票。
+   * ⚠ 这里查过一条「疑似对齐绑定」并如实记结论：命令条与 .desktop-page-scroll
+   * 共用左边缘 x=216，窄窗两档的内衬本来就相等（1024/980 窗实拍 bar `10px 16px`、
+   * scroll `16px 16px 26px` ⇒ h1.x 与内容列同为 80，严丝合缝）；但大窗这一档
+   * **今天就不等**（bar 26 / scroll 30，实拍 h1.x=242、内容列 x=246，差 4px），
+   * 所以它不是「某档等值被打破」的绑定，而是两条各自离刻度的债。scroll 的 30
+   * 属 30px 桶（最近档 32），与本条不同批，不能顺手一起改。
+   * 实拍（/tmp/bd69-align.mjs / bd69-narrow-align.mjs）：1360 窗 h1.x 242→240
+   * （与内容列差 4→6px）、bar 右端搜索钮 1334→1336 贴住 scroll 的 1360−24；
+   * 1100 窗同步 −2；1024 / 980 两窗在窄档 @1024 里本就 16/16，本条不参与，
+   * 逐窗复核后 h1.x 仍与内容列相等（80/80）。盒高由 min-height 68 钳住，恒 68。 */
+  padding: 10px 24px;
   border-bottom: 1px solid var(--border-subtle);
   background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
   box-shadow: 0 1px 3px rgba(34, 38, 48, 0.05), 0 6px 18px rgba(34, 38, 48, 0.04);
@@ -753,7 +765,16 @@ select:focus-visible,
   height: 100%;
   min-height: 0;
   overflow: auto;
-  padding: 26px 30px 36px;
+  /* 批次 BD-69（26px 桶·外壳页壳顶槽）：顶槽 26→24。左右 30 与底 36 不动，
+   * 它们分属 30px 桶与 36px 桶（各自由后续批次独立裁定），本批不越界。
+   * 26 严格最近 24（距 2，距 32 是 6；中点 28 在另一侧）。
+   * 真宿主实拍（/tmp/bd69-probe.json library / scrollSweep，1360 窗书库页）：
+   * computed `26px 30px 36px`、盒 1144×752、x216/y108；就地改 24/20/32 时
+   * **外框一字不动**（h 752 恒定），只有内容起点随顶槽上移 2px——本元素是页壳
+   * 滚动容器，高度由父级 100% 定，不随内衬变。
+   * ⚠ 与 .desktop-commandbar 是否同值：大窗这一档今天就不等（bar 26 / scroll 30），
+   * 见命令条那条的记载；本批命令条收 24 后两者仍差 6px，不制造新的绑定义务。 */
+  padding: 24px 30px 36px;
 }
 
 .desktop-page-stack {
@@ -3044,8 +3065,13 @@ input[type="text"],
      * `26px 30px 36px`，窄窗把它整体收紧，收紧后的四边里没有 20 这一档）；
      * BD-61 收窄窗 .writing-scroll 时也是同一逻辑——窄窗优先保内容宽，档取在档下限 16。
      * 真宿主实拍（/tmp/bd63-probe3.json，书库页逐窗）：1360 窗 `26px 30px 36px`、
-     * 1024 窗 `18px 18px 26px`、980 窗同上；收 16 后 1024/980 两窗内容宽各 +4。 */
-    padding: 16px 16px 26px;
+     * 1024 窗 `18px 18px 26px`、980 窗同上；收 16 后 1024/980 两窗内容宽各 +4。
+     * 批次 BD-69（26px 桶·窄窗页壳底槽）：底 26→24，兑现 BD-63 那句「属 26px 桶另批」。
+     * 26 严格最近 24（距 2，距 32 是 6）。窄窗这一档顶/左右本来就是 16（页壳紧档），
+     * 底槽是唯一还留在大窗量级的一边，收 24 让「窄窗底距」与同批的大窗顶槽同值。
+     * 实拍（/tmp/bd69-probe.json narrow / narrowSweep，1024 窗书库页）：
+     * computed `16px 16px 26px`、盒 960×692；改 24/20/32 时外框恒 692、内容不动。 */
+    padding: 16px 16px 24px;
   }
 
   .desktop-page-hero {

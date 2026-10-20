@@ -35,7 +35,15 @@
   gap: 10px;
   align-items: center;
   max-width: 420px;
-  padding: 26px 30px;
+  /* 批次 BD-69（26px 桶·通读页空态/失败卡竖槽）：26→24。26 严格最近 24（距 2，
+   * 距 32 是 6）。同角色「弹层/页面内的空态卡」在档也都在 24 上下：
+   * .uni-search-state `30px 12px`、.project-home-empty `30px 20px`、
+   * .creation-search-state `24px 16px`（本批同值收 24）；32 只剩页级大空态
+   * .history-empty 一条，不是卡形空态。
+   * 零真宿主：seed 通读页有正文，.preview-failure / .preview-empty 都不渲染；
+   * /tmp/bd69-probe2.json synth.failure 用真 class 注入真父 .preview-page 读数：
+   * computed `26px 30px`、盒 420×110.09；改 24 → h106.09（−4），改 32 → 122.09。 */
+  padding: 24px 30px;
   border: 1px solid var(--separator);
   border-radius: var(--radius-panel);
   background: var(--surface-1);
@@ -203,7 +211,15 @@
 }
 
 .preview-volume {
-  margin: 26px 0 12px;
+  /* 批次 BD-69（26px 桶·通读页卷题上距）：26→24。26 严格最近 24（距 2，距 32 是 6）。
+   * 判据先看本页自己的块距表：同页紧邻的 .preview-chapter + .preview-chapter
+   * `margin-top: 34px` / `padding-top: 26px`（本批同值收 24）是「章与章之间」的大间隔，
+   * 卷题上距属同一类「页内大段起点留白」，两者一起落在 24 上；下距 12 是「卷题→章题」
+   * 的紧距，不动。34 属 34px 桶（最近档 32）、本批不同批处理，本章只动 26 这两处。
+   * 真宿主实拍（/tmp/bd69-probe.json preview / volSweep，1360 窗全书预览）：
+   * computed `26px 0px 12px`、盒 672×18、y 332.5；改 24 → y 330.5（上移 2），
+   * 改 32 → y 338.5；宽 672 与下文块无关（卷题只是单行）。 */
+  margin: 24px 0 12px;
   font-family: var(--font-ui);
   font-size: 12px;
   letter-spacing: 0.24em;
@@ -212,7 +228,18 @@
 
 .preview-chapter + .preview-chapter {
   margin-top: 34px;
-  padding-top: 26px;
+  /* 批次 BD-69（26px 桶·通读页章间分隔的顶槽）：26→24。26 严格最近 24（距 2，
+   * 距 32 是 6）。同一条声明里的 34 属 34px 桶（最近档 32）另批处理；本条只把
+   * 发丝线上的留白收到 24，与 .preview-volume 的卷题上距（本批同值收 24）统一成
+   * 「页内大段起点留白 = 24」这一档。零真宿主：seed 单章，相邻兄弟选择器不成立；
+   * /tmp/bd69-clone2.json 克隆真 class 第二章进真父 .preview-document，只在本选择器上
+   * 逐值改 padding-top（真宿主与克隆件同页同宽 672）：computed 26px 时盒 h610.03、
+   * docScroll 1313；改 24 → h608.03（−2）、docScroll 1311；改 32 → h616.03、1319。
+   * 克隆件 y 923.53 三种取值都不动（间距生效在盒内顶部、发丝线随盒顶走）。
+   * ⚠ 早先一版读数写作「26 → h612.03、24 → 610.03」，那是**量错了**：克隆件内部自带
+   *   一个 .preview-volume，其卷题上距同属本批 26→24，两条改动叠在同一个克隆件上，
+   *   把 −2 记成了 −4。只动本选择器、冻结卷题那条之后才是上面这组数字。 */
+  padding-top: 24px;
   border-top: 1px solid var(--separator-subtle);
 }
 

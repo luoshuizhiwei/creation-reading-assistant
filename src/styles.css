@@ -3283,7 +3283,17 @@ button:disabled {
 
 .creation-search-state {
   margin: 0;
-  padding: 26px 16px;
+  /* 批次 BD-69（26px 桶·命令面板空态竖槽）：26→24。26 落 24/32 之间但不在正中
+   * （中点是 28），严格最近档唯一在 24（距 2、距 32 距 6）；同角色三类空态也都往
+   * 24 这一档靠：弹层内空态 .uni-search-state `30px 12px`（30 是另一桶）、
+   * 预览页空态卡 .preview-failure `26px 30px`（本批同值收 24）、列表空态
+   * .project-home-empty `30px 20px`——空态的内衬上限一直在 24/30 这一带，
+   * 32 只剩 .history-empty 一条（页级大空态，不是弹层内嵌空态）。
+   * 真宿主实拍（/tmp/bd69-probe.json palette / stateSweep，Ctrl+P 输入无结果串）：
+   * computed `26px 16px`、盒 542×71.5、y 139.39；就地逐值改（/tmp/bd69-state-sweep.mjs）：
+   * 24 → h67.5，20 → 59.5，32 → 83.5；y 139.39 与宽 542 四档全不动（行高 19.5、
+   * 两行文字高 39 不变，盒高只由上下内衬决定）。 */
+  padding: 24px 16px;
   text-align: center;
   color: var(--paper-muted);
   font-size: 13px;
