@@ -2530,7 +2530,21 @@ input[type="text"],
 /* Empty states share one invitation: a dashed tray, a glyph, a quiet line. */
 .project-home-empty {
   align-items: center;
-  margin: 8px 14px 14px;
+  /* 批次 BD-62（margin 14px 族·空态虚线托盘外边距）：14→12 三面，顶槽 8 在档原样留着。
+   * 14 落 12/16 正中、就近不裁决 ⇒ 分轴取证：
+   * ① 竖向下距：全仓「空态块底距」在档三条全是 12（.preview-scene-empty、
+   *    .preview-block、.creation-step-note），16 零票。
+   * ② 左右：空态托盘族里 **用 margin 的**只有本条，其余 .history-empty /
+   *    .uni-search-state / .cards-empty 的 margin 都是 0 或没有 ⇒ margin 这一侧
+   *    无 16 票可投；退到同族内衬的档，.uni-search-state `30px 12px` 是 12。
+   * ③ 声明整体：收 12 之后左右下三面同值 12（原来左右是 14），只剩顶槽 8——
+   *    顶 8 是本托盘与卡片标题之间的「题→体」紧距，不在本批轴上，原样保留。
+   * 结构注：本托盘的直接父级是 .project-home > .stats-card，那条覆盖写的是
+   * `padding: 18px 6px 8px !important`（水平内衬 6px，不是基础档的 16），所以托盘
+   * 左右收 12 不牵动任何对齐绑定——托盘与卡边之间只有「卡内衬 6 + 本条 12」。
+   * 零实拍：seed 有 1 个项目，.project-home-empty 只在 entries.length===0 时渲染，
+   * 本屏捕获不到；判据是同族票 + 父级覆盖的实际内衬。 */
+  margin: 8px 12px 12px;
   padding: 30px 20px;
   border: 1px dashed var(--border-strong);
   border-radius: 10px;

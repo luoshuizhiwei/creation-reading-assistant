@@ -188,7 +188,14 @@
 .project-card-link-filters {
   display: flex;
   gap: 8px;
-  margin: 14px 0 10px;
+  /* 批次 BD-62（margin 14px 族·对话框内的筛选行上距）：14→12，下距 10 在档原样留着。
+   * 14 落 12/16 正中、就近不裁决 ⇒ 判据落在**同一个对话框自己的块距**上：
+   * 紧邻的 .project-card-link-list `margin: 12px 0 0` 就是 12，再往上的
+   * .project-card-link-note `margin: 0`——本对话框的纵向节奏只有 12 这一档在档，
+   * 16 在本对话框零成员。收 12 后「说明 → 筛选行 → 结果列表」三段共用一个上距。
+   * 零实拍：本行只在 CardsPage 的「关联卡片」弹窗里渲染，探针未展开该弹窗；
+   * 判据是同文件同弹窗内的两条邻居声明，不依赖跨页取证。 */
+  margin: 12px 0 10px;
 }
 
 .project-card-link-filters .cards-search {
@@ -557,7 +564,15 @@
   display: grid;
   place-items: center;
   min-height: 140px;
-  margin: 0 0 14px;
+  /* 批次 BD-62（margin 14px 族·卡片详情里的封面块底距）：14→12。
+   * 14 落 12/16 正中、就近不裁决 ⇒ 判据是本详情卡的**块距表**：.cards-detail-card
+   * 本身用 gap 12，封面之下紧跟的 .cards-fields-list `margin: 0`（它的行距由自身
+   * gap 6 管）、.global-card-library-usage 无外边距靠 gap；也就是说这张卡的纵向
+   * 节奏是 12（gap）+ 6（dl 行距），14 是卡里唯一的孤档、16 在本卡零成员。
+   * 收 12 与容器 gap 同值，封面与后文的间距不再比正文块之间松。
+   * 零实拍：seed 全局卡 0 枚封面资源（global_card_resources 表 0 行），
+   * 空态 .global-card-cover--empty 同承这条；判据是卡内节奏，不依赖跨页取证。 */
+  margin: 0 0 12px;
   border: 1px solid var(--paper-line);
   border-radius: 10px;
   background: var(--paper-soft, rgba(0, 0, 0, 0.02));

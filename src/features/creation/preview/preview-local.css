@@ -203,7 +203,13 @@
   display: flex;
   gap: 10px;
   align-items: baseline;
-  margin: 0 0 14px;
+  /* 批次 BD-62（margin 14px 族·通读页章节题下距）：14→12。
+   * 14 落 12/16 正中、就近不裁决 ⇒ 判据是本页自己的块距表，而且这张表**在同一份
+   * 样式表里已经收敛成 12**：.preview-block `0 0 12px`（正文段距）、
+   * .preview-scene-empty `0 0 12px`（空场景提示）、.preview-volume `26px 0 12px`
+   * （卷题下距）三条全 12，16 在本页零成员。章节题之下紧跟的就是场景标题与正文段，
+   * 收 12 让「章节题 → 首段」与「段 → 段」同距，标题不再比正文块松一档。 */
+  margin: 0 0 12px;
   font-family: var(--font-ui);
   /* 批次 BD-17：15→16。两条 15 都不是「离刻度就近取一档」能定的，判据是同列结构：
    * ① 本页标题 .preview-toolbar-meta h2 在 BD-3 已收 16，章节题（h3）若收 §3.2 给
@@ -265,7 +271,13 @@
 }
 
 .preview-block--letter {
-  margin: 0 0 14px;
+  /* 批次 BD-62（margin 14px 族·通读页插块底距）：14→12，与 .preview-block 基础档同值。
+   * 这一族在本页是三条一组的：.preview-block 12 / --letter 14 / --note 14——
+   * 三条都是「正文流里的块」，基础档 12 在画，两个变体比它松一档没有任何结构理由
+   * （变体只该改字形/边框/缩进，不该改流内节奏）。16 在本页零成员。
+   * ⚠ 零实拍延续 BD-55 的记录：seed 全书预览 8 个 preview-block 里没有 letter，
+   *   判据落在基础档在画这一点上。 */
+  margin: 0 0 12px;
   /* 批次 BD-55（padding 14px 左右档族·正文块角色）：左右 14→12。
    * 直系双胞胎就在本文件下一条：.preview-block--note `padding: 8px 12px`——同一份
    * 预览文档里的两种插块，只有 letter 的左右写成 14。票池里 12 那一侧全是「块/条」
@@ -287,7 +299,10 @@
 }
 
 .preview-block--note {
-  margin: 0 0 14px;
+  /* 批次 BD-62（margin 14px 族·通读页插块底距）：14→12，与 .preview-block / --letter 同值。
+   * 同族三条（基础 12 / letter / note）在本批一次拉到同一档；判据见 --letter 上方。
+   * ⚠ 零实拍：seed 全书预览的 8 个块里也没有 note（BD-55 记的同一份 block-counts）。 */
+  margin: 0 0 12px;
   padding: 8px 12px;
   border: 1px dashed var(--separator);
   border-radius: var(--radius-control);
