@@ -1255,10 +1255,20 @@ button:disabled {
    * w 恒 46.03，gap 从 4 改到 8 一像素不动——因为这枚芯片只有一个文字子节点，flex 的
    * gap 在单子节点上不参与布局。合成 icon+text 宿主（probe3）才会 w 64.02→65.02（+1）。
    * 也就是说本条 5→6 在向导这一屏是「账上收档、像素零变化」，只有带图标的用法
-   * （.creation-chip.workflow-stage 那类 span+button）才真吃这 1px。本条 padding 5px 10px
-   * 是按钮内边距族，BD-53 已判不动，这里一个字没碰。 */
+   * （.creation-chip.workflow-stage 那类 span+button）才真吃这 1px。
+   * 批次 BD-66（padding 5px 桶·药丸 chip 竖槽）：5→4，左右 10 不动。
+   * 5 落 4/6 正中、就近不裁决 ⇒ 这条**不再「不动」**：BD-53 的「按钮内边距族整批
+   * 不动」是当时的记档，现在轮到这批还。数「12px 描边药丸 chip」竖槽在档票：
+   * .overview-chip `4px 10px`、.resource-scan-category `4px 10px`、
+   * .inbox-filter-chip `4px 12px`、.relation-graph-chip `4px 8px`——四票全 4，
+   * 6px 只出现在 .writing-focus-status / .inbox-target-project 那类**字段控件**
+   * （它们不是 chip 族）。⇒ 收 4，与本条自己 BD-54 记的「压缩档比基础档低一档」
+   * 无关，这是 chip 族的共同竖槽。
+   * 实拍（/tmp/bd66-ab-before.json 25-synth，注入真 class 的 <button>）：
+   * computed 5px 10px、盒 82.02×30；收 4 后 h28（6 时 h32），w 恒 82.02
+   * ——单行文字 + 左右 10 定宽，竖槽只改高。向导「每周更新日」那一排随之矮 2px。 */
   gap: 6px;
-  padding: 5px 10px;
+  padding: 4px 10px;
   border: 1px solid var(--paper-line);
   border-radius: 999px;
   background: var(--paper-panel);
@@ -1531,7 +1541,16 @@ button:disabled {
   width: 100%;
   min-height: 44px;
   margin: 0 0 2px;
-  padding: 5px 10px;
+  /* 批次 BD-66（padding 5px 桶·场景编辑器浮动工具条）：竖槽 5→4，左右 10 不动。
+   * 5 落 4/6 正中、就近不裁决 ⇒ 数「工具栏自身的竖槽」在档票：.outline-toolbar /
+   * .card-board-toolbar / .cards-toolbar 三条都是 `2px 2px 8px` 一族的紧竖槽，
+   * .project-home-toolbar / .library-toolbar / .inbox-toolbar 是 `2px 4px 12px`——
+   * 工具栏竖槽全在 2，6 在工具栏这一侧零票；横向 10 是这条自己的紧凑档（BD-63 已记
+   * 它是「纸内浮动工具条」，与通栏条 16 不同族）。
+   * 实拍（/tmp/bd66-ab-before.json 21-toolbar，1360 窗写作台）：
+   * computed 5px 10px；收 4 后 computed 4px 10px，条高恒 44（min-height 44 钳住，
+   * 探针另测 2/4/5/6 四档恒 44，8 才涨到 47）⇒ 像素零变化，纯账上收口。 */
+  padding: 4px 10px;
   border: 0;
   border-bottom: 1px solid var(--separator);
   border-radius: 0;
@@ -1595,11 +1614,17 @@ button:disabled {
   /* 批次 BD-54（gap 5px 族·裸的 11px 图标+文字状态微标签，双胞胎之一）：5px→4px，
    * 判据见同文件 .writing-watch 条上方。真宿主实测（/tmp/bd54-probe3.json
    * scene-save-status，场景编辑器头栏）：h 恒 16.5，w 61→60（−1）。
-   * ⚠ 本条 padding: 0 5px 是内边距族的 5px（BD-53 已判「按钮/芯片内边距」不动），
-   * 这条只收 gap——那个 5px 还挂在账上，别误读成整条已清。 */
+   * 批次 BD-66（padding 5px 桶·场景保存状态微标签的左右槽）：0 5px→0 6px。
+   * 5 落 4/6 正中、就近不裁决 ⇒ 数「条内裸文字微标签（竖槽 0、无边框、无底色）的
+   * 左右槽」在档票：.desktop-dock-entry `0 6px`、.inbox-filter-chip em `0 6px`——
+   * 全仓这一个小族只有这两条，两票都在 6；4px 在这一族零票（4 是带描边的药丸 chip
+   * 与裸图标方钮的档，本条的竖槽是 0，形状不同不投票）⇒ 收 6。
+   * 实拍（/tmp/bd66-ab-before.json 21-toolbar，1360 窗写作台头栏）：
+   * computed 0 5px、盒 w60/h16.5/x946.81；收 6 后 w62/x944.81，h 恒 16.5
+   * （行盒不动），工具栏总高 44 不变 ⇒ 左右各外扩 1px，无行数/高度代价。 */
   gap: 4px;
   flex: 0 0 auto;
-  padding: 0 5px;
+  padding: 0 6px;
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.scene-save-status」 在产物里被 editorial-studio.css:1372 同键更晚的一条整条压住 */
   font-size: 11px;
   white-space: nowrap;
@@ -2136,7 +2161,18 @@ button:disabled {
 }
 
 .outline-chapter-row {
-  padding: 5px 4px;
+  /* 批次 BD-66（padding 5px 桶·大纲章节行）：竖槽 5→4，左右 4 不动（四边收齐 4px）。
+   * 5 落 4/6 正中、就近不裁决 ⇒ 数「大纲树三级行的竖槽」在档票：
+   * .outline-volume-row `6px 4px`（卷）、.outline-scene `4px`（场）——卷 6 / 场 4，
+   * 章夹在中间。族的走向是「越往里越紧」，但真正承载层级的是缩进
+   * （.outline-chapter-list `padding-left: 12px`、场景再进一层），不是行内衬；
+   * 行内衬在这一族只分两档：容器级 6（卷）、叶子级 4（场）。
+   * ⚠ 实测（/tmp/bd66-probe.json tree_base/4/6，1360 窗大纲）：
+   * 章行 h36（5px）→ 4 时 h34、6 时 h38；卷行 h32、场行 h28/29 三档不动。
+   * 取 6 会让章（h38）比它所在的卷（h32）还高 6px——父子行倒挂，视觉上章成了更重的层级；
+   * 取 4 则章 h34、卷 h32，差 2px 是「同类容器行的自然呼吸差」。
+   * ⇒ 收 4，与场同为叶子级，章/场行高一致、卷略高。 */
+  padding: 4px;
   border-radius: var(--radius-2);
 }
 
@@ -3611,7 +3647,16 @@ button:disabled {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 5px 8px;
+  /* 批次 BD-66（padding 5px 桶·校对面板的定位行）：竖槽 5→4，左右 8 不动。
+   * 5 落 4/6 正中、就近不裁决 ⇒ 数「染色小行块（radius-2 + 淡底、横向 8）」竖槽在档票：
+   * .scene-candidate-line `4px 8px`（同为 8px 横向 + 淡染底的行内块）、
+   * .global-card-library-usage li `4px 8px`、.relation-graph-chip `4px 8px`——三票全 4；
+   * 6px 那一侧（.relation-graph-summary-list button、.writing-quick-search）都是
+   * **带 1px 描边的控件**，本条无边框、是行块不是控件 ⇒ 收 4。
+   * 实拍（/tmp/bd66-ab-before.json 25-synth，注入真结构 .creation-proof-location）：
+   * computed 5px 8px、盒 520×28；收 4 后 h26（6 时 h30），w 恒 520。
+   * 定位行随列表逐个矮 2px，`gap: 4px` 的行距不变。 */
+  padding: 4px 8px;
   border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--paper-ink) 4%, transparent);
 }
@@ -3750,7 +3795,17 @@ button:disabled {
   color: var(--paper-muted);
   font-family: inherit;
   font-size: 11px;
-  padding: 1px 5px;
+  /* 批次 BD-66（padding 5px 桶·命令面板键帽）：左右槽 5→6，竖槽 1 不动。
+   * 5 落 4/6 正中、就近不裁决 ⇒ 数「键帽水平槽」在档票：.desktop-search-command kbd
+   * 上一批（BD-65）刚定成 `2px 6px`，.uni-search-shell kbd 无 padding（继承容器），
+   * .writing-focus-status kbd 只改色——带水平槽的键帽只有本族与 .desktop-search-command
+   * 两处，且它们是同一套「label + kbd」形态（editorial 注释里早写明二者是孪生兄弟）
+   * ⇒ 收 6 与 .desktop-search-command kbd 同值。4px 在键帽族零票。
+   * 实拍（/tmp/bd66-ab-before.json 24-palette，Ctrl+P 命令面板，1360 窗）：
+   * footer 三枚键帽 computed 由 1px 5px 收成 1px 6px，宽 47.78/82.55/48.02 → 
+   * 49.78/84.55/50.02（各 +2），x 各左移 4~6 随右对齐重排；h 恒 18（竖槽 1 未动），
+   * footer 行高 24 不变。 */
+  padding: 1px 6px;
 }
 
 .creation-palette-footer {
@@ -3926,9 +3981,14 @@ button:disabled {
    *      `.scene-radar-grid`，按雷达岛族收 8，不是 dl 行距族成员。
    *   于是本条的族只剩 {5（本条）, 6（cards-fields-list / stats-words / background-detail-fields）}，
    *   5 的两侧 4/6 里 6 已有三个在档成员 ⇒ 本条的「零在档先例」前提不再成立，
-   *   但因 gap 5px 桶在 BD-54 已清算、本条是唯一滞留成员，本批不扩大范围动它；
-   *   留给下一次 dl 族批按 6 收。 */
-  gap: 5px;
+   *   但因 gap 5px 桶在 BD-54 已清算、本条是唯一滞留成员，当时未扩大范围动它，
+   *   留给下一次 dl 族批按 6 收。
+   * 批次 BD-66（gap 5px 桶清尾）：本批就是那次 dl 族批。族内三个在档成员
+   * （.cards-fields-list / .stats-words / .background-detail-fields）全是 6，本条 5 是孤档
+   * ⇒ 按上面勘误的结论收 6。
+   * 实拍（/tmp/bd66-ab-before.json 25-synth，注入真结构 .migration-report > dl > div×2）：
+   * 收 6 后 dl 高 41→42（探针另测 4→40、8→44），两行不变、只有行距 +1。 */
+  gap: 6px;
   margin: 0;
 }
 
@@ -4762,7 +4822,15 @@ button:disabled {
   background: transparent;
   color: var(--paper-muted);
   font-size: 12px;
-  padding: 5px 10px;
+  /* 批次 BD-66（padding 5px 桶·背景卡详情动作钮）：竖槽 5→6，左右 10 不动。
+   * 5 落 4/6 正中、就近不裁决 ⇒ 数「12px 描边文字钮（radius-1 + 1px 边）」竖槽在档票：
+   * .relation-graph-summary-list button `6px 8px`、.writing-quick-toggle `6px 8px`、
+   * .writing-margin-tabs button `6px 8px`、.inbox-hero-actions .inbox-target-project `6px 10px`
+   * ——四票全 6；4px 只出现在**无边框**的药丸 chip（.overview-chip / .inbox-filter-chip /
+   * .resource-scan-category）或裸图标方钮（.outline-node-actions button），形状不同不投票。
+   * 实拍（/tmp/bd66-ab-before.json 25-synth，注入真结构 .background-detail-actions > button）：
+   * computed 5px 10px、盒 46.02×30；收 6 后 h32（4 时 h28），w 恒 46.02。 */
+  padding: 6px 10px;
   cursor: pointer;
 }
 

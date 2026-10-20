@@ -78,8 +78,16 @@
    * 同族 .card-reference-close `6px`、.cards-close `6px` 两票，.uni-search-close `5px`
    * 一票，同文件 .writing-quick-field input `6px 8px` 的内衬也是 6 侧；8 在该族零票。
    * 真宿主实拍（/tmp/bd64-mutate.json quick_base → headbtn_8）：computed 5px 7px、
-   * 盒 w32/h28；右槽收 6 后 w30、h28（垂直 5 未动，行盒不变）。 */
-  padding: 5px 6px;
+   * 盒 w32/h28；右槽收 6 后 w30、h28（垂直 5 未动，行盒不变）。
+   * 批次 BD-66（padding 5px 桶·同一颗钮的竖槽）：竖槽 5→6，四边收齐 6px。
+   * 5 落 4/6 正中、就近不裁决 ⇒ 数「本文件描边控件的竖槽」在档票：
+   * .writing-quick-context `6px 15px`、.writing-quick-search `6px 8px`、
+   * .writing-quick-field input `6px 8px`、.writing-quick-toggle `6px 8px`——四票全 6，
+   * 4px 在本文件竖槽零票（4 只作 .writing-quick-tabs button 的左右槽）。
+   * 实拍（/tmp/bd66-ab-before.json 22-quick，打开速查面板）：computed 5px 6px、
+   * 钮 30×28/y190.5；收 6 后 30×30/y189.5（横向零变化——图标 16 + 左右 6 + 边 2
+   * 已定宽），面板头 h67 两档全等 ⇒ 只让关闭钮与面板内其它描边控件同高，不顶头部。 */
+  padding: 6px;
   cursor: pointer;
 }
 

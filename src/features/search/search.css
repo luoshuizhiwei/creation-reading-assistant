@@ -65,7 +65,17 @@
   border: 0;
   background: transparent;
   color: var(--paper-muted);
-  padding: 5px;
+  /* 批次 BD-66（padding 5px 桶·全局搜索的关闭钮）：5→6，四边收齐。
+   * 5 落 4/6 正中、就近不裁决 ⇒ 数「图标关闭钮」的产物实测尺寸（BD-49 立的
+   * 「族内地板 26px，低于它就不是命中区修复」）：.uni-search-close 此刻 16px 图标
+   * + 2×5 + 无边框 = 26×26（正是地板本身），.card-reference-close 6px+14=26、
+   * .cards-close 6px+15=27、.creation-search-close 显式 28×28。
+   * 4px 会把它压到 24×24（低于族内地板、比整个族都小），6px 抬到 28×28
+   * 与 .creation-search-close 逐像素同值 ⇒ 收 6。
+   * 实拍（/tmp/bd66-ab-before.json 20-search，1360 窗全局搜索）：
+   * 钮 26×26 → 28×28（x 997→995，向栏内居中收 2）；搜索头 h51→53。
+   * 探针另测 4px 档：24×24 / 头 h49（低于族内地板，正是被否的那档）。 */
+  padding: 6px;
   cursor: pointer;
 }
 
@@ -110,7 +120,16 @@
   color: var(--paper-muted);
   font-size: 12px;
   font-weight: 600;
-  padding: 5px 10px;
+  /* 批次 BD-66（padding 5px 桶·全局搜索的筛选页签）：竖槽 5→6，左右 10 不动。
+   * 5 落 4/6 正中、就近不裁决 ⇒ 按「12px 文字的页签/切换钮竖槽」数在档票：
+   * .writing-margin-tabs button `6px 8px`、.cards-view-switch-button `6px 11px`、
+   * .settings-nav button `8px 12px`——全在 6 及上沿；4px 只出现在药丸 chip
+   * （.overview-chip / .inbox-filter-chip / .resource-scan-category 全是 4px 10~12px），
+   * 而本条是**无圆角、无底色的页签**，不是药丸。
+   * 实拍（/tmp/bd66-ab-before.json 20-search）：computed 5px 10px、页签 h30/x333；
+   * 收 6 后 h32/y126（+2），w 恒 46.02；筛选行 h30→32，无折行。
+   * 探针另测 4px 档 h28。 */
+  padding: 6px 10px;
   cursor: pointer;
 }
 

@@ -2929,7 +2929,17 @@ input[type="text"],
   .desktop-brand.nav-spine-item {
     justify-content: center;
     margin: 0;
-    padding: 5px;
+    /* 批次 BD-66（padding 5px 桶·窄窗布脊品牌行）：5→6，四边收齐。
+     * 5 落 4/6 正中、就近不裁决 ⇒ 数「同一根窄栏里的脊钮」在档票：同文件 @1024 的
+     * .desktop-nav button.nav-spine-item 就是 `padding: 6px`（rail 态，逐字同栏同形态），
+     * .writing-margin-tabs button / .settings-nav button 的竖槽也在 6/8；
+     * 4px 这一族零票。品牌行与导航钮同挂脊条 ⇒ 收 6 与 rail 导航钮同值。
+     * 实拍（/tmp/bd66-ab-before.json 26-rail1024，1024 窗书库屏 rail 态）：
+     * computed `5px 0px`（左右被 .desktop-sidebar--rail .desktop-brand 的
+     * `padding-left/right: 0` 压成 0，本条的左右槽在 rail 态不发射）；
+     * 收 6 后 `6px 0px`——brand 盒 48×52、mark 位置、nav 钮 44×44、
+     * 侧栏 64 宽四档全部一字不动（min-height 52 钳住高度）⇒ 竖向 1px 纯账上收口。 */
+    padding: 6px;
     border-bottom: 0 !important;
   }
 
