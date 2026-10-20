@@ -447,7 +447,12 @@ button:disabled {
 .desktop-sidebar {
   display: grid;
   /* BD-35 摘死声明：grid-template-rows: auto minmax(0, 1fr) auto 从未渲染——「.desktop-sidebar」被 src/styles/editorial-studio.css:79 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
-  gap: 18px;
+  /* 批次 BD-63 摘死声明：gap: 18px 从未渲染——「.desktop-sidebar」的 gap 由
+   * src/styles/editorial-studio.css:80 同键供值（同特异度、静态表发射更晚），本条只是
+   * 一份逐字同值的副本；BD-61 实拍（/tmp/bd61-probe.json 项目首页 1360 窗）读到的
+   * computed gap 18px 来自胜者那一行。本批胜者收 16，这条副本若留着就会变成一份
+   * 「值不同、仍被压死」的死声明，故按 BD-35 同一路摘除。值账 styles.css gap 18px 桶
+   * 随此少一笔。 */
   min-height: 0;
   /* BD-35 摘死声明：padding: 18px 14px 从未渲染——「.desktop-sidebar」被 src/styles/editorial-studio.css:82 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-35 摘死声明：border-right: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent) 从未渲染——「.desktop-sidebar」被 src/styles/editorial-studio.css:83 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
@@ -1007,7 +1012,16 @@ button:disabled {
 .creation-wizard-body {
   min-height: 0;
   overflow: auto;
-  padding: 18px 20px;
+  /* 批次 BD-63（padding 18px 桶·新建项目向导内容区）：竖槽 18→16，左右 20 在档原样。
+   * 18 落 16/20 正中、就近不裁决 ⇒ 数「对话框内容区四边内衬」在档先例：
+   * .paste-preview-body `12px`（同文件弹层内容块）、.migration-body `16px`（对话框体，
+   * 上下槽 16）、.inbox-detail `22px`（右栏详情，越档不算）——这一族在档上限是 16。
+   * 更近的一票在本向导自己身上：.creation-wizard-steps 的 gap 是 16（BD-60 定档）、
+   * 步骤条底槽 12（BD-61），体区竖槽取 16 与步骤条同一档。
+   * 真宿主实拍（/tmp/bd63-probe2.json wizard，1360 窗项目首页 → 新建项目）：computed
+   * 18px 20px、体区 726×291.14；收 16 后体区高度 −4（内容自然高 291.14 未被 min-height
+   * 钳住），左右 20 不动。 */
+  padding: 16px 20px;
 }
 
 .creation-step {
@@ -1480,7 +1494,18 @@ button:disabled {
   width: min(820px, calc(100% - 52px));
   min-height: 100%;
   margin: 0 auto;
-  padding: 18px 0 96px;
+  /* 批次 BD-63（padding 18px 桶·稿纸纸壳顶槽）：顶槽 18→16，左右 0 与底 96 不动。
+   * 18 落 16/20 正中、就近不裁决 ⇒ 数「页面/纸壳四边内衬」在档先例：本批把
+   * .cards-page / .outline-page / .preview-page / 向导体区一起收到 16，加上
+   * .history-page 的 16、.outline-page-side 的 16（BD-61 定档）——这一族在档上限是 16，
+   * 20 侧零成员（20 的成员是分隔件留白与页级大缝，不是纸壳内衬）。
+   * 另一条同向证据在纸壳内部：.scene-editor-content 自己的 padding-top 就是 16
+   * （editorial-studio.css，BD-22 定），顶槽收 16 后「纸边 → 工具条」与
+   * 「工具条 → 正文」的第一步取同一档。
+   * 真宿主实拍（/tmp/bd63-probe2.json writing，1360 窗写作台）：computed 18px 0 96px、
+   * 纸壳 652.63×716、工具条 y 309.5（纸壳 y 290.5 + 1px 线 + 18）；收 16 后工具条上移 2px、
+   * 正文起点同步上移 2，纸壳高度不变（min-height 由内容撑）。 */
+  padding: 16px 0 96px;
 }
 
 .scene-editor-toolbar {
@@ -1572,7 +1597,16 @@ button:disabled {
 
 .scene-conflict-notice,
 .scene-save-error {
-  margin: 0 0 18px;
+  /* 批次 BD-63（margin 18px 桶·稿纸内告示条底距）：18→16。18 落 16/20 正中、就近不裁决
+   * ⇒ 数「稿纸内块 → 正文」的纵向距离：这枚告示正在 .scene-editor 里、紧跟的就是
+   * .scene-editor-content（padding-top 16，BD-22 定档）——告示条底距取 16 后
+   * 「告示 → 正文」与「正文自己的上下内衬」同值，是同一张纸上的一套节奏；
+   * 20 这一族零票（20 只在分隔件留白与页级大缝上）。
+   * 同批 .scene-editor 的纸壳顶槽也从 18 收到 16，纸内两处 18 一起落 16。
+   * ⚠ 零实拍延续 BD-55 的记录：conflict/save-error 常态不出现（要保存冲突或失败才弹），
+   *   本批用合成宿主插进真父容器 .scene-editor（EditorContent 之前）读 computed
+   *   `0px 0px 18px`、盒 h 44；改 16 后正文起点上移 2。 */
+  margin: 0 0 16px;
   /* 批次 BD-55（padding 14px 左右档族·告示条角色）：左右 14→12。
    * 告示条族在档先例清一色 12：.history-impact-notice 10px 12px、
    * .outline-impact-notice 10px 12px、.replace-error-banner/.replace-done-banner 10px 12px、
@@ -1693,7 +1727,14 @@ button:disabled {
 }
 
 .writing-margin h3 {
-  margin: 4px 0 18px;
+  /* 批次 BD-63 摘死声明：margin: 4px 0 18px 从未渲染——这条的宿主 h3 在整块右栏里**根本
+   * 不存在**：WritingDeskMargin.tsx 的 <aside className="writing-margin"> 子树只用
+   * div/button/dl/dt/dd/span/em/b/p/ul/li/select/textarea，没有任何 <h3>。真宿主实拍
+   * （/tmp/bd63-h3.json，1360 窗写作台，场景雷达 / 批注 / 连续模式 / 连续+雷达 四态）：
+   * 每态 rail 内 h3 命中 0。BD-34 当年只判死了这一条上的 font-family（被 editorial 同键
+   * 压住），漏掉了「连宿主都没有」这层——同一族里 editorial-studio.css:1434 的
+   * `.writing-margin h3 { padding-bottom: 10px; font-size: 14px }` 同理（10px 在档、
+   * 无债可还，留着不动）。值账 styles.css margin 18px 桶随此少一笔。 */
   /* BD-34 摘死声明：font-family: Georgia, "Noto Serif SC", "Songti SC", serif 从未渲染——「.writing-margin h3」被 src/styles/editorial-studio.css:1212 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1348 的 14px）。 */
 }
@@ -1909,10 +1950,13 @@ button:disabled {
     padding-left: 8px;
   }
 
-  .writing-manuscript-head {
-    padding-right: 18px;
-    padding-left: 18px;
-  }
+  /* 批次 BD-63 摘死声明：`.writing-manuscript-head { padding-right: 18px; padding-left: 18px }`
+   * （@media ≤920 档）两个键**从未渲染**——同特异度 (0,1,0)、媒体查询不加特异度，而
+   * editorial-studio.css:1287 的 `.writing-manuscript-head { padding: 12px 20px }` 在更晚
+   * 发射的静态表里，且 ≤920 区间必然与它同时命中。逐窗实拍（/tmp/bd63-narrow.json，
+   * 1360 / 1100 / 1024 / 980 / 920 / 900 六档）：computed 恒为 `12px 20px`，本档的 18 一次
+   * 都没上过屏。整条键摘空故只留墓碑、不留空规则（与 BD-60/BD-61 摘 @1180/@920
+   * `.desktop-sidebar` 同法）。值账 styles.css padding-right / padding-left 18px 两桶随此清零。 */
 
   .scene-editor-toolbar {
     flex-wrap: wrap;

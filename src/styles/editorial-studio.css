@@ -77,7 +77,18 @@ select:focus-visible,
   /* 批次 BA：末行之后追加 dock 一行（品牌 / 导航 / 状态卡 / dock）。隐式行也能排，
      但把轨道写全才看得出 dock 是设计的一部分，而不是掉在栅格外的多余节点。 */
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  gap: 18px;
+  /* 批次 BD-63（gap 18px 桶·侧栏布脊的四条行缝）：18→16。18 落 16/20 正中、就近不裁决
+   * ⇒ 数「同一块布脊上的分区间距」在档先例：本栏内部的 .desktop-nav `gap: 4px`、
+   * .desktop-dock `gap: 6px`、.desktop-dock-row `gap: 8px`、.desktop-sidebar-stats span
+   * `gap: 8px` 全在 ≤8；给 16 投票的是「主壳层分区缝」这一档——.desktop-page-stack
+   * `gap: 16px`、.desktop-commandbar 两栏 `gap: 20px`（横向、另一族）。侧栏的四条行缝是
+   * 品牌 / 导航 / 状态卡 / dock 之间的大分区缝，与主壳 layer 同角色 ⇒ 16；20 只在横向
+   * 主壳与分隔件留白上出现，纵向分区缝零票。
+   * 真宿主实拍（/tmp/bd63-probe2.json home，1360 窗项目首页）：computed gap 18px、
+   * 侧栏 216×820、四行；收 16 后三条行缝各 −2，dock 上移 6（底槽不动）。
+   * ⚠ 与 padding 顶槽 18 的耦合：BD-61 记的「顶槽 18 是有意的印台抬升」不变，
+   *   本批只动 gap，布脊内衬仍是 18px 12px 12px。 */
+  gap: 16px;
   min-height: 0;
   /* 批次 BD-61（padding 14px 族·侧栏布脊底槽）：18px 12px 14px→18px 12px 12px。
    * 只动底槽。14 是 12/16 正中、就近不裁决 ⇒ 数「同一块布脊上的分区底槽」在档先例：
@@ -87,9 +98,17 @@ select:focus-visible,
    * 布脊三边（左右底）同值 12，只剩顶槽 18 是有意的「印台抬升」。
    * ⚠ 顶槽 18 **不动**：18 离 §5.1 刻度，属于 padding 18px 桶（本文件 7 处），
    *   要动只能与那批一起动，本批只收 14。
+   * ↳ 批次 BD-63 兑现这笔账（padding 18px 桶全清）：顶槽 18→16。18 落 16/20 正中、
+   *   就近不裁决 ⇒ 数「布脊/页面壳的四边内衬」在档先例：同批 .cards-page / .outline-page /
+   *   .preview-page / 向导体区 / 纸壳顶槽五处一起落 16，加上 .history-page 16、
+   *   .desktop-page-hero 底槽 16（本文件 3090 的胜者档）——这一族在档上限 16、20 零票。
+   *   收 16 后布脊顶槽与左右底不再「16/12/12/18」错位，顶 16 仍高于左右底 12，
+   *   「印台抬升」这个意图保留，只是从离刻度的 18 落回刻度上的 16。
+   *   真宿主实拍（/tmp/bd63-probe2.json home）：computed 18px 12px 12px、侧栏 216×820；
+   *   收 16 后品牌行上移 2、dock 不动（底槽不变）。
    * 真宿主实拍（/tmp/bd61-probe.json 项目首页 1360 窗）：computed 18px 12px 14px、
    * 侧栏 w216/h820；就地改底槽 12 → dock 下沉 2（底 846→848），改 16 → 上移 2（844）。 */
-  padding: 18px 12px 12px;
+  padding: 16px 12px 12px;
   border-right: 1px solid color-mix(in srgb, var(--studio-cloth) 70%, var(--border-strong));
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 34%),
@@ -698,7 +717,18 @@ select:focus-visible,
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 6px 4px 18px;
+  /* 批次 BD-63（padding 18px 桶·页首大标题带的底槽）：底槽 18→16，顶 6 / 左右 4 在档不动。
+   * 18 落 16/20 正中、就近不裁决 ⇒ 数「页首带自身的底槽」在档先例：本文件 :3090 的
+   * 清样胜者档 `.desktop-page-hero { padding: 4px 4px 16px }` 自己就写 16，
+   * .project-home-toolbar / .library-toolbar / .inbox-toolbar 三条 `2px 4px 12px` 的底槽 12、
+   * .inbox-detail-head `margin-bottom: 16px`——这一族在档上限 16，20 零票
+   * （20 的纵向成员全是内容块内衬与分隔件留白，不是页首带）。
+   * ⚠ 级联要点：这一条 padding 实际上被本文件 :3090 的同键胜者整条压住（两条同选择器、
+   *   后者更晚发射），real computed 是 `4px 4px 16px`——本批仍把这条基档一起收到 16，
+   *   是为了不让「被压住的副本」留着 18 这个离刻度值继续记账（BD-35 摘其余副本同一路）。
+   * 真宿主实拍（/tmp/bd63-probe2.json overview，1360 窗概览页）：computed `4px 4px 16px`，
+   * 与胜者档逐字一致。 */
+  padding: 6px 4px 16px;
   border: 0;
   border-bottom: 1px solid var(--border-subtle);
   border-radius: 0;
@@ -845,12 +875,28 @@ select:focus-visible,
  * ----------------------------------------------------------------------- */
 
 .project-home {
-  gap: 18px;
+  /* 批次 BD-63（gap 18px 桶·项目首页根栈）：18→16。18 落 16/20 正中、就近不裁决 ⇒
+   * 数「页面栈根容器的行缝」在档先例：同族 .desktop-page-stack `gap: 16px`（项目首页
+   * 的宿主栈，两个 scale 同源）、.stats-layout / .settings-forms / .settings-layout 全 16、
+   * .overview-page / .inbox-page `gap: 16px`——页面级纵向栈在档清一色 16，20 零票
+   * （20 的成员是横向两栏缝与内容块内衬）。
+   * 真宿主实拍（/tmp/bd63-probe2.json home，1360 窗项目首页）：computed gap 18px、
+   * 根栈 1024×237.5，内部 stats-card 与两段列表之间两条缝；收 16 后各 −2，根栈高 −4。 */
+  gap: 16px;
   padding-bottom: 16px;
 }
 
 .project-home > .stats-card {
-  padding: 18px 6px 8px !important;
+  /* 批次 BD-63（padding 18px 桶·首页统计托盘的顶槽）：顶 18→16，水平 6 与底 8 在档、
+   * 且与布局绑定（BD-62 已记：水平 6 是本文件 :86x 那条 h3 的 `0 16px 13px` 与
+   * .project-home-item `12px 16px 12px 50px` 的列线对齐量，不动）。
+   * 18 落 16/20 正中、就近不裁决 ⇒ 数「卡片/托盘顶槽」在档先例：stats-card 基础档
+   * `padding: 16px`（BD-61 定档，四边统一 16）、.cards-detail-pane 16、
+   * .replace-panel 16、.background-detail 16——卡片级内衬在档上限 16、20 零票。
+   * 收 16 后这个托盘与它内部 .stats-card 的基础档同值（原本只被顶槽的 18 挑开一档）。
+   * 真宿主实拍（/tmp/bd63-probe2.json home）：computed 18px 6px 8px !important、
+   * 盒 1024×156.5、h3 文本起点 y 295+18；收 16 后托盘内容上移 2、高度 −2。 */
+  padding: 16px 6px 8px !important;
 }
 
 .project-home > .stats-card > h3 {
@@ -1186,7 +1232,17 @@ select:focus-visible,
   justify-content: center;
   gap: 10px;
   min-height: 34px;
-  padding: 6px 18px;
+  /* 批次 BD-63（padding 18px 桶·稿纸底部进度条）：竖 6 在档不动，左右 18→16。
+   * 18 落 16/20 正中、就近不裁决 ⇒ 数「横贯全宽的条/带」的左右内衬在档先例：
+   * .creation-proof-summary `10px 16px`、.creation-palette-footer `10px 16px`、
+   * .creation-search-head / .uni-search-head `12px 16px`、.inbox-toolbar /
+   * .project-home-toolbar / .library-toolbar `2px 4px 12px` 的左右是 4（工具栏另一族）——
+   * 「条带类」的左右槽在档清一色 16，20 零票。
+   * ⚠ 不跟同纸壳的 .scene-editor-toolbar `5px 10px` 走：那条是纸内浮动工具条（10 是它的
+   *   紧凑档），本条是纸底通栏状态条，与上面那组通栏条同角色。
+   * 真宿主实拍（/tmp/bd63-probe2.json writing，1360 窗写作台）：computed `6px 18px`、
+   * 条 650.63×34、y 782；收 16 后条内文字左右各外扩 2，条高不变（h 由 min-height 钳）。 */
+  padding: 6px 16px;
   border-top: 1px solid var(--border-subtle);
   background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
   color: var(--text-muted);
@@ -1491,7 +1547,22 @@ select:focus-visible,
 .overview-page {
   height: 100%;
   min-height: 0;
-  padding: 18px;
+  /* 批次 BD-63（padding 18px 桶·四个项目页的页壳四边）：18→16。
+   * 18 落 16/20 正中、就近不裁决 ⇒ 数「页壳四边内衬」在档先例：本族自己另有
+   * .history-page `16px`（history-local.css，这条 18 对它早已是死副本）、
+   * .preview-page 同批落 16、.scene-editor 同批落 16、.desktop-page-scroll 大窗
+   * `26px 30px 36px`（更松的页壳档）——**16 是这一族唯一在档的「四边相等」值**，
+   * 20 只出现在内容块内衬（.project-home-empty `30px 20px`、.writing-scroll 顶 20），
+   * 不是页壳角色。
+   * ⚠ 级联事实（本批实测）：这条对 .history-page 与 .overview-page 是**被压死的副本**
+   * .history-local.css:8 `padding: 16px` 与 .overview-local.css:13 `padding: 4px 2px 8px`
+   * 都是页面本地表（块级、运行时注入，排在本表之后）+ 同特异度。真宿主实拍
+   * （/tmp/bd63-probe2.json outline1360 / narrow）：.outline-page computed 18px（活）、
+   * .history-page 16px、.overview-page `4px 2px 8px`（死）。本批把活的那两个分支
+   * （.cards-page / .outline-page）收 16，与 dead 分支的本地表值同档，四个页面壳不再
+   * 出现「同一语法表里一档、本地表另一档」的分叉。
+   * 收 16 后 .cards-page / .outline-page 内容区各边 +2（页内容整体外扩 2px）。 */
+  padding: 16px;
   background: var(--bg-app);
 }
 
@@ -2826,7 +2897,14 @@ input[type="text"],
   }
 
   .desktop-page-scroll {
-    padding: 18px 18px 26px;
+    /* 批次 BD-63（padding 18px 桶·窄窗页壳）：顶/左右 18→16，底 26 不动（那一档是
+     * 「页尾留白」、属 26px 桶另批）。18 落 16/20 正中、就近不裁决 ⇒ 数「页壳内衬」在档
+     * 先例：与同批四个项目页页壳 + 通读页 + 纸壳顶槽一起落 16（大窗这档是
+     * `26px 30px 36px`，窄窗把它整体收紧，收紧后的四边里没有 20 这一档）；
+     * BD-61 收窄窗 .writing-scroll 时也是同一逻辑——窄窗优先保内容宽，档取在档下限 16。
+     * 真宿主实拍（/tmp/bd63-probe3.json，书库页逐窗）：1360 窗 `26px 30px 36px`、
+     * 1024 窗 `18px 18px 26px`、980 窗同上；收 16 后 1024/980 两窗内容宽各 +4。 */
+    padding: 16px 16px 26px;
   }
 
   .desktop-page-hero {

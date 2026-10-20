@@ -65,6 +65,14 @@
   text-align: center;
   letter-spacing: 0.5em;
   color: var(--muted-ink, #9ca3af);
-  padding: 18px 0;
+  /* 批次 BD-63（padding 18px 桶·连续编辑的场景分隔带）：上下槽 18→20。
+   * 18 落 16/20 正中、「就近」不裁决 ⇒ 数「分隔符号/分隔线自己的上下留白」在档先例：
+   * 20 有两票且都是同一角色——同族的 .writing-margin-rule `margin: 20px 0`（右栏分区之间的
+   * 横线留白）、通读页 .preview-scene + .preview-scene `margin-top: 20px`（场景之间）；
+   * 16 在这一族零票（16 的成员全是头/面板/栅格缝，没有一条是「分隔件自身留白」）。
+   * 真宿主实拍（/tmp/bd63-probe2.json continuous，1360 窗整章连续模式）：本章 3 场 ⇒
+   * 2 枚分隔带，computed 18px 0、每枚 h 57（= 行盒 21 + 36）、y 1128.48；
+   * 收 20 后每枚 h 61，两枚共 +8，场景区整体下移 8px（线性）。 */
+  padding: 20px 0;
   font-size: 14px;
 }

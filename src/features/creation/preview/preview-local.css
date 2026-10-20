@@ -11,7 +11,14 @@
   gap: 10px;
   height: 100%;
   min-height: 0;
-  padding: 18px 22px 22px;
+  /* 批次 BD-63（padding 18px 桶·通读页页壳顶槽）：顶槽 18→16，右/左 22 与底 22 在档原样不动。
+   * 18 落 16/20 正中、就近不裁决 ⇒ 数「项目内各页页壳的顶/整边内衬」在档先例：
+   * .history-page `16px`、.overview-page / .inbox-page `4px 2px 8px`、本页 ≤900 档
+   * `12px 12px 16px`——这一族在档上限是 16，20 侧零成员（20 的成员全是面板/卡片内衬，
+   * 不是页壳）。同批 .cards-page/.outline-page 也从 18 收到 16，四个项目页的页壳顶槽取同值。
+   * 真宿主实拍（/tmp/bd63-probe2.json preview，1360 窗全书预览）：computed 18px 22px 22px、
+   * 盒 1288×689；收 16 后页壳内高 +2、纸页整体上移 2px，右左底不动。 */
+  padding: 16px 22px 22px;
   overflow: hidden;
 }
 
@@ -315,7 +322,16 @@
 
 .preview-block--break {
   width: 42%;
-  margin: 18px auto;
+  /* 批次 BD-63（margin 18px 桶·通读页的场景分隔线）：上下 18→20。18 落 16/20 正中、就近
+   * 不裁决 ⇒ 判据只能落在「分隔件自身的留白」这一族（正文块距表是另一族、已全 12，
+   * 分隔线若跟着 12 就与段距同档、分不出场景边界）：20 在档三票——同批的
+   * .chapter-continuous-break `20px 0`（连续编辑的同类场景分隔）、右栏 .writing-margin-rule
+   * `20px 0`、通读页自己的 .preview-scene + .preview-scene `margin-top: 20px`
+   * （场景之间）；16 在这一族零票。
+   * ⚠ 零实拍：seed 的 8 个 preview-block 里没有 break（BD-55/BD-62 同一份 block-counts）；
+   *   本批用合成宿主插进真父容器 .preview-chapter 读出 computed `18px 194.88px`、
+   *   线盒 h 1（w 282.23 = 42%×672），改 20 后上下各 +2。 */
+  margin: 20px auto;
   border: 0;
   border-top: 1px solid var(--separator);
 }

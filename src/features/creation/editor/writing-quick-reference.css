@@ -183,7 +183,14 @@
 .writing-quick-kind--location { background: #3f7c68; }
 .writing-quick-kind--item { background: #9a7442; }
 .writing-quick-kind--foreshadow { background: #8a5b77; }
-.writing-quick-empty { color: var(--text-muted); font-size: 11px; line-height: 1.6; padding: 18px 10px; text-align: center; }
+.writing-quick-empty {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+  /* 批次 BD-63（padding 18px 桶·速查面板列表空态）：竖槽 18→16，左右 10 在档原样。18 落 16/20 正中、就近不裁决 ⇒ 先数「列表内空态行」同角色在档票：.card-reference-empty `12px 8px`、.resource-scan-empty `12px`、.card-board-empty `12px`、.cards-empty `12px` 全 ≤12——这一族没有一条越过 16，20 侧零票；空态行是**占位**不是分区，不该比列表容器自己的 8px 内衬高出一大截。16 是这族的上限档、也是「占位块」能取的最大在档值。真宿主实拍（/tmp/bd63-probe2.json quickEmpty，1360 窗 Ctrl⇧K + 全局无匹配查询）：computed 18px 10px、盒 w303/h53.59；收 16 后 h 49.59（−4），宽不变。 */
+  padding: 16px 10px;
+  text-align: center;
+}
 
 .writing-quick-detail { min-height: 0; overflow: auto; padding: 12px; }
 .writing-quick-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
