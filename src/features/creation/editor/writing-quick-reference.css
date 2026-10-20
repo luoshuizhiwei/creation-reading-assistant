@@ -141,7 +141,15 @@
 .writing-quick-search {
   display: flex;
   align-items: center;
-  gap: 7px;
+  /* 批次 BD-59（gap 7px 族·搜索框内 图标↔input）：7→6。7px 落 6/8 正中，就近不裁决
+   * ⇒ 数「带 1px 描边 + radius-2 的搜索/输入容器」内图标到输入框那一段的在档票：
+   * 逐字同形三枚全 6px——同文件 .writing-quick-toggle 6px、relation-graph.css
+   * .relation-graph-search 6px（同为「search 图标 + input」）、styles.css .cards-search
+   * 6px。8px 侧只有 .writing-quick-list li > button 那类行按钮，不是输入容器。
+   * 真宿主实拍（/tmp/bd59-probe.json 05-quick，速查面板「全局搜索」tab）：computed
+   * gap 7px、盒 w 295/h 40、2 个子项（svg 14 + input）——改 6 后 input 左移 1px、
+   * 宽度 +1，盒高 h 40 不变。 */
+  gap: 6px;
   margin: 9px 12px 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-2);

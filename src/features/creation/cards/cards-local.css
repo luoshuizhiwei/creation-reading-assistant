@@ -379,7 +379,18 @@
 
 .global-card-library-assets ul {
   display: grid;
-  gap: 7px;
+  /* 批次 BD-59（gap 7px 族·单列网格列表容器）：7→8。7px 落 6/8 正中，就近不裁决
+   * ⇒ 数「单列 grid 列表容器」在档票（不是角色混合池，只数 display:grid 且无列模板
+   * 的列表壳）：8px 有同文件 .global-card-trash-list、.cards-type-list、
+   * .project-card-link-list（三个都是「卡片行列表」，本条是「附件行列表」，
+   * 同行卡角色）＋ history .history-impact-list、operation .bundle-import-result、
+   * .outline-impact-list；6px 侧只有 .bundle-import-result ul / .writing-annotations ul
+   * 这类**嵌套内层**小列表，与容器级列表不同层。本文件 li 与 trash-list li 同形
+   * （1px 描边 + radius-2 + 8px 10px 内衬），同族收同值 ⇒ 8。
+   * 真宿主实拍（/tmp/bd59-probe.json 03-library，全局卡片库选中卡）：附件 ul 未渲染
+   * （assetLi=0，seed 该卡 0 附件）⇒ 本条**零实拍**；同形双胞胎 .global-card-trash-list
+   * 8px 已在档，改 8 与它同值、不新造档。 */
+  gap: 8px;
   margin: 10px 0 0;
   padding: 0;
   list-style: none;
@@ -450,7 +461,13 @@
 .global-card-delete-impact {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  /* 批次 BD-59（gap 7px 族·多列网格瓷砖间距）：7→8。7px 落 6/8 正中，就近不裁决
+   * ⇒ 数「多列网格」在档票（只数带列模板的网格，单列列表另判）：同文件 .cte-field-grid
+   * 8px（三列字段格）、styles.css .cards-checkbox-group 8px 16px、.scene-planning-grid
+   * 8px、.creation-goals-grid 12px 14px（更高一档，两列目标格）。多列网格里 6px 零票
+   * ⇒ 收 8。真宿主实拍（/tmp/bd59-probe.json 03-delete-impact，删卡确认框）：computed
+   * gap 7px、2 列各 199.5px、5 枚瓦片排 3 行、盒 h 126.5——改 8 后列间 +1、行间 +2×2。 */
+  gap: 8px;
 }
 
 .global-card-delete-impact li {

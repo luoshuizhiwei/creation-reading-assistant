@@ -286,7 +286,18 @@ select:focus-visible,
 .desktop-sidebar-stats span {
   display: flex;
   align-items: baseline;
-  gap: 7px;
+  /* 批次 BD-59（gap 7px 族·大数值+小标签 基线串）：7→8。7px 落 6/8 正中，就近不裁决
+   * ⇒ 数「align-items: baseline 的行内串」在档票（这是本条的形态锚：strong 20px +
+   * small 11px 同一基线）：8px 三票——styles.css .card-board-group-head 8px（组头
+   * 标题+计数）、.stats-words > div 8px（今日/本周 + 数值）、.export-preset-option-head
+   * 8px（预设名 + 扩展名），全仓 baseline 串的多数档；10px 一票
+   * （.creation-proof-totals，同形但更高一档）；6px 那几票（.reading-stat-head /
+   * .uni-search-group h3 / .stats-card h3）都是 align-items: center 的「图标+单行字」，
+   * 不是基线串，不计。⇒ 收 8。
+   * 真宿主实拍（/tmp/bd59-probe.json 01-shell，桌面壳侧栏「工作台概览」）：
+   * computed gap 7px、3 枚 span 各 2 子项（strong + small）、span 盒 w 163/h 23.5
+   * ——改 8 后 small 右移 1px，行高 h 23.5 不变。 */
+  gap: 8px;
   padding: 0;
   background: transparent;
 }

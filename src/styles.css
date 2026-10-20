@@ -931,7 +931,19 @@ button:disabled {
 .creation-wizard-steps li {
   display: flex;
   align-items: center;
-  gap: 7px;
+  /* 批次 BD-59（gap 7px 族·圆形序号 + 文本）：7→8。7px 落 6/8 正中，就近不裁决
+   * ⇒ 数「圆形序号章 + 后续文字」在档票：本条的宿主就是 li span 那个 20px 圆
+   * （border-radius: 999px、place-items: center、font-size 11）。逐字同形双胞胎
+   * continuous-editor.css .chapter-continuous-scene-head 8px——同样是
+   * `<span>{index + 1}</span><h3>标题</h3>`、序号也是 999px 圆（22px），角色一致。
+   * 8px 侧另有 .inbox-item-title / .desktop-titlebar-title / .export-preset-option-head
+   * 这类「标记 + 文字」行。6px 侧全是「图标 + 单行字」（.reading-stat-head、
+   * .stats-card h3、.uni-search-group h3），不是序号章 ⇒ 收 8。
+   * 真宿主实拍（/tmp/bd59-probe.json 02-wizard，新建项目向导首屏）：3 步 li
+   * computed gap 7px、各 1 个元素子项（span 圆）+ 紧随的文本节点（匿名 flex item，
+   * gap 正是两者之间那一段）、li 盒 w 87.02/h 20、槽 w 726/h 35——改 8 后
+   * 三步文字各右移 1px，行高 h 20 不变。 */
+  gap: 8px;
   color: var(--paper-muted);
   font-size: 12px;
   font-weight: 600;
@@ -1258,8 +1270,16 @@ button:disabled {
 
 .writing-project-switcher {
   display: grid;
-  gap: 7px;
-  /* BD-34 摘死声明：padding: 16px 从未渲染——「.writing-project-switcher」被 src/styles/editorial-studio.css:1163 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* 批次 BD-59（gap 7px 族·label→控件 单列栈）：7→6。7px 落 6/8 正中，就近不裁决
+   * ⇒ 数「单列 grid 的 label→控件 栈」在档票：同文件 .creation-field 6px、
+   * .writing-annotation-form 6px、cards-local .cte-field-row-head 6px、
+   * history .history-field 6px 四票；8px 侧 .cards-relation-form / .cards-form-actions
+   * 是表单容器/动作行，不是 label→控件两段 ⇒ 收 6。
+   * ⚠ 本条零像素：真宿主实拍（/tmp/bd59-probe.json 05-writing，写作台左栏顶部）
+   * computed gap 7px、display grid、**只 1 个子项**（Select 的 label 包装）——
+   * 单个子项时 gap 从不产生间距，改 6 不移动任何东西。仍按族归一，理由是不留
+   * 一个只在将来加第二个字段时才发作的孤档。 */
+  gap: 6px;
   /* BD-34 摘死声明：border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent) 从未渲染——「.writing-project-switcher」被 src/styles/editorial-studio.css:1164 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.writing-project-switcher」 在产物里被 editorial-studio.css:1165 同键更晚的一条整条压住 */
   font-size: 11px;
@@ -1625,7 +1645,16 @@ button:disabled {
 .writing-boundary {
   display: flex;
   align-items: flex-start;
-  gap: 7px;
+  /* 批次 BD-59（gap 7px 族·图标 + 多行说明段）：7→8。7px 落 6/8 正中，就近不裁决
+   * ⇒ 数「14px 图标 + 多行说明段落」的 flex-start 票：同文件 .migration-error 7px
+   * 是坏 JSON 才渲染的**告警条**（同批一并收 8，见那条注释）——逐条数票时它是同
+   * 形态（icon + flex-start 段），两票同向；scene-radar .scene-radar-empty 8px 是
+   * 同角色的「图标 + 说明段」空状态（只是 column 方向）；.uni-search-error 6px 是
+   * 单行居中告警，align-items:center 不是本形态。⇒ 收 8。
+   * 真宿主实拍（/tmp/bd59-probe.json 05-writing，写作台右栏底部）：computed gap 7px、
+   * 盒 w 238/h 74.75、1 个 svg（Eye 14）+ 文本节点——改 8 后正文起点右移 1px、
+   * 折行位置可能随可用宽变化 1px，段高由文字行数决定。 */
+  gap: 8px;
   margin: 0;
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.writing-boundary」 在产物里被 editorial-studio.css:1227 同键更晚的一条整条压住 */
   font-size: 11px;
@@ -1687,12 +1716,16 @@ button:disabled {
     padding: 14px 10px;
   }
 
-  .desktop-nav button {
-    grid-template-columns: 30px minmax(0, 1fr);
-    gap: 7px;
-    padding-right: 8px;
-    padding-left: 8px;
-  }
+  /* 批次 BD-59 摘死整条：`.desktop-nav button { grid-template-columns: 30px minmax(0, 1fr);
+   * gap: 7px; padding-right: 8px; padding-left: 8px }`（原 @media ≤1180 档）四个键
+   * **全部从未渲染**——宿主 DesktopFrame 的五个导航钮都带 `nav-spine-item`（TSX 核实
+   * 单一 nav 子节点全挂此类），被 editorial-studio.css 的
+   * `.desktop-nav button.nav-spine-item`（特异性 (0,2,1) 对 (0,1,1)，且更晚发射）
+   * 整条压住；≤1024 还有那条更晚的 `.desktop-nav button.nav-spine-item` 再压一次。
+   * 真宿主实拍（/tmp/bd59-probe2.json，逐窗读 computed）：1360 / 1150 / 1100 窗
+   * cols 恒 `24px 130px`、gap 恒 10px、pl/pr 恒 10px（= nav-spine-item 的 24px/10px/7px 10px），
+   * 1000 窗转成 editorial @1024 的 `32px / 10px / 6px`——四档没有一档是 30px/7px/8px。
+   * 按 BD-35/BD-34 摘死声明的同法整条摘除（四条键无一活），值账 gap 7px 桶随此少一笔。 */
 
   .desktop-commandbar {
     gap: 12px;
@@ -2446,7 +2479,18 @@ button:disabled {
 
 .cards-fields-list {
   display: grid;
-  gap: 7px;
+  /* 批次 BD-59（gap 7px 族·dl 行距）：7→6。7px 落 6/8 正中，就近不裁决 ⇒ 数
+   * 「dl 里逐行 div>dt+dd 的行距」在档票（形态锚：都是 `<dl class=…><div><dt/><dd/></div>`）：
+   * 同文件 .stats-words 6px（词数四行）、.background-detail-fields 6px（字段行）
+   * 两票同向，8px 零票；5（.migration-report dl）与 14（.writing-margin dl）是
+   * 族内两个离档孤值 ⇒ 收 6。
+   * ⚠ 更正 BD-54 的记录：那条在 .migration-report dl 上写「三张 dl 的行距 5/7/14
+   * 全族零在档成员」，口径只覆盖了当时点名的三条，漏掉 .stats-words 与
+   * .background-detail-fields 这两张 6px 的 dl——按本批的族定义（dl 行距）它们
+   * 是同一族且都在档。本批据此收 6，BD-54 那条注释保持原样不动（它管的是 5px 桶）。
+   * 真宿主实拍（/tmp/bd59-probe.json 03-library，全局卡片库选中卡）：computed
+   * gap 7px、4 行字段、盒 w 658.45/h 127——改 6 后三处行距各 −1，整块 −3。 */
+  gap: 6px;
   margin: 0;
 }
 
@@ -3574,7 +3618,13 @@ button:disabled {
 .migration-error {
   display: flex;
   align-items: flex-start;
-  gap: 7px;
+  /* 批次 BD-59（gap 7px 族·图标 + 多行告警段）：7→8。判据见同文件 .writing-boundary
+   * 条上方（同一形态、同批同值）：这一条是坏 JSON 才渲染的预检失败行，形态是
+   * AlertTriangle 14 + flex-start 的多行说明。scene-radar .scene-radar-empty 8px
+   * 是同角色空状态票。⚠ 本条真宿主只在迁移预检失败时出现：/tmp/bd59-probe.json
+   * 06-migration 打开的是正常态迁移对话框（err 0、head 0），本条**零实拍**；
+   * 判据只有同形态两票 + 同批同值。 */
+  gap: 8px;
   margin: 0;
   /* 批次 BD-57（padding 9px 垂直槽族·迁移预检错误行）：顶/底槽 9→10。就近不裁决 ⇒ 数
    * h=12px 直系票：同对话框头部 .migration-banner 10px 12px（BD-55 定档）、同族
@@ -3606,7 +3656,17 @@ button:disabled {
 .migration-report-head {
   display: flex;
   align-items: center;
-  gap: 7px;
+  /* 批次 BD-59（gap 7px 族·图标 + 单行成功标题）：7→6。7px 落 6/8 正中，就近不裁决
+   * ⇒ 数「align-items: center 的 图标 + 单行字」在档票，这是本条的形态锚：
+   * 6px 十八票（.reading-stat-head、.stats-card h3、.uni-search-group h3、
+   * .card-reference-head、.session-edit-form h4、.writing-annotation 族等，含同文件
+   * .creation-chip / .cards-checkbox）；8px 八票但形态是「标记/徽标 + 标题」或带
+   * 数据列的行（.inbox-item-title、.desktop-titlebar-title、.overview-status-list li），
+   * align-items:baseline 或带列模板，不是纯 icon+单行字。本条是 CheckCircle2 16 +
+   * 「迁移完成」，纯 center 单行 ⇒ 收 6。
+   * ⚠ 零实拍：/tmp/bd59-probe.json 06-migration 走的是正常迁移对话框（head 0），
+   * 本行只在迁移成功后的报告态出现。判据是族票 18:8 的形态判，不靠这一屏。 */
+  gap: 6px;
   margin: 0;
   color: var(--moss);
   font-size: 14px;

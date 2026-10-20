@@ -188,7 +188,16 @@
 .uni-result-title {
   display: flex;
   align-items: center;
-  gap: 7px;
+  /* 批次 BD-59（gap 7px 族·标题+状态徽标 行）：7→8。7px 落 6/8 正中，就近不裁决
+   * ⇒ 数「标题文字 + 紧跟徽标」的行内票：styles.css .inbox-item-title 8px（收件箱
+   * 标题 + 「旧灵感/已转卡片」em 徽标，逐字同角色）、.export-preset-option-head 8px
+   * （预设名 + 扩展名 em）、editorial .desktop-titlebar-title 8px（mark + 标题）。
+   * 6px 侧是 icon+单行文字（.uni-search-group h3 6px、.reading-stat-head 6px 等），
+   * 那是图标行不是标题+徽标 ⇒ 收 8。
+   * 真宿主实拍（/tmp/bd59-probe.json 04-search，全局搜索「林」）：4 枚结果标题
+   * computed gap 7px、盒 w 680/h 19.5、1 个子项（本条 seed 下没有 pending 徽标，
+   * 故只量到 gap 本身）——改 8 后徽标出现时右移 1px，标题行高不变。 */
+  gap: 8px;
   color: var(--paper-ink);
   font-size: 13px;
   font-weight: 650;
