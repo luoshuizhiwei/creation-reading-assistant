@@ -318,7 +318,15 @@
 .global-card-library-usage {
   border-top: 1px solid var(--border-subtle, var(--paper-line));
   border-bottom: 1px solid var(--border-subtle, var(--paper-line));
-  padding: 13px 0;
+  /* 批次 BD-68（13px 桶·全局卡详情分段竖槽）：上下 13→12，左右 0 原样（分段靠上下发丝线
+   * 分界，不设左右内衬，与卡内 dl / 标题共列线）。13 两侧不等距（距 12 一档、距 16 三档），
+   * 严格最近档唯一在 12。
+   * 真宿主实拍（/tmp/bd68-probe.json libAfter / libSweep，卡片库→选中一张全局卡）：
+   * .global-card-library-usage computed `13px 0px`、盒 661×88、y 579.5；
+   * 就地改 12 → h87，改 8 → 83，改 16 → 91；.global-card-library-assets 在下方
+   * 同批 `13px 0px`、h82 → 12 时 81（改 8 为 77、16 为 85），并随上段高度一起上移 1px
+   * （679.5→678.5）——两段是同一纵向节奏里的兄弟，必须同值收。 */
+  padding: 12px 0;
 }
 
 .global-card-library-usage header {
@@ -366,7 +374,10 @@
 
 .global-card-library-assets {
   border-bottom: 1px solid var(--border-subtle, var(--paper-line));
-  padding: 13px 0;
+  /* 批次 BD-68（13px 桶·全局卡详情分段竖槽）：13→12，与上方 .global-card-library-usage
+   * 同批同值收（两段共用同一纵向节奏，单动一段会让中线偏移 1px）。
+   * 实拍读数见上一条：本段 `13px 0px`、h82 → 12 时 81。 */
+  padding: 12px 0;
 }
 
 .global-card-library-assets header,

@@ -963,8 +963,19 @@ select:focus-visible,
    * 卡片 pl 6px（!important 的 18px 6px 8px，非本批成员）⇒ h3 盒子 x=283；
    * 标题文字距卡片 border-box 左缘 = 边框 1 + 卡片内衬 6 + h3 内衬 14 = 21px，收 16 后 23px。
    * 列表行 .project-home-item 的标题距行左缘实测 50px（序号 ::after 在 left:16px）——
-   * 两列本来就不对齐，这一条不是对齐绑定条，收值不牵动别人。 */
-  padding: 0 16px 13px;
+   * 两列本来就不对齐，这一条不是对齐绑定条，收值不牵动别人。
+   * 批次 BD-68（13px 桶·卡内标题带底槽）：13→12。13 不在任何两档正中间
+   * （12/16 的中点是 14），严格最近档只有 12（距 12 一档、距 16 三档），
+   * 「就近」这次有唯一答案。同角色「带底发丝线的标题带」在档票也全在 12：
+   * .writing-manuscript-head `12px 20px`、.uni-search-head / .creation-search-head
+   * `12px 16px`、.project-home-toolbar / .library-toolbar / .inbox-toolbar
+   * `2px 4px 12px`；10 那一档是 .writing-margin h3 与 .desktop-commandbar，
+   * 是右栏窄条与外壳命令条，不是卡内标题带。
+   * 真宿主实拍（/tmp/bd68-probe.json home，1360 窗项目首页，托盘内唯一 h3）：
+   * computed `0px 16px 13px`、盒 96.64×38、y 310；就地改 12 → h37（−1），
+   * 改 10 → h35、改 16 → h41；三种取值 y 都不动（标题在盒内顶端对齐），
+   * 发丝线随盒底上移 1px，托盘 h 154.5 不变。 */
+  padding: 0 16px 12px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -1625,7 +1636,15 @@ select:focus-visible,
 
 .cards-toolbar,
 .outline-page-head {
-  padding-bottom: 13px;
+  /* 批次 BD-68（13px 桶·项目页工具条底槽）：13→12。13 两侧不等距
+   * （距 12 一档、距 16 三档），严格最近档唯一在 12。同角色「项目页工具条」
+   * 三条在档全 12：.project-home-toolbar / .library-toolbar / .inbox-toolbar
+   * `2px 4px 12px`——本页这两条是它们的同层兄弟，底槽一直比兄弟厚 1px。
+   * 真宿主实拍（/tmp/bd68-probe.json cards / outline，1360 窗）：
+   * .cards-toolbar computed `2px 0px 13px`、w1256/h52.5、y187；
+   * 就地改 12 → h51.5，改 10 → h49.5，改 16 → h55.5；.outline-page-head
+   * 同批 `0px 0px 13px`、h48 → 12 时 h47（改 10 为 45、16 为 51）。y 都不动。 */
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -1745,7 +1764,15 @@ select:focus-visible,
 .inbox-item {
   position: relative;
   margin: 0;
-  padding: 13px 12px 13px 17px;
+  /* 批次 BD-68（13px 桶·收件箱行条目竖槽）：上下 13→12，左右 12 / 17 在档原样。
+   * 13 两侧不等距（距 12 一档、距 16 三档），严格最近档唯一在 12；同角色「大记录行」
+   * 三家在档也全 12：.project-home-item `12px 16px 12px 50px`（BD-61 收）、
+   * .desktop-library-row `12px`（BD-61 收）——本行是第四家、此前一直被邻居的
+   * 注释点名「13 是另一桶的债」，本批兑现。左 17 是行首色条的让位槽，不动。
+   * 真级联合成实测（/tmp/bd68-probe2.json inboxSynth.items，把真 class 的 <li> 注入
+   * 真父容器 .inbox-list）：computed `13px 12px 13px 17px`、盒 h72.19；改 12 → 70.19，
+   * 改 10 → 66.19，改 16 → 78.19；第 2 枚 y 随第 1 枚盒高线性移动（349.38→347.38）。 */
+  padding: 12px 12px 12px 17px;
   border: 0 !important;
   border-bottom: 1px solid var(--border-subtle) !important;
   border-radius: 0 !important;
@@ -1845,7 +1872,13 @@ select:focus-visible,
    * 判据的双胞胎 .cards-detail-head 同页族、12px 在画。 */
   gap: 12px;
   margin-bottom: 16px;
-  padding-bottom: 13px;
+  /* 批次 BD-68（13px 桶·收件箱详情头底槽）：13→12。严格最近档在 12（距 12 一档、
+   * 距 16 三档）；同角色「带底发丝线的详情头」在档也在 12：.writing-manuscript-head
+   * `12px 20px`、.uni-search-head / .creation-search-head `12px 16px`。
+   * 零实拍如实记：seed 收件箱为空，本头不渲染；/tmp/bd68-probe2.json inboxSynth.head
+   * 用真 class 合成（注入真父容器 .inbox-detail）读数——computed `0px 0px 13px`、h44；
+   * 改 12 → h43，改 10 → h41，改 16 → h47。 */
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -2223,8 +2256,15 @@ select:focus-visible,
    * `stats-card reading-stat-tile`，TSX 核实两处）——宿主自己的另一条档左右槽
    * 本来就是 16；本条把左右按到 14 是同宿主自相矛盾。上值 13 是上下档成员，本批不动。
    * 实拍（探针 3 stats 屏，四枚全同）：computed 13px 14px 13px 14px——改动前活着，
-   * 且证实 !imp 整条压住了 .stats-card 的 14px 16px（BD-61 起为 16px）。 */
-  padding: 13px 16px !important;
+   * 且证实 !imp 整条压住了 .stats-card 的 14px 16px（BD-61 起为 16px）。
+   * 批次 BD-68（13px 桶·统计瓦片竖槽）：13→12。13 两侧不等距（距 12 一档、距 16 三档），
+   * 严格最近档唯一在 12；且宿主自己另一条档 .stats-card 已是 `padding: 16px`（BD-61），
+   * 本条只把上下压到 12 是「同一枚瓦片两套纵向节奏」，收 12 反而与同页 .overview-grid
+   * 的卡内节奏同档。!important 保留（它仍在压 .stats-card 的 16 上下槽）。
+   * 真宿主实拍（/tmp/bd68-probe2.json tile / tileSweep，书库→阅读统计，五枚全同）：
+   * computed `13px 16px`、盒 202.19×82、y 370.98；改 12 → h81，改 10 → 79，改 16 → 85；
+   * 五枚 y 与 x 全不动，栅格行高不变。 */
+  padding: 12px 16px !important;
 }
 
 .reading-stat-head {
