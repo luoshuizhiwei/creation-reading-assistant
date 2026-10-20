@@ -1677,7 +1677,13 @@ select:focus-visible,
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
+  /* 批次 BD-60（gap 14px 族·顶部错落的双栏头）：14→12。全站 `align-items: flex-start` +
+   * space-between 的头只有两条：本条 14 与 styles.css 的 .cards-detail-head 12。
+   * 14 落 12/16 正中，就近不裁决 ⇒ 同形态一比一，唯一在档的邻居就是 12，收 12。
+   * 换成更宽的 center+space-between 头口径也一样：12px×10 对 16px×2（票数在档上最多）。
+   * 零实拍：收件箱详情头只在选中某条灵感后渲染，本批 seed 收件箱为空、未捕获；
+   * 判据的双胞胎 .cards-detail-head 同页族、12px 在画。 */
+  gap: 12px;
   margin-bottom: 16px;
   padding-bottom: 13px;
   border-bottom: 1px solid var(--border-subtle);

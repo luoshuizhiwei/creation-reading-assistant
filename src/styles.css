@@ -811,7 +811,16 @@ button:disabled {
 .desktop-library-row {
   display: grid;
   grid-template-columns: 78px minmax(180px, 1.25fr) minmax(180px, 1.35fr) minmax(150px, 0.9fr) 108px 84px;
-  gap: 14px;
+  /* 批次 BD-60（gap 14px 族·表头/数据行共用列轨）：14→12。14 落 12/16 正中，就近不裁决
+   * ⇒ 数「表头与数据行共用一条 grid-template-columns 的行栅格」在档成员：12px 有
+   * .overview-recent-item 一票（3 列记录行），**16px 在本角色零票**——16 那两票
+   * （.settings-layout、.desktop-stats-grid）是卡片/布局网格，装的是不同形状的块，
+   * 不是「同一批记录逐列对齐」的行。故收 12。
+   * 真宿主实测（/tmp/bd60-probe4.json，种了两本书）：表头 gap 14px、w 1084 / h 39.5 /
+   * 列轨 78 · 255.7 · 276.2 · 184.1 · 108 · 84，两条数据行 h 79 / 78——14 确实在画；
+   * 5 条缝各 −2 ⇒ 列轨共让出 10px 给 fr 列，行高由内容定、不受影响。
+   * 同条的 padding 14px（行）与 11px 14px（表头）是另一族（BD-55 记档），本批不动。 */
+  gap: 12px;
   align-items: center;
 }
 
@@ -1058,7 +1067,16 @@ button:disabled {
 
 .creation-form-grid {
   display: grid;
-  gap: 14px;
+  /* 批次 BD-60（gap 14px 族·表单根容器）：14→16。14 落 12/16 正中，就近不裁决 ⇒
+   * 数「表单/字段块根容器」在档票：16px 两票（.settings-forms 设置页表单根、
+   * .creation-wizard-steps 向导步骤条），12px 一票（.cards-form 卡片表单根）。
+   * 本条的直系宿主是新建项目向导，而同向导里 .creation-wizard-steps 就是 16——
+   * 向导自己的两个根容器取同一档，比跨页去投卡片表单更近。故收 16。
+   * 真宿主实测（/tmp/bd60-shots-{before,after}，向导第 2 步「作品信息」）：本步共 3 个
+   * .creation-field（标题 / 简介 / 题材）、纵向 2 条缝，盒高 304.19→308.19（+4 = 2×2），
+   * 宽 686 不变。
+   * 同文件 .creation-field（label→控件栈）是 6px，另一族，本批不动。 */
+  gap: 16px;
 }
 
 .creation-field {
@@ -1136,7 +1154,16 @@ button:disabled {
 .creation-goals-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 14px;
+  /* 批次 BD-60（gap 14px 族·双列字段栅格）：列缝 14→12，与行进 12 同档。
+   * 14 落 12/16 正中，就近不裁决 ⇒ 先看本声明自己：它是**两轴不同值**的写法，
+   * 而行轴 12 已在档上；全站栅格容器里两轴不同值的只有 5 条，其中 3 条是
+   * 「行紧列松」的产物（2px 10px ×2、8px 16px），没有一条把列缝做成行缝的 1.17 倍。
+   * 再看同角色票：2 列表单栅格 .global-card-delete-impact 是单值 8px（两轴同值），
+   * .creation-form-grid 本批收 16（两轴同值）——「两轴同值」是本族的形态，
+   * 本条收 12 即两轴同值、且用的是行轴自己那一档，不是我另挑的新档。
+   * 零实拍：只在新建向导第 3 步 / 目标编辑与场次编辑对话框里渲染，未捕获；
+   * 判据完全落在同一行声明内部，不依赖跨页取证。 */
+  gap: 12px;
   margin-bottom: 14px;
 }
 
@@ -1208,7 +1235,14 @@ button:disabled {
 .creation-writing-stack {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  /* 批次 BD-60 摘死声明：gap: 14px 从未渲染——本条是单类 (0,1,0)，但宿主 TSX 恒同时挂
+   * `desktop-page-stack`（CreationProjectsPage.tsx 的 className 逐字含两枚），而
+   * editorial-studio.css 的 `.desktop-page-stack { gap: 16px }` 发射更晚、同特异度胜出；
+   * 选中项目后宿主再加 `creation-writing-stack--active`，那条 `gap: 0 !important` 直接压死。
+   * 真宿主逐屏实拍（/tmp/bd60-probe.json projectsRead 与 /tmp/bd60-probe3.json）：
+   * 项目页 computed 16px、写作台接管态 computed 0px——两档都不是 14。
+   * 按 BD-35/BD-59 摘死同法摘除；display/flex-direction 两键仍活（computed flex/column），
+   * 故只摘这一条声明、不摘整条规则。值账 gap 14px 桶随此少一笔。 */
 }
 
 .creation-writing-stack > .project-workbench,
@@ -1512,7 +1546,14 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  /* 批次 BD-60（gap 14px 族·左右两栏告警条）：14→12。14 落 12/16 正中，就近不裁决 ⇒
+   * 数「两端对齐（space-between）的告警/横幅条」在档票：12px 三票
+   * （.writing-recovery-notice 同页同角色、.migration-banner、.replace-error-banner 族），
+   * 16px 在本角色零票。故收 12。
+   * 零实拍：本条只在 `sessionState.status === "conflict"` 且未 dismiss 时渲染
+   * （SceneEditor.tsx 的条件分支），单实例本地编辑造不出冲突态；同族在画的
+   * .writing-recovery-notice（12px）可作旁证。 */
+  gap: 12px;
 }
 
 .scene-conflict-notice > div:first-child,
@@ -1614,7 +1655,19 @@ button:disabled {
 
 .writing-margin dl {
   display: grid;
-  gap: 14px;
+  /* 批次 BD-60（gap 14px 族·右栏雷达列表）：14→8。这一条不是「选档」，是**让位**——
+   * 本文件这条 (0,1,1) 恒压过 scene-radar.css 的 `.scene-radar-grid` (0,1,0)，
+   * 而 `.writing-margin` 里唯一的 dl 就是 SceneRadar.tsx 那句
+   * `<dl className="scene-radar-grid">`（全仓 grep 只此一处）。于是面板自家样式表
+   * 写的 8px 从来没画出来过，画的一直是这里的 14。
+   * 真宿主实测（/tmp/bd60-probe3.json）：该 dl gap 14px、7 个 .scene-radar-item 子项、
+   * 盒 238×229.58；同岛 .scene-radar-item / .scene-radar-grid / .scene-radar-empty /
+   * .scene-radar-ai 全是 8px（岛内 8px 五票、6px 两票是标签行与分块，不同角色）。
+   * 收 8 之后与 .scene-radar-grid 同值，两层不再打架；7 条缝各 −6 ⇒ 盒高 −36。
+   * ⚠ 顺带更正 BD-54 那条「三张 dl 全族零在档成员」的记录：dl 族的在档成员是
+   * .stats-words 6px 与 .background-detail-fields 6px，本条的真实族属是雷达岛（8px），
+   * 不是那个「键值行 dl」族——族按宿主形状认，不按标签名认。 */
+  gap: 8px;
   margin: 0;
 }
 
@@ -1712,7 +1765,12 @@ button:disabled {
   }
 
   .desktop-sidebar {
-    gap: 14px;
+    /* 批次 BD-60 摘死声明：gap: 14px 从未渲染——[同特异度 (0,1,0) 且 editorial-studio.css 的
+     * 基础档 `.desktop-sidebar { gap: 18px }` 发射更晚]，媒体查询不加特异度，故 @1180 这条
+     * 压不过它。逐窗实拍（/tmp/bd60-probe2.json）：1150 与 1100 两档 computed gap 恒 18px、
+     * padding 恒 18px 12px 14px——同一条里的 padding 也是死的，但 padding 14px 属 BD-55
+     * 记档族（四边档），本批只摘 gap，padding 留在原处不扩大改动面。
+     * 值账 gap 14px 桶随此少一笔。 */
     padding: 14px 10px;
   }
 
@@ -2482,8 +2540,9 @@ button:disabled {
   /* 批次 BD-59（gap 7px 族·dl 行距）：7→6。7px 落 6/8 正中，就近不裁决 ⇒ 数
    * 「dl 里逐行 div>dt+dd 的行距」在档票（形态锚：都是 `<dl class=…><div><dt/><dd/></div>`）：
    * 同文件 .stats-words 6px（词数四行）、.background-detail-fields 6px（字段行）
-   * 两票同向，8px 零票；5（.migration-report dl）与 14（.writing-margin dl）是
-   * 族内两个离档孤值 ⇒ 收 6。
+   * 两票同向，8px 零票；5（.migration-report dl）是族内孤值 ⇒ 收 6。
+   * （BD-60 勘误：本条写的「14（.writing-margin dl）」已不成立——BD-60 查明那条压的是
+   *  SceneRadar 的 `.scene-radar-grid`，族属雷达岛、已收 8；dl 行距族只剩 5 与 6 两档。）
    * ⚠ 更正 BD-54 的记录：那条在 .migration-report dl 上写「三张 dl 的行距 5/7/14
    * 全族零在档成员」，口径只覆盖了当时点名的三条，漏掉 .stats-words 与
    * .background-detail-fields 这两张 6px 的 dl——按本批的族定义（dl 行距）它们
@@ -3682,7 +3741,16 @@ button:disabled {
    * 替规格造档。且三条互相投不了票：5 的两侧 4/6 谁都不是 dl 族先例，而 14 那一条
    * BD-53 已经记档（scene-radar.css 岛下块距同款平票）。行内 .migration-report dl > div
    * 的 10px 在档（BD-25 加档），照旧。判据留给规格批：若 dl 行距定 4，本条与
-   * .cards-fields-list 一起收、.writing-margin dl 另议；定 6/8 同理。 */
+   * .cards-fields-list 一起收、.writing-margin dl 另议；定 6/8 同理。
+   * ⚠ 批次 BD-60 勘误：上面这段的族口径已被 BD-59/BD-60 两批改写——
+   *   ① .cards-fields-list 已按「dl 行距族」收 6（BD-59），族内 6px 票来自
+   *      .stats-words 与 .background-detail-fields 两张 dl，BD-54 当时点名的三条不是全族；
+   *   ② 「14（.writing-margin dl）」已不存在：BD-60 查明它压的是 SceneRadar 的
+   *      `.scene-radar-grid`，按雷达岛族收 8，不是 dl 行距族成员。
+   *   于是本条的族只剩 {5（本条）, 6（cards-fields-list / stats-words / background-detail-fields）}，
+   *   5 的两侧 4/6 里 6 已有三个在档成员 ⇒ 本条的「零在档先例」前提不再成立，
+   *   但因 gap 5px 桶在 BD-54 已清算、本条是唯一滞留成员，本批不扩大范围动它；
+   *   留给下一次 dl 族批按 6 收。 */
   gap: 5px;
   margin: 0;
 }
@@ -4527,7 +4595,12 @@ button:disabled {
   }
 
   .desktop-sidebar {
-    gap: 14px;
+    /* 批次 BD-60 摘死声明：gap: 14px 从未渲染——[styles.css 主 bundle 第 3 份、editorial-studio.css
+     * 第 4 份]，而 editorial 的 @media (max-width: 1024px) `.desktop-sidebar { gap: 12px }`
+     * 发射更晚、同特异度，且 ≤920 区间必然落进 ≤1024 区间同时命中，故恒压本条。
+     * 逐窗实拍（/tmp/bd60-probe2.json）：1000 与 900 两档（mq920 分别为 false/true）
+     * computed gap 恒 12px、padding 恒 12px 7px——本条 gap 与 padding 双双从未画出来。
+     * 本批只摘 gap（padding 16px 8px 归 padding 族另批）。值账 gap 14px 桶随此少一笔。 */
     padding: 16px 8px;
   }
 

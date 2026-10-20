@@ -68,15 +68,17 @@
 .scene-radar {
   display: flex;
   flex-direction: column;
-  /* ⚠ 批次 BD-53 记档**不动**的第二条：gap 14px 同样离刻度（14∈12/16 平票），
-   * 与上面那条 margin-bottom 是同一个「14px 族」的题，一起留给规格批——
-   * 本条的族旁证更薄：全仓 flex-direction:column + 单值 gap 的堆叠里 14px 只有
-   * 两处（本条与 styles.css 的 .creation-writing-stack），12px×4、16px×3、
-   * 8px×8、10px×8 都在档上；而 .creation-writing-stack 那条在写作页接管态被
-   * editorial 的 `gap: 0 !important` 整条压住（实测 row-gap 恒 0，
-   * /tmp/bd53-probe2.json），等于「另一个 14px 成员根本不渲染自己的值」——
-   * 拿它当先例投票就是投给一条死副本。所以这一族欠的不是本条的档，是规格档。 */
-  gap: 14px;
+  /* 批次 BD-60（gap 14px 族·检查器面板根栈）：14→12。BD-53 当时把这条留给规格批，
+   * 理由是「族旁证太薄」。本批把族重新数了一遍，口径换成**面板根纵向栈**：
+   * flex-direction:column + 单值 gap 的容器里，根级面板/页面栈是 12px×4
+   * （.history-page、.replace-panel、.operation-progress、.resource-scan）对 16px×2
+   * （.inbox-page、.overview-page，都是带 16px 外边距的整页）+ .settings-forms 16（表单根）。
+   * 同为「右栏里的一块」，4:2 站 12；14 在这族里是孤档（另两个 14 成员见下）。
+   * 另两个 14 都已被本批处理：.creation-writing-stack 实测恒 16/0（死声明，摘除）、
+   * .writing-margin dl 实测压着自家 8px（已让位）——即本族 14px 从此清零。
+   * 真宿主实测（/tmp/bd60-probe3.json）：盒 238×477.33、4 个子块、3 条缝；
+   * 收 12 后盒高 −6（缝各 −2），栏宽 238 由宿主锁死不变。 */
+  gap: 12px;
 }
 
 .scene-radar-empty {
