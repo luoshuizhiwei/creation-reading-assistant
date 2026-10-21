@@ -2258,7 +2258,16 @@ button:disabled {
   background: transparent;
   color: var(--paper-muted);
   font-size: 11px;
-  padding: 1px 2px;
+  /* 批次 BD-73（1px 桶·大纲状态选择竖槽）：1→2，左右 2 在档原样。1 落 0/2 正中、就近
+   * 不裁决 ⇒ 0 侧的唯一票是同排 .outline-move-select（`border: 0`、无内衬的真·裸 select），
+   * 而本条是 `border: 1px solid transparent` + hover 才显描边 ⇒ 属「带边框控件」那一族，
+   * 竖槽取 2（与全仓紧凑控件 `2px 8px` 五笔同档：.card-board-card-status / .inbox-item-title em /
+   * .writing-annotation-relocate / .project-card-link-status / .creation-proof-item-rule）。
+   * 0 会让 hover 出现的描边直接贴住 11px 字。
+   * 真宿主实拍（/tmp/bd73-census.json outline，大纲章行真 select 1 枚）：
+   * 1 → p `1px 2px`、h19；2 → h21；0 → h17；三档 宽 59 / x748.13 / 章行高 34 全等
+   * ⇒ 只让控件自身在行内上下各让 1px，不撑行。 */
+  padding: 2px;
   cursor: pointer;
 }
 
@@ -2269,7 +2278,15 @@ button:disabled {
 .outline-node-actions {
   display: inline-flex;
   align-items: center;
-  gap: 1px;
+  /* 批次 BD-73（1px 桶·大纲行图标按钮簇间距）：1→2。1 落 0/2 正中、就近不裁决 ⇒
+   * 数「行内图标按钮簇」在档票：同目录 outline-reorg.css 的 .card-board-reorder 就是
+   * `display: inline-flex; gap: 2px`（同样是纯图标钮簇、同样挂在小控件行右侧），
+   * 0 侧零票——0 会让四个 20×20 圆角悬停底色首尾相接、相邻两钮的圆角在接缝处对切。
+   * 真宿主实拍（/tmp/bd73-census.json outline，大纲卷/章/场景三行，各簇 5×20px 钮）：
+   * 1 → 组宽 104 / 180 / 147、行高 32 / 34 / 28；
+   * 2 → 组宽 108 / 185 / 152（每缝 +1，4 缝 +4）、行高三档全等；
+   * 0 → 组宽 100 / 175 / 142、行高全等 ⇒ 只改簇内缝，不撑行、不动行高。 */
+  gap: 2px;
   opacity: 0;
   margin-left: auto;
 }
@@ -3625,7 +3642,13 @@ button:disabled {
 .creation-proof-item-rule {
   flex-shrink: 0;
   align-self: flex-start;
-  margin-top: 1px;
+  /* 批次 BD-73（1px 桶·校对规则徽标顶槽）：1→0，整条 margin-top 删除。1 落 0/2 正中、
+   * 就近不裁决 ⇒ 实拍裁决（/tmp/bd73-proof.json badge，真校对面板 + 合成真 class 的
+   * .creation-proof-item 行，面板宽 662）：徽标**文字块**中心与消息首行文字块中心之差
+   * deltaCenter —— 0 时 **0.00**（严格共中线）、1 时 +1.00、2 时 +2.00；逐字顶部差
+   * deltaTextY 为 1 / 2 / 3。也就是说现有那 1px 不是把徽标「抬到光学中线」的补正，
+   * 而是把已经对齐的文字整体压低了 1px ⇒ 0 才是对齐档，且 0 在刻度内。
+   * 三档行高 79.5、行宽 662、徽标盒高 20.5 全等（只挪 1px 位置）。 */
   border-radius: 999px;
   background: color-mix(in srgb, var(--proof-mark) 10%, transparent);
   color: var(--proof-mark);
@@ -3892,7 +3915,15 @@ button:disabled {
    * footer 三枚键帽 computed 由 1px 5px 收成 1px 6px，宽 47.78/82.55/48.02 → 
    * 49.78/84.55/50.02（各 +2），x 各左移 4~6 随右对齐重排；h 恒 18（竖槽 1 未动），
    * footer 行高 24 不变。 */
-  padding: 1px 6px;
+  /* 批次 BD-73（1px 桶·命令面板键帽竖槽）：1→2，左右 6 在档原样。1 落 0/2 正中、就近
+   * 不裁决 ⇒ 数「键帽」竖槽在档票：孪生 .desktop-search-command kbd 已在 `2px 6px`
+   * （BD-65 定档，1360 首页实拍 h20.5），0 侧全仓键帽零票——0 会把键帽压到 h16、
+   * 比同族矮 4.5px。收 2 后两处键帽同值同高（18→20 对 20.5，差只剩字体行盒的 0.5）。
+   * 真宿主实拍（/tmp/bd73-census.json paletteKbd，Ctrl+P 命令面板，4 枚键帽）：
+   * 1 → p `1px 6px`、h18、y647.89；2 → h20、y646.89；0 → h16、y648.89；三档
+   * 宽 49.78/84.55/50.02/83.34 与 x 全等（横向零影响），footer 行高 60 三档恒定
+   * ⇒ 键帽在自己的 60px 底条里居中上移 1px，不撑条。 */
+  padding: 2px 6px;
 }
 
 .creation-palette-footer {

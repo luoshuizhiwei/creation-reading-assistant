@@ -265,5 +265,12 @@
   border-radius: var(--radius-1);
   background: color-mix(in srgb, var(--copper) 22%, transparent);
   color: var(--paper-ink);
-  padding: 0 1px;
+  /* 批次 BD-73（1px 桶·搜索命中 <mark> 横向槽）：1→0，整条 padding 删除。1 落 0/2 正中、
+   * 就近不裁决 ⇒ 数「行内文字色块」同角色在档票：全仓另一个 <mark> 高亮是设置页
+   * .settings-search-result mark，它只有色/字重、零背景零内衬 ⇒ 0 侧一票、2 侧零票。
+   * 本条是文字装饰而不是控件（无描边、无 hover、无点击），0 让色块与字形前进盒严格重合，
+   * 也是 UA 对 <mark> 的默认。
+   * 真宿主实拍（/tmp/bd73-census.json uniHit，Ctrl+K 搜「陈默」，命中 3 枚）：0/1/2 三档
+   * 段落高 19.19、行高 19.2、命中块 x340/y240 全等（不重排），只有块宽
+   * 24.02 / 26.02 / 28.02，块高 14 三档不变。 */
 }
