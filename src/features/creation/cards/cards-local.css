@@ -366,7 +366,21 @@
 
 .global-card-library-usage p,
 .global-card-library-policy {
-  margin: 9px 0 0;
+  /* 批次 BD-72（margin 9px 桶·全局卡详情说明段上距）：9→10。9px 落 8/10 正中，就近不裁决
+   * ⇒ 数「分段的说明段/子列表上距」在档票：本条两段自己的兄弟列表就在同文件里——
+   * .global-card-library-usage ul 与 .global-card-library-assets ul 都是 `margin: 10px 0 0`
+   * （本文件 448 / 422 行），且与本体是**同一槽位的互斥分支**（有内容出 ul、无内容出 p），
+   * 不同值就会让空/非空切换时整段跳 1px。全仓 `margin: 10px 0 0` 共 9 处（含 styles.css 4 处、
+   * outline-reorg.css 2 处），8px 侧只有 replace.css / writing-reference.css /
+   * scene-candidate.css 三处提示条 ⇒ 收 10。
+   * 真宿主实拍（/tmp/bd72-census2.json globalSynth：卡片库页没有 .desktop-page-scroll，
+   * 把真 class 的 .cards-detail-card.global-card-library-detail（头 + 用量段 p + 附件段 p +
+   * 政策段）注入真宿主 .cards-layout.global-card-library-layout，宿主宽 1112）：
+   * 9 → usage p y674.39 / assets p y763.66 / policy y820.23，两段 h 80.77 / 76.08，段头→p 9；
+   * 10 → y673.52 / 763.41 / 820.61，h 81.39 / 76.70，段头→p 10；
+   * 8 → y675.27 / 763.91 / 819.86，h 80.14 / 75.45。卡高 292.19 → 293.69（8 时 290.69），
+   * 详情栏自动高、无裁切。 */
+  margin: 10px 0 0;
   color: var(--paper-muted);
   font-size: 12px;
   line-height: 1.6;
@@ -400,7 +414,13 @@
 .global-card-library-asset-actions { display: flex; gap: 6px; }
 
 .global-card-library-assets > p {
-  margin: 9px 0 0;
+  /* 批次 BD-72（margin 9px 桶·附件段说明段上距）：9→10。判据与上方 usage p 同一条（9 是
+   * 8/10 正中、就近不裁决），且本段自己的列表 .global-card-library-assets ul 就在下面
+   * `margin: 10px 0 0`——p 与 ul 是同一槽位的互斥分支（0 附件时出 p、有附件时出 ul），
+   * 必须同值。真宿主实拍（/tmp/bd72-census2.json globalSynth 合成真 class 进真详情栏，
+   * 宿主宽 1112）：9 → p y763.66、段 h 76.08；10 → y763.41、h 76.70；8 → y763.91、h 75.45
+   * （y 的微小反向位移来自上一段同时增高，卡总高 292.19→293.69 如实记）。 */
+  margin: 10px 0 0;
   color: var(--paper-muted);
   font-size: 12px;
 }

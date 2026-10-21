@@ -534,7 +534,15 @@ button:disabled {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
   align-items: center;
-  gap: 9px;
+  /* 批次 BD-72 摘死声明：gap: 9px 从未渲染——「.desktop-nav button」在本文件里 (0,1,1)，
+   * 而 editorial-studio.css:262 的 `.desktop-nav button.nav-spine-item` 是 (0,2,1) 且发射
+   * 更晚，gap 被逐字压成 10px。实验（/tmp/bd72-census.json navGap，1360 窗首页 5 枚导航钮）：
+   * 基线 computed 五枚全 10px；往 head 末尾插普通选择器 `.desktop-nav button{gap:33px}`（无
+   * !important）**改不动** computed（仍五枚 10px）；改插
+   * `.desktop-nav button.nav-spine-item{gap:33px}` 立刻五枚全 33px——由此确证供值的是
+   * (0,2,1) 那条、本条从未上屏。与 BD-64 摘同规则里的 padding 副本、BD-67 摘 .desktop-brand
+   * gap 副本同法。整条声明里 grid-template-columns / min-height 同样被压住，但那是别的桶的
+   * 账，此处只摘本桶的 gap。值账 styles.css gap 9px 桶随此清零。 */
   min-height: 48px;
   /* 批次 BD-64 摘死声明：padding: 7px 10px 从未渲染——「.desktop-nav button」在本文件里
    * (0,1,1)，而 editorial-studio.css:245 的 `.desktop-nav button.nav-spine-item` 是

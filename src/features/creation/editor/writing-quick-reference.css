@@ -183,7 +183,16 @@
    * gap 7px、盒 w 295/h 40、2 个子项（svg 14 + input）——改 6 后 input 左移 1px、
    * 宽度 +1，盒高 h 40 不变。 */
   gap: 6px;
-  margin: 9px 12px 0;
+  /* 批次 BD-72（margin 9px 桶·面板内搜索壳上距）：9→8。9px 落 8/10 正中，就近不裁决 ⇒
+   * 数本面板内的竖向节奏在档票：8px 四票——.writing-quick-list 自身内衬 8px（紧贴在壳
+   * 下方、两者之间零 margin）、.writing-quick-list li > button 内衬 8px、.writing-quick-save
+   * 底距 8px、本壳自己的水平内衬 8px；10px 只有 .writing-quick-detail-head 底距一票。
+   * 更硬的一条是实拍几何：壳底 309+38=347、首项 y355 ⇒ 壳下缝 8px；上距改 8 后上下
+   * 两缝同为 8，改 10 就是 10/8 不对称。
+   * 真宿主实拍（/tmp/bd72-census.json quickSearch，写作页速查面板「本场景」tab）：
+   * 9 → margin `9px 12px 0`、壳 y309/h38、首项 y355、面板 h689 恒定；
+   * 8 → 壳 y308、首项 y354；10 → 壳 y310、首项 y356。 */
+  margin: 8px 12px 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-2);
   background: var(--bg-subtle);
@@ -245,7 +254,21 @@
 .writing-quick-detail-head button { font-size: 11px; }
 .writing-quick-detail-head button.active { color: var(--accent-spine); border-color: color-mix(in srgb, var(--accent-spine) 35%, var(--border-subtle)); }
 .writing-quick-field,
-.writing-quick-detail .cards-field { display: grid; gap: 4px; margin-bottom: 9px; }
+.writing-quick-detail .cards-field {
+  display: grid;
+  gap: 4px;
+  /* 批次 BD-72（margin-bottom 9px 桶·速查详情字段块底距）：9→10。9px 落 8/10 正中，就近
+   * 不裁决 ⇒ 数「字段块之间的块距」在档票：本条渲染的就是卡片字段（.cards-field 同一选择器
+   * 组），而卡片编辑器里同角色的字段块 .cte-field-row 底距 10px、.cards-fields-manager-head
+   * 底距 10px（cards-local.css 88/100 行）；8px 侧只有 .cte-field-row-head 那类块**内**头行
+   * 底距，不是字段块之间。同面板 .writing-quick-detail-head 底距也是 10px ⇒ 上半张详情栏
+   * 统一 10 的节奏。
+   * 真宿主实拍（/tmp/bd72-census2.json quickField，写作页速查面板「本场景」→点选一张卡，
+   * 真 .writing-quick-field 共 4 枚）：9 → 块底缝 9、末块底 845.5、详情滚动高 407；
+   * 8 → 8 / 842.5 / 403；10 → 10 / 848.5 / 411。详情栏可视高 336 恒定（滚动容器，
+   * 加 4px 只让滚动量变大，不裁切）。 */
+  margin-bottom: 10px;
+}
 .writing-quick-field > span,
 .writing-quick-detail .cards-field-label { color: var(--text-muted); font-size: 11px; font-weight: 700; }
 .writing-quick-field input,
