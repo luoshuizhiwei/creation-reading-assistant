@@ -104,8 +104,21 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
                 <span>项目资料卡</span>
               </label>
               {targetKind === "projectCard" && (
+                /* 批次 BD-71（28px 桶·摘录目标 select 缩进）：ml-7→ml-8（28→32）。
+                   28 是 24/32 正中平票，就近不裁决 ⇒ 判据是它该缩进到哪一条列线上。
+                   父 label 是 `px-3 py-2` + `gap-2`，内含 radio(13px) / 图标(15px) / 文字：
+                   列 x421 → 内衬 12 起 → radio 434–447 → 间隙 8 → 图标 455–470 → 间隙 8 →
+                   文字 478。即选项的「内容列」（图标起点）在列首 +34，刻度的最近档是 32。
+                   真宿主实拍（/tmp/bd71-excerpt2.json，阅读器选中→`title="摘录到资料"`→
+                   切「项目资料卡」，1360 窗）：ml 28 → select x449 = 列首 +28，与图标列
+                   差 6px、与 radio 右缘只差 2px，哪条线都没对齐；ml 24 → x445，**左缘切进
+                   radio 自己的盒**(434–447) 里 2px；ml 32 → x453，与图标列差 2px，是全三档
+                   里唯一落在选项内容带内的。
+                   三档下 select 右缘恒为 939（= 父 label 右缘），宽 490/494/486 随左缩进
+                   让出，高恒 32、radio 与图标位置全不动（/tmp/bd71-ml-24|28|32.png 三帧
+                   目视一致），即本改动只把嵌套控件推回选项内容带，不牵动任何兄弟。 */
                 <select
-                  className="paper-input h-8 ml-7"
+                  className="paper-input h-8 ml-8"
                   value={projectId}
                   onChange={(event) => setProjectId(event.target.value)}
                   disabled={projects.length === 0}

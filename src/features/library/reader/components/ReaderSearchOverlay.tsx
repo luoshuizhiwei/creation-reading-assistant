@@ -83,13 +83,22 @@ export function ReaderSearchOverlay({
     >
       <div className="relative flex items-center">
         <Search size={14} className="absolute left-2.5 text-paper-muted pointer-events-none" />
+        {/* 批次 BD-71（28px 桶·搜索框图标让位槽）：pl-7→pl-8（28→32）。
+            28 是 24/32 正中平票，就近不裁决 ⇒ 数「前导图标 + 输入框」这一族在档票：
+            SettingsSearch `h-8 w-full pl-8 text-xs`（图标 left-2.5 / size 13）、
+            TocList `pl-8`（同款图标）、LibraryPage `pl-9`（图标 left-3 / size 16）——
+            在档只有 32 与 36 两档，24 侧零成员。
+            真宿主实拍（/tmp/bd71-tsx.json，Ctrl+F 真浮层）：图标右缘 999、正文起笔
+            1003 ⇒ 缝 4px；改 24 → 缝 0（字直接贴图标右缘），改 32 → 缝 8，
+            与上面三条同族的 8–9px 缝对齐。框盒 192×28 与 scrollWidth 190 在
+            24/28/32 三档全不动；占位文字实测 144.65px，32 档仍有 152px 可用，不截断。 */}
         <input
           ref={inputRef}
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="搜索正文 (Enter 下一处)..."
-          className="paper-input h-7 w-48 pl-7 pr-2 text-xs"
+          className="paper-input h-7 w-48 pl-8 pr-2 text-xs"
           aria-label="搜索正文关键词"
         />
       </div>

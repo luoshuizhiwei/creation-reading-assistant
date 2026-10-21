@@ -104,6 +104,17 @@ export function TocList({ entries, currentId, onJump, emptyText, disableSearch, 
       {showSearch && (
         <div className="relative">
           <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-paper-muted" />
+          {/* 批次 BD-71（28px 桶·目录搜索右让位槽）：pr-7→pr-8（28→32）。
+              28 是 24/32 正中平票，就近不裁决 ⇒ 判据是本框自己的清除钮：
+              钮 `absolute right-1.5` + `p-1` + X size 12 ⇒ 宽 20px，右端贴输入框
+              右缘内 6px 处。真宿主实拍（/tmp/bd71-tsx.json，目录栏输入「第」）：钮盒
+              x1318–1338、输入框右缘 1344；pr 24 → 文字区右界 1320，**压进钮盒 2px**；
+              pr 28 → 右界 1316，与钮左缘只剩 2px 缝；pr 32 → 右界 1312，与钮左缘留 6px，
+              与钮自身的 6px 右缩进对称。即 32 让「文字停 → 6px 缝 → 钮 → 6px → 框边」
+              成为左右等距的唯一一档。
+              框盒 287 与 scrollWidth 285 在 24/28/32 三档全不动；占位文字实测 70px，
+              32 档可用 287−32−32=223px，不截断。左槽 pl-8（32）本就在档，收 32 让
+              左右内衬同值。 */}
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -111,7 +122,7 @@ export function TocList({ entries, currentId, onJump, emptyText, disableSearch, 
               if (event.key === "Escape") setQuery("");
             }}
             placeholder="搜索章节…"
-            className="paper-input h-8 w-full pl-8 pr-7 text-sm"
+            className="paper-input h-8 w-full pl-8 pr-8 text-sm"
             aria-label="搜索章节目录"
           />
           {query && (

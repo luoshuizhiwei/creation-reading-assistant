@@ -1364,7 +1364,22 @@ button:disabled {
   display: grid;
   min-height: 240px;
   place-items: center;
-  padding: 28px;
+  /* 批次 BD-71（28px 桶·虚线托盘四边）：28→32。28 是 24/32 的**正中平票**，「就近」
+   * 不裁决 ⇒ 数同角色「虚线托盘 + 居中说明」这一族的在档票：.history-empty `32px 16px`、
+   * .project-home-empty `32px 20px`、.uni-search-state `32px 12px`——三条的竖槽全在 32、
+   * 24 侧零成员；24 只出现在弹层内卡形空态（.creation-search-state `24px 16px`、
+   * .preview-failure `24px 32px`），那是更紧的另一族。本元素是横跨内容区的虚线盘，
+   * 与上面三条同族，取 32。
+   * 真宿主一（/tmp/bd71-final1.json，写作台真父 .writing-scroll）：盒 704.63×240、
+   * 内文中心 x619.48/y400.5，20/24/28/32 四档**全部不动**——min-height 240 钳住盒高，
+   * place-items:center 又把唯一一行钉在几何中心，四边内衬只决定「内容离边多远」，
+   * 而内容本来就在中心。
+   * 真宿主二（/tmp/bd71-loading.json，.creation-writing-loading 注入真页壳
+   * .desktop-page-scroll，壳宽 1080）：盒 1080×240、x248/y132 四档不动，只有居中字的
+   * y 跟着顶槽走（20→289.5、24→287.5、28→285.5、32→283.5），每档 2px、对称居中不变。
+   * 即收 32 在真宿主上是 −2px 的字位漂移：无重排、无掉行（唯一一行 16px 字高 19，
+   * 240−64=176 可用）。 */
+  padding: 32px;
   border: 1px dashed var(--paper-line);
   border-radius: var(--radius-2);
   color: var(--paper-muted);
@@ -1511,6 +1526,19 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  /* 批次 BD-71 记档（28px 桶·恢复说明横槽）：左右 28 **不动**，是这一批唯一「绑在
+   * 别人身上」的一条。它是 abnormalExit 时插在 .writing-scroll 之上的横幅，自己不在
+   * 滚动容器里，因而没有「继承」容器内衬——两边只有靠 hand-tuned 的 28 才能与下面
+   * 正文内容列对齐。
+   * 真宿主实拍（/tmp/bd71-align.json 与 /tmp/bd71-final1.json，写作台真父
+   * .writing-manuscript）：28 时横幅 x340 / 宽 712，滚动容器内容列 x339.2——差 0.8px
+   * （容器左右槽是 `clamp(14px, 2vw, 28px)`，1360 窗算出 27.2，不是 28；1600/1800/2000
+   * 三窗 clamp 顶到 28，横幅与内容列**逐像素相等**、差 0）。
+   * 收 24 → x336 / 宽 720，比内容列**左出 3.2px**；收 32 → x344 / 宽 704，**内缩 4.8px**。
+   * 即 banner 与正文的左边界不再同一条竖线——这是肉眼可见的错位，且只在宽窗「愈合」
+   * 的 28 一档不存在。28 不是「离刻度就近」，它是这里唯一与 .writing-scroll 的水平
+   * clamp 上界同值的档；要动它必须先把容器的 clamp 上限一起搬，那是定档不是还债。
+   * ↳ 值账保留 styles.css margin 28px ⑉ 1（记档，见 SPACING_BUDGET 同条）。 */
   margin: 12px 28px 0;
 }
 
