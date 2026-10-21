@@ -11,14 +11,33 @@
   gap: 10px;
   height: 100%;
   min-height: 0;
-  /* 批次 BD-63（padding 18px 桶·通读页页壳顶槽）：顶槽 18→16，右/左 22 与底 22 在档原样不动。
+  /* 批次 BD-63（padding 18px 桶·通读页页壳顶槽）：顶槽 18→16，右/左 22 与底 22 本批未动
+   * （原文那句「在档」是笔误：22 从来不在刻度上，只是不在 18 桶的范围内，见下面 BD-74）。
    * 18 落 16/20 正中、就近不裁决 ⇒ 数「项目内各页页壳的顶/整边内衬」在档先例：
    * .history-page `16px`、.overview-page / .inbox-page `4px 2px 8px`、本页 ≤900 档
    * `12px 12px 16px`——这一族在档上限是 16，20 侧零成员（20 的成员全是面板/卡片内衬，
    * 不是页壳）。同批 .cards-page/.outline-page 也从 18 收到 16，四个项目页的页壳顶槽取同值。
    * 真宿主实拍（/tmp/bd63-probe2.json preview，1360 窗全书预览）：computed 18px 22px 22px、
    * 盒 1288×689；收 16 后页壳内高 +2、纸页整体上移 2px，右左底不动。 */
-  padding: 16px 22px 22px;
+  /* 批次 BD-74（22px 桶·通读页页壳左右与底）：22→20。22 是 20/24 的正中平票
+   * （两个方向各差 2），「就近」不裁决 ⇒ 左右与底分别数在同角色上的在档票：
+   *   · 左右：页壳族在档成员 16/12（.cards-page/.outline-page/.history-page/.overview-page
+   *     16、本页 ≤900 档 12），20 与 24 各有一张远亲页壳（.writing-scroll 顶槽 20、
+   *     .desktop-page-scroll 顶槽 24）——两边打平，取离本族 16 更近的 20。
+   *   · 底：页壳底槽的在档成员是 16（四个项目页）与 .desktop-page-scroll 36——20 与 24
+   *     都没有直系票；同左右取 20，让这一圈内衬只有「顶 16 / 左右与底 20」两档。
+   * 真宿主实拍（/tmp/bd74-census.json preview，1360 窗全书预览，computed 16px 22px 22px）：
+   *   · 左右 20/22/24 三档下 .preview-document 恒 x340.5/w751/clientW740、
+   *     .preview-chapter 恒 x375.5/w672——页壳内宽 1244 远大于纸面 cap 751，左右槽
+   *     在常态根本不参与排版；再在 901 窗（紧贴 ≤900 断点之上，页壳 829 宽）复测，
+   *     三档下 docW/docX/clientW/chapW 同样全不动（751/111/740/672）。所以左右收多少
+   *     都没有实渲差别，只能按同角色票走。
+   *   · 底 22→20：纸面 .preview-document 盒高 562.5→564.5（flex:1 吃掉页壳内高，
+   *     底槽每减 2 纸面多 2），24 侧 560.5；纸面 x/y/宽、scrollHeight 671 全不动。
+   *   · MEASURE 不变量只看 .preview-document 自己的 cap/padding/border/滚动条
+   *     （751 − 34×2 − 1×2 − 9 = 672），页壳这圈内衬不在那条加法里，收 20 只增不减
+   *     可用宽，三态实算不受影响。 */
+  padding: 16px 20px 20px;
   overflow: hidden;
 }
 

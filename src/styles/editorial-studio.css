@@ -1876,7 +1876,21 @@ select:focus-visible,
 .inbox-detail-empty {
   min-height: 0;
   overflow: auto;
-  padding: 22px !important;
+  /* 批次 BD-74（22px 桶·收件箱右栏详情四边）：22→20。22 是 20/24 的正中平票
+   * （两个方向各差 2），「就近」这批不裁决 ⇒ 数「详情面板/卡片内衬」在档先例：
+   * 本文件 .stats-card 基础档 16（BD-61 定档，四边统一）、.project-home > .stats-card 16、
+   * .replace-panel 16、styles.css .background-detail 16、.cards-detail-pane 16、
+   * .outline-page-side 16——**这一族的在档成员全在 16 及以下，24 侧零票**；20 是离
+   * 该带最近的候选（与 16 只差一档，24 差两档），且 20 在全仓的内衬成员是
+   * 弹层卡/内容块（.writing-reanchor-dialog、.replace-progress-card、.writing-scroll 顶槽），
+   * 与「详情面板」同属内容块内衬，24 侧的内衬成员则全是页壳/空态大槽
+   * （.desktop-page-scroll 顶槽、.uni-search-state、.preview-failure）。
+   * 真宿主实拍（/tmp/bd74-census.json inboxDetail，1360 窗收件箱 → 速记一条 → 选中，
+   * computed 22px 四边）：盒 695.41×668.59 恒宽，头 x684.59/y292.19、头宽 651.41；
+   * 收 20 后头 x682.59/y290.19、宽 655.41，四块子内容高度全部不动（61.5/132/234/165.09），
+   * 盒高 668.59→664.59（−4，只有上下内衬各 −2），scrollH=clientH 仍无溢出；
+   * 24 侧对称地 +4（672.59）、16 侧 −12（656.59）——三档都不引发换行。 */
+  padding: 20px !important;
   border: 0 !important;
   border-radius: 0 !important;
 }
