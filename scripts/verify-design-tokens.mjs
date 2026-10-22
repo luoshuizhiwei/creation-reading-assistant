@@ -1692,6 +1692,38 @@ const isPureRingValue = (v) => {
    * 立场沿用 BD-25：只登记、不判死，也不许拿它当「这些值就该这样」的设计背书。
    * 重钉的唯一入口是 DESIGN_TOKEN_DUMP_SHADOW_VALUES=1，不许手写。
    */
+  /* ---- 批次 BD-86·阴影值账 12 条**活性复核**（零像素批）----
+   *
+   * 本批不判档、不改值，只回答一个问题：这 12 条里有没有像 BD-19 的 `.inbox-item--selected`
+   * 那样「从没画出一个像素」的幻影。逐条在真宿主上读 computed
+   * （/tmp/bd86-recon.json、/tmp/bd86-recon2.json、/tmp/bd86-recon3.json、/tmp/bd86-dark.json），
+   * 结论是 **12 / 12 全在渲染、0 条可还**：
+   *   · .paper-slider::-webkit-slider-thumb（settings-controls.css）——伪元素的 computed 在
+   *     Chromium 读不到（`getComputedStyle(el, "::-webkit-slider-thumb")` 返回的是元素自身：
+   *     宽 448 = 输入宽、box-shadow none；CDP `CSS.getComputedStyleForNode` 的 pseudoElements
+   *     也是空数组），所以改用像素证据：真设置页同一处裁剪 468×40，强制这条伪元素
+   *     `box-shadow: none !important` 前后逐像素比，311 个像素变了、最大 Δ28、
+   *     变化区 (124,9)-(148,33) 正好是拇指（16px + 4px 模糊）——影子真的画出来了。
+   *   · 7 条 reader-bg-*（styles.css）：真阅读器纸张 900×3937.63 上逐个换类，7 个皮肤 computed
+   *     全是 `rgba(0,0,0,0) 0 0 0 0, rgba(0,0,0,0) 0 0 0 0, rgba(34,38,48,0.1) 0 18px 50px`
+   *     （前两层是 border / 环占位），与 tailwind 的 shadow-paper 同值。
+   *   · .cards-board-card / .background-card / .cards-detail-card / .history-empty 四宿主全在：
+   *     设定卡看板、背景设定卡、卡片详情、版本历史空态四处 computed 都是
+   *     `rgba(34,38,48,0.05) 0 1px 2px`——分组声明四个成员没有一个是幽灵。
+   *   · .cards-board-card:hover：真 hover 后 computed 变 `rgba(34,38,48,0.09) 0 6px 16px`。
+   *   · .stats-card / .paper-panel（!important）：收件箱、写作统计、项目列表三处 .stats-card
+   *     都是 `rgba(15,20,28,0.04) 0 1px 2px`。
+   *   · 深色四宿主：theme=dark 下 .stats-card（收件箱 / 项目列表）、.desktop-panel-card 与
+   *     .desktop-library-panel（书库）、.paper-panel（阅读器）全部变成
+   *     `inset rgba(255,255,255,0.043) 0 1px 0, rgba(0,0,0,0.38) 0 10px 30px`
+   *     （声明里的 .045 在 8bit alpha 上量化成 0.043），而且它是赢家——书库那两个宿主浅色下
+   *     本来是 shadow-1 的 `0 1px 2px + 0 0 0 1px 环`，深色下环被这条 (0,2,1) 换成 inset 发丝，
+   *     正是 BD-19 B 族记下的「深色规则会吃掉那层刻意豁免」。
+   * 结论维持 BD-19 / BD-25 / BD-26 的裁定，解锁条件逐族写明：A 族两处等「卡片描边批」
+   * （先定 border 不再兼任 hover/.active 反馈）、B 族两处等「收件箱列表版式 / 阅读器外壳」
+   * （先把环关得掉）、7 皮肤等「皮肤批」、滑块拇指等「控件触感与材质」专项。本批只确认
+   * 它们还活着、值没漂、没有一处是幽灵。
+   */
   const SHADOW_VALUE_LEDGER = [
         "src/features/settings/settings-controls.css\t.paper-slider::-webkit-slider-thumb\t0 1px 4px rgba(15, 20, 28, 0.22)",
         "src/styles.css\t.reader-bg-amber\t0 18px 50px rgba(34, 38, 48, 0.1)",
