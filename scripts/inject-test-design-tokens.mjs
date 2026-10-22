@@ -103,7 +103,11 @@ const files = [
   "src/features/creation/editor/writing-quick-reference.css",
   // 批次 BD-44 的⑨号牙（还债不许悄悄退化）改这份：那条 import cards-local.css 就是
   // 8 条缺席的正解，删掉它必须当场红——债还得掉，牙不能跟着哑。
-  "src/features/creation/cards/components/CardDynamicFields.tsx"
+  "src/features/creation/cards/components/CardDynamicFields.tsx",
+  // 批次 BD-77：36px 桶清零后 LibraryPage 的 `pl-9` 成为刻度内的 pl-8，间距棘轮②③ 与
+  // BD-46 的 TSX 值漂移三颗铆钉随之失去宿主（SKIP 计为无效）。三颗统一改钉现阶段**唯一**
+  // 还挂着离刻度间距债的 TSX 文件 InboxQuickInput.tsx（`pr-14` = 56px），所以它进备份清单。
+  "src/features/creation/inbox/components/InboxQuickInput.tsx"
   // 阴影棘轮的「还了债不降预算」用例原先钉在 EpubPageTurnButtons 的 shadow-lift 上，
   // 批次 K 把那份债迁走就把锚点拆了——用例随即 SKIP、harness 计为无效，不会静默失效。
   // K 之后还债用例统一改钉 LibraryPage（它同时是圆角/状态色/棘轮多条用例的宿主，
@@ -263,7 +267,7 @@ const cases = [
   //   虽然还在源码里，但「再加一个 py-2.5 就是 2>1」这个算术前提已经塌了（两个都合法 → 0>0 恒假）。
   //   留着它就是一颗永远测不到东西的假牙，比缺牙更坏。改钉仍有活债的 TSX 宿主：
   //   LibraryPage 预算 1 = 搜索框 pl-9(36px)，再加一个 m-7(28px) 就是 2>1，必须红。
-  ["间距棘轮②（BD-25 搬家）：TSX 侧新增离刻度工具类（LibraryPage 预算 1 = pl-9(36px)，再加一个 m-7(28px) 就是 2>1，必须红）", () => mutate("src/features/library/LibraryPage.tsx", 'className="paper-input w-full pl-9 pr-8 text-sm"', 'className="paper-input w-full pl-9 pr-8 m-7 text-sm"'), /间距刻度/],
+  ["间距棘轮②（BD-25 搬家）：TSX 侧新增离刻度工具类（InboxQuickInput 预算 1 = pr-14(56px)，再加一个 m-7(28px) 就是 2>1，必须红）⚠ BD-77 换锚：原钉的 LibraryPage `pl-9` 随 36px 桶清零消失（pl-9→pl-8），改钉现存的最后一处 TSX 离刻度债", () => mutate("src/features/creation/inbox/components/InboxQuickInput.tsx", 'className="paper-input h-8 w-full pr-14 text-xs placeholder:text-paper-muted"', 'className="paper-input h-8 w-full pr-14 m-7 text-xs placeholder:text-paper-muted"'), /间距刻度/],
   // ⚠ 这三颗锁牙刻意只动 tokens.css，不动判据自己：拿 mutate 改 verify-design-tokens.mjs
   //   是自我指涉（被测脚本改的是它自己的合法集），而且它不在备份清单里、改坏了还原不了。
   //   三颗盖住锁的三个失配形状：改值（①）、删档（②）、加野档（③）——
@@ -271,7 +275,7 @@ const cases = [
   ["间距刻度·双向锁①（BD-25 新牙·只有令牌侧变）：把 --sp-12 的值从 10px 改成 7px——判据表里没有 7，令牌侧多出一档 → 锁必须红。这条守的是「往令牌塞一档野值就等于给全仓散写的 7px 发证」这条路（批次 L 的债从声明搬进定义、判据当场瞎掉）", () => mutate("src/styles/tokens.css", "  --sp-12: 10px;", "  --sp-12: 7px;"), /SP_SCALE_PX 与 tokens\.css/],
   ["间距刻度·双向锁②（BD-25 新牙·少一档）：删掉 --sp-12 定义、判据表里还留着 10 → 锁必须红。这条守的是本批自己刚踩过的顺序问题：先改令牌再改表，漏一处就是 165 处当场全红；反过来说明加档/删档必须两处同改才走得动", () => mutate("src/styles/tokens.css", "  --sp-12: 10px; /* BD-25 裁定档；命名追加、不参与值序 */\n", ""), /SP_SCALE_PX 与 tokens\.css/],
   ["间距刻度·双向锁③（BD-25 新牙·多一档）：往 tokens.css 塞一个判据表里没有的 --sp-13: 7px 必须红。这条守的是另一头的失败：合法集若纯派生自令牌，「往令牌加一档野值」就等于给全仓散写的 7px 发证（批次 L 的「债从声明搬进定义、判据当场瞎掉」）", () => mutate("src/styles/tokens.css", "  --sp-12: 10px;", "  --sp-13: 7px;\n  --sp-12: 10px;"), /SP_SCALE_PX 与 tokens\.css/],
-  ["间距棘轮③：还了债却不降预算（LibraryPage 预算 1 = 搜索框 pl-9(36px)，改成 pl-8(32px) 是合法收敛但预算没跟着降，必须红并指名该文件）", () => mutate("src/features/library/LibraryPage.tsx", 'className="paper-input w-full pl-9 pr-8 text-sm"', 'className="paper-input w-full pl-8 pr-8 text-sm"'), /预算没跟着降/],
+  ["间距棘轮③：还了债却不降预算（InboxQuickInput 预算 1 = pr-14(56px)，改成 pr-12(48px) 是合法收敛但预算没跟着降，必须红并指名该文件）⚠ BD-77 换锚：原钉的 LibraryPage pl-9→pl-8 已随 36px 桶清零成为正式改动", () => mutate("src/features/creation/inbox/components/InboxQuickInput.tsx", 'className="paper-input h-8 w-full pr-14 text-xs placeholder:text-paper-muted"', 'className="paper-input h-8 w-full pr-12 text-xs placeholder:text-paper-muted"'), /预算没跟着降/],
   // 反向三颗（AW 立项）钉的是「别把合法写法咬进去」——判据过严的下一批人就会退回去散写数字，
   // 那才是这本账真正的失败模式。批次 BD-25 的裁定牙另加两颗排在它们后面（④⑤）：
   // 一条裁定落地后必须有「新合法写法实测为绿」的牙，否则判据与设计的分歧只能靠人记住。
@@ -839,7 +843,7 @@ const cases = [
   ["批次 BD-46·像素漂移（计数抓不到的那一类，本批立项理由本身）：把 writing-quick-reference.css 已登记的 `padding: 6px 15px` 改成 `padding: 19px 15px`——内衬翻了 3 倍，**文件计数一个字没动**（3/3），本批之前实测 EXIT=0。必须红，实测「新增 1 桶不在账上」（19px 新桶）且只有值账这一项失败。⚠ BD-59 换锚 gap 7px、BD-64 换锚 padding 11px、BD-67 再换锚（11px 桶清零）：改钉仍是离档债的 padding 15px", () => mutate("src/features/creation/editor/writing-quick-reference.css", "  padding: 6px 15px;", "  padding: 19px 15px;"), /新增 \d+ 桶不在账上/],
   ["批次 BD-46·总数也不变的桶漂移（值账独有价值，比计数账更窄的一格）：把 .writing-quick-context 那条 `padding: 6px 15px` 的右槽 15 改成 13——两条都离刻度（15 与 13），所以**文件计数 3/3、全站总数也不动**，BD-45 之前的判据连「有东西变了」都感觉不到。现在 15px 桶少一笔、13px 桶多一笔，必须红，实测**只有这一项**失败。这颗和上一颗分工不同：② 换的是值，这颗换的是**桶的精确组成**（直方图把计数写进 key，就是为了这里不脱敏）", () => mutate("src/features/creation/editor/writing-quick-reference.css", "  padding: 6px 15px;", "  padding: 6px 13px;"), /间距值账与实测不符/],
   ["批次 BD-46·属性漂移（同文件同像素换个属性也是改版）：把那条 `padding: 6px 15px;` 写成 `margin: 6px 15px;`——像素一个没变、总数没变，但内衬变成了外边距，版面必然重排。BD-46 裁定 key 用**原属性**而非家族归一（padding-top 不折成 padding），这颗就是那条裁定的验收：必须红。⚠ 实测报「新增 1 桶（margin 15px ⑉ 1）」+「账上 1 桶扫不到（padding 15px ⑉ 1）」——桶计数与桶成员同时漂，判据照样一次抓全。⚠ BD-59 换锚：原钉 `gap: 7px;` 随 gap 7px 桶清零而消失（SKIP）；⚠ BD-72 再换锚：第二轮钉的 `margin: 9px 12px 0;` 随 9px 桶清零而消失（SKIP，电池计 1 个无效），改钉本文件仍在债上的 `.writing-quick-context` 那条 padding 15px——它与上一颗、下一颗共用同一根 needle，但换的是属性而不是值，三颗各自咬不同的缝", () => mutate("src/features/creation/editor/writing-quick-reference.css", "  padding: 6px 15px;", "  margin: 6px 15px;"), /间距值账与实测不符/],
-  ["批次 BD-46·TSX 侧值漂移（工具类那一支不许只数不认值）：把 LibraryPage 那条 `pl-9`（36px，离刻度、已登记）改成 `pl-7`（28px，同样离刻度）——文件计数 1/1 不动、桶总数不动，只有缩进从 36px 变成 28px。本批之前实测 EXIT=0；现在必须红，实测「新增 1 桶不在账上」且只有这一项失败。这颗钉的是 key 里那个缩写属性名（pl 而非 padding-left）：工具类侧的属性口径与 CSS 侧不同，一旦哪天有人把它归一成 padding-left，这颗会红在「桶成员」上", () => mutate("src/features/library/LibraryPage.tsx", "paper-input w-full pl-9", "paper-input w-full pl-7"), /新增 1 桶不在账上/],
+  ["批次 BD-46·TSX 侧值漂移（工具类那一支不许只数不认值）：把 InboxQuickInput 那条 `pr-14`（56px，离刻度、已登记）改成 `pr-13`（52px，同样离刻度）——文件计数 1/1 不动、桶总数不动，只有缩进从 56px 变成 52px。本批之前实测 EXIT=0；现在必须红，实测「新增 1 桶不在账上」且只有这一项失败。这颗钉的是 key 里那个缩写属性名（pr 而非 padding-right）：工具类侧的属性口径与 CSS 侧不同，一旦哪天有人把它归一成 padding-right，这颗会红在「桶成员」上", () => mutate("src/features/creation/inbox/components/InboxQuickInput.tsx", "w-full pr-14", "w-full pr-13"), /新增 1 桶不在账上/],
   ["批次 BD-46·两条口径必须同源（值账自己的退化）：删掉 CSS 分支那行 spVal（`n += 1` 留着）——计数照常 162、值账只剩 TSX 那 5 处。必须红，而且实测**两项**一起咬：先「计数账认出 162 处债，值账只记到 5 处——两条口径不同源」，再「账上 85 桶已经扫不到」（BD-59 后实测，数字随还债漂移，本批 162/85 由本批变异复跑坐实）。这把尺子量的正是它自己：以后谁新加一条判债分支忘了记账，那笔债在值账上就隐形了，而「不表现为任何东西」是 BD-34/BD-43 反复付过学费的那类退化", () => mutate("scripts/verify-design-tokens.mjs", "            n += 1;\n            spVal(rel, d.prop, px);", "            n += 1;"), /两条口径不同源/],
   ["批次 BD-46·反向（换写法不换像素必须保持绿，本批判据的形状不是「只准写 px」）：把 .writing-quick-context 那条 `padding: 6px 15px` 的右槽改成 `0.9375rem`——折算同为 15px、桶计数不变，守卫必须**绿**。⚠ 这颗不是「顺手不该红」：本仓 rem 折算是名义 16px 口径（见间距棘轮 ② 与字号账里 appFontScale 那段），判据拿折算后的 px 当 key 的一部分，才换来这一条零像素合法迁移不被咬。BD-45 那种带选择器/几何的逐条账同样绿，但**带行号的**逐条账会当场把它咬红——这颗就是当初没照抄那条形状的第二条理由", () => mutate("src/features/creation/editor/writing-quick-reference.css", "  padding: 6px 15px;", "  padding: 6px 0.9375rem;"), null],
   ["批次 BD-46·反向（值账不许变成行序账，同 BD-45 那颗）：把账里相邻两桶（cards-local.css margin 9px ⑉ 2 / padding 13px ⑉ 2）顺序颠倒——两桶都在实测里、计数一字不差。守卫必须保持**绿**：dump 的输出顺序不是约定，重钉时顺序一变不许逼人改源码。⚠ BD-58 换锚到 gap 7px / margin 14px；BD-59 换锚到 margin 14px / margin 9px；BD-62 再换锚——margin 14px 桶随本批清零（那一笔消失即 SKIP），改钉现存相邻两桶 margin 9px ⑉ 2 / padding 13px ⑉ 2（两条都是本文件里长期不动的离刻度债，不随间距桶批次搬家）；BD-68 再换锚——padding 13px 桶随 13px 桶整族清零而消失（那一笔消失即 SKIP），改钉 editorial-studio 的两条 `padding-left`（14px ⑉ 1 是 BD-55 立下的**永久记档**条、与左栏印章列逐像素绑定，44px ⑉ 1 是它的紧邻行）；BD-75 再换锚——44px 桶整桶清零（那一笔消失即 SKIP），改钉排序后紧邻的 `padding-left 14px`（BD-55 记档）与 `padding-top 28px`（BD-71 记档）两条：都是永久记档，不随任何间距桶批次搬家", () => mutate("scripts/verify-design-tokens.mjs", "        \"src/styles/editorial-studio.css\\tpadding-left\\t14px\\t1\",\n        \"src/styles/editorial-studio.css\\tpadding-top\\t28px\\t1\",\n", "        \"src/styles/editorial-studio.css\\tpadding-top\\t28px\\t1\",\n        \"src/styles/editorial-studio.css\\tpadding-left\\t14px\\t1\",\n"), null],

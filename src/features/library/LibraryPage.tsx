@@ -191,13 +191,26 @@ export function LibraryPage() {
             {/* Search bar */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-paper-muted" size={16} />
+              {/* 批次 BD-77（36px 桶·搜索框前导图标让位槽）：pl-9→pl-8（36→32）。
+                  36 是 32/40 的正中平票，就近不裁决 ⇒ 数「前导图标 + 输入框」这一族
+                  在档票：SettingsSearch `pl-8`（图标 left-2.5 / size 13）、
+                  ReaderSearchOverlay `pl-8`（同款，BD-71 刚收）、TocList `pl-8`——
+                  32 三票，40 全仓零成员。真宿主实拍（/tmp/bd77-census.json，1360 窗
+                  书库页）：图标左缘 260 / 右缘 276、输入框 x248，pl 36 时缝 9、
+                  32 时缝 5、40 时缝 13；框盒 1080×22 与 scrollWidth 1078 三档全不动，
+                  占位文字 13 字在 32 档仍有 1062px 可用，不截断。
+                  ⚠ 如实记：这一族的缝本在 8–9px，是「13/14px 图标 + left-2.5」的组合
+                  凑出来的；本条是 16px 图标 + left-3（右缘 28），要吃满 8px 缝就得写
+                  36——那正是本批要清的离刻度值。32 的缝 5 与 40 的缝 13 相对族值 8–9
+                  各自都偏 3–5px，缝这一项分不出高下，裁决落在票上：取 32（三票）。
+                  也没有顺手挪图标（left-3→left-2.5 是另一件事，不在本批范围）。 */}
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="筛选书名、作者或导入标签…"
                 aria-label="筛选书籍"
-                className="paper-input w-full pl-9 pr-8 text-sm"
+                className="paper-input w-full pl-8 pr-8 text-sm"
               />
               {searchQuery && (
                 <button
