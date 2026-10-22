@@ -222,7 +222,17 @@
    * 盒 751×562.5、x340.5/y275.5；顶槽 24/30/32 三档下**纸面外框与盒高恒 562.5**
    * （滚动容器，高由 .preview-page 的 flex 定），只有内容起点 y 330.5→332.5、
    * scrollHeight 669→671；880 窄窗同法（底槽那条另测）。 */
-  padding: 32px 34px 44px;
+  /* 批次 BD-75（44px 桶·纸面底槽）：44→40。44 是 40/48 的正中平票（各差 4），
+   * 「就近」不裁决 ⇒ 数「长文滚动区末端留白」在档先例：稿纸正文
+   * .scene-editor-content `padding-bottom: 40px`（styles.css:1764，同一份稿子的
+   * 编辑态呈现）、右栏 .writing-margin `padding-bottom: 40px`（editorial-studio.css:1411）
+   * ——40 两票；48 在全仓 spacing 声明里零成员。本页与稿纸是同一张纸的两种呈现，
+   * 纸尾留白取同值 40 后两处滚到底的末距一致。
+   * 真宿主实拍（/tmp/bd75-census.json preview，1360 窗全书预览）：computed
+   * 32px 34px 44px、盒 751×564.5、clientH 563、列宽 672；底槽 44→40 只让
+   * scrollHeight 671→667（48 侧 675），盒 x/y/宽/高与列宽全不动。
+   * MEASURE 不变量只算横向（cap − padding-inline×2 − border×2 − 滚动条），底槽不参与。 */
+  padding: 32px 34px 40px;
   border: 1px solid var(--separator);
   border-radius: var(--radius-panel);
   background: var(--surface-paper);
