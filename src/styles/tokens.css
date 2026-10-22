@@ -127,6 +127,17 @@
   --shadow-3: var(--shadow-dialog);
   --shadow-4: 0 32px 80px rgba(15, 20, 28, 0.24);
 
+  /* §5.3 材质投影（**不属于**上面 4 级浮起层级）：夜读纸张整页压在桌面上的影。
+   * 7 个 reader-bg-* 皮肤共用同一条几何；BD-86 在真阅读器纸张（900×3937.63）上逐个
+   * 换类实测，7 个皮肤的 computed 全是 `rgba(34,38,48,0.1) 0 18px 50px`
+   * （/tmp/bd86-recon2.json），与 Tailwind 的 shadow-paper 同值。
+   * 它不是「浮起多高」：归 1 档会同时踩环/24px 偏移/深色纸色三个坑（BD-19 逐条记过），
+   * 归 2/3/4 档都是可感知改版。BD-87 把它立成材质级令牌，与 --studio-paper-shadow
+   * （稿纸 penumbra 的**颜色** rgba(15,20,28,.08)）分工：那个是编辑稿纸的纸壳厚度，
+   * 这个是阅读纸张的整页浮影。
+   * ⚠ 改这个值 = 7 个皮肤同时改版；守卫 SHADOW_MATERIAL_TOKENS 逐字钉着它。 */
+  --shadow-paper: 0 18px 50px rgba(34, 38, 48, 0.1);
+
   /* §5.4 层级 */
   --z-dock: 10;
   --z-sticky: 20;

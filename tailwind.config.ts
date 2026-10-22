@@ -34,7 +34,8 @@ export default {
         mono: ["var(--font-data)"]
       },
       boxShadow: {
-        paper: "0 18px 50px rgba(34, 38, 48, 0.1)",
+        // BD-87：纸面浮影改为材质令牌（tokens.css §5.3 末尾），7 个夜读皮肤共用一处真相。
+        paper: "var(--shadow-paper)",
         lift: "0 6px 18px rgba(34, 38, 48, 0.07)"
       }
     }

@@ -1436,7 +1436,15 @@ const isPureRingValue = (v) => {
     //   是整页纸浮在桌面上的影，归 1 档会同时踩三个坑（环与皮肤自带的 border 双拼、
     //   24px 偏移撑不起整页、深色下纸色写死不归 --separator 管），归 2/3/4 档都是可感知改版。
     //   「纸张浮影该有自己的档还是并入 1 档深色特例」是皮肤批的题，不在本批。
-    "src/styles.css": 7,
+    //   ✔ 后续（批次 BD-87，皮肤批兑现）：答案不是并档，而是立成**材质级令牌**
+    //   --shadow-paper（tokens.css §5.3 末尾）——7 个皮肤共用一处真相，@apply 侧按解析后的
+    //   几何走 SHADOW_MATERIAL_TOKENS 豁免、与声明侧的 var(--shadow-*) 对称。这 7 处随债
+    //   离账，本文件条目整条移除；咬合力搬到了令牌值与登记表上，见本节下方的 BD-87 注释。
+    // 批次 BD-87：styles.css 的 7 处（7 个 reader-bg-* 的 @apply shadow-paper）随纸面浮影
+    // 立成材质令牌 --shadow-paper 而离账——几何由令牌唯一承载，并由 SHADOW_MATERIAL_TOKENS
+    // 逐字钉住（改令牌 = 名下 7 个皮肤同时改版，当场红）。这不是「豁免一阵子」，而是判据
+    // 对称：声明侧 `box-shadow: var(--shadow-*)` 一直依法豁免，@apply 侧现在按解析后的
+    // 几何同判。条目随债清零移除；本文件自此不在阴影预算表上。
     // 批次 AS：settings-grid 开关岛整族下线，其中 L2371 那条
     // box-shadow: 0 1px 2px rgba(34, 38, 48, 0.28) 是幻影账里最后一笔真债（岛查无宿主、
     // 值又离刻度），随整族一起删除。16→15。
@@ -1569,6 +1577,32 @@ const isPureRingValue = (v) => {
     return key && SHADOW_UTIL_GEOMETRY[key] ? SHADOW_UTIL_GEOMETRY[key] : `@default:${tok}`;
   };
 
+  /* ---- 批次 BD-87·材质令牌与 @apply 侧的判据对称（纸面浮影）----
+   *
+   * 不对称的实测形状：声明侧 `box-shadow: var(--shadow-*)` 一直依法豁免（令牌即唯一真相），
+   * 但 @apply 侧只看令牌名（tsxShadowDebt），于是 `@apply shadow-paper` 被计成债——哪怕
+   * boxShadow.paper 已经指向一个令牌。同一条判据的两侧，一边认令牌、一边不认。
+   *
+   * 修法不能是「凡 var-几何的 @apply 一律放过」：把 boxShadow.paper 指向一个 tokens.css
+   * 里不存在的变量，产物发射 `box-shadow: var(--shadow-nothing)`，浏览器在算值阶段判无效、
+   * 回落到 none——影子画不出来，账却清零，正是批次 K 那族幻影。所以逐条登记：
+   *   ① 变量必须在 tokens.css 有定义（否则当场红：静默无阴影）；
+   *   ② 定义值必须与下面登记逐字相等（把 BD-45 值账的咬合力搬到令牌上——一个令牌改的是
+   *      名下**全部**皮肤，这正是 BD-45 ③ 那颗牙的原意）；
+   *   ③ 只认「整个值就是一个 var(--shadow-… 或 --focus-…)」的形状，混排不放过；
+   *   ④ 登记条目必须至少被一处 @apply 用到（僵尸登记同 DECOR_SHADOWS 的失配红）。
+   */
+  const SHADOW_MATERIAL_TOKENS = {
+    "--shadow-paper": "0 18px 50px rgba(34, 38, 48, 0.1)",
+  };
+  const TOKEN_DECLS = (() => {
+    const out = {};
+    for (const m of lightBlock.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) out[m[1]] = m[2].replace(/\s+/g, " ").trim();
+    return out;
+  })();
+  const materialRef = (v) => /^var\((--(?:shadow|focus)[a-z0-9-]*)\)$/.exec(v)?.[1] ?? null;
+  const materialHits = new Set();
+
   // 值账：判据认定「一处债」的同一刻，把它解析后的几何值记一条 key。
   // 用**多重集**（数组 + 排序后逐字比对）而不是 Set：同一文件里「同选择器同值」的两条
   // 本来就该是两条债，Set 会把它们并成一条，于是「删掉其中一条」在值账上看不出来。
@@ -1613,8 +1647,36 @@ const isPureRingValue = (v) => {
         }
         for (const tok of a.params.match(SHADOW_TOKEN) ?? []) {
           if (!tsxShadowDebt(tok)) continue;
+          const geom = utilGeometry(tok);
+          const mv = materialRef(geom);
+          if (mv) {
+            const declared = TOKEN_DECLS[mv];
+            if (declared === undefined) {
+              fail(
+                `${rel} 里 @apply ${tok} 的几何是 var(${mv})，但 tokens.css 的晨校 :root 没有定义 ${mv}——` +
+                  `浏览器在算值阶段判无效、回落到无阴影，界面上这条影子根本画不出来，而棘轮账却清零了（幻影）。` +
+                  `先定义令牌，或改用真正发射的写法。`
+              );
+              continue;
+            }
+            const pinned = SHADOW_MATERIAL_TOKENS[mv];
+            if (pinned !== undefined) {
+              materialHits.add(mv);
+              if (declared !== pinned) {
+                fail(
+                  `第 8 步阴影刻度：材质令牌 ${mv} 的值「${declared}」与登记「${pinned}」不一致` +
+                    `（${rel} 的 @apply ${tok} 名下，共 ${Object.keys(SHADOW_MATERIAL_TOKENS).length} 条登记、名下全部皮肤同时生效）。` +
+                    `这个令牌一改就是名下全部夜读皮肤一次改版——不是有意改版就把值改回去；` +
+                    `是本批的有意改版就重钉 SHADOW_MATERIAL_TOKENS，并做逐皮肤像素验收。`
+                );
+                continue;
+              }
+              continue; // 已登记的材质令牌：与声明侧 var(--shadow-*) 豁免对称，不计债
+            }
+            // 定义存在但未登记为材质令牌：按普通离刻度债计（新令牌要人批，不自动认）
+          }
           // BD-45 值账：@apply 的债长什么样由工具类**解析后的几何**决定，令牌名本身不算信息
-          debtVals.push(`${rel}\t${a.parent.selector.replace(/\s+/g, " ").trim()}\t${utilGeometry(tok)}`);
+          debtVals.push(`${rel}\t${a.parent.selector.replace(/\s+/g, " ").trim()}\t${geom}`);
           n += 1;
         }
       });
@@ -1664,6 +1726,15 @@ const isPureRingValue = (v) => {
         decorMiss.slice(0, 3).map((k) => `${k.split("|").slice(0, 2).join(" ")}（${DECOR_SHADOWS[k]}）`).join("、") +
         `。要么那条声明改了值/换了选择器（登记按三者全等算，必须跟着重登），要么被删了（那就把条目一起删）。` +
         `拿一条扫不到的豁免当豁免，等于给以后同类装饰开无登记的口子。`
+    );
+  }
+  // 材质令牌登记表里的条目没有任何 @apply 用到 = 僵尸登记（同 DECOR_SHADOWS ② 的立场）。
+  const materialMiss = Object.keys(SHADOW_MATERIAL_TOKENS).filter((k) => !materialHits.has(k));
+  if (materialMiss.length) {
+    fail(
+      `第 8 步阴影刻度：材质令牌登记表里有 ${materialMiss.length} 条没有任何 @apply 用到（${materialMiss.join("、")}）——` +
+        `要么用它的工具类全被删了（那就把登记条目一起删），要么 boxShadow 配置改了名（登记必须跟着重钉）。` +
+        `留着一条没有宿主的材质豁免，等于给以后同类改写开无登记的口子。`
     );
   }
   const over = Object.keys(actual).filter((f) => actual[f] > (SHADOW_BUDGET[f] ?? 0));
@@ -1724,15 +1795,27 @@ const isPureRingValue = (v) => {
    * （先把环关得掉）、7 皮肤等「皮肤批」、滑块拇指等「控件触感与材质」专项。本批只确认
    * 它们还活着、值没漂、没有一处是幽灵。
    */
+  /* ---- 批次 BD-87·皮肤批：纸面浮影立成材质令牌（零像素批，账 12 → 5）----
+   *
+   * 本批兑现 BD-19 留下的题：「纸张浮影该有自己的档还是并入 1 档深色特例」。答案不是
+   * 并档——把它立成**材质级令牌**（tokens.css §5.3 末尾的 --shadow-paper），因为这层影
+   * 描述的是「整页纸压在桌面上」的材质，不是「浮起多高」的层级；7 个皮肤共用一个几何，
+   * 归任何一档都会改版（BD-19 逐条记过：环会跟皮肤 border 双拼、24px 偏移撑不起整页、
+   * 深色纸色不归 --separator 管）。
+   *
+   * 账的变化：原来的 7 条是 @apply 侧的离刻度债，现在按**解析后的几何**（var(--shadow-paper)）
+   * 走材质令牌登记（见上面 SHADOW_MATERIAL_TOKENS），与声明侧 var(--shadow-*) 豁免对称。
+   * 值账 12 → 5：剩 settings-controls.css 滑块拇指 1 条 + editorial-studio.css 4 条。
+   * 咬合力没有变松，只是换了载体：
+   *   · 令牌值被 SHADOW_MATERIAL_TOKENS 逐字钉住（改一个值 = 7 个皮肤同时改版 → 红）；
+   *   · boxShadow.paper 改回字面几何或指向别的档 → 7 条按新几何重新计债 → 红；
+   *   · 令牌在 tokens.css 里消失 → 7 处 @apply 当场红（浏览器会静默回落到无阴影）。
+   * 零像素证据见 /tmp/bd87-probe.json（改前基线取 BD-86 的 /tmp/bd86-recon2.json）：
+   * 7 个皮肤 computed 仍是 `rgba(0,0,0,0) 0 0 0 0, rgba(0,0,0,0) 0 0 0 0,
+   * rgba(34,38,48,0.1) 0 18px 50px`，逐字节相同。
+   */
   const SHADOW_VALUE_LEDGER = [
         "src/features/settings/settings-controls.css\t.paper-slider::-webkit-slider-thumb\t0 1px 4px rgba(15, 20, 28, 0.22)",
-        "src/styles.css\t.reader-bg-amber\t0 18px 50px rgba(34, 38, 48, 0.1)",
-        "src/styles.css\t.reader-bg-beans\t0 18px 50px rgba(34, 38, 48, 0.1)",
-        "src/styles.css\t.reader-bg-green\t0 18px 50px rgba(34, 38, 48, 0.1)",
-        "src/styles.css\t.reader-bg-night\t0 18px 50px rgba(34, 38, 48, 0.1)",
-        "src/styles.css\t.reader-bg-parchment\t0 18px 50px rgba(34, 38, 48, 0.1)",
-        "src/styles.css\t.reader-bg-warm\t0 18px 50px rgba(34, 38, 48, 0.1)",
-        "src/styles.css\t.reader-bg-white\t0 18px 50px rgba(34, 38, 48, 0.1)",
         "src/styles/editorial-studio.css\t.cards-board-card, .background-card, .cards-detail-card, .history-empty\t0 1px 2px rgba(34, 38, 48, 0.05)",
         "src/styles/editorial-studio.css\t.cards-board-card:hover\t0 6px 16px rgba(34, 38, 48, 0.09)",
         "src/styles/editorial-studio.css\t.stats-card, .paper-panel\t0 1px 2px rgba(15, 20, 28, 0.04)",
