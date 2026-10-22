@@ -92,7 +92,8 @@
    * 盒 w32/h28；右槽收 6 后 w30、h28（垂直 5 未动，行盒不变）。
    * 批次 BD-66（padding 5px 桶·同一颗钮的竖槽）：竖槽 5→6，四边收齐 6px。
    * 5 落 4/6 正中、就近不裁决 ⇒ 数「本文件描边控件的竖槽」在档票：
-   * .writing-quick-context `6px 15px`、.writing-quick-search `6px 8px`、
+   * .writing-quick-context 竖槽（原 `6px 15px`，横槽 BD-78 已收 16）、
+   * .writing-quick-search `6px 8px`、
    * .writing-quick-field input `6px 8px`、.writing-quick-toggle `6px 8px`——四票全 6，
    * 4px 在本文件竖槽零票（4 只作 .writing-quick-tabs button 的左右槽）。
    * 实拍（/tmp/bd66-ab-before.json 22-quick，打开速查面板）：computed 5px 6px、
@@ -111,7 +112,8 @@
    * （padding 7px 15px、尾部 span 带 margin-left: auto），自由空间由 auto 边距吸收，
    * 收档只挪「图标↔文字」那一段。真宿主实测（/tmp/bd54-probe3.json
    * writing-quick-context，打开速查面板后的 AI 上下文条）：h 恒 30.5、w 恒 319
-   * ——盒形零变化，纯内档收口。padding 7px 15px 是本文件内边距族的债，不在本批。 */
+   * ——盒形零变化，纯内档收口。padding 7px 15px 是本文件内边距族的债，不在本批
+   * （后续：竖槽 7 由 BD-64 收 6，横槽 15 由 BD-78 收 16）。 */
   gap: 4px;
   /* 批次 BD-64（padding 7px 桶·AI 上下文整幅条带）：竖槽 7→6，左右 15 不动。
    * 7px 落 6/8 正中、就近不裁决 ⇒ 数「整幅横条」的竖槽在档票：.uni-search-error
@@ -121,7 +123,19 @@
    * 真宿主实拍（/tmp/bd64-mutate.json quick_base → quick_ctx6/quick_ctx8）：computed
    * 7px 15px、盒 w319/h30.5；改 6 后 h28.5，改 8 后 h32.5——取 6 让条带比周围
    * 的 8px 区块更紧一档。 */
-  padding: 6px 15px;
+  /* 批次 BD-78（15px 桶·AI 上下文条带横槽）：左右 15→16。15 距 16 **一档**、
+   * 距 12 三档（中点 14 在 12 侧），严格最近档唯一是 16——与 13→12 / 26→24 /
+   * 30→32 那几批同型，不需要投票定方向。结构上也正好收口：本面板的内容列由
+   * 面板头的横槽定在 x1057（.writing-quick-reference-head 的 padding-left 16），
+   * 条带原写 15 时前导图标落在 x1056——比整列**偏左 1px**；收 16 后图标 x1057，
+   * 与面板标题 h3（x1057）逐像素同列。
+   * 真宿主实拍（/tmp/bd78-census.json ctxSweep，1360 窗写作页·打开速查面板）：
+   * computed `6px 15px`、条带盒 319×28.5、图标 x1056 / 右缘 1069、正文起笔 1073、
+   * 图标↔文字缝 4；左右槽逐档扫 8/10/12/14/15/16/20 → 图标 x 1049/1051/1053/1055/
+   * 1056/1057/1061，条带盒宽高与缝 4 全程不动（纯内衬位移）。
+   * 右槽同一笔收 16：尾部说明 span 的右缩进随 15→16 内移 1px；本页 seed 无上下文卡
+   * （span 不渲染），此处如实记「右槽今天无实拍差」。 */
+  padding: 6px 16px;
   background: color-mix(in srgb, var(--accent-hover) 62%, transparent);
   color: var(--accent-spine);
   font-size: 11px;
