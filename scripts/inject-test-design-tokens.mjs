@@ -651,7 +651,7 @@ const cases = [
   ["批次 BD-22 MEASURE②：把 ≤1180 纸壳从 738 改回「看起来更整齐」的 736（本批纠正的那个错觉），正文被边框挤成 734，必须红", () => mutate("src/styles.css", "    width: min(738px, calc(100% - 30px));", "    width: min(736px, calc(100% - 30px));"), /MEASURE 不变量：/],
   ["批次 BD-22 MEASURE②·宽屏那档同样在算：min(820px,…) 收到 700px 时纸壳内宽 698 < 正文边框盒 736，必须红（旧判据只管窄屏的话，宽屏就是盲区）", () => mutate("src/styles.css", "  width: min(820px, calc(100% - 52px));", "  width: min(700px, calc(100% - 52px));"), /MEASURE 不变量：/],
   ["批次 BD-22 MEASURE③·跨文件：把 editorial 的 ::-webkit-scrollbar width 9→10（styles.css 那份本就被后置盖掉，胜者是 editorial），通读页那笔 +9px 补偿立刻漂，必须红", () => mutate("src/styles/editorial-studio.css", "  width: 9px;", "  width: 10px;"), /MEASURE 不变量：/],
-  ["批次 BD-22 MEASURE③·纸面 cap 少算一项：68+2+9 去掉 +9（滚动容器溢出时列被挤成 663px=41 字），必须红", () => mutate("src/features/creation/preview/preview-local.css", "  max-width: calc(42em + 68px + 2px + 9px);", "  max-width: calc(42em + 68px + 2px);"), /MEASURE 不变量：/],
+  ["批次 BD-22 MEASURE③·纸面 cap 少算一项：68+2+9 去掉 +9（滚动容器溢出时列被挤成 663px=41 字），必须红（BD-76 换锚：横向内衬 34→32 让补偿项 68→64，锚串随之 42em+64px+2px+9px；算术不变：738 − 64 − 2 − 9 = 663）", () => mutate("src/features/creation/preview/preview-local.css", "  max-width: calc(42em + 64px + 2px + 9px);", "  max-width: calc(42em + 64px + 2px);"), /MEASURE 不变量：/],
   ["批次 BD-22 MEASURE③·列自己那半：.preview-chapter 的 42em 写成 40em（规格值从声明里消失），必须红", () => mutate("src/features/creation/preview/preview-local.css", ".preview-chapter {\n  max-width: 42em;", ".preview-chapter {\n  max-width: 40em;"), /MEASURE 不变量：/],
   // ⚠ 反向用例的取值刻意挑**同在刻度外/刻度内**的组合（34→36、16→12）：换成 40/10 这类
   // 会挪动间距台账计数的值，先被间距棘轮咬红，就测不到「MEASURE 只咬挤字的方向」这件事了。
