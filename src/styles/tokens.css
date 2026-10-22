@@ -158,6 +158,20 @@
   --shadow-card-rest: 0 1px 2px rgba(34, 38, 48, 0.05);
   --shadow-card-hover: 0 6px 16px rgba(34, 38, 48, 0.09);
 
+  /* 材质投影·纸面板族（统计卡 / 收件箱行 / 共享 ShellPanel 的阅读器消费方）：
+   * 浅色下是纸面板压在桌面上的 1px 接触影；深色下是夜校面板的「受光上缘 + 大落影」。
+   * BD-86/BD-90 实测（/tmp/bd86-dark.json、/tmp/bd90-before.json）：
+   *   · 项目列表 / 收件箱的 .stats-card：`rgba(15,20,28,.04) 0 1px 2px`；
+   *   · 阅读器侧栏 .paper-panel：同值（ShellPanel 还挂着 shadow-none，被 !important 整条压住）；
+   *   · 深色四宿主：`inset rgba(255,255,255,.043) 0 1px 0` + `rgba(0,0,0,.38) 0 10px 30px`。
+   * 不并入 --shadow-1：环是 0 0 0 1px，而收件箱行是 border:0、阅读器面板刻意 border-0 /
+   * border-y-0 border-r-0、还写着 shadow-none——环会无视这些显式豁免，给每一行/每一块
+   * 无边面板补回一整圈盒框；浅色 alpha 也会从 .04 变成 .06。深色那条四档都对不上：
+   * 2 档 12px vs 30px、4 档 32px/80px vs 10px/30px，且多一层 inset 受光。
+   * 所以按材质/夜校处理收口，值由守卫 SHADOW_MATERIAL_TOKENS 逐字钉住。 */
+  --shadow-panel-rest: 0 1px 2px rgba(15, 20, 28, 0.04);
+  --shadow-panel-dark: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 10px 30px rgba(0, 0, 0, 0.38);
+
   /* §5.4 层级 */
   --z-dock: 10;
   --z-sticky: 20;

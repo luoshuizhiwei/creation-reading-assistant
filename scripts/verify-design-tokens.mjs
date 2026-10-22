@@ -1524,9 +1524,10 @@ const isPureRingValue = (v) => {
     //   与判据同时失配）在 BD-26 是**同时兑现**的：删声明与降那个 3→0 在同一次提交里，
     //   两本账一起对平，这也是当初把两个数字都钉成必须相等的原因。
     // 批次 BD-89：A 族两条（卡族分组 rest + 看板卡 hover）随材质令牌离账，4→2。
-    // 剩下的 2 条是 B 族：.stats-card/.paper-panel 分组 rest 与深色四宿主规则，
-    // 等「收件箱列表版式 / 阅读器外壳」把 1px 环关得掉之后再判。
-    "src/styles/editorial-studio.css": 2
+    // 批次 BD-90：B 族两条（.stats-card/.paper-panel 分组 rest、深色四宿主规则）按
+    // 材质令牌 --shadow-panel-rest / --shadow-panel-dark 收口，2→0。**预算条目整条移除**：
+    // 零债文件不再挂预算（留着 0 只会让 stale 判据永远扫不到东西）。
+    // ⚠ 阴影账从此为空；任何新的离刻度阴影都落进「预算视同 0」的文件，直接红。
   };
 
   // 批次 BD-25（用户第二项裁定）：材质 / 装饰族**移出投影层级这本账**。
@@ -1607,6 +1608,8 @@ const isPureRingValue = (v) => {
     "--shadow-control-thumb": "0 1px 4px rgba(15, 20, 28, 0.22)",
     "--shadow-card-rest": "0 1px 2px rgba(34, 38, 48, 0.05)",
     "--shadow-card-hover": "0 6px 16px rgba(34, 38, 48, 0.09)",
+    "--shadow-panel-rest": "0 1px 2px rgba(15, 20, 28, 0.04)",
+    "--shadow-panel-dark": "inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 10px 30px rgba(0, 0, 0, 0.38)",
   };
   const TOKEN_DECLS = (() => {
     const out = {};
@@ -1901,9 +1904,26 @@ const isPureRingValue = (v) => {
    *   背景卡同 rest（border 1px solid rgb(224,228,233)）。
    * 至此 A 族清零，阴影值账只剩 B 族 2 条。
    */
+  /* ---- 批次 BD-90·阴影账收口批：B 族两条立成材质令牌（零像素，账 2 → 0）----
+   *
+   * B 族只剩两处：
+   *   · `.stats-card, .paper-panel { box-shadow: 0 1px 2px rgba(15,20,28,.04) !important }`
+   *     ——统计卡 / 收件箱行 / 共享 ShellPanel 的阅读器消费方；
+   *   · `:root[data-app-theme="dark"] .stats-card, .desktop-panel-card, .paper-panel,
+   *     .desktop-library-panel` 的 `inset 0 1px 0 rgba(255,255,255,.045), 0 10px 30px rgba(0,0,0,.38)`。
+   *
+   * 为什么不能并进刻度（BD-90 实测，/tmp/bd90-before.json）：
+   *   · 浅色 .04 与 --shadow-1 的 .06 不同值；更关键的是环 0 0 0 1px——收件箱行是
+   *     border:0、阅读器面板刻意 border-0 / border-y-0 border-r-0 且写着 shadow-none，
+   *     环会把每一行/每一块无边面板补成一整圈盒框，属可感知改版；
+   *   · 深色那条同时含 inset 受光与 10px/30px 落影，2 档是 4px/12px、4 档是 32px/80px，
+   *     没有一档对得上；强归任何一档都是换掉夜校面板的观感。
+   * 所以判成「纸面板的接触影 / 夜校面板的受光落影」，立材质令牌并逐字登记。
+   * 零像素基线：浅色四路宿主 computed 全为 .04 0 1px 2px；深色四宿主为
+   * inset rgba(255,255,255,.043) 0 1px 0 + rgba(0,0,0,.38) 0 10px 30px。
+   * 至此阴影值账清空（0 条 / 0 个文件），守卫的预算表也整条移除。
+   */
   const SHADOW_VALUE_LEDGER = [
-        "src/styles/editorial-studio.css\t.stats-card, .paper-panel\t0 1px 2px rgba(15, 20, 28, 0.04)",
-        "src/styles/editorial-studio.css\t:root[data-app-theme=\"dark\"] .stats-card, :root[data-app-theme=\"dark\"] .desktop-panel-card, :root[data-app-theme=\"dark\"] .paper-panel, :root[data-app-theme=\"dark\"] .desktop-library-panel\tinset 0 1px 0 rgba(255, 255, 255, 0.045), 0 10px 30px rgba(0, 0, 0, 0.38)",
   ].sort();
   const measured = debtVals.slice().sort();
   // 重钉账本的唯一入口（同 DEAD / ABSENCE 两本的手法）：账由实测生成，不许手写。

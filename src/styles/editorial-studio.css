@@ -2721,9 +2721,10 @@ select:focus-visible,
 :root[data-app-theme="dark"] .desktop-panel-card,
 :root[data-app-theme="dark"] .paper-panel,
 :root[data-app-theme="dark"] .desktop-library-panel {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.045),
-    0 10px 30px rgba(0, 0, 0, 0.38) !important;
+  /* 批次 BD-90：夜校四宿主的受光上缘 + 大落影立成材质令牌 --shadow-panel-dark。
+   * 实测 computed `inset rgba(255,255,255,.043) 0 1px 0, rgba(0,0,0,.38) 0 10px 30px`
+   * （.045 按 8 位 alpha 量化）；四档没有一档同时含 inset 受光与 10/30 几何。零像素。 */
+  box-shadow: var(--shadow-panel-dark) !important;
 }
 
 /* 批次 AJ：浅色下 .desktop-panel-card / .desktop-library-panel 的边归 --shadow-1 的
@@ -3503,7 +3504,9 @@ input[type="text"],
 .stats-card,
 .paper-panel {
   border-radius: var(--radius-panel) !important;
-  box-shadow: 0 1px 2px rgba(15, 20, 28, 0.04) !important;
+  /* 批次 BD-90：纸面板接触影立成材质令牌 --shadow-panel-rest（零像素，阴影账 2 → 0）。
+   * 实测四路宿主同值 `rgba(15,20,28,.04) 0 1px 2px`（/tmp/bd90-before.json）。 */
+  box-shadow: var(--shadow-panel-rest) !important;
 }
 
 /* 批次 AJ：面板家族里只有这两家能归 --shadow-1（AE 立的规矩：环包办边框，同元素的
@@ -3513,7 +3516,11 @@ input[type="text"],
  *     关不住 --shadow-1 的 0 0 0 1px 环——每一行都会凭空多出一整圈盒框。
  *   · .paper-panel 是共享 ShellPanel，阅读器 5 个消费方刻意挂 border-0 / border-y-0
  *     border-r-0 要无边面板，同样的环躲不掉。
- * 这两族各自的双拼账要随「收件箱列表版式」「阅读器外壳」批次一起收，不在本批。 */
+ * ✔ 后续（批次 BD-90）：这两族没有等版式批次，而是按**材质令牌**收口——理由就是上面
+ *   这两条「环取消不掉」：要归 --shadow-1 必须先改收件箱行与阅读器外壳的版式，那会
+ *   给每一行/每一块无边面板补回盒框，是可感知改版。BD-90 判它们描述的是「纸面板的
+ *   接触影 / 夜校面板的受光落影」，立 --shadow-panel-rest / --shadow-panel-dark，
+ *   零像素；阴影值账由此清零。 */
 .desktop-panel-card,
 .desktop-library-panel {
   border-radius: var(--radius-panel) !important;
