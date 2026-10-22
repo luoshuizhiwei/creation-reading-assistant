@@ -1036,7 +1036,8 @@ select:focus-visible,
    * 只动上下槽（右 16 在档、左 50 是序号印栏的定宽槽：::before 印在 left:16px、
    * 标题实测从行左缘 50px 起，动它会扯掉整列序号对齐）。
    * 14 是 12/16 正中、就近不裁决 ⇒ 按同角色在档先例投票：App 外壳里的「大记录行」
-   * 三家——本条、.desktop-library-row（本批刚收 12）、.inbox-item（13px 12px 13px 17px）——
+   * 三家——本条、.desktop-library-row（本批刚收 12）、.inbox-item（13px 12px 13px 17px，
+   * BD-68/BD-79 之后为 12px 12px 12px 16px）——
    * 12 已在库行落定，13 是另一桶的债、16 零票；紧凑行族（.cards-list-item /
    * .overview-recent-item 8px 10px）是另一档密度，不投票。
    * 真宿主实拍（/tmp/bd61-mutate.json 项目首页 1360 窗）：computed 14px 16px 14px 50px、
@@ -1838,11 +1839,24 @@ select:focus-visible,
    * 13 两侧不等距（距 12 一档、距 16 三档），严格最近档唯一在 12；同角色「大记录行」
    * 三家在档也全 12：.project-home-item `12px 16px 12px 50px`（BD-61 收）、
    * .desktop-library-row `12px`（BD-61 收）——本行是第四家、此前一直被邻居的
-   * 注释点名「13 是另一桶的债」，本批兑现。左 17 是行首色条的让位槽，不动。
+   * 注释点名「13 是另一桶的债」，本批兑现。左 17 是行首色条的让位槽，本批不动
+   * （BD-79 随后收 16，见下方 .inbox-item 那条）。
    * 真级联合成实测（/tmp/bd68-probe2.json inboxSynth.items，把真 class 的 <li> 注入
    * 真父容器 .inbox-list）：computed `13px 12px 13px 17px`、盒 h72.19；改 12 → 70.19，
-   * 改 10 → 66.19，改 16 → 78.19；第 2 枚 y 随第 1 枚盒高线性移动（349.38→347.38）。 */
-  padding: 12px 12px 12px 17px;
+   * 改 10 → 66.19，改 16 → 78.19；第 2 枚 y 随第 1 枚盒高线性移动（349.38→347.38）。
+   * 批次 BD-79（17px 桶·本条左槽）：17→16。17 距 16 一档、距 20 三档（中点 18 在 16
+   * 侧），严格最近档唯一是 16，与 13/26/30/34/15 那几批同型，不需要投票定方向。
+   * 结构上这条左槽一直是「行首色条 3px（::before width 3 / left 0）+ 14 间距」，
+   * 而 14 自己就是离刻度值——把 17 留着等于让一个债值给另一个债值让位，收 16
+   * 后缝变 3+13，仍在色条与文字之间留出一档可读间距。
+   * 真宿主实拍（/tmp/bd79-census.json，1360 窗速记两条后的 .inbox-item）：
+   * computed `12px 12px 12px 17px`、盒 443.59×89、标题/正文/元信息 x235（inset 17）、
+   * 动作列 x473.56 恒定；就地扫左槽 12/14/16/17/20/24 → 文字 x 230/232/234/235/238/242、
+   * 标题宽 231.56/229.56/227.56/226.56/223.56/219.56，行高 89、scrollH 88、
+   * 动作列 x473.56 全档不动（只有文字列在缩）。收 16 后标题右缘 461.56→462.56、
+   * 第二行 y359.19 不动。窄窗 1024 无媒体覆盖（computed 仍 12/12/12/17、盒 343.16×107），
+   * 收 16 在同一处生效。 */
+  padding: 12px 12px 12px 16px;
   border: 0 !important;
   border-bottom: 1px solid var(--border-subtle) !important;
   border-radius: 0 !important;
@@ -2001,7 +2015,8 @@ select:focus-visible,
   /* 批次 BD-55（padding 14px 左右档族·条/托盘角色）：左右 14→12（!important 保留，
    * 它压的是面板家族那条 blanket——去掉 !important 会当场漏出家族内衬，见本文件
    * 批次 AJ 的「环取消不掉」记录）。角色票：这条是收件箱列表末尾的一**条**托盘，
-   * 同页直系 .inbox-item `13px 12px 13px 17px`（探针 09 实测 pr 12px）就在 12 上；
+   * 同页直系 .inbox-item `13px 12px 13px 17px`（探针 09 实测 pr 12px；BD-68 收竖槽、
+   * BD-79 收左槽后为 `12px 12px 12px 16px`）就在 12 上；
    * 全站「条/行」支 .history-impact-notice、.creation-proof-item、
    * .replace-error-banner 均 10px 12px。16 一侧全是头/面板角色，没有一条是条。
    * 实拍（探针 09，两条速记后）：pl/pr=14、pt/pb=10、w 427.59——改动前活着。 */
