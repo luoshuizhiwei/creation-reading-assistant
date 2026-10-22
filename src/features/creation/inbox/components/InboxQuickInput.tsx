@@ -59,6 +59,17 @@ export function InboxQuickInput({
     <section className="inbox-toolbar">
       <div className="flex flex-1 items-center gap-2 max-w-xl">
         <div className="relative flex flex-1 items-center">
+          {/* 批次 BD-81（56px 桶·记档）：`pr-14` = 56px 是右侧「存入」浮钮的让位槽，
+              不是节奏值，故不入刻度、原样保留（值账 `InboxQuickInput.tsx pr 56px ⑉ 1`
+              与预算 1 都不动）。实拍（/tmp/bd81-census.json，1360 窗收件箱，输入一行
+              长文让浮钮出现）：输入框 314.28×32、浮钮 51.02×20、右缩进 6 —— 占用面
+              = 51.02 + 6 = 57.02px ⇒ 正文可延伸到的右界（x480.28）比钮盒左缘
+              （x479.27）只多 1.02px，而钮自身 px-1.5 内衬 6px 把墨迹隔在 x485.27 之后，
+              目视两档截图上文字尾与「◇ 存入」之间仍有空隙（shots pr56）。
+              收 48 会把正文右界推到 x488.28——比钮文字起点还右 3.01px，长文直接压到
+              图标上（shots pr48 实拍）；收 64 只是把空隙再拉 8px，不多换一分可读性。
+              刻度上限 48 本身够不着 57.02 这个功能净空，没有既能上刻度又不压钮的取值，
+              故记档。窄窗 1024 同一处生效（computed 仍 pr 56、盒 314.28×32）。 */}
           <input
             type="text"
             className="paper-input h-8 w-full pr-14 text-xs placeholder:text-paper-muted"

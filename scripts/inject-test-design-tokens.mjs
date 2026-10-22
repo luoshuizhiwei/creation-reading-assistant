@@ -106,7 +106,8 @@ const files = [
   "src/features/creation/cards/components/CardDynamicFields.tsx",
   // 批次 BD-77：36px 桶清零后 LibraryPage 的 `pl-9` 成为刻度内的 pl-8，间距棘轮②③ 与
   // BD-46 的 TSX 值漂移三颗铆钉随之失去宿主（SKIP 计为无效）。三颗统一改钉现阶段**唯一**
-  // 还挂着离刻度间距债的 TSX 文件 InboxQuickInput.tsx（`pr-14` = 56px），所以它进备份清单。
+  // 还挂着离刻度间距债的 TSX 文件 InboxQuickInput.tsx（`pr-14` = 56px；BD-81 判为
+  // 浮钮让位槽记档，仍留在值账上，锚点因此长期有效），所以它进备份清单。
   "src/features/creation/inbox/components/InboxQuickInput.tsx"
   // 阴影棘轮的「还了债不降预算」用例原先钉在 EpubPageTurnButtons 的 shadow-lift 上，
   // 批次 K 把那份债迁走就把锚点拆了——用例随即 SKIP、harness 计为无效，不会静默失效。
