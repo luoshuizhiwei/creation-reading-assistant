@@ -1777,7 +1777,11 @@ select:focus-visible,
 .cards-detail-card,
 .history-empty {
   border-radius: var(--radius-2);
-  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.05);
+  /* 批次 BD-89（卡片描边批）：纸卡接触影立成材质令牌 --shadow-card-rest。
+   * 四宿主实测 computed 均为 rgba(34,38,48,.05) 0 1px 2px（BD-86）；它们各自都有
+   * 结构边（3px 书脊 / 1px paper-line / 1px 虚线 / pane 内嵌），--shadow-1 的 1px 环
+   * 画在边框盒外会拼成双线，所以不归级、按材质令牌收口。零像素。 */
+  box-shadow: var(--shadow-card-rest);
 }
 
 .cards-board-card {
@@ -1789,7 +1793,9 @@ select:focus-visible,
 .cards-board-card:hover {
   border-color: var(--border-subtle);
   border-left-color: color-mix(in srgb, var(--studio-seal) 55%, var(--border-strong));
-  box-shadow: 0 6px 16px rgba(34, 38, 48, 0.09);
+  /* 批次 BD-89：hover 抬升影立成 --shadow-card-hover（材质令牌）。实测 computed
+   * rgba(34,38,48,.09) 0 6px 16px；2 档是 0 4px 12px，模糊与偏移都会收紧，属可感知改版。 */
+  box-shadow: var(--shadow-card-hover);
   transform: translateY(-1px);
 }
 

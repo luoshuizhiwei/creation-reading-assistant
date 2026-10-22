@@ -146,6 +146,18 @@
    * 与 --shadow-paper 同族：材质令牌描述「这块材料有多厚」，不是「浮起多高」。 */
   --shadow-control-thumb: 0 1px 4px rgba(15, 20, 28, 0.22);
 
+  /* 材质投影·稿纸卡族（设定卡看板 / 背景设定卡 / 卡片详情 / 版本历史空态）：
+   * 纸卡贴在桌面上的 1px 接触影，以及设定卡看板的 hover 抬升影。
+   * BD-86 四宿主实测 computed 均为 `rgba(34,38,48,.05) 0 1px 2px`，hover 为
+   * `rgba(34,38,48,.09) 0 6px 16px`（/tmp/bd86-recon2.json、recon3.json）。
+   * 不并入 --shadow-1：四宿主各有一条**结构边**——看板卡 3px 朱砂书脊、背景卡
+   * 1px --paper-line、版本历史空态 1px 虚线、详情卡嵌在 1px 边框的 pane 里；
+   * shadow-1 的 0 0 0 1px 环画在边框盒外，会与它们拼成双线（环色恰好同为
+   * --separator-subtle，颜色相同不代表可以叠成 2px）。也不并入 2 档：hover 的
+   * 6px/16px 改成 4px/12px 是可感知改版。卡族的边框是独立反馈通道，影是材料厚度。 */
+  --shadow-card-rest: 0 1px 2px rgba(34, 38, 48, 0.05);
+  --shadow-card-hover: 0 6px 16px rgba(34, 38, 48, 0.09);
+
   /* §5.4 层级 */
   --z-dock: 10;
   --z-sticky: 20;

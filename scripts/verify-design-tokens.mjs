@@ -1523,7 +1523,10 @@ const isPureRingValue = (v) => {
     //   上面 BD-19 那句「本批一条都不能动」的理由（动了会让 FROZEN_BUTTON_SHADOW_COUNT
     //   与判据同时失配）在 BD-26 是**同时兑现**的：删声明与降那个 3→0 在同一次提交里，
     //   两本账一起对平，这也是当初把两个数字都钉成必须相等的原因。
-    "src/styles/editorial-studio.css": 4
+    // 批次 BD-89：A 族两条（卡族分组 rest + 看板卡 hover）随材质令牌离账，4→2。
+    // 剩下的 2 条是 B 族：.stats-card/.paper-panel 分组 rest 与深色四宿主规则，
+    // 等「收件箱列表版式 / 阅读器外壳」把 1px 环关得掉之后再判。
+    "src/styles/editorial-studio.css": 2
   };
 
   // 批次 BD-25（用户第二项裁定）：材质 / 装饰族**移出投影层级这本账**。
@@ -1596,11 +1599,14 @@ const isPureRingValue = (v) => {
    *   ③ 只认「整个值就是一个 var(--shadow-… 或 --focus-…)」的形状，混排不放过；
    *   ④ 登记条目必须至少被一处 @apply 或声明用到（僵尸登记同 DECOR_SHADOWS 的失配红）。
    * 两类宿主：`@apply` 侧（shadow-paper，7 个夜读皮肤）与声明侧（--shadow-control-thumb，
-   * 滑块拇指）走同一张表、同一套值检查。
+   * 滑块拇指；--shadow-card-rest / --shadow-card-hover，稿纸卡族及其 hover）走同一张表、
+   * 同一套值检查。
    */
   const SHADOW_MATERIAL_TOKENS = {
     "--shadow-paper": "0 18px 50px rgba(34, 38, 48, 0.1)",
     "--shadow-control-thumb": "0 1px 4px rgba(15, 20, 28, 0.22)",
+    "--shadow-card-rest": "0 1px 2px rgba(34, 38, 48, 0.05)",
+    "--shadow-card-hover": "0 6px 16px rgba(34, 38, 48, 0.09)",
   };
   const TOKEN_DECLS = (() => {
     const out = {};
@@ -1877,9 +1883,25 @@ const isPureRingValue = (v) => {
    * 至此阴影值账只剩 editorial-studio.css 的 4 条：A 族卡族双拼 2（等「卡片描边批」）
    * 与 B 族分组 2（等「收件箱列表版式 / 阅读器外壳」），都属于真版式裁定，不由本批判。
    */
+  /* ---- 批次 BD-89·卡片描边批：稿纸卡族的 rest / hover 影立成材质令牌（零像素，账 4 → 2）----
+   *
+   * 本批回答 A 族的题：这四条规则（.cards-board-card / .background-card /
+   * .cards-detail-card / .history-empty）的影能不能并进 --shadow-1？答案是不能，
+   * 而且不是「暂缓」——四条宿主各有一条**结构边**：
+   *   · 看板卡 border-left: 3px 朱砂书脊（hover/.active 都靠它表达选中）；
+   *   · 背景卡 border: 1px var(--paper-line)，hover 靠 border-color 变铜色；
+   *   · 历史空态 border: 1px dashed paper-line 70%（虚线托盘）；
+   *   · 详情卡没有自己的边，但嵌在 1px 边框的 .cards-detail-pane 里。
+   * shadow-1 的 0 0 0 1px 环画在边框盒**外**：叠上去分别是 4px 书脊+环、2px 实线、
+   * 虚线+实线、pane 内再一圈——都是肉眼可见的改版，而不是「归级」。
+   * hover 也不能并 2 档：实测 computed 0 6px 16px，2 档是 0 4px 12px，模糊与偏移同时收紧。
+   * 所以判成材质：--shadow-card-rest / --shadow-card-hover（tokens.css §5.3 末尾），
+   * 两条声明改走令牌，值由 SHADOW_MATERIAL_TOKENS 逐字钉住。零像素基线来自 BD-86：
+   *   看板卡 rest rgba(34,38,48,.05) 0 1px 2px；hover .09 0 6px 16px；详情卡同 rest；
+   *   背景卡同 rest（border 1px solid rgb(224,228,233)）。
+   * 至此 A 族清零，阴影值账只剩 B 族 2 条。
+   */
   const SHADOW_VALUE_LEDGER = [
-        "src/styles/editorial-studio.css\t.cards-board-card, .background-card, .cards-detail-card, .history-empty\t0 1px 2px rgba(34, 38, 48, 0.05)",
-        "src/styles/editorial-studio.css\t.cards-board-card:hover\t0 6px 16px rgba(34, 38, 48, 0.09)",
         "src/styles/editorial-studio.css\t.stats-card, .paper-panel\t0 1px 2px rgba(15, 20, 28, 0.04)",
         "src/styles/editorial-studio.css\t:root[data-app-theme=\"dark\"] .stats-card, :root[data-app-theme=\"dark\"] .desktop-panel-card, :root[data-app-theme=\"dark\"] .paper-panel, :root[data-app-theme=\"dark\"] .desktop-library-panel\tinset 0 1px 0 rgba(255, 255, 255, 0.045), 0 10px 30px rgba(0, 0, 0, 0.38)",
   ].sort();
