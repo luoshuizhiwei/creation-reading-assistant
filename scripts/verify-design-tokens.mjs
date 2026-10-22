@@ -1408,7 +1408,7 @@ const isPureRingValue = (v) => {
     //   同族先例是第 6 步 inbox 按钮的 inset 冠光与 §2.5 的去冠光裁定——整条下线，
     //   面板本体早就写着 var(--shadow-3)（z-60 浮层、对话框量级，档位无需重判），
     //   删掉混排前缀后整串命中 var(--shadow-*) 豁免。border 保留：3 档不含环，AE 管不到。
-    "src/features/settings/settings-controls.css": 1,
+    // 条目随 BD-88 债清零移除（见上面那条 ✔ 后续）。
     // ✔ 后续（批次 BD-19 裁定，本批**保留**这一笔）：滑块拇指 `0 1px 4px rgba(15,20,28,.22)`
     //   不归四级里的任何一档——1 档自带 0 0 0 1px 环，会和这条 2px solid --action-primary
     //   拇指描边拼成 AE 说的双线（且 16px 的圆钮上一圈 separator 环毫无意义）；2 档是
@@ -1417,6 +1417,10 @@ const isPureRingValue = (v) => {
     //   （另一层现实约束：批次 AD 那颗「删掉这条真投影必须红」的牙就钉在这两行串上，
     //   付它得先把牙迁到别的活债宿主——本批 TSX 侧清零、CSS 侧还有 20 处，不缺锚点，
     //   但那是「为了还债搬家」而不是「判完再还」，方向不对，随专项批一起做。）
+    //   ✔ 后续（批次 BD-88，控件触感与材质专项兑现）：裁定这层是**材质**——16px 圆钮
+    //   离开轨道的微接触影，立成 --shadow-control-thumb（tokens.css §5.3 末尾），声明改
+    //   `box-shadow: var(--shadow-control-thumb)`，与 @apply 侧共用 SHADOW_MATERIAL_TOKENS
+    //   的值钉法。条目随债清零移除；settings-controls.css 自此不在阴影预算表上。
     // 批次 AK：styles.css 退役 4 处——侧栏卡那条被 editorial 同特异度 none 压死的手抄投影（层叠死），
     // 加 manuscript-paper / reader-paper / reader-glassbar 三条幻影规则整条删除（宿主零引用）。
     // 批次 AL：再退役 2 处，同一族「层叠压死」，胜者表实测从未画出一个像素——
@@ -1577,7 +1581,7 @@ const isPureRingValue = (v) => {
     return key && SHADOW_UTIL_GEOMETRY[key] ? SHADOW_UTIL_GEOMETRY[key] : `@default:${tok}`;
   };
 
-  /* ---- 批次 BD-87·材质令牌与 @apply 侧的判据对称（纸面浮影）----
+  /* ---- 批次 BD-87/BD-88·材质令牌与两侧判据对称（纸面浮影 / 控件接触影）----
    *
    * 不对称的实测形状：声明侧 `box-shadow: var(--shadow-*)` 一直依法豁免（令牌即唯一真相），
    * 但 @apply 侧只看令牌名（tsxShadowDebt），于是 `@apply shadow-paper` 被计成债——哪怕
@@ -1588,12 +1592,15 @@ const isPureRingValue = (v) => {
    * 回落到 none——影子画不出来，账却清零，正是批次 K 那族幻影。所以逐条登记：
    *   ① 变量必须在 tokens.css 有定义（否则当场红：静默无阴影）；
    *   ② 定义值必须与下面登记逐字相等（把 BD-45 值账的咬合力搬到令牌上——一个令牌改的是
-   *      名下**全部**皮肤，这正是 BD-45 ③ 那颗牙的原意）；
+   *      名下**全部**宿主，这正是 BD-45 ③ 那颗牙的原意）；
    *   ③ 只认「整个值就是一个 var(--shadow-… 或 --focus-…)」的形状，混排不放过；
-   *   ④ 登记条目必须至少被一处 @apply 用到（僵尸登记同 DECOR_SHADOWS 的失配红）。
+   *   ④ 登记条目必须至少被一处 @apply 或声明用到（僵尸登记同 DECOR_SHADOWS 的失配红）。
+   * 两类宿主：`@apply` 侧（shadow-paper，7 个夜读皮肤）与声明侧（--shadow-control-thumb，
+   * 滑块拇指）走同一张表、同一套值检查。
    */
   const SHADOW_MATERIAL_TOKENS = {
     "--shadow-paper": "0 18px 50px rgba(34, 38, 48, 0.1)",
+    "--shadow-control-thumb": "0 1px 4px rgba(15, 20, 28, 0.22)",
   };
   const TOKEN_DECLS = (() => {
     const out = {};
@@ -1628,6 +1635,46 @@ const isPureRingValue = (v) => {
         if (decorKey in DECOR_SHADOWS) {
           decorHits.add(decorKey);
           return;
+        }
+        // 批次 BD-88：声明侧引用材质令牌时同样逐字钉值——@apply 与声明两条路必须是同一套
+        // 登记（见上面 SHADOW_MATERIAL_TOKENS）。§5.3 四档与 --shadow-dialog / --focus-*
+        // 是逐条声明的 canonical 选择，仍走下面那条前缀豁免；除此之外的整值 var(--shadow-*)
+        // 必须先登记（配置层的间接指向会一次改多个宿主，不享受同样的默许）。
+        const mvDecl = materialRef(v);
+        if (mvDecl) {
+          const pinned = SHADOW_MATERIAL_TOKENS[mvDecl];
+          if (pinned !== undefined) {
+            materialHits.add(mvDecl);
+            const declared = TOKEN_DECLS[mvDecl];
+            if (declared === undefined) {
+              fail(
+                `${rel} 的「${d.parent.selector.replace(/\s+/g, " ").trim()}」里 box-shadow: var(${mvDecl})，` +
+                  `但 tokens.css 的晨校 :root 没有定义 ${mvDecl}——浏览器算值阶段判无效、回落到无阴影（幻影）。`
+              );
+              return;
+            }
+            if (declared !== pinned) {
+              fail(
+                `第 8 步阴影刻度：材质令牌 ${mvDecl} 的值「${declared}」与登记「${pinned}」不一致` +
+                  `（${rel} 的「${d.parent.selector.replace(/\s+/g, " ").trim()}」名下）。` +
+                  `材质令牌一改就是控件触感 / 整页纸壳的改版——不是有意改版就把值改回去，` +
+                  `是有意改版就重钉 SHADOW_MATERIAL_TOKENS 并做像素验收。`
+              );
+            }
+            return;
+          }
+          const isCanonical = /^--shadow-[1-4]$/.test(mvDecl) || mvDecl === "--shadow-dialog" || /^--focus(-|$)/.test(mvDecl);
+          if (!isCanonical) {
+            const declared = TOKEN_DECLS[mvDecl];
+            fail(
+              declared === undefined
+                ? `${rel} 的「${d.parent.selector.replace(/\s+/g, " ").trim()}」里 box-shadow: var(${mvDecl})，` +
+                  `但 tokens.css 的晨校 :root 没有定义 ${mvDecl}——浏览器算值阶段判无效、回落到无阴影（幻影）。`
+                : `第 8 步阴影刻度：${rel} 的「${d.parent.selector.replace(/\s+/g, " ").trim()}」用了材质令牌 ${mvDecl}，` +
+                  `但它没有登记在 SHADOW_MATERIAL_TOKENS 上。新材质令牌要人批：登记值并在注释里写清为什么不是 §5.3 层级。`
+            );
+            return;
+          }
         }
         if (v === "none" || /^var\(--(shadow|focus)/.test(v)) return;
         // 只有「至少一个非 inset 层」才是投影；纯 inset 是色条/内衬装饰，§5.3 四级不针对它
@@ -1814,8 +1861,23 @@ const isPureRingValue = (v) => {
    * 7 个皮肤 computed 仍是 `rgba(0,0,0,0) 0 0 0 0, rgba(0,0,0,0) 0 0 0 0,
    * rgba(34,38,48,0.1) 0 18px 50px`，逐字节相同。
    */
+  /* ---- 批次 BD-88·控件触感与材质：滑块拇指接触影立成材质令牌（零像素批，账 5 → 4）----
+   *
+   * BD-19 把这条留成「控件触感和材质」专项，本批给出答案：它也是**材质**，不是 §5.3
+   * 层级。16px 圆钮 + 2px 主色描边，1 档的 0 0 0 1px 环会与描边拼成双线；2 档
+   * 0 4px 12px 比钮本身还大。立成 --shadow-control-thumb（tokens.css §5.3 末尾），
+   * 声明改 `box-shadow: var(--shadow-control-thumb)`。
+   *
+   * 与 BD-87 共用同一张 SHADOW_MATERIAL_TOKENS，但本批把值钉法**补到声明侧**：之前
+   * 声明侧的 var(--shadow-*) 是不看值的裸豁免，令牌内容改了没人管；现在登记过的令牌
+   * 在两条路上都被逐字核对（缺定义即红、值不一致即红、僵尸登记即红）。
+   * 零像素证据：BD-86 像素差分（设置页 468×40 裁剪，强制 thumb box-shadow:none 前后
+   * 311 px 变化、最大 Δ28、变化区 (124,9)-(148,33)，正是 16px 拇指 + 4px 模糊）；
+   * 改前 computed 几何 = 0 1px 4px rgba(15,20,28,.22)，改后走令牌逐像素不变。
+   * 至此阴影值账只剩 editorial-studio.css 的 4 条：A 族卡族双拼 2（等「卡片描边批」）
+   * 与 B 族分组 2（等「收件箱列表版式 / 阅读器外壳」），都属于真版式裁定，不由本批判。
+   */
   const SHADOW_VALUE_LEDGER = [
-        "src/features/settings/settings-controls.css\t.paper-slider::-webkit-slider-thumb\t0 1px 4px rgba(15, 20, 28, 0.22)",
         "src/styles/editorial-studio.css\t.cards-board-card, .background-card, .cards-detail-card, .history-empty\t0 1px 2px rgba(34, 38, 48, 0.05)",
         "src/styles/editorial-studio.css\t.cards-board-card:hover\t0 6px 16px rgba(34, 38, 48, 0.09)",
         "src/styles/editorial-studio.css\t.stats-card, .paper-panel\t0 1px 2px rgba(15, 20, 28, 0.04)",
