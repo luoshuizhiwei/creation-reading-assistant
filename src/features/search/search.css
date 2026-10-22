@@ -4,7 +4,18 @@
   position: absolute;
   inset: 0;
   z-index: 40;
-  padding: 64px 24px 24px;
+  /* 批次 BD-82（64px 桶·全局搜索弹层顶槽）：64→48。64 在刻度之外、刻度上限就是 48
+   * （距 16 档），严格只能往 48 收；这里也没有可投的同角色在档票——全仓只此一处
+   * 「铺满整窗的弹层内衬」，其余弹层走居中定位而非内衬。收 48 后顶缝仍是左右缝
+   * （24）的两倍，弹层仍在视口上三分之一处起笔。
+   * 真宿主实拍（/tmp/bd82-census.json，Ctrl+K 打开；1360 与 1024 两窗 × 空态/有结果
+   * 两态）：遮罩恒 0,0,整窗（1360×860 / 1024×800）、壳恒 720 宽居中、左右缝 320/320
+   * （窄窗 152/152）；就地扫顶槽 24/32/40/48/56/64/72 只有壳的 y 跟着走
+   * （24…72），壳高 120（空态）/257.5（有结果）、ovScrollH=ovClientH（不溢出）全档不动。
+   * 收 48 即壳 y 64→48，其余读数一格不动。
+   * ⚠ 查过「64 是否绑在标题栏/内容区上」：标题栏实测 h40、内容壳 y108，64 与两者都
+   * 不共线（遮罩从窗口 0 起），不是被打破的绑定，如实记。 */
+  padding: 48px 24px 24px;
   /* BD-30 摘死色：background: rgba(24, 20, 16, 0.18) 从未渲染——「.uni-search-overlay」在产物里被 editorial-studio.css:1736 同键更晚的一条整条压住（eager 发射序 search.css 第 2 份、editorial 第 4 份） */
   /* BD-32 摘死声明：backdrop-filter: blur(10px) 从未渲染——「.uni-search-overlay」被 src/styles/editorial-studio.css:1737 blur(7px) saturate(0.85) 同键整条压住（发射序 eager：search.css 主 bundle 第 2 份、editorial 第 4 份，更晚者整条压住更早者） */
   overflow: auto;
