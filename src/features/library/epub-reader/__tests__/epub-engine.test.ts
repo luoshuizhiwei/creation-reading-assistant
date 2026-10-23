@@ -109,34 +109,52 @@ describe("applyReaderTheme", () => {
   }
   function stub() {
     const registered: string[] = [];
+    const rulesByName = new Map<string, Record<string, Record<string, string>>>();
     const selected: string[] = [];
     const overrides: Array<[string, unknown]> = [];
     const rendition = {
       themes: {
-        register: (name: string) => registered.push(name),
+        register: (name: string, rules: unknown) => { registered.push(name); rulesByName.set(name, rules as Record<string, Record<string, string>>); },
         select: (name: string) => selected.push(name),
         override: (key: string, value: unknown) => overrides.push([key, value])
       }
     } as unknown as RenditionStub;
-    return { rendition, registered, selected, overrides };
+    return { rendition, registered, rulesByName, selected, overrides };
   }
   const settings = {
     fontSize: 18, lineHeight: 1.8, letterSpacing: 0, paragraphSpacing: 1,
-    readerBackground: "day", epubStyleMode: "novel", fontFamily: "", restoreLastPosition: true
+    readerBackground: "day", epubStyleMode: "unified", fontFamily: "", restoreLastPosition: true
   } as never;
 
   it("同一 rendition 重复应用同名主题只注册一次", () => {
     const { rendition, registered } = stub();
     applyReaderTheme(rendition as never, settings);
     applyReaderTheme(rendition as never, settings);
-    expect(registered.filter((n) => n === "novel-workbench-day")).toHaveLength(1);
+    expect(registered.filter((n) => n === "novel-workbench-day-p1")).toHaveLength(1);
   });
 
   it("出版商样式 + 夜间时注册 night 主题并注入可读文字色", () => {
-    const { rendition, registered, selected } = stub();
+    const { rendition, registered, rulesByName } = stub();
     applyReaderTheme(rendition as never, { ...settings, epubStyleMode: "publisher", readerBackground: "night" });
-    expect(registered).toContain("publisher-preserve-night");
-    expect(selected).toContain("publisher-preserve-night");
+    const name = "publisher-preserve-night-p1";
+    expect(registered).toContain(name);
+    // 深色夜纸下正文必须强制浅色墨，否则 UA 黑字压在 #15100e 上不可读（BD-109 实测 1.05:1）。
+    const bodyRule = rulesByName.get(name)?.["body, p, div, span, section, article, h1, h2, h3, h4, h5, h6, li, td, th, blockquote"];
+    expect(bodyRule?.color).toBe("#f4eadf !important");
+  });
+
+  it("配色与段距合并进同一主题，只 select 一次（BD-109：多次 select 会 removeClass 顶掉配色类名）", () => {
+    const { rendition, selected, rulesByName } = stub();
+    applyReaderTheme(rendition as never, { ...settings, epubStyleMode: "publisher", readerBackground: "night" });
+    expect(selected).toHaveLength(1);
+    // 段距规则也挂在这个唯一主题下，不再靠第二个 select。
+    expect(rulesByName.get("publisher-preserve-night-p1")?.["p, div"]?.["margin-bottom"]).toBe("1em !important");
+  });
+
+  it("段距变化生成独立主题名，重新注册以生效", () => {
+    const { rendition, selected } = stub();
+    applyReaderTheme(rendition as never, { ...settings, paragraphSpacing: 1.5 });
+    expect(selected).toContain("novel-workbench-day-p1.5");
   });
 
   it("非出版商模式覆盖字号/行距/字距", () => {

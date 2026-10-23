@@ -109,11 +109,19 @@ export function locationFromEpub(book: Book | undefined, libraryBook: LibraryBoo
 
 export function applyReaderTheme(rendition: Rendition, settings: ReaderSettings): void {
   const isPublisher = settings.epubStyleMode === "publisher";
+  const night = settings.readerBackground === "night";
+  const paraSpacing = settings.paragraphSpacing ?? 1.0;
+  // BD-109：epub.js 的 Themes 只维护单一 _current，select() 会 removeClass(prev)，
+  // 所以「颜色主题 + 段距主题」分两次 select 时，后一次会把前一次的类名抹掉。
+  // 而 epub.js 把每个主题的规则作用域限定在自己的类名之下（.theme-name body{...}），
+  // 类名一旦被移除，那条规则就再也不匹配 → 正文退回 UA 黑色。夜纸 publisher 下
+  // 实测 #f4eadf 覆盖失效、黑字压在 #15100e 上 ≈1.05:1（不可读）。
+  // 修法：把段距与配色合并成「同一个主题」，只 select 一次，二者共存。
   const themeName = isPublisher
-    ? settings.readerBackground === "night"
-      ? "publisher-preserve-night"
-      : "publisher-preserve"
-    : `novel-workbench-${settings.readerBackground}`;
+    ? night
+      ? `publisher-preserve-night-p${paraSpacing}`
+      : `publisher-preserve-p${paraSpacing}`
+    : `novel-workbench-${settings.readerBackground}-p${paraSpacing}`;
 
   let registered = renditionRegisteredThemes.get(rendition);
   if (!registered) {
@@ -123,10 +131,14 @@ export function applyReaderTheme(rendition: Rendition, settings: ReaderSettings)
 
   const textColor = readerTextColor(settings.readerBackground);
   if (!registered.has(themeName)) {
+    // 合并主题：body 透明 + 段距 +（按需）配色，全部挂在这一个类名下。
     const rules: Record<string, Record<string, string>> = {
-      body: { background: "transparent !important" }
+      body: { background: "transparent !important" },
+      "p, div": { "margin-bottom": `${paraSpacing}em !important` }
     };
-    if (isPublisher && settings.readerBackground === "night") {
+    if (isPublisher && night) {
+      // BD-109：publisher 模式保留出版方排版，但夜间纸下必须强制浅色墨，
+      // 否则 UA 黑字压在深色纸面上不可读。
       rules["body, p, div, span, section, article, h1, h2, h3, h4, h5, h6, li, td, th, blockquote"] = {
         color: `${textColor} !important`
       };
@@ -139,17 +151,8 @@ export function applyReaderTheme(rendition: Rendition, settings: ReaderSettings)
     registered.add(themeName);
   }
 
-  // Register paragraph spacing theme (needs to be re-registered when value changes)
-  const paraSpacingThemeName = `para-spacing-${settings.paragraphSpacing ?? 1.0}`;
-  if (!registered.has(paraSpacingThemeName)) {
-    rendition.themes.register(paraSpacingThemeName, {
-      "p, div": { "margin-bottom": `${settings.paragraphSpacing ?? 1.0}em !important` }
-    });
-    registered.add(paraSpacingThemeName);
-  }
-
+  // 单次 select：配色与段距同属一个主题，不会再互相顶掉类名。
   rendition.themes.select(themeName);
-  rendition.themes.select(paraSpacingThemeName);
   if (!isPublisher) {
     rendition.themes.override("font-size", `${settings.fontSize}px`, true);
     rendition.themes.override("line-height", `${settings.lineHeight}`, true);

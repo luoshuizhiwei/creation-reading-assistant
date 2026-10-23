@@ -12,10 +12,12 @@
  *  · 其余颜色（自定义/accent/半透明叠出来的）一律按 4.5:1 判——没有令牌身份就没有豁免。
  *  · 跳过 disabled、透明度 <0.35、尺寸 <2px、视口外的元素：它们不承载可读信息。
  *
- * 范围（BD-107 扩，BD-108 再补正文）：12 个主视图 + 5 个弹层 + 5 个设置分区
- *   + 7 种正文纸面 + 1 个 EPUB 阅读器，共 30 个范围。
+ * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe）：12 个主视图 + 5 个弹层
+ *   + 5 个设置分区 + 7 种正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 38 个范围。
  * BD-108 补纸面是因为守卫第 7 步补钉对 .reader-shell-* 有一整族的豁免，理由写着
  * 「壳的 background 同为字面量、成对写死」——这个前提此前只是断言，没人量过。
+ * BD-109 补 EPUB 正文是因为早先那个范围只量宿主壳、穿不进 iframe，于是夜纸 publisher
+ * 下正文退回 UA 黑压在 #15100e 上 1.05:1 的缺陷没人量到——iframe 同源，现在穿进去量。
  * 每个都在晨校与夜校各量一遍——两套底色是两套事实，夜校绿不代表晨校绿。
  * BD-105 就是靠这条抓到收件箱筛选徽标 4.09:1：那一处在夜校是 4.85:1，只看夜校永远看不见。
  * 每个范围都要求「采样到足够多的文字元素」——采样数塌了说明选择器又漂了，
@@ -96,7 +98,7 @@ async function createProject(page) {
 }
 
 /** 页面内测量：把文字元素的颜色与逐级合成后的实底都算出来。 */
-const sweepScript = ({ rootSelector, levels }) => {
+const sweepScript = ({ rootSelector, levels, canvasSeed }) => {
   const parse = (c) => {
     const m = String(c).match(/rgba?\(([^)]+)\)/);
     if (!m) return null;
@@ -175,10 +177,15 @@ const sweepScript = ({ rootSelector, levels }) => {
    *     顶层 radial 覆盖范围有限（circle at 50% 0%），它的 transparent 部分露出下层，
    *     所以下层原色也留在 acc 里做候选。
    */
-  const canvas = (() => {
-    const c = parse(getComputedStyle(document.body).backgroundColor);
-    return c && c.a > 0.99 ? c : { r: 236, g: 239, b: 242, a: 1 };
-  })();
+  const canvas = canvasSeed
+    // BD-109：穿进 EPUB iframe 时，正文实际压在宿主 viewerRef 的内联纸色上
+    // （iframe body 是透明的，getComputedStyle 在本 frame 里摸不到那块纸）。
+    // 由 Node 侧把宿主纸色传进来当画布种子，别再退回浅色默认值。
+    ? { r: canvasSeed.r, g: canvasSeed.g, b: canvasSeed.b, a: canvasSeed.a ?? 1 }
+    : (() => {
+        const c = parse(getComputedStyle(document.body).backgroundColor);
+        return c && c.a > 0.99 ? c : { r: 236, g: 239, b: 242, a: 1 };
+      })();
   const bgCandidates = (el) => {
     let cur = el;
     let acc = [canvas];
@@ -497,11 +504,97 @@ await ok("EPUB 阅读器", async () => {
   await page.waitForSelector(".reader-root", { timeout: 30000 });
   await page.waitForTimeout(1200);
 });
-// EPUB 正文在 iframe 里（跨文档，本探针不穿进 iframe），这里量的是宿主壳：
-// 顶栏、翻页控件、目录侧栏。下限 6 就是这个意思——不是正文，是宿主。
+// 宿主壳（顶栏、翻页控件、目录侧栏）走常规 auditScope：
 await auditScope("EPUB 阅读器", ".reader-root", 6);
 await page.getByRole("button", { name: "返回书库" }).first().click().catch(() => {});
 await page.waitForTimeout(400);
+
+/**
+ * BD-109：EPUB 正文在同源 iframe 里，早先这个范围只量宿主壳、穿不进 iframe，
+ * 于是「夜纸 + publisher 保留原书样式」下正文退回 UA 黑、压在 #15100e 上 ≈1.05:1
+ * 的缺陷一直没人量到（根因见 epub-engine.ts 的双 select 顶掉类名注释）。
+ * 正文实际压在宿主 viewerRef 的内联纸色上（iframe body 是透明的），所以先从父文档
+ * 往上摸到那块不透明纸色，作为画布种子传进 iframe，再复用同一套逐层合成扫描。
+ */
+async function epubIframeScope(label, minSamples) {
+  scopeTotal += 1;
+  const host = await page.evaluate(() => {
+    const iframe = document.querySelector(".reader-root iframe");
+    let cur = iframe ? iframe.parentElement : null;
+    while (cur) {
+      const bg = getComputedStyle(cur).backgroundColor;
+      const m = bg.match(/rgba?\(([^)]+)\)/);
+      if (m) {
+        const p = m[1].split(",").map((x) => Number(x.trim()));
+        if (p.length < 4 || p[3] > 0.99) return { r: p[0], g: p[1], b: p[2], a: 1 };
+      }
+      cur = cur.parentElement;
+    }
+    return null;
+  });
+  if (!host) { check(`EPUB·${label} 宿主纸色可定位`, false, "沿 iframe 祖先没找到不透明底色"); return; }
+  const handle = await page.locator(".reader-root iframe").first().elementHandle();
+  const frame = handle ? await handle.contentFrame() : null;
+  if (!frame) { check(`EPUB·${label} iframe 可达`, false); return; }
+  const { found, rows, decorative } = await frame.evaluate(sweepScript, { rootSelector: null, levels: THEMES.dark, canvasSeed: host });
+  if (!found) { check(`EPUB·${label} iframe 正文可定位`, false, "document.body 为空"); return; }
+  const bad = rows.filter((r) => r.ratio < r.floor);
+  const worst = rows.reduce((a, r) => (a === null || r.ratio < a.ratio ? r : a), null);
+  check(`EPUB·${label} 采样数 ≥${minSamples}`, rows.length >= minSamples, `实测 ${rows.length} 个正文元素（跳过装饰 ${decorative}）`);
+  check(`EPUB·${label} 正文墨色跟着纸走`, bad.length === 0,
+    bad.length
+      ? `${bad.length} 处低于底线，最差 ${Math.min(...bad.map((b) => b.ratio)).toFixed(2)}:1（"${bad.sort((a, b) => a.ratio - b.ratio)[0].text}" ${bad[0].color} on ${bad[0].bg}）`
+      : `最低 ${worst ? worst.ratio.toFixed(2) : "-"}:1（"${worst ? worst.text : "-"}"）`);
+  if (bad.length) for (const b of bad.sort((x, y) => x.ratio - y.ratio).slice(0, 8)) {
+    console.log(`        ${b.ratio}:1  ≤${b.floor}  "${b.text}"  ${b.color} on ${b.bg}  ${b.cls}`);
+  }
+}
+
+// publisher 模式：逐纸面进 EPUB。出版方排版保留原色，但深色夜纸下必须被强制浅色墨，
+// 否则 UA 黑字压在深底不可读——这正是 BD-109 修复要长期钉住的不变式。
+for (const [label] of PAPER_OPTIONS) {
+  await ok(`EPUB 纸面·${label}`, async () => {
+    await goto(page, "设置");
+    await page.waitForSelector(".settings-nav", { timeout: 10000 });
+    await page.locator(".settings-nav button", { hasText: "阅读器" }).first().click();
+    const swatch = page.locator(`[role="radiogroup"][aria-label="书籍背景"] button[aria-label="${label}"]`).first();
+    await swatch.waitFor({ state: "visible", timeout: 10000 });
+    await swatch.click();
+    await page.waitForTimeout(300);
+    await goto(page, "书库");
+    await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
+    await page.locator(".desktop-library-row", { hasText: "测试 EPUB 资料" }).first().click();
+    await page.waitForSelector(".reader-root iframe", { timeout: 30000 });
+    await page.waitForTimeout(1200);
+  });
+  await epubIframeScope(`publisher·${label}`, 2);
+  await page.getByRole("button", { name: "返回书库" }).first().click().catch(() => {});
+  await page.waitForTimeout(300);
+}
+
+// unified 模式 × 夜间：这条路径由我们上色（取 readerTextColor），最易与纸色脱节。
+await ok("EPUB 纸面·unified·夜间", async () => {
+  await goto(page, "设置");
+  await page.waitForSelector(".settings-nav", { timeout: 10000 });
+  await page.locator(".settings-nav button", { hasText: "阅读器" }).first().click();
+  await page.locator('[data-setting-id="reader.epubStyleMode"] select').first().selectOption("unified");
+  await page.locator(`[role="radiogroup"][aria-label="书籍背景"] button[aria-label="夜间"]`).first().click();
+  await page.waitForTimeout(300);
+  await goto(page, "书库");
+  await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
+  await page.locator(".desktop-library-row", { hasText: "测试 EPUB 资料" }).first().click();
+  await page.waitForSelector(".reader-root iframe", { timeout: 30000 });
+  await page.waitForTimeout(1200);
+});
+await epubIframeScope("unified·夜间", 2);
+// 复位默认 publisher + 白纸，别把这套设置留在 profile 里干扰其它判断。
+await page.getByRole("button", { name: "返回书库" }).first().click().catch(() => {});
+await goto(page, "设置");
+await page.waitForSelector(".settings-nav", { timeout: 10000 });
+await page.locator(".settings-nav button", { hasText: "阅读器" }).first().click();
+await page.locator('[data-setting-id="reader.epubStyleMode"] select').first().selectOption("publisher");
+await page.locator(`[role="radiogroup"][aria-label="书籍背景"] button[aria-label="白纸"]`).first().click();
+await page.waitForTimeout(200);
 
 await app.close();
 rmSync(profileDir, { recursive: true, force: true });
