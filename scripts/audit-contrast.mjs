@@ -12,8 +12,9 @@
  *  · 其余颜色（自定义/accent/半透明叠出来的）一律按 4.5:1 判——没有令牌身份就没有豁免。
  *  · 跳过 disabled、透明度 <0.35、尺寸 <2px、视口外的元素：它们不承载可读信息。
  *
- * 范围：8 个主视图 + 4 个弹层（建项目向导、查找替换、本地校对、导出作品），
- * 每个范围在晨校与夜校各量一遍——两套底色是两套事实，夜校绿不代表晨校绿。
+ * 范围（BD-107 扩）：12 个主视图 + 5 个弹层 + 5 个设置分区，共 22 个范围，
+ * 每个都在晨校与夜校各量一遍——两套底色是两套事实，夜校绿不代表晨校绿。
+ * BD-105 就是靠这条抓到收件箱筛选徽标 4.09:1：那一处在夜校是 4.85:1，只看夜校永远看不见。
  * 每个范围都要求「采样到足够多的文字元素」——采样数塌了说明选择器又漂了，
  * 这时报绿比报红更危险，所以采样下限本身就是一条断言。
  *
@@ -50,6 +51,7 @@ const levelsOf = (block) => ({
 const THEMES = { dark: levelsOf(darkBlock), light: levelsOf(lightBlock) };
 
 const failures = [];
+let scopeTotal = 0;
 const check = (name, ok, detail) => {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? `  — ${detail}` : ""}`);
   if (!ok) failures.push(name);
@@ -179,6 +181,7 @@ await createProject(page);
  * 布局）同样会让采样塌掉，那也该报红而不是静默跳过。
  */
 async function auditScope(label, rootSelector, minSamples) {
+  scopeTotal += 1;
   for (const [theme, levels] of Object.entries(THEMES)) {
     await page.evaluate((t) => { document.documentElement.dataset.appTheme = t; }, theme);
     await page.waitForTimeout(250);
@@ -263,6 +266,18 @@ await auditScope("设定卡", null, 30);
 await ok("大纲", async () => { await workbenchView("大纲", ".project-workbench"); });
 await auditScope("大纲", null, 25);
 
+// 项目内其余四个视图（BD-107）：概览 / 全书预览 / 写作统计 / 版本历史。
+// 导航文案取自 registry.ts 的 PROJECT_NAV_ITEMS，选择器取自各页根节点。
+for (const [label, selector] of [
+  ["概览", ".overview-page"],
+  ["全书预览", ".preview-page"],
+  ["写作统计", ".stats-page"],
+  ["版本历史", ".history-page"]
+]) {
+  await ok(label, async () => { await workbenchView(label, selector); });
+  await auditScope(label, null, 15);
+}
+
 for (const [label, selector] of [["书库", ".desktop-library-row"], ["收件箱", ".inbox-list"], ["设置", ".desktop-page-stack"]]) {
   await ok(label, async () => { await goto(page, label); await page.waitForSelector(selector, { timeout: 10000 }).catch(() => {}); });
   await auditScope(label, null, 25);
@@ -298,6 +313,32 @@ await ok("导出作品", async () => {
 await auditScope("导出作品", '[role="dialog"][aria-label="导出作品"]', 8);
 await page.getByRole("button", { name: /关闭|取消/ }).last().click().catch(() => {});
 
+await ok("命令面板", async () => {
+  await workbenchView("写作", ".writing-desk");
+  // 面板的快捷键是 Ctrl/⌘+P（CreationProjectsPage 的 keydown），
+  // 界面上「搜索项目、收件箱、资料」那行提示写的 Ctrl K 是另一个全局搜索，别混。
+  await page.keyboard.press("Control+p");
+  await page.waitForSelector('[role="dialog"][aria-label="命令面板"]', { timeout: 8000 });
+  await page.waitForTimeout(400);
+});
+await auditScope("命令面板", '[role="dialog"][aria-label="命令面板"]', 6);
+await page.keyboard.press("Escape").catch(() => {});
+await page.waitForTimeout(300);
+
+// 设置按分区量（BD-107）：整屏只算「当前分区」，其余四个分区的控件从来没被量过。
+// 下限取 4：设置表单绝大多数文字是 <label> / 按钮里的直接文字，一个分区能采到的
+// 独立文字节点本来就是个位数（外观实测 5），要 8 条会把「页面没渲染」和「这屏字少」混在一起。
+for (const section of ["外观", "阅读器", "AI 助手", "数据与存储", "关于 / 调试"]) {
+  await ok(`设置·${section}`, async () => {
+    await goto(page, "设置");
+    await page.waitForSelector(".settings-nav", { timeout: 10000 });
+    await page.locator(".settings-nav button", { hasText: section }).first().click();
+    await page.waitForSelector(".settings-forms", { timeout: 10000 });
+    await page.waitForTimeout(400);
+  });
+  await auditScope(`设置·${section}`, ".settings-forms", 4);
+}
+
 await app.close();
 rmSync(profileDir, { recursive: true, force: true });
 
@@ -305,4 +346,5 @@ if (failures.length) {
   console.error(`\n[audit-contrast] ${failures.length} 项未通过：${failures.join(" | ")}`);
   process.exit(1);
 }
-console.log("\nCONTRAST_OK：12 个范围 × 晨校/夜校，文字全部达标。");
+const SCOPE_TOTAL = scopeTotal;
+console.log(`\nCONTRAST_OK：${SCOPE_TOTAL} 个范围 × 晨校/夜校，文字全部达标。`);

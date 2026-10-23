@@ -28,15 +28,15 @@ npm run dist           # 构建 + 打包安装程序
 | `npm run verify:design-tokens` | 全量守卫：令牌定义、对比度、阴影/圆角/间距/字号/行高棘轮、死声明与死色账 |
 | `npm run audit:test-anchors` | 核对注入测试里每个 needle 在当前源码中命中且唯一 |
 | `npm run audit:script-selectors` | 核对 `scripts/*.mjs` 里每个字面量选择器的类名在 `src/`、`electron/` 里仍有出处 |
-| `npm run audit:contrast` | 运行时对比度普查：8 个主视图 + 4 个弹层，晨校与夜校各一遍，逐元素量实际计算色（需 Xvfb 与已构建的 `out/`，约 2 分钟） |
+| `npm run audit:contrast` | 运行时对比度普查：12 个主视图 + 5 个弹层 + 5 个设置分区（共 22 个范围），晨校与夜校各一遍，逐元素量实际计算色（需 Xvfb 与已构建的 `out/`，约 3 分钟） |
 | `npm run inject:design-tokens` | 注入电池：逐颗改写源码验证守卫会咬（约 17 分钟，跑完自动还原） |
 
 `npm test` 已经包含前三条；改版式或颜色后先让它通过再提交。守卫的账全是 0 或已逐条记档，
 新增债务必须当场判定用途（收档 / 摘死 / 记档），不允许把预算调高来放行。
 
-后两条目前只能本地跑（`audit:contrast` 要 Xvfb，电池要 17 分钟）。已备好
+后两条目前只能本地跑（`audit:contrast` 要 Xvfb 约 3 分钟，电池要 17 分钟）。已备好
 `.github/workflows/design-gates.yml` 把它们接进 CI（`audit:contrast` 随 `src/`、`scripts/`
-变动的提交跑；电池只在每周定时与手动触发跑，不给每个 PR 加十七分钟），
+变动的提交跑（约 3 分钟）；电池只在每周定时与手动触发跑，不给每个 PR 加十七分钟），
 但该文件尚未入库——推送 workflow 需要 PAT 带 Workflows 读写权限，当前令牌没有，
 所以它现在是本地待激活状态：补上权限后提交该文件即生效，在那之前后两条仍靠本地执行。
 
