@@ -22,7 +22,7 @@ export interface TocListProps {
   disableSearch?: boolean;
   /** 附加到根节点的类（如在 flex 侧栏中传 min-h-0 flex-1 以获得内部滚动） */
   className?: string;
-  /** 已读章节 id 集合（派生自当前进度），行内弱化并标记 */
+  /** 已读章节 id 集合（派生自当前进度），以勾选图标标记；不靠压暗文字表达，避免二级文字掉到对比度线以下 */
   readIds?: ReadonlySet<string>;
 }
 
@@ -230,9 +230,10 @@ function TocRow({ entry, active, read, indent, onJump, hasChildren, expanded, on
       className={`group flex items-start rounded text-left text-sm transition-colors ${
         active
           ? "bg-copper/10 font-medium text-copper"
-          : read
-            ? "text-paper-muted/55 hover:bg-paper-panel hover:text-paper-ink"
-            : "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"
+          : // BD-119：读态曾用 text-paper-muted/55（≈2.2:1，二级文字不达 4.5），且读/未读同色后
+            // 已无需分叉。已读改由行尾 Check 图标与 title 表达，文字统一为不透明 paper-muted
+            // （浅色 4.96 / 深色 7.47），不再靠压暗区分状态。
+            "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"
       }`}
       style={{ paddingLeft: `${indent}px` }}
       onClick={() => onJump(entry.id)}
@@ -259,7 +260,7 @@ function TocRow({ entry, active, read, indent, onJump, hasChildren, expanded, on
         <span className="w-[18px] shrink-0" />
       )}
       <span className="line-clamp-2 py-1.5 pr-2">{entry.label}</span>
-      {read && !active && <Check size={12} className="ml-auto mr-2 mt-2 shrink-0 text-paper-muted/50" aria-hidden />}
+      {read && !active && <Check size={12} className="ml-auto mr-2 mt-2 shrink-0 text-paper-muted" aria-hidden />}
     </div>
   );
 }
