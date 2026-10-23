@@ -186,6 +186,24 @@ async function seedLibraryJson() {
   writeBookFiles(books);
   fs.writeFileSync(path.join(libraryRoot, "library.json"), JSON.stringify({ books }, null, 2), "utf8");
 
+  // BD-111：正文里播五条真高亮（覆盖五色），让阅读器渲染出 <mark class="txt-hl">，
+  // 对比度审计的纸面循环才量得到「高亮墨色跟着纸走、最坏一档也达标」。每句都是 PARA 的连续子串。
+  fs.writeFileSync(
+    path.join(libraryRoot, "highlights.json"),
+    JSON.stringify({
+      version: 1,
+      updatedAt: iso(0),
+      items: [
+        { id: "hl-seed-001", bookId: "book-txt-001", text: "不要打开阁楼", color: "yellow", updatedAt: iso(0) },
+        { id: "hl-seed-002", bookId: "book-txt-001", text: "雨下了一整夜", color: "red", updatedAt: iso(0) },
+        { id: "hl-seed-003", bookId: "book-txt-001", text: "潮湿、闷热", color: "green", updatedAt: iso(0) },
+        { id: "hl-seed-004", bookId: "book-txt-001", text: "蝉声在远处", color: "blue", updatedAt: iso(0) },
+        { id: "hl-seed-005", bookId: "book-txt-001", text: "水线在灯下", color: "purple", updatedAt: iso(0) }
+      ]
+    }, null, 2),
+    "utf8"
+  );
+
   const items = [
     {
       bookId: "book-txt-001",

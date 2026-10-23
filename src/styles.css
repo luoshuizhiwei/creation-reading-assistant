@@ -327,6 +327,16 @@ button:disabled {
     line-height: 1.3;
   }
 
+  /* BD-111：正文高亮 <mark class="txt-hl">（TxtMarkdownReader.tsx:476）只内联了
+   * background 半透明色标，文字色没设 → 落回 UA 的 <mark>{color:black}。夜纸下正文
+   * 墨色是 #f4eadf，被标记的那几个字却成黑字压在暗黄底上，实测 3.71:1（低于 4.5），
+   * 且与周围同段墨色脱节——恰恰是用户标为最重要的字最难读。让高亮继承 <article>
+   * 供的那一份纸墨（同 BD-108/109/110 的「墨色只在 article 供一次」口径）。
+   * 宿主类名 txt-hl 是整词字面量（mark.className="txt-hl"），不会被 @layer 抖掉。 */
+  .txt-hl {
+    color: inherit;
+  }
+
   .reader-heading-scale h1 {
     font-size: 1.85em;
   }
