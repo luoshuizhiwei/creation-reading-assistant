@@ -13,8 +13,8 @@
  *  · 跳过 disabled、有效透明度 <0.35（BD-114 起：沿祖先链累乘 CSS opacity，父级 dim 也算）、
  *    尺寸 <2px、视口外的元素：它们不承载可读信息。
  *
- * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe，BD-110 补 markdown 正文）：12 个主视图 + 10 个弹层
- *   + 5 个设置分区 + 7 种 TXT 正文纸面 + 7 种 MD 正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 50 个范围。
+ * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe，BD-110 补 markdown 正文）：12 个主视图 + 11 个弹层
+ *   + 5 个设置分区 + 7 种 TXT 正文纸面 + 7 种 MD 正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 51 个范围。
  * BD-112 把第 6 个弹层（全局搜索 Ctrl+K）补进来：命中词 <mark class="uni-hit"> 是又一处
  * 「<mark> 上色」面，此前从没量过；连同弹层 chrome 一起纳入晨校/夜校。
  * BD-113 把第 7 个弹层（写作速查 Ctrl+Shift+K，右侧 .writing-quick-reference）补进来：它的面板底是
@@ -637,6 +637,22 @@ await ok("阅读器·高亮列表", async () => {
   await page.waitForTimeout(400);
 });
 await auditScope("阅读器·高亮列表", ".reader-host", 12);
+await page.getByRole("button", { name: "返回书库" }).first().click().catch(() => {});
+await page.waitForTimeout(400);
+
+// BD-121：侧栏「书签」标签页同理没被扫过（默认停「目录」，BD-118 才补了「高亮」）。seed 未播书签，
+// 这一页此刻是空态——但"在当前位置添加书签"按钮文字、"暂无书签。"空态（text-paper-muted 压 bg-paper-panel/70）
+// 与标签行都是从没量过的面。开本 TXT → 点「书签」标签（exact，避开"在当前位置添加书签"）→ 扫 .reader-host → 返回。
+await ok("阅读器·书签列表", async () => {
+  await goto(page, "书库");
+  await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
+  await page.locator(".desktop-library-row", { hasText: "测试 TXT 资料" }).first().click();
+  await page.waitForSelector(".reader-host article", { timeout: 30000 });
+  await page.waitForTimeout(400);
+  await page.getByRole("button", { name: "书签", exact: true }).first().click();
+  await page.waitForTimeout(400);
+});
+await auditScope("阅读器·书签列表", ".reader-host", 12);
 await page.getByRole("button", { name: "返回书库" }).first().click().catch(() => {});
 await page.waitForTimeout(400);
 
