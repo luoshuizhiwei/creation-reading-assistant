@@ -2957,6 +2957,142 @@ const isPureRingValue = (v) => {
   }
 }
 
+/* -------------------------------- 批次 BD-91·间距记档的阻塞条件（记档不是免检） -------------------------------- */
+
+/**
+ * 间距账上最后 4 处是**记档**：值不动，因为宿主几何把它绑死了，而不是「还没轮到」——
+ *   · InboxQuickInput `pr-14`（56px）：右侧「存入」浮钮 51.02 + 右缩进 6 = 57.02 的功能净空，
+ *     刻度上限 48 够不着（BD-81，/tmp/bd81-census.json）；
+ *   · styles.css `.writing-recovery-notice` 左右 28：与 `.writing-scroll` 的
+ *     `clamp(14px, 2vw, 28px)` 上界同值，宽窗下横幅与正文内容列逐像素对齐（BD-71）；
+ *   · editorial `.desktop-titlebar` `padding-left: 14px`：印章列 12（侧栏）+ 2（脊条内缩）= 14，
+ *     标题栏的印与侧栏的印同列（BD-55，探针 01：titlebar pl=14 / mark x=14 / sidebar-card x=14）；
+ *   · editorial 专注态 `padding-top: 28px`：同一条 clamp 的上界，即专注态「顶 = 左右」（BD-71）。
+ *
+ * 间距棘轮只盯「值还在账上」，盯不住**理由**。把浮钮改小、把 clamp 上限搬走、把侧栏左右槽
+ * 从 12 改成别的——债务计数一个字不变，记档却已经过期，下一批人会照一条失效的理由继续
+ * 放过它。本节把这四条理由的锚点逐条钉住：任一前提变了就红，逼人重判这笔账；
+ * **不允许只改这里的期望字符串**把红灯按绿，那等于给一条已经失效的理由发新证。
+ * 期望值按名义 16px 折成 px 再比（与间距棘轮同一口径）：`0.875rem` 写法的 14px 不算前提变化，
+ * 记档钉的是几何而非拼写。
+ */
+{
+  const readCssDecl = (rel, selector, prop) => {
+    let val = null;
+    postcss
+      .parse(preserveNewlines(readFileSync(path.join(root, rel), "utf8")), { from: rel })
+      .walkRules((r) => {
+        if (val !== null) return;
+        if (r.selector.replace(/\s+/g, " ").trim() !== selector) return;
+        r.walkDecls((d) => {
+          if (d.prop === prop && val === null) val = d.value.replace(/\s+/g, " ").trim();
+        });
+      });
+    return val;
+  };
+  const readText = (rel) => readFileSync(path.join(root, rel), "utf8");
+  /* 期望值一律按名义 16px 折算成 px 再比，和间距棘轮 ② 同一口径：`14px` 与 `0.875rem`
+   * 是同一种设计事实，只差写法。记档钉的是几何，不是拼写——钉拼写会把零像素的合法迁移
+   * （电池 BD-46 反向那颗）误判成前提失效，而那正是「只准写 px」的假红。 */
+  const pxNum = (s) => {
+    const t = String(s).trim();
+    if (t === "0") return 0;
+    const m = /^(-?(?:\d+|\d*\.\d+))(px|rem|em)$/.exec(t);
+    if (!m) return null;
+    return m[2] === "px" ? parseFloat(m[1]) : parseFloat(m[1]) * 16;
+  };
+  const pxEq = (val, ...nums) => {
+    const list = String(val ?? "").trim().split(/\s+/);
+    return list.length === nums.length && list.every((t, i) => {
+      const n = pxNum(t);
+      return n !== null && Math.abs(n - nums[i]) < 1e-6;
+    });
+  };
+  /* 正文容器的槽位是 `clamp(a, <流体>, b)`：宽窗下等于 b。只钉「上界是 28」与
+   * 「中段确实随视口流体」，a 与流体系数的拼写不参与判决。 */
+  const clampOk = (val) => {
+    const m = /clamp\(([^)]*)\)/.exec(String(val ?? ""));
+    if (!m) return false;
+    const args = m[1].split(",").map((x) => x.trim());
+    return args.length === 3
+      && /^\d+(?:\.\d+)?(?:vw|vmin|vmax|%)$/.test(args[1])
+      && Math.abs((pxNum(args[2]) ?? NaN) - 28) < 1e-6;
+  };
+  const records = [
+    {
+      id: "InboxQuickInput pr 56px（BD-81）",
+      broken: () => {
+        const src = readText("src/features/creation/inbox/components/InboxQuickInput.tsx");
+        const out = [];
+        if (!src.includes('className="paper-input h-8 w-full pr-14 text-xs placeholder:text-paper-muted"'))
+          out.push("输入框的 `pr-14` 让位槽不在了（56 这笔账的存在前提消失）");
+        if (!src.includes('className="absolute right-1.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-copper hover:bg-paper-soft"'))
+          out.push("「存入」浮钮的 right-1.5 / px-1.5 几何串变了（净空 51.02+6=57.02 不再成立）");
+        return out;
+      },
+      why: "浮钮几何或让位槽一改，56 就不再是「功能净空」而是普通离刻度值"
+    },
+    {
+      id: "styles.css .writing-recovery-notice margin 28px（BD-71）",
+      broken: () => {
+        const out = [];
+        if (!pxEq(readCssDecl("src/styles.css", ".writing-recovery-notice", "margin"), 12, 28, 0))
+          out.push("横幅的 `margin: 12px 28px 0` 变了（左右 28 与 clamp 上界同值这条不成立）");
+        const scrollPad = readCssDecl("src/styles/editorial-studio.css", ".writing-scroll", "padding");
+        if (!clampOk(scrollPad))
+          out.push("正文容器的 `clamp(…, <流体>, 28px)` 不在了（横幅失去对齐目标）");
+        return out;
+      },
+      why: "横幅的 28 是 hand-tuned 到容器 clamp 上界的值，容器一改就必须重判"
+    },
+    {
+      id: "editorial .desktop-titlebar padding-left 14px（BD-55）",
+      broken: () => {
+        const out = [];
+        const titlebar = readCssDecl("src/styles/editorial-studio.css", ".desktop-titlebar", "padding-left");
+        if (!pxEq(titlebar, 14)) out.push(`标题栏 padding-left = ${JSON.stringify(titlebar)}（印章列断链）`);
+        const side = readCssDecl("src/styles/editorial-studio.css", ".desktop-sidebar", "padding");
+        if (!pxEq(side, 16, 12, 12)) out.push(`侧栏 padding = ${JSON.stringify(side)}（左右槽不再是 12）`);
+        const nav = readCssDecl("src/styles/editorial-studio.css", ".desktop-nav", "padding");
+        if (!pxEq(nav, 0, 2)) out.push(`脊条导航 padding = ${JSON.stringify(nav)}（内缩不再是 2）`);
+        const brand = readCssDecl("src/styles/editorial-studio.css", ".desktop-brand.nav-spine-item", "margin");
+        if (!pxEq(brand, 0, 2, 4)) out.push(`品牌行 margin = ${JSON.stringify(brand)}（左右不再是 2）`);
+        const spineParts = String(readCssDecl("src/styles/editorial-studio.css", ".nav-spine-item", "border-left") ?? "").trim().split(/\s+/);
+        if (!(spineParts.length === 3 && pxEq(spineParts[0], 3) && spineParts[1] === "solid" && spineParts[2] === "transparent"))
+          out.push(`脊条 border-left = ${JSON.stringify(spineParts.join(" "))}（印起点不再是 3px 边内）`);
+        return out;
+      },
+      why: "14 = 12 + 2 的列线链任一环改了，标题栏的印就不再与侧栏同列"
+    },
+    {
+      id: "editorial 专注态 padding-top 28px（BD-71）",
+      broken: () => {
+        const out = [];
+        const pt = readCssDecl("src/styles/editorial-studio.css", ".desktop-root--focus .writing-scroll", "padding-top");
+        if (!pxEq(pt, 28)) out.push(`专注态顶槽 = ${JSON.stringify(pt)}（不再等于 clamp 上界）`);
+        const scrollPad = readCssDecl("src/styles/editorial-studio.css", ".writing-scroll", "padding");
+        if (!clampOk(scrollPad))
+          out.push("正文容器的 `clamp(…, <流体>, 28px)` 不在了（「顶 = 左右」失去参照）");
+        return out;
+      },
+      why: "专注态顶槽 28 的唯一依据是它与左右槽 clamp 上界同值，clamp 一改就必须重判"
+    }
+  ];
+  const broken = [];
+  for (const r of records) for (const m of r.broken()) broken.push(`${r.id}：${m}${r.why ? `（${r.why}）` : ""}`);
+  if (broken.length) {
+    fail(
+      `第 8 步间距记档：${broken.length} 条记档的前提已经不成立——\n` +
+        broken.map((s) => `  · ${s}`).join("\n") +
+        `\n  这四笔（56px 浮钮净空 / 恢复横幅 28 / 标题栏 14 印章列 / 专注态顶槽 28）都是`
+        + `「值不动、理由绑在别人身上」的记档。前提一变，它就不再是记档而是普通离刻度值：`
+        + `要么把宿主改回去，要么把这笔账重新判档（收档并同步 SPACING_BUDGET 与值账）。`
+        + `\n  ⚠ 不许只改本节的期望字符串把红灯按绿：那等于给一条已经失效的理由发新证。`
+    );
+  }
+  console.log(`${TAG} [第 8 步间距记档] 4 处记档的阻塞条件全部在位（BD-91：记档不免检）`);
+}
+
 /* -------------------------------- 规格 §3.2 排版刻度棘轮（第 8 步批次 AX 立项） */
 
 /**
