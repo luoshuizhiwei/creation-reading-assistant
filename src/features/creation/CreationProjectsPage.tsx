@@ -168,7 +168,9 @@ export function CreationProjectsPage() {
       // IME 组合输入期间（中文拼音上屏等）不触发全局快捷键。
       if (event.isComposing || event.keyCode === 229) return;
       const modifier = event.ctrlKey || event.metaKey;
-      if (modifier && !event.altKey && event.key.toLowerCase() === "p") {
+      // BD-124：命令面板 Ctrl/⌘+P 与 Ctrl+K、Ctrl+Shift+K 同属 Ctrl 系，一并排除 Shift，
+      // 避免带 Shift 的组合被过度认领（对齐 BD-113 立下的和弦互斥契约）。
+      if (modifier && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "p") {
         event.preventDefault();
         setPaletteOpen((open) => !open);
       }

@@ -221,46 +221,45 @@ interface TocRowProps {
 }
 
 function TocRow({ entry, active, read, indent, onJump, hasChildren, expanded, onToggle }: TocRowProps) {
+  // BD-124：行容器不再挂 role="button"/tabIndex/onKeyDown——折叠钮是 <button>，套在 role=button
+  // 的行里就成了 nested-interactive（AT 报"按钮套按钮"、多一个 tab 停靠点）。跳章动作改由行内
+  // 一个原生 <button> 承担（Enter/Space 由浏览器原生处理），折叠钮作为它的兄弟并补 aria-expanded。
   return (
     <div
       data-toc-row-id={entry.id}
-      role="button"
-      tabIndex={0}
-      aria-current={active ? "true" : undefined}
-      className={`group flex items-start rounded text-left text-sm transition-colors ${
-        active
-          ? "bg-copper/10 font-medium text-copper"
-          : // BD-119：读态曾用 text-paper-muted/55（≈2.2:1，二级文字不达 4.5），且读/未读同色后
-            // 已无需分叉。已读改由行尾 Check 图标与 title 表达，文字统一为不透明 paper-muted
-            // （浅色 4.96 / 深色 7.47），不再靠压暗区分状态。
-            "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"
-      }`}
+      className="flex items-start rounded"
       style={{ paddingLeft: `${indent}px` }}
-      onClick={() => onJump(entry.id)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onJump(entry.id);
-        }
-      }}
-      title={read ? `${entry.label}（已读）` : entry.label}
     >
       {hasChildren ? (
         <button
+          type="button"
           className="mt-1 shrink-0 rounded p-0.5 text-paper-muted hover:text-paper-ink"
           aria-label={expanded ? "收起子目录" : "展开子目录"}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggle?.();
-          }}
+          aria-expanded={expanded}
+          onClick={() => onToggle?.()}
         >
           {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </button>
       ) : (
         <span className="w-[18px] shrink-0" />
       )}
-      <span className="line-clamp-2 py-1.5 pr-2">{entry.label}</span>
-      {read && !active && <Check size={12} className="ml-auto mr-2 mt-2 shrink-0 text-paper-muted" aria-hidden />}
+      <button
+        type="button"
+        aria-current={active ? "true" : undefined}
+        title={read ? `${entry.label}（已读）` : entry.label}
+        onClick={() => onJump(entry.id)}
+        className={`flex min-w-0 flex-1 items-start rounded text-left text-sm transition-colors ${
+          active
+            ? "bg-copper/10 font-medium text-copper"
+            : // BD-119：读态曾用 text-paper-muted/55（≈2.2:1，二级文字不达 4.5），且读/未读同色后
+              // 已无需分叉。已读改由行尾 Check 图标与 title 表达，文字统一为不透明 paper-muted
+              // （浅色 4.96 / 深色 7.47），不再靠压暗区分状态。
+              "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"
+        }`}
+      >
+        <span className="line-clamp-2 py-1.5 pr-2">{entry.label}</span>
+        {read && !active && <Check size={12} className="ml-auto mr-2 mt-2 shrink-0 text-paper-muted" aria-hidden />}
+      </button>
     </div>
   );
 }

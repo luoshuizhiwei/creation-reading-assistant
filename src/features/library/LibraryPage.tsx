@@ -270,20 +270,15 @@ export function LibraryPage() {
                   const percent = Math.round((itemProgress?.progressPercent ?? 0) * 100);
                   const sourcePath = book.originalPath ?? book.filePath;
                   const displayPath = sourcePath ? sourcePath.split(/[/\\]/).pop() || sourcePath : "未知路径";
+                  // BD-124：行容器去掉 role="button"/tabIndex/onKeyDown——行内「打开资料」「移除书籍」
+                  // 两个按钮嵌在 role=button 的行里构成 nested-interactive（多一个 tab 停靠点、AT 报"按钮套按钮"）。
+                  // 整行 onClick 只作鼠标便利（无 role 不触发该规则）；键盘路径由行内「打开资料」按钮承担。
                   return (
                     <div
                       key={book.id}
-                      role="button"
-                      tabIndex={0}
                       className="desktop-library-row group"
                       data-format={book.format}
                       onClick={() => openReader(book.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          openReader(book.id);
-                        }
-                      }}
                     >
                       <div>
                         <span className={`format-chip format-chip--${book.format}`}>{book.format}</span>
