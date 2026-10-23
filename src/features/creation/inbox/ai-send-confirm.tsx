@@ -101,9 +101,14 @@ export function AiSendConfirmDialog({
                     const isExcluded = excluded.has(group.id);
                     return (
                       <li key={group.id}>
+                        {/* BD-114：排除态原来挂 opacity-70。text-paper-muted 在 bg-paper-panel 上
+                          * 晨校本就只有 4.96、夜校 7.47，压到 70% 后合成到 2.79 / 4.37:1，晨校直接跌破
+                          * 4.5 的正文底线（同 interaction.tsx 里 toast 关闭键/正文那次去 opacity 的一课）。
+                          * 「已排除」的层级靠 border-dashed + 未勾选的 checkbox 已经交代清楚，不需要再靠
+                          * 把字调暗来表达——去掉 dim 后 muted 回到 ≥4.5，仍可辨。 */}
                         <label
                           className={`flex items-start gap-2 rounded-md border p-2 text-xs leading-[var(--leading-12)] ${
-                            isExcluded ? "border-dashed border-paper-line text-paper-muted opacity-70" : "border-paper-line"
+                            isExcluded ? "border-dashed border-paper-line text-paper-muted" : "border-paper-line"
                           }`}
                         >
                           <input

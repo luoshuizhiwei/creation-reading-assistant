@@ -44,6 +44,31 @@ describe("AiSendConfirmDialog 分组模式（D-C2 全量）", () => {
     expect(onConfirm.mock.calls[0]![1]).toBe(false);
   });
 
+  // BD-114：排除掉的组不许再用 opacity 把文字调暗（muted 压到 70% 合成后晨校只有 2.79:1）。
+  // 「已排除」靠 border-dashed + 未勾选的 checkbox 表达；这里钉住排除态标签上不再出现
+  // 任何 opacity-* 工具类，防止这条对比度债写回。
+  it("BD-114 排除态标签不用 opacity 调暗文字", () => {
+    render(
+      <AiSendConfirmDialog
+        actionLabel="润色"
+        title="雨夜"
+        content=""
+        pack={pack}
+        target="test-model"
+        busy={false}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+    const checkbox = screen.getByLabelText("包含 任务卡");
+    const label = checkbox.closest("label") as HTMLElement;
+    // 静止（含）态就没有 opacity 类
+    expect(label.className).not.toMatch(/opacity-\d/);
+    fireEvent.click(checkbox); // 排除
+    expect(label.className).toContain("border-dashed");
+    expect(label.className).not.toMatch(/opacity-\d/);
+  });
+
   it("全部组排除时发送按钮禁用", () => {
     render(
       <AiSendConfirmDialog

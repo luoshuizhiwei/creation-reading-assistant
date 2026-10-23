@@ -10,7 +10,8 @@
  *  · 正文 / 次级文字（--text-primary / --text-secondary）底线 4.5:1；
  *  · 三级文字（--text-tertiary，角标/计数/时间戳）底线 3.0:1；
  *  · 其余颜色（自定义/accent/半透明叠出来的）一律按 4.5:1 判——没有令牌身份就没有豁免。
- *  · 跳过 disabled、透明度 <0.35、尺寸 <2px、视口外的元素：它们不承载可读信息。
+ *  · 跳过 disabled、有效透明度 <0.35（BD-114 起：沿祖先链累乘 CSS opacity，父级 dim 也算）、
+ *    尺寸 <2px、视口外的元素：它们不承载可读信息。
  *
  * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe，BD-110 补 markdown 正文）：12 个主视图 + 7 个弹层
  *   + 5 个设置分区 + 7 种 TXT 正文纸面 + 7 种 MD 正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 47 个范围。
@@ -252,6 +253,15 @@ const sweepScript = ({ rootSelector, levels, canvasSeed }) => {
   };
   const scope = rootSelector ? document.querySelector(rootSelector) : document.body;
   if (!scope) return { found: false, rows: [], decorative: 0 };
+  // BD-114：文字真实呈现的浓度 = 自身颜色 alpha × 整条祖先链上的 CSS opacity 之积。
+  // 旧判据只看元素自己的 cs.opacity，把「父级 label 挂 opacity-70、文字子元素本身 opacity:1」
+  // 这种最典型的写法漏掉了——AI 发送确认里排除掉的分组正是靠父 label 的 opacity-70 压暗，
+  // 晨校合成后只有 2.79:1 却一直报绿。这里沿祖先链把 opacity 累乘进前景 alpha。
+  const effectiveOpacity = (node) => {
+    let o = 1;
+    for (let p = node; p && p.nodeType === 1; p = p.parentElement) o *= Number(getComputedStyle(p).opacity);
+    return o;
+  };
   const rows = [];
   let decorative = 0;
   for (const el of scope.querySelectorAll("*")) {
@@ -266,10 +276,13 @@ const sweepScript = ({ rootSelector, levels, canvasSeed }) => {
     if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue;
     if (el.closest("[disabled], [aria-disabled='true']")) continue;
     const cs = getComputedStyle(el);
-    if (cs.visibility === "hidden" || cs.display === "none" || Number(cs.opacity) < 0.35) continue;
+    const effOp = effectiveOpacity(el);
+    if (cs.visibility === "hidden" || cs.display === "none" || effOp < 0.35) continue;
     if (cs.color === "transparent" || cs.color === "rgba(0, 0, 0, 0)") continue;
     const fg = parse(cs.color);
     if (!fg) continue;
+    // 祖先链的 opacity 折进前景 alpha：半透明墨压到实底上才是用户真正看到的字色
+    fg.a = fg.a * effOp;
     const candidates = bgCandidates(el);
     let bg = candidates[0];
     let ratio = Infinity;
