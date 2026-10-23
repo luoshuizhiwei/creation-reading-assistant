@@ -563,7 +563,12 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
   // --- 键盘快捷键监听：Ctrl+F 搜索、Escape 关闭浮层 ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+      // BD-122：Ctrl/⌘+F 开本书内查找，但必须排除 Shift——Ctrl+Shift+F 是全局搜索
+      // （SearchPanel）BD-113 定的和弦。旧写法只判 `ctrlKey && key==="f"`，两个键一起
+      // 按下时本书查找面板与全屏抢焦点的 .uni-search-overlay 会同时弹起（同 BD-113 的
+      // Ctrl+Shift+K 双触发，只是镜像到 f 这一支）。另按 BD-113 一并挡掉输入法合成态。
+      if (e.isComposing || e.keyCode === 229) return;
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "f") {
         e.preventDefault();
         setIsSearchOpen((prev) => !prev);
         return;
