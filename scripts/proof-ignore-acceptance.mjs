@@ -20,7 +20,7 @@ import { _electron as electron } from "playwright-core";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
-const electronPath = path.join(root, "node_modules", "electron", "dist", "electron.exe");
+const electronPath = path.join(root, "node_modules", "electron", "dist", os.platform() === "win32" ? "electron.exe" : "electron");
 const mainJs = path.join(root, "out", "main", "index.js");
 const evidenceDirectory = path.join(root, "output", "playwright", "stage4-proof-ignore");
 const temporaryRoot = mkdtempSync(path.join(os.tmpdir(), "creation-stage4-proof-"));

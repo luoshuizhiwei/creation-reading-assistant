@@ -102,7 +102,7 @@ async function main() {
     target: "node20",
     external: ["electron", "better-sqlite3"]
   });
-  const seed = spawnSync(path.join(root, "node_modules", "electron", "dist", "electron.exe"), [
+  const seed = spawnSync(path.join(root, "node_modules", "electron", "dist", os.platform() === "win32" ? "electron.exe" : "electron"), [
     v9SeedBundle,
     isolatedWorkspaceDirectory,
     v9BaselineFile

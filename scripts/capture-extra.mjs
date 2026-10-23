@@ -4,7 +4,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir, platform } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { _electron as electron } from "playwright-core";
@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const profileDir = mkdtempSync(path.join(tmpdir(), "creation-extra-"));
 const outDir = path.join(root, "scripts", "visual-evidence-r4-pages");
-const electronPath = path.join(root, "node_modules", "electron", "dist", "electron.exe");
+const electronPath = path.join(root, "node_modules", "electron", "dist", platform() === "win32" ? "electron.exe" : "electron");
 const mainJs = path.join(root, "out", "main", "index.js");
 
 async function launch() {

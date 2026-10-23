@@ -26,7 +26,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
 const profileDir = mkdtempSync(path.join(os.tmpdir(), "creation-smoke-profile-"));
-const electronPath = path.join(root, "node_modules", "electron", "dist", "electron.exe");
+const electronPath = path.join(root, "node_modules", "electron", "dist", os.platform() === "win32" ? "electron.exe" : "electron");
 const mainJs = path.join(root, "out", "main", "index.js");
 const outDir = path.join(__dirname, "visual-evidence");
 

@@ -4,13 +4,14 @@
  */
 import { _electron as electron } from "playwright-core";
 import path from "node:path";
+import { platform } from "node:os";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
 const app = await electron.launch({
-  executablePath: path.join(root, "node_modules", "electron", "dist", "electron.exe"),
+  executablePath: path.join(root, "node_modules", "electron", "dist", platform() === "win32" ? "electron.exe" : "electron"),
   args: [path.join(root, "out", "main", "index.js")],
   cwd: root
 });

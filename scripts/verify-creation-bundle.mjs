@@ -32,7 +32,7 @@ try {
       external: ["electron", "better-sqlite3"]
     });
 
-    const electron = path.join(root, "node_modules", "electron", "dist", "electron.exe");
+    const electron = path.join(root, "node_modules", "electron", "dist", os.platform() === "win32" ? "electron.exe" : "electron");
     const electronEnv = {
       ...process.env,
       ELECTRON_RUN_AS_NODE: "1",

@@ -5,7 +5,7 @@
  * 用法：node scripts/make-icon.mjs
  */
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir, platform } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { _electron as electron } from "playwright-core";
@@ -13,7 +13,7 @@ import { _electron as electron } from "playwright-core";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const outDir = path.join(root, "build");
-const electronPath = path.join(root, "node_modules", "electron", "dist", "electron.exe");
+const electronPath = path.join(root, "node_modules", "electron", "dist", platform() === "win32" ? "electron.exe" : "electron");
 const profileDir = mkdtempSync(path.join(tmpdir(), "creation-icon-"));
 
 const SIZES = [16, 24, 32, 48, 64, 128, 256];

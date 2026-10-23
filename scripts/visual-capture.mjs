@@ -40,7 +40,7 @@ function expectedMatrix() {
 }
 
 const profileDir = mkdtempSync(path.join(os.tmpdir(), "creation-visual-profile-"));
-const electronPath = path.join(root, "node_modules", "electron", "dist", "electron.exe");
+const electronPath = path.join(root, "node_modules", "electron", "dist", os.platform() === "win32" ? "electron.exe" : "electron");
 const mainJs = path.join(root, "out", "main", "index.js");
 
 if (!existsSync(electronPath)) throw new Error(`Electron binary not found: ${electronPath}`);

@@ -32,7 +32,7 @@ try {
       external: ["electron", "better-sqlite3"]
     });
 
-    const electron = path.join(root, "node_modules", "electron", "dist", "electron.exe");
+    const electron = path.join(root, "node_modules", "electron", "dist", os.platform() === "win32" ? "electron.exe" : "electron");
     // 代理环境可能在 NODE_OPTIONS 注入 --use-system-ca，electron 作为 node 运行时拒绝该未知标志。
     const electronEnv = { ...process.env, ELECTRON_RUN_AS_NODE: "1", NODE_PATH: path.join(root, "node_modules") };
     delete electronEnv.NODE_OPTIONS;

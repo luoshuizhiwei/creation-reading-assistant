@@ -31,7 +31,7 @@ try {
       target: "node20",
       external: ["electron", "better-sqlite3"]
     });
-    const electron = path.join(root, "node_modules", "electron", "dist", "electron.exe");
+    const electron = path.join(root, "node_modules", "electron", "dist", os.platform() === "win32" ? "electron.exe" : "electron");
     const contract = spawnSync(electron, [bundlePath], {
       cwd: root,
       encoding: "utf8",
