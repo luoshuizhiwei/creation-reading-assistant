@@ -87,10 +87,16 @@
   padding: 0 6px;
   border-radius: 999px;
   background: var(--paper-line, rgba(0, 0, 0, 0.08));
-  color: inherit;
+  /* 批次 BD-105：这里原来 color: inherit，跟着 chip 的 --paper-muted（次级文字 #666d77）
+     走，而徽标底比 chip 底深一档（--separator-subtle #e0e4e9 压 --surface-2 #f1f3f5），
+     实测晨校 4.09:1，11px 数码按 4.5 判差一口气；夜校因为次级文字够亮是 4.85:1，
+     两主题不同命，所以只调晨校这一侧看不出来——按令牌改：数字用正文墨。
+     晨校 12.21:1、夜校 14+；active 态再翻转回实色底上的前景，否则深墨压深铜会糊。 */
+  color: var(--text-primary);
 }
 
 .inbox-filter-chip.active em {
+  color: var(--fg-on-solid);
   /* 原来叠 rgba(255,255,255,0.22)：底色 --copper 随主题翻转，晨校白字被这层白叠加
      进一步冲淡，计数徽标只有 3.96:1（11px，须按 4.5 判）。改成叠 18% 黑后两主题
      都过：晨校 白字/加深底 8.45，夜校 --fg-on-solid(#15181c)/加深底 4.83。

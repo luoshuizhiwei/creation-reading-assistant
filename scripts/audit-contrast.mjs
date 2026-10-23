@@ -1,5 +1,5 @@
 /**
- * 夜校文字对比度普查（BD-104）。
+ * 两主题文字对比度普查（BD-104 立，BD-105 扩到晨校）。
  *
  * 为什么要在运行时量，而不是继续加令牌断言：BD-103 的导出对话框就是一课——
  * 令牌级对比度全绿，屏幕上却是 1.2:1，因为那两行文字用的是写死的晨校暖褐。
@@ -12,13 +12,14 @@
  *  · 其余颜色（自定义/accent/半透明叠出来的）一律按 4.5:1 判——没有令牌身份就没有豁免。
  *  · 跳过 disabled、透明度 <0.35、尺寸 <2px、视口外的元素：它们不承载可读信息。
  *
- * 范围：8 个主视图 + 4 个弹层（建项目向导、查找替换、本地校对、导出作品）。
+ * 范围：8 个主视图 + 4 个弹层（建项目向导、查找替换、本地校对、导出作品），
+ * 每个范围在晨校与夜校各量一遍——两套底色是两套事实，夜校绿不代表晨校绿。
  * 每个范围都要求「采样到足够多的文字元素」——采样数塌了说明选择器又漂了，
  * 这时报绿比报红更危险，所以采样下限本身就是一条断言。
  *
  * 需要 Xvfb 与已构建的 out/：
  *   (pgrep Xvfb >/dev/null || (setsid Xvfb :99 -screen 0 2400x1600x24 &)); \
- *   DISPLAY=:99 node scripts/audit-dark-contrast.mjs
+ *   DISPLAY=:99 node scripts/audit-contrast.mjs
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -34,16 +35,19 @@ const electronPath = path.join(root, "node_modules", "electron", "dist", platfor
 const mainJs = path.join(root, "out", "main", "index.js");
 
 const tokensCss = readFileSync(path.join(root, "src", "styles", "tokens.css"), "utf8");
-const darkBlock = tokensCss.slice(tokensCss.indexOf(':root[data-app-theme="dark"]'));
-const tokenHex = (name) => {
-  const m = new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`).exec(darkBlock);
+const darkStart = tokensCss.indexOf(':root[data-app-theme="dark"]');
+const lightBlock = tokensCss.slice(0, darkStart);
+const darkBlock = tokensCss.slice(darkStart);
+const tokenHex = (block, name) => {
+  const m = new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`).exec(block);
   return m ? m[1] : null;
 };
-const LEVELS = {
-  primary: tokenHex("--text-primary"),
-  secondary: tokenHex("--text-secondary"),
-  tertiary: tokenHex("--text-tertiary")
-};
+const levelsOf = (block) => ({
+  primary: tokenHex(block, "--text-primary"),
+  secondary: tokenHex(block, "--text-secondary"),
+  tertiary: tokenHex(block, "--text-tertiary")
+});
+const THEMES = { dark: levelsOf(darkBlock), light: levelsOf(lightBlock) };
 
 const failures = [];
 const check = (name, ok, detail) => {
@@ -169,22 +173,34 @@ await page.evaluate(() => { document.documentElement.dataset.appTheme = "dark"; 
 
 await createProject(page);
 
-/** 跑一个范围：先断言采到了足够多的文字，再断言没有跌破各自底线。 */
+/**
+ * 跑一个范围：两主题各量一遍。先断言采到了足够多的文字，再断言没有跌破各自底线。
+ * 采样下限对每个主题单独要求——某个主题下整块区域不可见（例如弹层在浅色下换了一套
+ * 布局）同样会让采样塌掉，那也该报红而不是静默跳过。
+ */
 async function auditScope(label, rootSelector, minSamples) {
-  await page.evaluate(() => { document.documentElement.dataset.appTheme = "dark"; });
-  await page.waitForTimeout(250);
-  const { found, rows } = await page.evaluate(sweepScript, { rootSelector: rootSelector ?? null, levels: LEVELS });
-  if (!found) {
-    check(`${label} 范围可定位`, false, rootSelector);
-    return;
+  for (const [theme, levels] of Object.entries(THEMES)) {
+    await page.evaluate((t) => { document.documentElement.dataset.appTheme = t; }, theme);
+    await page.waitForTimeout(250);
+    const { found, rows } = await page.evaluate(sweepScript, { rootSelector: rootSelector ?? null, levels });
+    if (!found) {
+      check(`${theme} ${label} 范围可定位`, false, rootSelector);
+      continue;
+    }
+    const bad = rows.filter((r) => r.ratio < r.floor);
+    const worst = rows.reduce((a, r) => (a === null || r.ratio < a.ratio ? r : a), null);
+    check(`${theme} ${label} 采样数 ≥${minSamples}`, rows.length >= minSamples, `实测 ${rows.length} 个文字元素`);
+    check(`${theme} ${label} 文字全部达标`, bad.length === 0,
+      bad.length
+        ? `${bad.length} 处低于底线，最差 ${Math.min(...bad.map((b) => b.ratio)).toFixed(2)}:1（"${bad.sort((a, b) => a.ratio - b.ratio)[0].text}" ${bad[0].color} on ${bad[0].bg}）`
+        : `最低 ${worst ? worst.ratio.toFixed(2) : "-"}:1（"${worst ? worst.text : "-"}"）`);
+    if (bad.length) {
+      // 每处都点名：只说「最差」会让人只修一条，剩下几条下次再犯
+      for (const b of bad.sort((x, y) => x.ratio - y.ratio).slice(0, 8)) {
+        console.log(`        ${b.ratio}:1  ≤${b.floor}  "${b.text}"  ${b.color} on ${b.bg}  ${b.cls}`);
+      }
+    }
   }
-  const bad = rows.filter((r) => r.ratio < r.floor);
-  const worst = rows.reduce((a, r) => (a === null || r.ratio < a.ratio ? r : a), null);
-  check(`${label} 采样数 ≥${minSamples}`, rows.length >= minSamples, `实测 ${rows.length} 个文字元素`);
-  check(`${label} 文字全部达标`, bad.length === 0,
-    bad.length
-      ? `${bad.length} 处低于底线，最差 ${Math.min(...bad.map((b) => b.ratio)).toFixed(2)}:1（"${bad.sort((a, b) => a.ratio - b.ratio)[0].text}" ${bad[0].color} on ${bad[0].bg}）`
-      : `最低 ${worst ? worst.ratio.toFixed(2) : "-"}:1（"${worst ? worst.text : "-"}"）`);
 }
 
 const ok = async (label, fn) => {
@@ -286,7 +302,7 @@ await app.close();
 rmSync(profileDir, { recursive: true, force: true });
 
 if (failures.length) {
-  console.error(`\n[audit-dark-contrast] ${failures.length} 项未通过：${failures.join(" | ")}`);
+  console.error(`\n[audit-contrast] ${failures.length} 项未通过：${failures.join(" | ")}`);
   process.exit(1);
 }
-console.log("\nDARK_CONTRAST_OK：12 个范围内夜校文字全部达标。");
+console.log("\nCONTRAST_OK：12 个范围 × 晨校/夜校，文字全部达标。");
