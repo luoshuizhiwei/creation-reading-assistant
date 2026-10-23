@@ -141,8 +141,11 @@
 }
 
 .scene-radar-item dd.unset {
+  /* BD-117：原本再加 `opacity: 0.7` 把「未设置」的三级值压暗。--text-meta（三级文字）在晨校
+   * 合成本就只有 3.36/3.51:1，压到 70% 后掉到 2.21/2.27:1，跌破三级文字 3.0 底线。同 BD-114 那
+   * 颗「靠调暗正文表达状态」的雷（收件箱 used 行、ai-send-confirm 排除组）。去掉 dim，
+   * 「未设置」由 muted 三级色本身（不透明、≥3.0）交代即可。 */
   color: var(--text-meta);
-  opacity: 0.7;
 }
 
 .scene-radar-block {
@@ -200,10 +203,10 @@
   color: var(--studio-seal);
 }
 
-.scene-radar-tag.foreshadow-resolved {
-  opacity: 0.72;
-}
-
+/* BD-117：原 `.scene-radar-tag.foreshadow-resolved { opacity: 0.72 }` 把整个「已回收伏笔」标签
+ * 连字压暗——里面的计数 <b> 走 --text-meta（三级），压到 72% 后晨校同样跌破 3.0。删掉这条整行
+ * dim：resolved 与 open 的区别已由「open 才有校样红描边 + resolved 的 <b> 用 muted 三级」交代，
+ * 不需要再把正文调暗。 */
 .scene-radar-tag.foreshadow-resolved b {
   color: var(--text-meta);
 }

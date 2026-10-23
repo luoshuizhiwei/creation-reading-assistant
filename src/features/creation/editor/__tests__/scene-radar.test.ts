@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { deriveSceneRadar, isForeshadowResolved, resolveCardTitle } from "@/features/creation/editor/scene-radar";
 import type { Annotation, CardSummary, CardType, CreationProjectOutline } from "@/types/creation";
@@ -207,5 +209,27 @@ describe("resolveCardTitle", () => {
     expect(resolveCardTitle(cards, null)).toBeNull();
     expect(resolveCardTitle(cards, "k1")).toBe("林晚");
     expect(resolveCardTitle(cards, "nope")).toBe("已删除卡片");
+  });
+});
+
+// BD-117：场景雷达「未设置」值与「已回收伏笔」标签原来各挂一条 fractional opacity，把走
+// --text-meta（三级文字）的正文压到晨校 <3.0 底线。这类「靠调暗正文表达状态」是本仓第四次撞的
+// 雷（BD-114 收件箱 used 行 / ai-send-confirm 排除组）。运行时普查的 opacity 折叠只能抓到
+// 「扫的那一刻该状态恰好在 DOM 里」的情形；这两个态平时不渲染，故用源码级断言把这条债钉死。
+describe("scene-radar.css 不许用 opacity 压暗三级文字", () => {
+  // 去掉块注释再判：注释里会原样引用被禁的 `opacity` 字样，不去掉会自己咬自己。
+  const css = readFileSync(fileURLToPath(new URL("../scene-radar.css", import.meta.url)), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("dd.unset 规则块不含 opacity", () => {
+    const block = /\.scene-radar-item dd\.unset \{([^}]*)\}/.exec(css);
+    expect(block, "找不到 .scene-radar-item dd.unset 规则").toBeTruthy();
+    expect(block![1]).not.toMatch(/opacity/);
+  });
+
+  it("foreshadow-resolved 裸标签规则块不含 opacity", () => {
+    // 只针对裸 `.scene-radar-tag.foreshadow-resolved {`（不带 ` b` 子选择器）
+    const bare = /\.scene-radar-tag\.foreshadow-resolved \{([^}]*)\}/.exec(css);
+    if (bare) expect(bare[1]).not.toMatch(/opacity/);
+    // 允许该裸规则整条删除：无论留删，都不得再出现压暗正文的 opacity。
   });
 });
