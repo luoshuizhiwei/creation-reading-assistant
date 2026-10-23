@@ -538,6 +538,7 @@ export function OutlineTree({
             type="button"
             className="outline-chapter-toggle"
             aria-expanded={expanded}
+            aria-label={expanded ? `收起章节：${chapter.title}` : `展开章节：${chapter.title}`}
             onClick={() => toggleChapter(chapter.id)}
           >
             {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
@@ -576,6 +577,7 @@ export function OutlineTree({
             type="button"
             className="outline-volume-toggle"
             aria-expanded={expanded}
+            aria-label={expanded ? `收起卷：${volume.title}` : `展开卷：${volume.title}`}
             onClick={() => toggleVolume(volume.id)}
           >
             {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
