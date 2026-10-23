@@ -388,21 +388,54 @@ function ratioOf(fg, bg) {
   return contrast(fg, bg);
 }
 
-for (const [label, block, fgName, bgName, floor = 4.5] of hardPairs) {
+const checkContrast = ([label, block, fgName, bgName, floor = 4.5]) => {
   const fg = tokenValue(block, fgName);
   const bg = tokenValue(block, bgName);
   if (!fg || !bg) {
     fail(`${label}：取不到 ${fgName} 或 ${bgName} 的十六进制值，无法核对对比度`);
-    continue;
+    return;
   }
   const ratio = ratioOf(fg, bg);
   if (ratio === null) {
     fail(`${label}：${fg} / ${bg} 不是合法十六进制色值`);
-    continue;
+    return;
   }
   if (ratio < floor) fail(`${label} 对比度 ${ratio.toFixed(2)}:1，低于底线 ${floor}:1（${fg} on ${bg}）`);
   else console.log(`${TAG} ✓ ${label} ${ratio.toFixed(2)}:1`);
+};
+
+hardPairs.forEach(checkContrast);
+
+/**
+ * 批次 BD-97：文字 × 表面 的对比度矩阵。
+ *
+ * 上面那十组核对的是「文字压画布」，可正文、卡片描述、角标绝大多数实际落在
+ * --surface-1 / --surface-2 / --surface-paper 上，而这三支表面令牌此前没有任何
+ * 对比度约束：把 --surface-paper 调暗一档，画布上的十组照样全绿，屏幕上却已经读不清。
+ * 这里按「任何表面都可能承载任何一级文字」立据，底线与上面同源。
+ *
+ * 实测（BD-97，值取自 tokens.css）：晨校最差是画布 4.53 / 3.07，夜校最差是纸面
+ * 6.86 / 4.75，全部在底线之上——矩阵立起来是零像素的，只是把「以后调表面色」纳进判据。
+ */
+const TEXT_LEVELS = [
+  ["正文", "--text-primary", 4.5],
+  ["次级文字", "--text-secondary", 4.5],
+  ["三级文字", "--text-tertiary", 3.0]
+];
+const SURFACES = [
+  ["一级面", "--surface-1"],
+  ["二级面", "--surface-2"],
+  ["纸面", "--surface-paper"]
+];
+const surfacePairs = [];
+for (const [theme, block] of [["晨校", lightBlock], ["夜校", darkBlock]]) {
+  for (const [tName, tToken, floor] of TEXT_LEVELS) {
+    for (const [sName, sToken] of SURFACES) {
+      surfacePairs.push([`${theme} ${tName}/${sName}`, block, tToken, sToken, floor]);
+    }
+  }
 }
+surfacePairs.forEach(checkContrast);
 
 /* -------------------------------------------- 后代选择器 × 已迁移组件 冲突检测 */
 
@@ -6504,4 +6537,4 @@ if (failures > 0) {
   console.error(`${TAG} 失败 ${failures} 项`);
   process.exit(1);
 }
-console.log(`${TAG} 全部通过（令牌定义、D-1/D-2 回归、Button 能力面、${hardPairs.length} 组对比度硬断言）`);
+console.log(`${TAG} 全部通过（令牌定义、D-1/D-2 回归、Button 能力面、${hardPairs.length + surfacePairs.length} 组对比度硬断言）`);
