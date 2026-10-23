@@ -353,8 +353,13 @@ for (const [theme, block] of [["晨校", lightBlock], ["夜校", darkBlock]]) {
 }
 
 /**
- * 实色色块上的前景必须达到 AA 4.5:1（13px 按钮文字属普通字号）。
- * 这些是本轮建立的不变量，未达标即失败。
+ * 对比度硬断言。底线分两类：
+ *  · 实色色块上的前景（按钮/标记）与正文/画布：WCAG AA 普通文字 4.5:1
+ *    （13px 按钮文字属普通字号）；
+ *  · 次级/三级文字（BD-92 收编）：次级描述 4.5:1；三级承载角标、计数、时间戳
+ *    （11–12px 弱提示）按 3:1——统一到 4.5 会让三级与二级难以区分，那是设计决策，
+ *    守卫不替它下结论；但 3:1 是**底线而不是豁免**，跌破即红。
+ *    第六项是这一组的底线，缺省 4.5。
  */
 const hardPairs = [
   ["晨校 primary", lightBlock, "--action-primary", "--fg-on-solid"],
@@ -362,32 +367,28 @@ const hardPairs = [
   ["夜校 primary", darkBlock, "--action-primary", "--fg-on-solid"],
   ["夜校 danger-filled", darkBlock, "--proof-mark", "--fg-on-solid"],
   ["晨校 正文/画布", lightBlock, "--text-primary", "--app-bg"],
-  ["夜校 正文/画布", darkBlock, "--text-primary", "--app-bg"]
-];
-
-/**
- * D-3 / D-4：仓库既有的文字对比度不足，属颜色收敛（§6 第 7 步）范围，
- * 且改色值需要视觉确认，本轮不夹带，因此只报告不失败（未达标算 pending）。
- * 已达标的组别留在表内继续看守，避免以后改色又退回去。
- *
- * 底线取法：
- *  --text-secondary 承载设置项描述等正文，按 AA 普通文字 4.5:1 要求；
- *  --text-tertiary 承载角标、计数、时间戳（11–12px 弱提示）。
- *    严格讲 AA 对小字号正文同样要求 4.5:1，把它拉到 4.5 会让三级与二级难以区分，
- *    这里先按 3:1（大字号/装饰性下限）报告，是否统一到 4.5 留给设计决策。
- */
-const pendingPairs = [
+  ["夜校 正文/画布", darkBlock, "--text-primary", "--app-bg"],
   ["晨校 次级文字", lightBlock, "--text-secondary", "--app-bg", 4.5],
   ["夜校 次级文字", darkBlock, "--text-secondary", "--app-bg", 4.5],
   ["晨校 三级文字", lightBlock, "--text-tertiary", "--app-bg", 3.0],
   ["夜校 三级文字", darkBlock, "--text-tertiary", "--app-bg", 3.0]
 ];
 
+/**
+ * D-3 / D-4 的 pending 清单在 BD-92 退役：那四组已全部达标（BD-92 实测 4.53 / 8.03 /
+ * 3.07 / 5.57），清单自己的日志一直在说「可移出 pendingPairs」。留着一条空债表等于给
+ * 「改色退回警戒线以下」留了一个只打印、不拦人的出口——而 CI 根本不跑本脚本，
+ * 那句 warn 连日志都没人看。现在四组并入上面的硬断言，各自带底线：
+ * 次级 4.5（AA 普通文字）、三级 3.0（小字号弱提示的现行决定）。
+ * 若将来设计决定把三级统一到 4.5，顺序是「先改色达标 → 再把底线改成 4.5」，
+ * 不允许把底线调低来迁就颜色。
+ */
+
 function ratioOf(fg, bg) {
   return contrast(fg, bg);
 }
 
-for (const [label, block, fgName, bgName] of hardPairs) {
+for (const [label, block, fgName, bgName, floor = 4.5] of hardPairs) {
   const fg = tokenValue(block, fgName);
   const bg = tokenValue(block, bgName);
   if (!fg || !bg) {
@@ -399,25 +400,9 @@ for (const [label, block, fgName, bgName] of hardPairs) {
     fail(`${label}：${fg} / ${bg} 不是合法十六进制色值`);
     continue;
   }
-  if (ratio < 4.5) fail(`${label} 对比度 ${ratio.toFixed(2)}:1，低于 WCAG AA 的 4.5:1（${fg} on ${bg}）`);
+  if (ratio < floor) fail(`${label} 对比度 ${ratio.toFixed(2)}:1，低于底线 ${floor}:1（${fg} on ${bg}）`);
   else console.log(`${TAG} ✓ ${label} ${ratio.toFixed(2)}:1`);
 }
-
-let pending = 0;
-for (const [label, block, fgName, bgName, floor] of pendingPairs) {
-  const fg = tokenValue(block, fgName);
-  const bg = tokenValue(block, bgName);
-  if (!fg || !bg) continue;
-  const ratio = ratioOf(fg, bg);
-  if (ratio === null) continue;
-  if (ratio < floor) {
-    pending += 1;
-    console.warn(`${TAG} [D-3/D-4 待收敛] ${label} ${ratio.toFixed(2)}:1 < ${floor}:1（${fg} on ${bg}）`);
-  } else {
-    console.log(`${TAG} ✓ ${label} ${ratio.toFixed(2)}:1（已从待收敛清单达标，可移出 pendingPairs）`);
-  }
-}
-if (pending > 0) console.warn(`${TAG} 提示：${pending} 组文字对比度未达 AA，属 §6 第 7 步颜色收敛，需视觉确认后修改`);
 
 /* -------------------------------------------- 后代选择器 × 已迁移组件 冲突检测 */
 
@@ -6519,4 +6504,4 @@ if (failures > 0) {
   console.error(`${TAG} 失败 ${failures} 项`);
   process.exit(1);
 }
-console.log(`${TAG} 全部通过（令牌定义、D-1/D-2 回归、Button 能力面、${hardPairs.length} 组对比度硬断言${pending > 0 ? `，另有 ${pending} 组待收敛` : ""}）`);
+console.log(`${TAG} 全部通过（令牌定义、D-1/D-2 回归、Button 能力面、${hardPairs.length} 组对比度硬断言）`);
