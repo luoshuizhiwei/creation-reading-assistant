@@ -45,18 +45,23 @@ async function goto(page, label) {
 
 async function createProject(page) {
   await goto(page, "项目");
-  await page.waitForSelector(".project-home-create-first, .desktop-page-actions", { timeout: 10000 });
-  const createFirst = page.locator(".project-home-create-first").first();
+  await page.waitForSelector(".project-home, .desktop-page-actions", { timeout: 10000 });
+  // 批次 BD-101：空态按钮的 .project-home-create-first 与建项目向导的 .creation-wizard /
+  // .creation-field 都已随版式改版删除，按按钮文案与 role=dialog 定位。
+  const createFirst = page.getByRole("button", { name: "新建第一个项目" }).first();
   if (await createFirst.isVisible()) await createFirst.click();
   else await page.getByRole("button", { name: /新建项目/ }).first().click();
-  await page.waitForSelector(".creation-wizard", { timeout: 15000 });
-  await page.getByRole("button", { name: /下一步/ }).click();
-  await page.waitForTimeout(250);
-  await page.locator(".creation-field input").first().fill("雷达测试项目");
-  await page.getByRole("button", { name: /下一步/ }).click();
-  await page.waitForTimeout(250);
-  await page.locator("input[placeholder='例如：500000']").fill("50000");
-  await page.getByRole("button", { name: /创建项目/ }).click();
+  const wizard = page.locator("[role=dialog]").first();
+  await wizard.waitFor({ state: "visible", timeout: 15000 });
+  await wizard.getByRole("button", { name: /下一步/ }).click();
+  const nameInput = page.locator("input[placeholder='例如：测试项目']").first();
+  await nameInput.waitFor({ state: "visible", timeout: 15000 });
+  await nameInput.fill("雷达测试项目");
+  await wizard.getByRole("button", { name: /下一步/ }).click();
+  const goalInput = page.locator("input[placeholder='例如：500000']").first();
+  await goalInput.waitFor({ state: "visible", timeout: 15000 });
+  await goalInput.fill("50000");
+  await wizard.getByRole("button", { name: /创建项目/ }).click();
   await page.waitForSelector(".project-nav-back", { timeout: 15000 });
   await page.waitForTimeout(700);
 }
@@ -79,7 +84,9 @@ await page.locator(".project-nav button", { hasText: "写作" }).first().click()
 await page.waitForSelector(".writing-desk", { timeout: 10000 });
 await page.waitForTimeout(600);
 const tabs = await page.evaluate(() => {
-  const tabButtons = [...document.querySelectorAll(".writing-margin-tabs button")].map((b) => b.textContent?.trim());
+  // 批次 BD-101：页签栏第一个按钮是「» 收起检查器」，只取 role=tab 的两枚；
+  // 批注页签的可见文案已收成「批注」（aria-label 仍是「批注与引用」）。
+  const tabButtons = [...document.querySelectorAll(".writing-margin-tabs [role=tab]")].map((b) => b.textContent?.trim());
   const radar = document.querySelector('[data-testid="scene-radar"]');
   const empty = radar?.querySelector(".scene-radar-empty");
   return {
@@ -90,7 +97,7 @@ const tabs = await page.evaluate(() => {
     gotoBtn: !!radar?.querySelector(".scene-radar-empty button")
   };
 });
-check("右栏双页签（默认场景雷达）", tabs.tabButtons?.join(",") === "场景雷达,批注与引用" && tabs.radarDefault,
+check("右栏双页签（默认场景雷达）", tabs.tabButtons?.join(",") === "场景雷达,批注" && tabs.radarDefault,
   JSON.stringify(tabs.tabButtons));
 check("无任务卡时空态引导可见", tabs.emptyVisible && tabs.emptyVisible !== null, tabs.emptyText ?? undefined);
 check("空态有「前往大纲填写」按钮", tabs.gotoBtn === true);
@@ -115,7 +122,7 @@ if (hasForm) {
   await textInputs.nth(0).fill("入夜后");
   await textInputs.nth(1).fill("拿到钥匙");
   await page.locator(".scene-planning-form input[type='number']").first().fill("2000");
-  await page.locator(".scene-planning-form button", { hasText: /保存任务卡/ }).first().click();
+  await page.locator(".scene-planning-form button", { hasText: /保存场景卡/ }).first().click();
   await page.waitForTimeout(900);
 } else {
   console.log("[probe-round9] 大纲页未找到场景任务卡表单（选择器需更新）");
@@ -139,7 +146,7 @@ check("雷达展示任务卡字段", radarAfter.text.includes("入夜后") || ra
 check("雷达有目标进度条", radarAfter.hasProgress);
 
 // 4. 页签切换回批注
-await page.locator(".writing-margin-tabs button", { hasText: "批注与引用" }).click();
+await page.getByRole("tab", { name: "批注与引用" }).click();
 await page.waitForTimeout(400);
 const notesVisible = await page.locator(".writing-annotations").isVisible().catch(() => false);
 check("切回批注与引用页签", notesVisible);

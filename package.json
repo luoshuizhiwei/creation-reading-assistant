@@ -79,6 +79,7 @@
     "verify:packaged-stage4b-print": "node scripts/packaged-stage4b-print-acceptance.mjs",
     "verify:design-tokens": "node scripts/verify-design-tokens.mjs",
     "audit:test-anchors": "node scripts/audit-test-anchors.mjs",
+    "audit:script-selectors": "node scripts/audit-script-selectors.mjs",
     "inject:design-tokens": "node scripts/inject-test-design-tokens.mjs",
     "verify:beta": "node scripts/beta-check.mjs",
     "verify:beta:release": "node scripts/beta-check.mjs --require-artifact",

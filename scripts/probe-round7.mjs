@@ -66,18 +66,23 @@ async function openWorkbenchView(page, label, selector) {
 /** 通过向导创建「测试项目」（无项目时走 create-first）。 */
 async function createProject(page) {
   await goto(page, "项目");
-  await page.waitForSelector(".project-home-create-first, .desktop-page-actions", { timeout: 10000 });
-  const createFirst = page.locator(".project-home-create-first").first();
+  await page.waitForSelector(".project-home, .desktop-page-actions", { timeout: 10000 });
+  // 批次 BD-101：空态按钮的 .project-home-create-first 与建项目向导的 .creation-wizard /
+  // .creation-field 都已随版式改版删除，按按钮文案与 role=dialog 定位。
+  const createFirst = page.getByRole("button", { name: "新建第一个项目" }).first();
   if (await createFirst.isVisible()) await createFirst.click();
   else await page.getByRole("button", { name: /新建项目/ }).first().click();
-  await page.waitForSelector(".creation-wizard", { timeout: 15000 });
-  await page.getByRole("button", { name: /下一步/ }).click();
-  await page.waitForTimeout(250);
-  await page.locator(".creation-field input").first().fill("测试项目");
-  await page.getByRole("button", { name: /下一步/ }).click();
-  await page.waitForTimeout(250);
-  await page.locator("input[placeholder='例如：500000']").fill("50000");
-  await page.getByRole("button", { name: /创建项目/ }).click();
+  const wizard = page.locator("[role=dialog]").first();
+  await wizard.waitFor({ state: "visible", timeout: 15000 });
+  await wizard.getByRole("button", { name: /下一步/ }).click();
+  const nameInput = page.locator("input[placeholder='例如：测试项目']").first();
+  await nameInput.waitFor({ state: "visible", timeout: 15000 });
+  await nameInput.fill("测试项目");
+  await wizard.getByRole("button", { name: /下一步/ }).click();
+  const goalInput = page.locator("input[placeholder='例如：500000']").first();
+  await goalInput.waitFor({ state: "visible", timeout: 15000 });
+  await goalInput.fill("50000");
+  await wizard.getByRole("button", { name: /创建项目/ }).click();
   await page.waitForSelector(".project-nav-back", { timeout: 15000 });
   await page.waitForTimeout(700);
 }
@@ -88,11 +93,27 @@ async function probeReaderStats(page, theme, format) {
   await goto(page, "资料阅读");
   await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
   await page.locator(`.desktop-library-row[data-format="${format}"]`).first().click();
-  await page.waitForSelector("header.paper-topbar", { timeout: 20000 });
+  // 批次 BD-101：TXT 阅读器的顶栏是 header.reader-topbar，paper-topbar 只剩 EPUB。
+  await page.waitForSelector("header.paper-topbar, header.reader-topbar", { timeout: 20000 });
   if (format === "epub") {
     await page.waitForTimeout(4000);
   } else {
     await page.waitForTimeout(1200);
+  }
+  // 批次 BD-101：TXT 阅读器的顶栏现在只有 搜索 / 目录 / 设置 三个静音按钮，
+  // 「统计」入口只保留在 EPUB 顶栏。TXT 这边改成钉这三个按钮，别再找不存在的入口。
+  if (format !== "epub") {
+    const labels = await page.evaluate(() =>
+      [...document.querySelectorAll("header.reader-topbar button")]
+        .map((b) => b.getAttribute("aria-label") || b.getAttribute("title") || "")
+        .filter(Boolean)
+    );
+    // 目录按钮的 aria-label 在「展开目录 / 收起目录」之间切换，只认关键词。
+    const ok = labels.includes("全文搜索") && labels.some((l) => /目录/.test(l)) && labels.includes("阅读设置");
+    check(`${theme}/${format} 顶栏三个静音按钮可见`, ok, labels.join(" / "));
+    await page.getByRole("button", { name: /返回书库/ }).click().catch(() => {});
+    await page.waitForTimeout(500);
+    return;
   }
   const btn = page.getByRole("button", { name: "统计" }).first();
   const visible = await btn.isVisible().catch(() => false);
@@ -104,7 +125,7 @@ async function probeReaderStats(page, theme, format) {
     // 统计屏在 DesktopFrame 内渲染（根为 desktop-page-stack），阅读器 topbar 应消失
     const onStats = await page.evaluate(() => ({
       inFrame: !!document.querySelector(".desktop-sidebar"),
-      readerGone: !document.querySelector("header.paper-topbar"),
+      readerGone: !document.querySelector("header.paper-topbar, header.reader-topbar"),
       stack: !!document.querySelector(".desktop-page-stack")
     }));
     check(`${theme}/${format} 点击统计跳转统计页`, onStats.inFrame && onStats.readerGone && onStats.stack,
@@ -185,10 +206,14 @@ async function probeDialogContrast(page, theme) {
   await page.getByRole("button", { name: /导出成稿/ }).first().click();
   await page.waitForTimeout(600);
   const exportBox = await page.evaluate(() => {
-    const el = document.querySelector('[role="dialog"][aria-label="导出成稿"] .creation-search-shell');
-    if (!el) return null;
-    const cs = getComputedStyle(el);
-    return { bg: cs.backgroundColor, color: cs.color, cls: String(el.className).slice(0, 60) };
+    // 批次 BD-101：导出对话框的 aria-label 是「导出作品」，壳也不再是 .creation-search-shell；
+    // 取内容面板（h2 的上两级）的底色与标题色。
+    const dialog = document.querySelector('[role="dialog"][aria-label="导出作品"]');
+    const head = dialog?.querySelector("h2");
+    const panel = head?.parentElement?.parentElement;
+    if (!panel) return null;
+    const cs = getComputedStyle(panel);
+    return { bg: cs.backgroundColor, color: cs.color, titleColor: head ? getComputedStyle(head).color : null, cls: String(panel.className).slice(0, 60) };
   });
   await page.getByRole("button", { name: /关闭|取消/ }).last().click().catch(() => {});
   await page.waitForTimeout(300);

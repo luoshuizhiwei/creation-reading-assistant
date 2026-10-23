@@ -138,9 +138,8 @@ async function auditLayout(page) {
     const canvasContent = motionPage ?? document.querySelector(".desktop-canvas");
     const contentRect = canvasContent?.getBoundingClientRect();
     const sidebar = document.querySelector(".desktop-sidebar")?.getBoundingClientRect();
-    const contextPanel = document.querySelector(".desktop-context-panel");
-    const contextVisible = contextPanel && getComputedStyle(contextPanel).display !== "none";
-    const contextRect = contextVisible ? contextPanel.getBoundingClientRect() : null;
+    // 批次 BD-101：.desktop-context-panel 整族已在批次 AH 删除（布局只剩侧栏 + 画布），
+    // 原来测的 contextPanelVisible / contextPanelWidth 永远是 null / 0，一并摘掉。
 
     const headings = [...document.querySelectorAll("h1, h2")].map((h) => h.textContent?.trim() ?? "").filter(Boolean);
     const duplicateHeadings = headings.filter((text, index) => headings.indexOf(text) !== index);
@@ -191,8 +190,6 @@ async function auditLayout(page) {
         ? { width: Math.round(contentRect.width), height: Math.round(contentRect.height) }
         : null,
       sidebar: sidebar ? { width: Math.round(sidebar.width) } : null,
-      contextPanelVisible: contextVisible,
-      contextPanelWidth: contextRect ? Math.round(contextRect.width) : 0,
       offenders,
       headings,
       duplicateHeadings: [...new Set(duplicateHeadings)],

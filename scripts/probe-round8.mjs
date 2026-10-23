@@ -45,18 +45,23 @@ async function goto(page, label) {
 
 async function createProject(page) {
   await goto(page, "项目");
-  await page.waitForSelector(".project-home-create-first, .desktop-page-actions", { timeout: 10000 });
-  const createFirst = page.locator(".project-home-create-first").first();
+  await page.waitForSelector(".project-home, .desktop-page-actions", { timeout: 10000 });
+  // 批次 BD-101：空态按钮的 .project-home-create-first 与建项目向导的 .creation-wizard /
+  // .creation-field 都已随版式改版删除，按按钮文案与 role=dialog 定位。
+  const createFirst = page.getByRole("button", { name: "新建第一个项目" }).first();
   if (await createFirst.isVisible()) await createFirst.click();
   else await page.getByRole("button", { name: /新建项目/ }).first().click();
-  await page.waitForSelector(".creation-wizard", { timeout: 15000 });
-  await page.getByRole("button", { name: /下一步/ }).click();
-  await page.waitForTimeout(250);
-  await page.locator(".creation-field input").first().fill("测试项目");
-  await page.getByRole("button", { name: /下一步/ }).click();
-  await page.waitForTimeout(250);
-  await page.locator("input[placeholder='例如：500000']").fill("50000");
-  await page.getByRole("button", { name: /创建项目/ }).click();
+  const wizard = page.locator("[role=dialog]").first();
+  await wizard.waitFor({ state: "visible", timeout: 15000 });
+  await wizard.getByRole("button", { name: /下一步/ }).click();
+  const nameInput = page.locator("input[placeholder='例如：测试项目']").first();
+  await nameInput.waitFor({ state: "visible", timeout: 15000 });
+  await nameInput.fill("测试项目");
+  await wizard.getByRole("button", { name: /下一步/ }).click();
+  const goalInput = page.locator("input[placeholder='例如：500000']").first();
+  await goalInput.waitFor({ state: "visible", timeout: 15000 });
+  await goalInput.fill("50000");
+  await wizard.getByRole("button", { name: /创建项目/ }).click();
   await page.waitForSelector(".project-nav-back", { timeout: 15000 });
   await page.waitForTimeout(700);
 }
@@ -65,7 +70,9 @@ async function openReader(page, format) {
   await goto(page, "资料阅读");
   await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
   await page.locator(`.desktop-library-row[data-format="${format}"]`).first().click();
-  await page.waitForSelector("header.paper-topbar", { timeout: 20000 });
+  // 批次 BD-101：TXT 阅读器的壳是 .reader-host + header.reader-topbar，
+  // .reader-root / header.paper-topbar 只剩 EPUB 在用，两边都要等。
+  await page.waitForSelector(".reader-host header.reader-topbar, .reader-root header.paper-topbar", { timeout: 20000 });
   await page.waitForTimeout(format === "epub" ? 4000 : 1500);
 }
 
@@ -86,14 +93,16 @@ for (const format of ["txt", "epub"]) {
   await openReader(page, format);
   const ovf = await page.evaluate(() => {
     // 找出所有可滚动容器，检查横向溢出与水平滚动条占用高度
-    const scrollers = [document.querySelector(".reader-root [class*='overflow'], .reader-root article")];
     const results = [];
-    const root = document.querySelector(".reader-root");
+    // 批次 BD-101：TXT 落在 .reader-host，EPUB 落在 .reader-root，两边都要扫。
+    const root = document.querySelector(".reader-host, .reader-root");
     if (root) {
       for (const el of [root, ...root.querySelectorAll("div, article, section")]) {
         if (el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0) {
           const s = getComputedStyle(el);
-          if (s.overflowX === "visible") continue; // 不裁剪也不滚动的容器无所谓
+          // 批次 BD-101：只看真的可滚动的容器。epub.js 的分栏容器固定 2 倍宽、
+          // overflow-x: hidden，横向溢出是分页布局本身，不产生滚动条，不算失败。
+          if (!/(auto|scroll)/.test(s.overflowX)) continue;
           results.push({
             cls: String(el.className).slice(0, 70),
             scrollW: el.scrollWidth,
@@ -123,9 +132,15 @@ for (const width of [1360, 1024]) {
   await setWidth(width);
   await goto(page, "项目");
   const back = page.locator(".project-nav-back");
-  if (await back.isVisible().catch(() => false)) await back.click().then(() => goto(page, "项目"));
+  if (await back.isVisible().catch(() => false)) {
+    await back.click();
+    await page.waitForTimeout(600);
+  }
+  await page.waitForSelector(".project-home-item-main", { timeout: 10000 });
   await page.locator(".project-home-item-main").first().click();
-  await page.waitForSelector(".overview-page", { timeout: 10000 });
+  // 批次 BD-101：点开项目直接落在写作台（.project-workbench），不再先进概览页，
+  // 所以 .overview-page 那步等待去掉，直接切「写作」再等工具栏。
+  await page.waitForSelector(".project-workbench", { timeout: 10000 });
   await page.locator(".project-nav button", { hasText: "写作" }).first().click();
   await page.waitForSelector(".scene-editor-toolbar", { timeout: 10000 });
   await page.waitForTimeout(500);
