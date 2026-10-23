@@ -14,11 +14,23 @@
 ```bash
 npm install            # 安装依赖
 npm run dev            # 启动开发（electron-vite dev）
+npm test               # vitest（含设计令牌守卫与电池锚点审计两条集成测试）
 npm run build          # 类型检查 + 构建（tsc + electron-vite build）
 npm run preview        # 预览构建产物（electron-vite preview）
 npm run dist:dir       # 构建 + 打包为目录
 npm run dist           # 构建 + 打包安装程序
 ```
+
+设计令牌与版式刻度有独立的守卫，规则写在 `scripts/verify-design-tokens.mjs` 顶部：
+
+| 命令 | 作用 |
+|------|------|
+| `npm run verify:design-tokens` | 全量守卫：令牌定义、对比度、阴影/圆角/间距/字号/行高棘轮、死声明与死色账 |
+| `npm run audit:test-anchors` | 核对注入测试里每个 needle 在当前源码中命中且唯一 |
+| `npm run inject:design-tokens` | 注入电池：逐颗改写源码验证守卫会咬（约 17 分钟，跑完自动还原） |
+
+`npm test` 已经包含前两条；改版式或颜色后先让它通过再提交。守卫的账全是 0 或已逐条记档，
+新增债务必须当场判定用途（收档 / 摘死 / 记档），不允许把预算调高来放行。
 
 ---
 
