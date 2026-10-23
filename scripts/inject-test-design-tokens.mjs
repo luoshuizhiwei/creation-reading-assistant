@@ -553,8 +553,8 @@ const cases = [
   ["第 8 步批次 AA 回归·反向：styles.css 侧 .paper-input 写成显式 rounded-[6px] 同为刻度写法，不该变红（这条 @apply 刚从压死声明转为胜者，别把合法写法一起锁死）", () => mutate("src/styles.css", "@apply rounded-md border border-paper-line", "@apply rounded-[6px] border border-paper-line"), null],
   // 第 8 步批次 AB：editorial-studio.css 容器/卡片/装饰族最后 10 处归刻度，
   // 两份主题样式表的圆角预算条目双双删除 —— 从此这两页任何离刻度圆角都是新增债，必须红。
-  ["第 8 步批次 AB 回归：往已清零的 .project-workbench 写回离刻度圆角必须红（该文件预算条目已删除，零容忍生效）", () => mutate("src/styles/editorial-studio.css", ".project-workbench {\n", ".project-workbench {\n  border-radius: 12px;\n"), /圆角刻度/],
-  ["第 8 步批次 AB 回归·反向：同一宿主写 var(--radius-3) 不该变红（清零 ≠ 禁止圆角）", () => mutate("src/styles/editorial-studio.css", ".project-workbench {\n", ".project-workbench {\n  border-radius: var(--radius-3);\n"), null],
+  ["第 8 步批次 AB 回归：往已清零的 .project-workbench 写回离刻度圆角必须红（该文件预算条目已删除，零容忍生效）。⚠ BD-94 收紧锚点：原钉 `.project-workbench {` 在本文件命中 3 次（1175／3229／4157），靠行序取第一处；改成带 `display: grid` 的唯一锚，规则重排不再换目标", () => mutate("src/styles/editorial-studio.css", ".project-workbench {\n  display: grid;\n", ".project-workbench {\n  display: grid;\n  border-radius: 12px;\n"), /圆角刻度/],
+  ["第 8 步批次 AB 回归·反向：同一宿主写 var(--radius-3) 不该变红（清零 ≠ 禁止圆角）。⚠ BD-94 同上：锚点补上 `display: grid`，与上一颗共用唯一锚", () => mutate("src/styles/editorial-studio.css", ".project-workbench {\n  display: grid;\n", ".project-workbench {\n  display: grid;\n  border-radius: var(--radius-3);\n"), null],
   // 第 8 步批次 AC：对话框/浮层/toast 档 7 条投影归 --shadow-3/--shadow-4（styles.css 29→26、
   // editorial 29→26、幻影账 9→8）。写回旧手抄值必须红，同宿主写刻度令牌不该红。
   ["第 8 步批次 AC 回归：把退役的手抄对话框投影写回 .inbox-editor-grid（editorial 阴影预算 4，多一处必须红）——宿主原为 .creation-wizard，批次 BD-27 查明那条规则从未渲染，这对牙随规则一起搬家", () => mutate("src/styles/editorial-studio.css", "  box-shadow: var(--shadow-1);\n}\n\n.inbox-list {", "  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.34), 0 6px 18px rgba(0, 0, 0, 0.14);\n}\n\n.inbox-list {"), /阴影刻度/],
