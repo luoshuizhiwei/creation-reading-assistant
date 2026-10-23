@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 守卫注入测试：逐条把 needle 改坏，verify-design-tokens 必须变红。
 // 每个用例只改一处，测完立即从备份还原；任何一次“改坏了却还是绿的”都算守卫无效。
-import { readFileSync, writeFileSync, copyFileSync, mkdirSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, copyFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
@@ -117,6 +117,37 @@ const files = [
 
 const backedUp = new Set(files);
 
+// 批次 BD-98：动源码之前先核两个前提。这两条以前是「靠人记得」的：
+// ① 上一轮被 kill -9 之后 .inj-backup 会留下。那时工作区里可能还躺着某一条用例
+//    故意改坏的代码，而这份备份是唯一一份干净拷贝——此时若照常 mkdir + 覆盖，
+//    就等于把唯一的好拷贝换成坏的，事后无从恢复（BD-90 那次全靠没覆盖才救回来）。
+if (existsSync(backup)) {
+  console.error("[注入测试] 中止：发现 .inj-backup，上一轮没有正常收尾。");
+  console.error("  工作区可能仍带着被故意改坏的代码，而这份备份是唯一一份干净拷贝——");
+  console.error("  现在覆盖它就等于把好的也换成坏的。先核对 git status / git diff；");
+  console.error("  需要还原就用 .inj-backup 里的同名文件（路径里的 / 换成 __）覆盖回去，");
+  console.error("  确认干净后手动删掉 .inj-backup 再重跑。");
+  process.exit(1);
+}
+
+// ② 基线必须是绿的。守卫本来就红的时候，每颗牙的「变红」都不再说明问题：
+//    红牙可能红在别的地方，反向牙（要求保持绿）则全部必挂。此时跑出来的不是结论，
+//    是一堆噪声——先修基线。
+const baseline = runGuard();
+if (baseline.code !== 0) {
+  console.error("[注入测试] 中止：基线守卫不是绿的，先修好它再跑电池。");
+  // 只挑红话（守卫的 ✓ 行也带 TAG，全列出来会把真正的失败挤出屏幕）。
+  console.error(
+    baseline.out
+      .split("\n")
+      .filter((l) => l.includes("verify-design-tokens") && !l.includes("✓"))
+      .slice(-5)
+      .map((l) => "  " + l)
+      .join("\n")
+  );
+  process.exit(1);
+}
+
 mkdirSync(backup, { recursive: true });
 for (const f of files) copyFileSync(path.join(root, f), path.join(backup, f.replace(/\//g, "__")));
 
@@ -131,6 +162,22 @@ function cleanup() {
   if (cleaned) return;
   cleaned = true;
   restore();
+  // 批次 BD-98：删备份之前逐字节核对。restore() 只是 copyFileSync，它不保证
+  // 每个文件都真的回到了备份内容（磁盘满、权限、被外部进程改回……）。核对不过
+  // 就**保留**备份：一份多余的目录只是碍眼，删掉却是把唯一的干净拷贝一起扔掉。
+  const drift = files.filter((f) => {
+    try {
+      return readFileSync(path.join(root, f), "utf8") !== readFileSync(path.join(backup, f.replace(/\//g, "__")), "utf8");
+    } catch {
+      return true;
+    }
+  });
+  if (drift.length) {
+    console.error(`[注入测试] 还原不完整：${drift.length} 个文件与备份不一致，.inj-backup 已保留供人工恢复：`);
+    for (const f of drift) console.error(`   ${f}`);
+    process.exitCode = 1;
+    return;
+  }
   rmSync(backup, { recursive: true, force: true });
 }
 process.on("exit", cleanup);
