@@ -310,6 +310,47 @@ const sweepScript = ({ rootSelector, levels, canvasSeed }) => {
       bg: `rgb(${Math.round(bg.r)}, ${Math.round(bg.g)}, ${Math.round(bg.b)})`
     });
   }
+  // BD-120：placeholder 不是文本节点，主循环（只认 child text）永远量不到它——
+  // 收件框 .paper-input 的 placeholder 曾用 text-paper-muted/55（浅色 2.16）漏网。
+  // 这里对每个带 placeholder 属性的 input/textarea 补一遍：读 ::placeholder 计算色，
+  // 按同口径沿祖先链折 opacity、合成到实底上，纳入达标判定（次级底线 4.5）。
+  for (const el of scope.querySelectorAll("input, textarea")) {
+    const ph = el.getAttribute("placeholder");
+    if (!ph || !ph.trim() || !/[\p{L}\p{N}]/u.test(ph)) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) continue;
+    if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue;
+    if (el.closest("[disabled], [aria-disabled='true']")) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === "hidden" || cs.display === "none") continue;
+    const effOp = effectiveOpacity(el);
+    if (effOp < 0.35) continue;
+    const pc = getComputedStyle(el, "::placeholder").color;
+    if (pc === "transparent" || pc === "rgba(0, 0, 0, 0)") continue;
+    const fg = parse(pc);
+    if (!fg) continue;
+    fg.a = fg.a * effOp;
+    const candidates = bgCandidates(el);
+    let bg = candidates[0];
+    let ratio = Infinity;
+    for (const cand of candidates) {
+      const solidFg = fg.a < 1 ? over(fg, cand) : fg;
+      const rr = (Math.max(lum(solidFg), lum(cand)) + 0.05) / (Math.min(lum(solidFg), lum(cand)) + 0.05);
+      if (rr < ratio) { ratio = rr; bg = cand; }
+    }
+    if (!Number.isFinite(ratio)) continue;
+    const level = levelOf(fg, bg);
+    rows.push({
+      text: "«ph»" + ph.slice(0, 20),
+      cls: String(el.className).slice(0, 64),
+      ratio: Number(ratio.toFixed(2)),
+      floor: level === "tertiary" ? 3 : 4.5,
+      level,
+      size: parseFloat(cs.fontSize),
+      color: pc,
+      bg: `rgb(${Math.round(bg.r)}, ${Math.round(bg.g)}, ${Math.round(bg.b)})`
+    });
+  }
   return { found: true, rows, decorative };
 };
 

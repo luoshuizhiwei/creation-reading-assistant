@@ -4,6 +4,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* BD-120：占位符兜底。未显式上色的原生 input/textarea 回落到 UA 默认灰（Electron 实测
+ * #9ca3af，浅底 2.41:1、不达二级 4.5），而占位符不是文本节点、旧版运行时普查量不到。
+ * 给一条 base 层兜底色 --text-secondary（浅 4.96 / 深 7.47，仍比输入态 ink 浅、可辨）
+ * 并强制 opacity:1（挡 Firefox 对 placeholder 的半透明）。放 @layer base＝最低优先：
+ * 任何显式的 .xxx::placeholder 或 placeholder:工具类（更高特异度 / 更高层）仍能覆盖，
+ * 只兜住"没上色"的裸控件（如全局卡片库那枚无类名搜索框）。audit-contrast.mjs BD-120
+ * 起把 ::placeholder 也纳入实测，这一类今后不会再隐身。 */
+@layer base {
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--text-secondary);
+    opacity: 1;
+  }
+}
+
 :root {
   /* 清样工作台兼容别名：映射到 src/styles/tokens.css 的语义令牌（规格 §7 迁移期） */
   --app-bg: var(--surface-app, #eceff2);
@@ -217,7 +232,10 @@ button:disabled {
   }
 
   .paper-input {
-    @apply rounded-md border border-paper-line bg-paper-panel px-3 text-sm text-paper-ink outline-none transition duration-150 placeholder:text-paper-muted/55 focus:border-copper;
+    /* BD-120：placeholder 原先写成 text-paper-muted/55（浅色 2.16 / 深色 3.22，远低于 4.5），
+     * 而占位符不是文本节点，运行时对比度普查量不到，一直漏网。改回不透明 paper-muted
+     * （浅色 4.96 / 深色 7.47 达标），仍比输入态的 paper-ink 浅，placeholder 与用户文字可辨。 */
+    @apply rounded-md border border-paper-line bg-paper-panel px-3 text-sm text-paper-ink outline-none transition duration-150 placeholder:text-paper-muted focus:border-copper;
     /* 批次 BD-19：焦点柔光原先写成 @apply 里的
      * `focus:shadow-[0_0_0_3px_rgba(138,90,43,0.08)] focus:ring-1 focus:ring-copper/20`，
      * 编译产物实测是两层**同心描边环**（环 0 0 0 1px 主色 20% + 光 0 0 0 3px 棕 8%，
