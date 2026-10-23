@@ -2,7 +2,8 @@
  * 第 7 轮一次性验证探针（模型看不了截图，改用几何/样式断言）：
  *  1. 阅读器顶栏「统计」按钮可见且可点击（TXT + EPUB）。
  *  2. 替换面板 fixed 定位：完全落在视口内、不遮写作台工具栏。
- *  3. 暗色下 replace/proof/export 面板文字与背景对比度。
+ *  3. 暗色下 replace/proof/export 面板文字与背景对比度；BD-103 起连同导出预设的说明/后缀
+ *     逐元素量 WCAG 比值（这两级曾经写死晨校暖褐，夜校 1.2:1）。
  *  4. 1024x768 窄窗口：书库/收件箱/统计/设置无横向溢出。
  * 用法：node scripts/probe-round7.mjs
  */
@@ -206,14 +207,61 @@ async function probeDialogContrast(page, theme) {
   await page.getByRole("button", { name: /导出成稿/ }).first().click();
   await page.waitForTimeout(600);
   const exportBox = await page.evaluate(() => {
-    // 批次 BD-101：导出对话框的 aria-label 是「导出作品」，壳也不再是 .creation-search-shell；
-    // 取内容面板（h2 的上两级）的底色与标题色。
+    const parse = (c) => {
+      const m = String(c).match(/rgba?\(([^)]+)\)/);
+      if (!m) return null;
+      const p = m[1].split(",").map((x) => Number(x.trim()));
+      return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 };
+    };
+    const lin = (v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+    const lum = (c) => 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+    const over = (fg, bg) => ({
+      r: fg.r * fg.a + bg.r * (1 - fg.a),
+      g: fg.g * fg.a + bg.g * (1 - fg.a),
+      b: fg.b * fg.a + bg.b * (1 - fg.a),
+      a: 1
+    });
+    // 逐级向上把半透明背景叠成实色（对话框面板自己可能半透明）
+    const bgOf = (el) => {
+      const stack = [];
+      let cur = el;
+      while (cur) {
+        const c = parse(getComputedStyle(cur).backgroundColor);
+        if (c && c.a > 0) {
+          stack.push(c);
+          if (c.a > 0.99) break;
+        }
+        cur = cur.parentElement;
+      }
+      let base = stack.length ? stack[stack.length - 1] : { r: 255, g: 255, b: 255, a: 1 };
+      if (base.a < 0.99) base = { r: 255, g: 255, b: 255, a: 1 };
+      for (let i = stack.length - 2; i >= 0; i -= 1) base = over(stack[i], base);
+      return base;
+    };
+    const ratioOf = (el) => {
+      const bg = bgOf(el);
+      const fg = over(parse(getComputedStyle(el).color), bg);
+      const l1 = lum(fg);
+      const l2 = lum(bg);
+      return { ratio: (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05), color: getComputedStyle(el).color, bg: `rgb(${Math.round(bg.r)}, ${Math.round(bg.g)}, ${Math.round(bg.b)})` };
+    };
+    // 批次 BD-103：导出预设的说明与格式后缀曾经写死晨校暖褐（rgba(60,48,32,…)），
+    // 夜校面板上 1.2:1。这里不再只看面板底色，直接量这两级的实际对比度。
     const dialog = document.querySelector('[role="dialog"][aria-label="导出作品"]');
-    const head = dialog?.querySelector("h2");
+    if (!dialog) return null;
+    const head = dialog.querySelector("h2");
     const panel = head?.parentElement?.parentElement;
     if (!panel) return null;
-    const cs = getComputedStyle(panel);
-    return { bg: cs.backgroundColor, color: cs.color, titleColor: head ? getComputedStyle(head).color : null, cls: String(panel.className).slice(0, 60) };
+    const descs = [...dialog.querySelectorAll(".export-preset-option-desc")].map(ratioOf);
+    const exts = [...dialog.querySelectorAll(".export-preset-option-head em")].map(ratioOf);
+    return {
+      bg: getComputedStyle(panel).backgroundColor,
+      color: getComputedStyle(panel).color,
+      titleColor: head ? getComputedStyle(head).color : null,
+      cls: String(panel.className).slice(0, 60),
+      descs,
+      exts
+    };
   });
   await page.getByRole("button", { name: /关闭|取消/ }).last().click().catch(() => {});
   await page.waitForTimeout(300);
@@ -224,6 +272,14 @@ async function probeDialogContrast(page, theme) {
     check(`${theme} ${name} 面板文字对比`, obj.titleColor || obj.color,
       `bg=${obj.bg} color=${obj.color} title=${obj.titleColor ?? "-"}`);
   };
+  if (exportBox) {
+    const worstDesc = Math.min(...exportBox.descs.map((d) => d.ratio));
+    const worstExt = Math.min(...exportBox.exts.map((d) => d.ratio));
+    check(`${theme} 导出预设说明 ≥4.5:1`, exportBox.descs.length > 0 && worstDesc >= 4.5,
+      exportBox.descs.length ? `最差 ${worstDesc.toFixed(2)}:1（${exportBox.descs[0].color} on ${exportBox.descs[0].bg}）` : "没找到 .export-preset-option-desc");
+    check(`${theme} 导出预设格式后缀 ≥3:1`, exportBox.exts.length > 0 && worstExt >= 3,
+      exportBox.exts.length ? `最差 ${worstExt.toFixed(2)}:1（${exportBox.exts[0].color} on ${exportBox.exts[0].bg}）` : "没找到 .export-preset-option-head em");
+  }
   contrastOf("校对", proof);
   contrastOf("导出", exportBox);
 }
@@ -300,6 +356,7 @@ check("替换面板浅色背景实色", lightReplace && lightReplace.bg !== "rgb
 check("替换面板深色文字对比", darkReplace && (darkReplace.color || darkReplace.title), `bg=${darkReplace?.bg} title=${darkReplace?.title}`);
 
 await probeDialogContrast(page, "dark");
+await probeDialogContrast(page, "light");
 
 // 1024px 窄窗口
 await probeNarrowOverflow(page);

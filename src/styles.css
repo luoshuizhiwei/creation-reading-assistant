@@ -5173,11 +5173,17 @@ button:disabled {
 .export-preset-option-head em {
   font-style: normal;
   font-size: 12px;
-  color: rgba(60, 48, 32, 0.55);
+  /* 批次 BD-103：原来写死 rgba(60, 48, 32, 0.55)——晨校暖褐、夜校也还是暖褐，
+   * 压到夜校面板 #1b1f24 上只有 1.2:1，格式后缀直接看不见。改走语义令牌，
+   * 三级文字在两主题各自有值（晨校压面板 3.36:1，夜校 5.18:1），
+   * 由守卫的文字×表面矩阵兜底。 */
+  color: var(--text-tertiary);
 }
 
 .export-preset-option-desc {
   font-size: 12px;
   line-height: 1.6;
-  color: rgba(60, 48, 32, 0.72);
+  /* 同上：rgba(60, 48, 32, 0.72) 是晨校专用色，夜校下与面板同深，说明整段不可读。
+   * 次级文字令牌压面板：晨校 4.96:1、夜校 7.47:1，两主题都过 AA。 */
+  color: var(--text-secondary);
 }

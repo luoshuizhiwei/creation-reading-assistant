@@ -746,6 +746,56 @@ if (legacyRed > 0) {
   );
 }
 
+/* -------------------------- 第 7 步补钉（BD-103）：主题盲的纸墨字面量 */
+
+/**
+ * 晨校纸墨（#3c3020 / rgba(60, 48, 32, α)）是「白纸上的暖褐」，本身不是令牌。
+ * 它出现在 var(--paper-*, …) 的兜底里没问题：兜底只在令牌缺失时生效，夜校照样走
+ * 令牌值；出现在 .reader-shell-* 里也没问题：那几支壳的 background 同为字面量，
+ * 是「用户自选的阅读纸色」，不随时间换主题。
+ *
+ * 真正的问题是把它直接写在 color 上——BD-103 实测：导出对话框的预设说明与格式后缀
+ * 用了 rgba(60, 48, 32, 0.72/0.55)，夜校面板 #1b1f24 压上去只有 1.19:1 / 1.13:1，
+ * 而所有令牌级对比度断言全绿：它们量的是令牌，字面量根本不在射程里。
+ * 归零之后这条不许再回填，改文字色请用 var(--text-secondary) / var(--text-tertiary)。
+ */
+const PAPER_INK_GLOBAL = /(?:#3c3020\b|rgba?\(\s*60\s*,\s*48\s*,\s*32\b)/gi;
+const VAR_FALLBACK = /var\(\s*--[\w-]+\s*,\s*(?:#3c3020\b|rgba?\(\s*60\s*,\s*48\s*,\s*32[^)]*\))\s*\)/gi;
+const FIXED_SHELL_SELECTOR = /\.reader-shell-(?:white|warm|green|night|amber|parchment|beans)\b[^{}]*\{[^{}]*\}/g;
+
+/** 判据本体：返回剩余命中（已摘掉注释、var() 兜底与固定纸色壳）。 */
+function paperInkHits(cssText) {
+  const bare = stripComments(cssText)
+    .replace(FIXED_SHELL_SELECTOR, "/*fixed-shell*/")
+    .replace(VAR_FALLBACK, "/*token-fallback*/");
+  return [...bare.matchAll(PAPER_INK_GLOBAL)].map((m) => m[0]);
+}
+
+// 自检：合成的正例必须被抓到，两种合法写法必须放过——判据自己先过一遍，
+// 免得正则写歪了变成「永远 0 处」。
+const SELFTEST_BAD = ".x { color: rgba(60, 48, 32, 0.72); }";
+const SELFTEST_OK_FALLBACK = ".x { color: var(--paper-ink, #3c3020); }";
+const SELFTEST_OK_SHELL = ".reader-shell-warm { background: #f7f0e7; color: #3c3020; }";
+if (paperInkHits(SELFTEST_BAD).length !== 1) fail("BD-103 补钉自检失败：字面色例没被抓到");
+if (paperInkHits(SELFTEST_OK_FALLBACK).length !== 0) fail("BD-103 补钉自检失败：var() 兜底被误杀");
+if (paperInkHits(SELFTEST_OK_SHELL).length !== 0) fail("BD-103 补钉自检失败：固定纸色壳被误杀");
+
+const paperInkWhere = [];
+for (const cssFile of cssFiles) {
+  const rel = path.relative(root, cssFile).split(path.sep).join("/");
+  for (const hit of paperInkHits(readFileSync(cssFile, "utf8"))) paperInkWhere.push(`${rel}:${hit}`);
+}
+if (paperInkWhere.length > 0) {
+  fail(
+    `BD-103 补钉：仍有 ${paperInkWhere.length} 处晨校纸墨字面量直接当颜色用——` +
+      `夜校下它是压在自己身上的深褐（实测 1.1~1.2:1），而且令牌级对比度断言完全覆盖不到。` +
+      `文字色改用 var(--text-secondary) / var(--text-tertiary)，` +
+      `兜底与 .reader-shell-* 固定纸色壳除外。命中：${paperInkWhere.slice(0, 6).join(" / ")}`
+  );
+} else {
+  console.log(`${TAG} [第 7 步补钉 BD-103] 主题盲纸墨字面量 0 处（兜底与固定纸色壳豁免；自检 3/3 通过）`);
+}
+
 /* ------------------------------------------------------ 主题色令牌成对性不变量 */
 
 /**
