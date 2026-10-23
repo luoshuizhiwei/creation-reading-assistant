@@ -215,6 +215,18 @@ describe("SearchPanel 键盘交互", () => {
     expect(useSearchStore.getState().open).toBe(false);
   });
 
+  // BD-113：Ctrl+Shift+K 是写作速查的和弦，全局搜索不许连带弹起。
+  it("Ctrl+Shift+K 不打开全局搜索（让给写作速查），Ctrl+K 仍打开", () => {
+    useSearchStore.setState({ open: false });
+    render(<SearchPanel />);
+    // 大写 K + shift：模拟浏览器里按下 Ctrl+Shift+K（event.key === "K"）
+    fireEvent.keyDown(window, { key: "K", ctrlKey: true, shiftKey: true });
+    expect(useSearchStore.getState().open).toBe(false);
+    // 无 Shift 的 Ctrl+K 照常打开
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    expect(useSearchStore.getState().open).toBe(true);
+  });
+
   it("Esc 关闭搜索并恢复触发元素焦点", () => {
     render(
       <div>

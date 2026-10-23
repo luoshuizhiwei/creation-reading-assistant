@@ -112,8 +112,13 @@ export function SearchPanel() {
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
       if (event.isComposing || event.keyCode === 229) return;
+      // BD-113：Ctrl/⌘+K 打开全局搜索，但必须排除 Shift——Ctrl+Shift+K 是写作速查
+      // （WritingDesk）的和弦。旧写法只判 `ctrlKey && key==="k"`，两键一并按下时
+      // 这个 .uni-search-overlay（fixed 全屏、抢焦点）会连带弹起，把速查面板压在下面、
+      // 焦点被搜索框抢走——用户按速查快捷键实际弹的是搜索。f 那一支显式要 Shift，保留。
       const isSearchShortcut =
-        (event.ctrlKey || event.metaKey) && (event.key.toLowerCase() === "k" || (event.shiftKey && event.key.toLowerCase() === "f"));
+        (event.ctrlKey || event.metaKey) &&
+        (event.key.toLowerCase() === "k" ? !event.shiftKey : event.shiftKey && event.key.toLowerCase() === "f");
       if (!isSearchShortcut) return;
       if (isEditableTarget(event.target)) return;
       event.preventDefault();

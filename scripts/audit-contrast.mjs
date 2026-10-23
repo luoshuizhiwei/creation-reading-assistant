@@ -12,10 +12,14 @@
  *  · 其余颜色（自定义/accent/半透明叠出来的）一律按 4.5:1 判——没有令牌身份就没有豁免。
  *  · 跳过 disabled、透明度 <0.35、尺寸 <2px、视口外的元素：它们不承载可读信息。
  *
- * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe，BD-110 补 markdown 正文）：12 个主视图 + 6 个弹层
- *   + 5 个设置分区 + 7 种 TXT 正文纸面 + 7 种 MD 正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 46 个范围。
+ * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe，BD-110 补 markdown 正文）：12 个主视图 + 7 个弹层
+ *   + 5 个设置分区 + 7 种 TXT 正文纸面 + 7 种 MD 正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 47 个范围。
  * BD-112 把第 6 个弹层（全局搜索 Ctrl+K）补进来：命中词 <mark class="uni-hit"> 是又一处
  * 「<mark> 上色」面，此前从没量过；连同弹层 chrome 一起纳入晨校/夜校。
+ * BD-113 把第 7 个弹层（写作速查 Ctrl+Shift+K，右侧 .writing-quick-reference）补进来：它的面板底是
+ * color-mix(--bg-surface 97%, --accent-hover) 这套别处没有的轻染色，里面全族文字走 --text-main /
+ * --text-muted / --text-meta 三档 token——「token 在别的底上验过、在这个新染色底上没验过」的典型面。
+ * 列表行那 3px kind 竖脊是自闭合装饰 <span>（无文字），sweep 按无文字跳过，不参与文字对比。
  * BD-108 补纸面是因为守卫第 7 步补钉对 .reader-shell-* 有一整族的豁免，理由写着
  * 「壳的 background 同为字面量、成对写死」——这个前提此前只是断言，没人量过。
  * BD-109 补 EPUB 正文是因为早先那个范围只量宿主壳、穿不进 iframe，于是夜纸 publisher
@@ -475,6 +479,21 @@ await ok("全局搜索", async () => {
 });
 await auditScope("全局搜索", ".uni-search-overlay", 8);
 await page.keyboard.press("Escape").catch(() => {});
+await page.waitForTimeout(300);
+
+// BD-113：写作速查面板（Ctrl+Shift+K，右侧 .writing-quick-reference）此前从没被量过——这是第 7 个弹层。
+// 面板底是 color-mix(--bg-surface 97%, --accent-hover)：一套别的视图都没有的轻染色背景。里面全族文字
+// （h3 标题 / AI 上下文条 / 三 tab / 卡片列表 strong+small+em / 空态）都走 --text-main / --text-muted /
+// --text-meta 三档 token。三档字色叠在这个独有染色底上，正是「token 在别处验过、但这个新底上没验过」的
+// 面。开面板扫整块纳入晨校/夜校；列表行 3px kind 竖脊是自闭合装饰 span（无文字），sweep 自动跳过。
+await ok("写作速查", async () => {
+  await workbenchView("写作", ".writing-desk");
+  await page.keyboard.press("Control+Shift+k");
+  await page.waitForSelector(".writing-quick-reference", { timeout: 8000 });
+  await page.waitForTimeout(400);
+});
+await auditScope("写作速查", ".writing-quick-reference", 6);
+await page.keyboard.press("Control+Shift+k").catch(() => {});
 await page.waitForTimeout(300);
 
 // 设置按分区量（BD-107）：整屏只算「当前分区」，其余四个分区的控件从来没被量过。
