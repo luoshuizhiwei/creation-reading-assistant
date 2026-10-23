@@ -924,8 +924,12 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
   );
 
   return (
+    // 批次 BD-102：补 h-full。grid 的 1fr 行只有在容器高度确定时才收缩，
+    // 少了它 .reader-scroller 会按内容撑到 8896px，overflow-y-auto 永远不溢出，
+    // 而外层 h-screen overflow-hidden 把后面的章节整段裁掉——正文实际滚不动。
+    // EPUB 的 .reader-root 一直带着 h-full，TXT 这边是改版时漏掉的。
     <div
-      className={`reader-host desktop-page-root relative grid grid-rows-[auto_minmax(0,1fr)_auto] ${readerShellClass(settings.readerBackground)}`}
+      className={`reader-host desktop-page-root relative grid h-full grid-rows-[auto_minmax(0,1fr)_auto] ${readerShellClass(settings.readerBackground)}`}
     >
       <ReaderTopNav
         title={activeBook.title}

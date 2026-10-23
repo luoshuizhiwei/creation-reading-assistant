@@ -107,7 +107,10 @@ const aiRow = await page.evaluate(() => {
   return {
     exists: !!row,
     hint: row?.querySelector(".scene-radar-ai-hint")?.textContent ?? null,
-    allDisabled: buttons.length === 3 && buttons.every((button) => button.disabled)
+    // 批次 BD-102：动作列表从 3 个扩到 6 个（SCENE_AI_ACTION_ORDER），
+    // 这里钉的是「整行都在禁用态」，不是精确条数。
+    count: buttons.length,
+    allDisabled: buttons.length >= 3 && buttons.every((button) => button.disabled)
   };
 });
 check("AI 助手行渲染且未启用时禁用", aiRow.exists && aiRow.allDisabled && (aiRow.hint ?? "").includes("AI"), JSON.stringify(aiRow));

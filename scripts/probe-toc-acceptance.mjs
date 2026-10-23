@@ -175,12 +175,14 @@ async function openBook(page, title) {
   await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
   await page.locator(".desktop-library-row", { hasText: title }).first().click();
   // TXT/MD 渲染为 <article>；EPUB 渲染在 epubjs 的 iframe 里
-  await page.waitForSelector(".reader-root article, .reader-root iframe", { timeout: 30000 });
+  // 批次 BD-102：TXT/MD 阅读器壳是 .reader-host；.reader-root 只剩 EPUB。
+  await page.waitForSelector(".reader-host article, .reader-root iframe", { timeout: 30000 });
   await page.waitForTimeout(600);
 }
 
 async function leaveReader(page) {
-  await page.locator("header button", { hasText: "返回书库" }).first().click();
+  // 批次 BD-102：返回按钮只剩图标，文案在 aria-label 上。
+  await page.getByRole("button", { name: "返回书库" }).first().click();
   await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
   await page.waitForTimeout(400);
 }
@@ -196,7 +198,7 @@ const PAGE_HELPERS = `(() => {
 async function scrollToChapterTop(page, anchorId, offsetPx = 0) {
   await page.evaluate(
     ([id, offset]) => {
-      const scroller = document.querySelector(".reader-root article").parentElement;
+      const scroller = document.querySelector(".reader-host article").parentElement;
       const scrollerTop = scroller.getBoundingClientRect().top;
       const el = document.getElementById(id);
       if (el) {
@@ -212,7 +214,7 @@ async function scrollToChapterTop(page, anchorId, offsetPx = 0) {
 
 async function readerState(page) {
   return page.evaluate(`(() => {
-    const readerArticle = document.querySelector(".reader-root article");
+    const readerArticle = document.querySelector(".reader-host article");
     const scroller = readerArticle.parentElement;
     const scrollerTop = scroller.getBoundingClientRect().top;
     const absTop = (el) => el.getBoundingClientRect().top - scrollerTop + scroller.scrollTop;
@@ -238,7 +240,8 @@ async function readerState(page) {
 }
 
 async function setFontSize(page, value) {
-  await page.locator("header button", { hasText: "设置" }).first().click();
+  // 批次 BD-102：设置入口是图标按钮，文案在 aria-label「阅读设置」上。
+  await page.getByRole("button", { name: "阅读设置" }).first().click();
   await page.waitForSelector("aside input[type=range]", { timeout: 5000 });
   await page.evaluate((v) => {
     const input = document.querySelector("aside input[type=range]");
@@ -248,13 +251,13 @@ async function setFontSize(page, value) {
     input.dispatchEvent(new Event("change", { bubbles: true }));
   }, value);
   await page.waitForTimeout(700);
-  await page.locator("aside button[title], aside button:has(svg)").first().click();
+  await page.locator("aside").getByRole("button", { name: "关闭" }).first().click();
   await page.waitForTimeout(300);
 }
 
 async function selectTextNear(page, matchText) {
   const ok = await page.evaluate((needle) => {
-    const article = document.querySelector(".reader-root article");
+    const article = document.querySelector(".reader-host article");
     const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
     let node;
     while ((node = walker.nextNode())) {
@@ -293,20 +296,25 @@ try {
 
   // B4 书签（先滚入第一章区间，锚点激活后书签带章名）
   await scrollToChapterTop(page, "txt-chapter-0", 120);
-  await page.locator("header button", { hasText: "加书签" }).first().click();
-  await page.waitForTimeout(500);
-  await page.locator("button:has-text('书签')").nth(1).click();
+  // 批次 BD-102：加书签入口已从顶栏移到右栏「书签」页签，
+  // 按钮文案是「在当前位置添加书签」。
+  await page.getByRole("button", { name: /^书签/ }).first().click();
   await page.waitForTimeout(300);
-  const bookmarkItems = await page.locator("button:has-text('验收章节1')").count();
-  check("B4.1 顶栏加书签 → 面板出现书签项", bookmarkItems >= 1, `count=${bookmarkItems}`);
+  await page.getByRole("button", { name: /在当前位置添加书签/ }).first().click();
+  await page.waitForTimeout(500);
+  // 批次 BD-102：书签标签取「自锚点章名」，锚点还没激活时退回「书签 N%」；
+  // 这里只钉「面板里出现了一条书签」，两种文案都算过。
+  const bookmarkItems = await page.locator("button").filter({ hasText: /书签 \d+%|验收章节1/ }).count();
+  check("B4.1 右栏加书签 → 面板出现书签项", bookmarkItems >= 1, `count=${bookmarkItems}`);
 
   // B5 高亮：跳到第三章（段落号 41-52）选一段文字加高亮
   await scrollToChapterTop(page, "txt-chapter-2", 80);
   const selOk = await selectTextNear(page, "（45）");
   check("B5.1 选区工具条出现", selOk && (await page.locator('button[title="高亮"]').count()) > 0);
-  await page.locator('button[title="高亮"]').first().click();
+  // 选区工具条浮在选区上方，选区靠近视口顶端时按钮会落在视口外；直接派发 click。
+  await page.locator('button[title="高亮"]').first().evaluate((el) => el.click());
   await page.waitForTimeout(300);
-  await page.locator('button[title="黄色"]').first().click();
+  await page.locator('button[title="黄色"]').first().evaluate((el) => el.click());
   await page.waitForTimeout(600);
   let state = await readerState(page);
   check("B5.2 高亮 mark 注入正文", state.marks >= 1, `marks=${state.marks}`);
@@ -317,7 +325,7 @@ try {
   await page.locator("button", { hasText: "（45）" }).first().click();
   await page.waitForTimeout(600);
   const jumpBack = await page.evaluate(() => {
-    const scroller = document.querySelector(".reader-root article").parentElement;
+    const scroller = document.querySelector(".reader-host article").parentElement;
     const scrollerTop = scroller.getBoundingClientRect().top;
     const el = document.getElementById("txt-chapter-2");
     const elNext = document.getElementById("txt-chapter-3");
@@ -327,7 +335,7 @@ try {
   check("B5.3 高亮跳转回到第三章附近", jumpBack.scrollTop >= jumpBack.t2 - 100 && jumpBack.scrollTop < jumpBack.t3, JSON.stringify(jumpBack));
 
   // D 已读标记：切回目录 Tab，滚到第六章，前五章应已读
-  await page.locator("button:has-text('目录')").nth(1).click();
+  await page.locator("button:has-text('目录')").first().click();
   await page.waitForTimeout(300);
   await scrollToChapterTop(page, "txt-chapter-5", 200);
   state = await readerState(page);
@@ -343,7 +351,7 @@ try {
   // ================= A3：无章节 TXT（50% 后离开，字号默认） =================
   await openBook(page, "验收 TXT 无章");
   await page.evaluate(() => {
-    const scroller = document.querySelector(".reader-root article").parentElement;
+    const scroller = document.querySelector(".reader-host article").parentElement;
     scroller.scrollTop = Math.round((scroller.scrollHeight - scroller.clientHeight) * 0.5);
     scroller.dispatchEvent(new Event("scroll"));
   });
@@ -406,12 +414,12 @@ try {
   await page.waitForTimeout(200);
   await page.locator("div.grid button:has-text('（122）')").first().click();
   await page.waitForTimeout(200);
-  // 合并最后一章
-  const rowsBefore = await page.locator("button", { hasText: "合并到上一章" }).count();
-  await page.locator("button", { hasText: "合并到上一章" }).last().click();
+  // 删除最后一个章节起点（批次 BD-102：原「合并到上一章」按钮已换成行尾的删除起点）
+  const rowsBefore = await page.locator('button[title="删除该章节起点"]').count();
+  await page.locator('button[title="删除该章节起点"]').last().click();
   await page.waitForTimeout(200);
-  const rowsAfter = await page.locator("button", { hasText: "合并到上一章" }).count();
-  check("C1 合并到上一章使章节 -1", rowsBefore - rowsAfter === 1, `${rowsBefore}→${rowsAfter}`);
+  const rowsAfter = await page.locator('button[title="删除该章节起点"]').count();
+  check("C1 删除章节起点使章节 -1", rowsBefore - rowsAfter === 1, `${rowsBefore}→${rowsAfter}`);
   // 保存
   await page.locator("button", { hasText: "保存并完成" }).first().click();
   await page.waitForTimeout(800);
@@ -429,7 +437,7 @@ try {
   await second.page.waitForTimeout(3500);
   state = await readerState(second.page);
   const span = await second.page.evaluate(() => {
-    const scroller = document.querySelector(".reader-root article").parentElement;
+    const scroller = document.querySelector(".reader-host article").parentElement;
     const scrollerTop = scroller.getBoundingClientRect().top;
     const absTop = (el) => el.getBoundingClientRect().top - scrollerTop + scroller.scrollTop;
     return { t4: absTop(document.getElementById("txt-chapter-4")), t5: absTop(document.getElementById("txt-chapter-5")) };
@@ -442,7 +450,7 @@ try {
   await openBook(second.page, "验收 MD 笔记");
   await second.page.waitForTimeout(2500);
   const mdState = await second.page.evaluate(() => {
-    const readerArticle = document.querySelector(".reader-root article");
+    const readerArticle = document.querySelector(".reader-host article");
     const scroller = readerArticle.parentElement;
     const scrollerTop = scroller.getBoundingClientRect().top;
     const absTop = (el) => el.getBoundingClientRect().top - scrollerTop + scroller.scrollTop;
@@ -462,7 +470,7 @@ try {
   await openBook(second.page, "验收 TXT 无章");
   await second.page.waitForTimeout(1200);
   const plain = await second.page.evaluate(() => {
-    const scroller = document.querySelector(".reader-root article").parentElement;
+    const scroller = document.querySelector(".reader-host article").parentElement;
     return (scroller.scrollTop + scroller.clientHeight / 2) / scroller.scrollHeight;
   });
   check("A3.3 无章节书按全局比例恢复（0.5±0.15）", Math.abs(plain - 0.5) <= 0.15, `fraction=${plain.toFixed(3)}`);
