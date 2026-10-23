@@ -13,8 +13,8 @@
  *  · 跳过 disabled、有效透明度 <0.35（BD-114 起：沿祖先链累乘 CSS opacity，父级 dim 也算）、
  *    尺寸 <2px、视口外的元素：它们不承载可读信息。
  *
- * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe，BD-110 补 markdown 正文）：12 个主视图 + 8 个弹层
- *   + 5 个设置分区 + 7 种 TXT 正文纸面 + 7 种 MD 正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 48 个范围。
+ * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe，BD-110 补 markdown 正文）：12 个主视图 + 9 个弹层
+ *   + 5 个设置分区 + 7 种 TXT 正文纸面 + 7 种 MD 正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 49 个范围。
  * BD-112 把第 6 个弹层（全局搜索 Ctrl+K）补进来：命中词 <mark class="uni-hit"> 是又一处
  * 「<mark> 上色」面，此前从没量过；连同弹层 chrome 一起纳入晨校/夜校。
  * BD-113 把第 7 个弹层（写作速查 Ctrl+Shift+K，右侧 .writing-quick-reference）补进来：它的面板底是
@@ -568,6 +568,14 @@ await ok("阅读器设置抽屉", async () => {
   await page.waitForTimeout(400);
 });
 await auditScope("阅读器设置抽屉", ".motion-drawer", 8);
+// BD-116：抽屉「更多设置」二级视图（繁简转换/位置恢复/阅读记录/预设保存/恢复默认）走的是共享控件
+// Select/Switch/TextInput + ReaderTrackingControls，label 与说明文字此前从没被量过（EPUB 样式那一项
+// 只在 epub 格式出现，这里量的是 TXT 下的其余低频项）。就地切到二级视图再扫一遍 .motion-drawer。
+await ok("阅读器设置·更多", async () => {
+  await page.locator(".motion-drawer").getByRole("button", { name: /更多设置/ }).first().click();
+  await page.waitForTimeout(400);
+});
+await auditScope("阅读器设置·更多", ".motion-drawer", 6);
 await page.locator(".motion-drawer").getByRole("button", { name: "关闭" }).first().click().catch(() => {});
 await page.waitForTimeout(300);
 await page.getByRole("button", { name: "返回书库" }).first().click().catch(() => {});
