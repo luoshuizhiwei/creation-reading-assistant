@@ -12,12 +12,14 @@
  *  · 其余颜色（自定义/accent/半透明叠出来的）一律按 4.5:1 判——没有令牌身份就没有豁免。
  *  · 跳过 disabled、透明度 <0.35、尺寸 <2px、视口外的元素：它们不承载可读信息。
  *
- * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe）：12 个主视图 + 5 个弹层
- *   + 5 个设置分区 + 7 种正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 38 个范围。
+ * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe，BD-110 补 markdown 正文）：12 个主视图 + 5 个弹层
+ *   + 5 个设置分区 + 7 种 TXT 正文纸面 + 7 种 MD 正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 45 个范围。
  * BD-108 补纸面是因为守卫第 7 步补钉对 .reader-shell-* 有一整族的豁免，理由写着
  * 「壳的 background 同为字面量、成对写死」——这个前提此前只是断言，没人量过。
  * BD-109 补 EPUB 正文是因为早先那个范围只量宿主壳、穿不进 iframe，于是夜纸 publisher
  * 下正文退回 UA 黑压在 #15100e 上 1.05:1 的缺陷没人量到——iframe 同源，现在穿进去量。
+ * BD-110 补 markdown 正文是因为那圈纸面只开纯 TXT 书，MD 书走 dangerouslySetInnerHTML
+ * 的 h1/blockquote/列表/表格/<a> 完全没被量过——同 BD-109 的盲区教训，未量的动态内容面最危险。
  * 每个都在晨校与夜校各量一遍——两套底色是两套事实，夜校绿不代表晨校绿。
  * BD-105 就是靠这条抓到收件箱筛选徽标 4.09:1：那一处在夜校是 4.85:1，只看夜校永远看不见。
  * 每个范围都要求「采样到足够多的文字元素」——采样数塌了说明选择器又漂了，
@@ -493,6 +495,33 @@ for (const [label, minSamples] of PAPER_OPTIONS) {
     await page.waitForTimeout(600);
   });
   await auditScope(`纸面·${label}`, ".reader-host", minSamples);
+  await page.getByRole("button", { name: "返回书库" }).first().click().catch(() => {});
+  await page.waitForTimeout(400);
+}
+
+// BD-110：上面那圈纸面量的是纯 TXT 书（renderChapterParagraphs，只挂 mb-5 的 <p>）。
+// Markdown 书走的是另一条渲染路——dangerouslySetInnerHTML 吐出的 h1/h2、blockquote、
+// 列表项、表格 th/td、以及 [文本](url) 生成的 <a>，都是不受信的用户 DOM，此前没有任何
+// 范围量过。这正是 BD-109 刚证明过的盲区：没被量到的动态内容面藏着真缺陷。这里补一圈
+// 逐纸面的 markdown-reader 扫描，把「链接/引用/标题也一起跟着纸墨走」钉成回归网——
+// 实测链接靠 Tailwind preflight 的 a{color:inherit} 继承 <article> 的 readerTextColor，
+// 夜纸 15.90:1；若日后有人给 .markdown-reader a 上死色或改 preflight，这圈当场红。
+for (const [label] of PAPER_OPTIONS) {
+  await ok(`MD纸面·${label}`, async () => {
+    await goto(page, "设置");
+    await page.waitForSelector(".settings-nav", { timeout: 10000 });
+    await page.locator(".settings-nav button", { hasText: "阅读器" }).first().click();
+    const swatch = page.locator(`[role="radiogroup"][aria-label="书籍背景"] button[aria-label="${label}"]`).first();
+    await swatch.waitFor({ state: "visible", timeout: 10000 });
+    await swatch.click();
+    await page.waitForTimeout(300);
+    await goto(page, "书库");
+    await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
+    await page.locator(".desktop-library-row", { hasText: "测试 Markdown 笔记" }).first().click();
+    await page.waitForSelector(".reader-host article a", { timeout: 30000 });
+    await page.waitForTimeout(600);
+  });
+  await auditScope(`MD纸面·${label}`, ".reader-host", 8);
   await page.getByRole("button", { name: "返回书库" }).first().click().catch(() => {});
   await page.waitForTimeout(400);
 }
