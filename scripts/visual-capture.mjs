@@ -145,7 +145,7 @@ async function auditLayout(page) {
     const headings = [...document.querySelectorAll("h1, h2")].map((h) => h.textContent?.trim() ?? "").filter(Boolean);
     const duplicateHeadings = headings.filter((text, index) => headings.indexOf(text) !== index);
 
-    const hero = document.querySelector(".project-home-hero, .desktop-page-hero, .creation-writing-hero");
+    const hero = document.querySelector(".desktop-page-hero, .stats-card, .creation-writing-hero");
     const heroRect = hero?.getBoundingClientRect();
 
     const bodyStyle = getComputedStyle(document.body);
@@ -164,15 +164,17 @@ async function auditLayout(page) {
     const commandbar = document.querySelector(".desktop-commandbar");
     const commandbarBg = commandbar ? getComputedStyle(commandbar).backgroundColor : null;
 
+    // 批次 BD-100：.project-home-hero / .project-home-hero-copy 随版式改版消失，
+    // 项目首页的标题现在是 .stats-card h3，正文走 .project-home-meta / .project-home-chars。
     const inkSamples = [
       sample(".desktop-commandbar h1", commandbarBg),
       sample(".project-home-item-main strong", itemBg),
-      sample(".project-home-hero-copy, .creation-writing-hero h2", heroBg)
+      sample(".stats-card h3", heroBg)
     ].filter(Boolean);
     const mutedSamples = [
       sample(".desktop-commandbar span", commandbarBg),
       sample(".project-home-meta", itemBg),
-      sample(".project-home-hero-copy", heroBg)
+      sample(".project-home-chars", itemBg)
     ].filter(Boolean);
 
     for (const item of [...inkSamples, ...mutedSamples]) {
@@ -223,7 +225,10 @@ async function launchApp() {
   await page.waitForSelector(".desktop-canvas", { timeout: 30000 });
   await page.waitForFunction(() => {
     const rootEl = document.querySelector(".desktop-canvas");
-    return Boolean(rootEl?.querySelector(".project-home-hero, .project-nav-back, .creation-writing-hero"));
+    // 批次 BD-100：首启落在项目列表（.project-home），有了项目之后才可能在工作台
+    // （.project-workbench / .project-nav-back）。原先只等 .project-home-hero，
+    // 那个类早已随版式改版消失，脚本在任何机器上都停在启动阶段。
+    return Boolean(rootEl?.querySelector(".project-home, .project-workbench, .project-nav-back, .creation-writing-hero"));
   }, null, { timeout: 30000 });
   await page.waitForTimeout(900);
   return { app, page };
@@ -295,7 +300,9 @@ async function main() {
           const item = document.querySelector(".project-home-item");
           const noGoal = document.querySelector(".project-home-no-goal");
           const empty = document.querySelector(".project-home-empty");
-          const createFirst = document.querySelector(".project-home-create-first");
+          // 批次 BD-100：空态入口按钮不再有 .project-home-create-first 这个类，
+          // 它是空态卡片里文案为「新建第一个项目」的那个按钮。
+          const createFirst = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "新建第一个项目");
           return {
             hasBar: Boolean(bar),
             hasChars: Boolean(chars),
@@ -323,26 +330,33 @@ async function main() {
   // ---------- 创建测试项目 ----------
   await setTheme("light");
   await setViewport(1440, 900);
-  const createFirst = page.locator(".project-home-create-first").first();
-  if (await createFirst.isVisible()) {
-    await createFirst.click();
+  // 批次 BD-100：建项目对话框的类名（.creation-wizard / .creation-field）已经不存在，
+  // 现在是一个 role=dialog 的三步向导，输入框只能靠占位文案定位。
+  const createEntry = page.getByRole("button", { name: "新建第一个项目" }).first();
+  if (await createEntry.isVisible()) {
+    await createEntry.click();
   } else {
     await page.getByRole("button", { name: /新建项目/ }).first().click();
   }
-  await page.waitForSelector(".creation-wizard", { timeout: 15000 });
-  await page.getByRole("button", { name: /下一步/ }).click();
-  await page.waitForTimeout(250);
-  await page.locator(".creation-field input").first().fill("测试项目");
-  await page.getByRole("button", { name: /下一步/ }).click();
-  await page.waitForTimeout(250);
-  await page.locator("input[placeholder='例如：500000']").fill("50000");
-  await page.getByRole("button", { name: /创建项目/ }).click();
+  const wizard = page.locator("[role=dialog]").first();
+  await wizard.waitFor({ state: "visible", timeout: 15000 });
+  await wizard.getByRole("button", { name: /下一步/ }).click();
+  const nameInput = page.locator("input[placeholder='例如：测试项目']").first();
+  await nameInput.waitFor({ state: "visible", timeout: 15000 });
+  await nameInput.fill("测试项目");
+  await wizard.getByRole("button", { name: /下一步/ }).click();
+  const goalInput = page.locator("input[placeholder='例如：500000']").first();
+  await goalInput.waitFor({ state: "visible", timeout: 15000 });
+  await goalInput.fill("50000");
+  await wizard.getByRole("button", { name: /创建项目/ }).click();
   await page.waitForSelector(".project-nav-back", { timeout: 15000 });
   await page.waitForTimeout(700);
 
   // 返回项目首页（普通项目：有项目、无进度）
   await page.locator(".project-nav-back").click();
   await page.waitForSelector(".project-home-list", { timeout: 15000 });
+  // 批次 BD-100：建项目成功会弹 4.2 秒的 .motion-toast，压在右上角会污染空/普通两张实拍。
+  await page.locator(".motion-toast").first().waitFor({ state: "detached", timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(600);
   await forEachViewportAndTheme("plain");
 
