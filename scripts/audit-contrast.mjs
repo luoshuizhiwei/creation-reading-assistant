@@ -12,8 +12,10 @@
  *  · 其余颜色（自定义/accent/半透明叠出来的）一律按 4.5:1 判——没有令牌身份就没有豁免。
  *  · 跳过 disabled、透明度 <0.35、尺寸 <2px、视口外的元素：它们不承载可读信息。
  *
- * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe，BD-110 补 markdown 正文）：12 个主视图 + 5 个弹层
- *   + 5 个设置分区 + 7 种 TXT 正文纸面 + 7 种 MD 正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 45 个范围。
+ * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe，BD-110 补 markdown 正文）：12 个主视图 + 6 个弹层
+ *   + 5 个设置分区 + 7 种 TXT 正文纸面 + 7 种 MD 正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 46 个范围。
+ * BD-112 把第 6 个弹层（全局搜索 Ctrl+K）补进来：命中词 <mark class="uni-hit"> 是又一处
+ * 「<mark> 上色」面，此前从没量过；连同弹层 chrome 一起纳入晨校/夜校。
  * BD-108 补纸面是因为守卫第 7 步补钉对 .reader-shell-* 有一整族的豁免，理由写着
  * 「壳的 background 同为字面量、成对写死」——这个前提此前只是断言，没人量过。
  * BD-109 补 EPUB 正文是因为早先那个范围只量宿主壳、穿不进 iframe，于是夜纸 publisher
@@ -455,6 +457,23 @@ await ok("命令面板", async () => {
   await page.waitForTimeout(400);
 });
 await auditScope("命令面板", '[role="dialog"][aria-label="命令面板"]', 6);
+await page.keyboard.press("Escape").catch(() => {});
+await page.waitForTimeout(300);
+
+// BD-112：全局搜索（Ctrl+K）弹层此前从没被量过——上面命令面板那条注释就特意点过
+// 「Ctrl K 是另一个全局搜索，别混」。它命中词用 <mark class="uni-hit"> 上色（color:
+// --paper-ink + copper 22% 底），是继 BD-111 之后另一处「<mark> 依赖 UA 默认色」风险的
+// 面：这里给一个真有命中的查询，把弹层整块 + 命中 mark 一起纳入晨校/夜校对比度。
+await ok("全局搜索", async () => {
+  await goto(page, "书库");
+  await page.waitForSelector(".desktop-canvas", { timeout: 10000 });
+  await page.keyboard.press("Control+k");
+  await page.waitForSelector(".uni-search-input", { timeout: 8000 });
+  await page.locator(".uni-search-input").fill("测试");
+  await page.waitForSelector(".uni-hit", { timeout: 8000 });
+  await page.waitForTimeout(400);
+});
+await auditScope("全局搜索", ".uni-search-overlay", 8);
 await page.keyboard.press("Escape").catch(() => {});
 await page.waitForTimeout(300);
 
