@@ -28,6 +28,7 @@ npm run dist           # 构建 + 打包安装程序
 | `npm run verify:design-tokens` | 全量守卫：令牌定义、对比度、阴影/圆角/间距/字号/行高棘轮、死声明与死色账 |
 | `npm run audit:test-anchors` | 核对注入测试里每个 needle 在当前源码中命中且唯一 |
 | `npm run audit:script-selectors` | 核对 `scripts/*.mjs` 里每个字面量选择器的类名在 `src/`、`electron/` 里仍有出处 |
+| `npm run audit:dark-contrast` | 夜校运行时普查：8 个主视图 + 4 个弹层里每个文字元素的实际对比度（需 Xvfb 与已构建的 `out/`，约 1 分钟） |
 | `npm run inject:design-tokens` | 注入电池：逐颗改写源码验证守卫会咬（约 17 分钟，跑完自动还原） |
 
 `npm test` 已经包含前三条；改版式或颜色后先让它通过再提交。守卫的账全是 0 或已逐条记档，
