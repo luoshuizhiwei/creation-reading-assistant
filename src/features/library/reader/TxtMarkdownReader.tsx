@@ -23,7 +23,7 @@ import { useLibraryStore } from "@/stores/library-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
 import type { BookmarkItem, ExcerptResult, ExcerptTarget, HighlightColor, HighlightItem } from "@/types/library";
-import { readerPaperClass, readerShellClass, readerTextColor } from "@/utils/format";
+import { readerPaperClass, readerTextColor } from "@/utils/format";
 import { convertTextSync, getConverter } from "@/utils/text-conversion";
 import { renderMarkdownWithToc } from "@/features/library/toc/markdown-toc";
 import { computeAnchorScrollTop, computeTextAnchor, currentAnchorIdFromSpans, type AnchorSpan } from "@/features/library/toc/anchor";
@@ -928,9 +928,12 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
     // 少了它 .reader-scroller 会按内容撑到 8896px，overflow-y-auto 永远不溢出，
     // 而外层 h-screen overflow-hidden 把后面的章节整段裁掉——正文实际滚不动。
     // EPUB 的 .reader-root 一直带着 h-full，TXT 这边是改版时漏掉的。
-    <div
-      className={`reader-host desktop-page-root relative grid h-full grid-rows-[auto_minmax(0,1fr)_auto] ${readerShellClass(settings.readerBackground)}`}
-    >
+    // 批次 BD-108：宿主不再挂 reader-shell-*。那 7 条规则是「有宿主、没产物」的幻影——
+    // 类名只以 `reader-shell-${background}` 碎片出现，Tailwind v3 的 @layer components
+    // 未用即删按整词判定，于是一条都没进产物（实测 out/renderer/assets/index-*.css 里
+    // reader-shell 命中 0 次，同层的 reader-bg-* 7 条各 1 次）。纸色与纸墨现在都由
+    // <article> 自己按 readerBackground 供值（见下方 style），宿主这层只留布局。
+    <div className="reader-host desktop-page-root relative grid h-full grid-rows-[auto_minmax(0,1fr)_auto]">
       <ReaderTopNav
         title={activeBook.title}
         author={activeBook.author}
@@ -1033,6 +1036,17 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
             style={useMemo(
               () => ({
                 maxWidth: 900,
+                /* 批次 BD-108：正文墨色跟着纸走。原先这里不设 color，正文 <p>
+                 * （txt-markdown-render.tsx:55/63 只挂 mb-5 whitespace-pre-wrap，不带颜色）
+                 * 一路继承 body 的应用主题墨色；纸面 reader-bg-* 的背景是写死的纸色、
+                 * 不跟应用主题（src/styles.css:282 那条口径），于是两轴在这里脱钩：
+                 * 夜校 + 白纸/暖纸/护眼 实测 1.05:1（近白字压近白纸，正文整段看不见，
+                 * 截图 /tmp/bd108-dark-白纸.png），晨校 + 夜间 1.03:1。
+                 * 只有章节 <h2> 一直单独内联了 readerTextColor()，所以标题可读、正文不可读。
+                 * 现在纸墨在 article 这一层供一次值，标题与正文一起继承，
+                 * 下面那条 h2 内联颜色随之删掉（同一件事不留两份真相）。
+                 * 守门的是 scripts/audit-contrast.mjs 的 7 种纸 × 晨校/夜校 循环。 */
+                color: readerTextColor(settings.readerBackground),
                 fontSize: settings.fontSize,
                 lineHeight: settings.lineHeight,
                 letterSpacing: `${settings.letterSpacing ?? 0}em`,
@@ -1040,7 +1054,14 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
                 paddingLeft: settings.pageMargin,
                 paddingRight: settings.pageMargin
               }),
-              [settings.fontSize, settings.lineHeight, settings.letterSpacing, settings.pageMargin, settings.fontFamily]
+              [
+                settings.readerBackground,
+                settings.fontSize,
+                settings.lineHeight,
+                settings.letterSpacing,
+                settings.pageMargin,
+                settings.fontFamily
+              ]
             )}
           >
             {activeBook.format !== "md" && (
@@ -1052,11 +1073,7 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
               txtChapters.map((chapter, idx) => (
                 <div key={idx}>
                   {chapter.title && (
-                    <h2
-                      id={`txt-chapter-${idx}`}
-                      className="text-xl font-bold mb-4 mt-8 first:mt-0"
-                      style={{ color: readerTextColor(settings.readerBackground) }}
-                    >
+                    <h2 id={`txt-chapter-${idx}`} className="text-xl font-bold mb-4 mt-8 first:mt-0">
                       {chapter.title}
                     </h2>
                   )}

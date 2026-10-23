@@ -469,6 +469,12 @@ function walk(dir, depth = 0) {
 
 const allSource = walk(path.join(root, "src"));
 const cssFiles = allSource.filter((p) => p.endsWith(".css"));
+/* 批次 BD-108：与 tailwind.config 的 content 口径保持一致——Tailwind 扫的是 src 下全部
+ * .ts/.tsx（含测试），所以「整词锚点写在测试里」同样能让规则发射，判据这里不额外排除。 */
+const anchorSourceFiles = allSource.filter((p) => /\.(ts|tsx)$/.test(p));
+/* 只有被 @tailwind 处理过的样式文件才吃未用即删；feature 目录里的独立 css
+ * （inbox-local.css 那类）是 Vite 原样打包的，不在判据射程里。 */
+const tailwindCssFiles = cssFiles.filter((p) => /@tailwind\s+(components|utilities)/.test(readFileSync(p, "utf8")));
 const tsxByDir = {};
 for (const p of allSource.filter((x) => x.endsWith(".tsx"))) {
   if (p.includes(`${path.sep}__tests__${path.sep}`)) continue;
@@ -750,35 +756,34 @@ if (legacyRed > 0) {
 
 /**
  * 晨校纸墨（#3c3020 / rgba(60, 48, 32, α)）是「白纸上的暖褐」，本身不是令牌。
- * 它出现在 var(--paper-*, …) 的兜底里没问题：兜底只在令牌缺失时生效，夜校照样走
- * 令牌值；出现在 .reader-shell-* 里也没问题：那几支壳的 background 同为字面量，
- * 是「用户自选的阅读纸色」，不随时间换主题。
+ * 它出现在 var(--paper-*, …) 的兜底里没问题：兜底只在令牌缺失时生效，夜校照样走令牌值。
  *
  * 真正的问题是把它直接写在 color 上——BD-103 实测：导出对话框的预设说明与格式后缀
  * 用了 rgba(60, 48, 32, 0.72/0.55)，夜校面板 #1b1f24 压上去只有 1.19:1 / 1.13:1，
  * 而所有令牌级对比度断言全绿：它们量的是令牌，字面量根本不在射程里。
  * 归零之后这条不许再回填，改文字色请用 var(--text-secondary) / var(--text-tertiary)。
+ *
+ * 批次 BD-108 撤掉「固定纸色壳（.reader-shell-*）」这一路豁免：那 7 条壳规则是
+ * 「有宿主、没产物」的幻影（类名只以 `reader-shell-${background}` 碎片出现，Tailwind v3
+ * 对 @layer components 按整词做未用即删，产物里 reader-shell 命中 0 次），已随本批整族删除。
+ * 按本仓口径（批次 BD-? 立在材质豁免上的同一条：留着没有宿主的豁免等于给以后同类改写
+ * 开无登记的口子），豁免的对象不存在，豁免本身也必须跟着下线。
  */
 const PAPER_INK_GLOBAL = /(?:#3c3020\b|rgba?\(\s*60\s*,\s*48\s*,\s*32\b)/gi;
 const VAR_FALLBACK = /var\(\s*--[\w-]+\s*,\s*(?:#3c3020\b|rgba?\(\s*60\s*,\s*48\s*,\s*32[^)]*\))\s*\)/gi;
-const FIXED_SHELL_SELECTOR = /\.reader-shell-(?:white|warm|green|night|amber|parchment|beans)\b[^{}]*\{[^{}]*\}/g;
 
-/** 判据本体：返回剩余命中（已摘掉注释、var() 兜底与固定纸色壳）。 */
+/** 判据本体：返回剩余命中（已摘掉注释与 var() 兜底）。 */
 function paperInkHits(cssText) {
-  const bare = stripComments(cssText)
-    .replace(FIXED_SHELL_SELECTOR, "/*fixed-shell*/")
-    .replace(VAR_FALLBACK, "/*token-fallback*/");
+  const bare = stripComments(cssText).replace(VAR_FALLBACK, "/*token-fallback*/");
   return [...bare.matchAll(PAPER_INK_GLOBAL)].map((m) => m[0]);
 }
 
-// 自检：合成的正例必须被抓到，两种合法写法必须放过——判据自己先过一遍，
+// 自检：合成的正例必须被抓到，合法写法必须放过——判据自己先过一遍，
 // 免得正则写歪了变成「永远 0 处」。
 const SELFTEST_BAD = ".x { color: rgba(60, 48, 32, 0.72); }";
 const SELFTEST_OK_FALLBACK = ".x { color: var(--paper-ink, #3c3020); }";
-const SELFTEST_OK_SHELL = ".reader-shell-warm { background: #f7f0e7; color: #3c3020; }";
 if (paperInkHits(SELFTEST_BAD).length !== 1) fail("BD-103 补钉自检失败：字面色例没被抓到");
 if (paperInkHits(SELFTEST_OK_FALLBACK).length !== 0) fail("BD-103 补钉自检失败：var() 兜底被误杀");
-if (paperInkHits(SELFTEST_OK_SHELL).length !== 0) fail("BD-103 补钉自检失败：固定纸色壳被误杀");
 
 const paperInkWhere = [];
 for (const cssFile of cssFiles) {
@@ -789,11 +794,140 @@ if (paperInkWhere.length > 0) {
   fail(
     `BD-103 补钉：仍有 ${paperInkWhere.length} 处晨校纸墨字面量直接当颜色用——` +
       `夜校下它是压在自己身上的深褐（实测 1.1~1.2:1），而且令牌级对比度断言完全覆盖不到。` +
-      `文字色改用 var(--text-secondary) / var(--text-tertiary)，` +
-      `兜底与 .reader-shell-* 固定纸色壳除外。命中：${paperInkWhere.slice(0, 6).join(" / ")}`
+      `文字色改用 var(--text-secondary) / var(--text-tertiary)，兜底除外。` +
+      `命中：${paperInkWhere.slice(0, 6).join(" / ")}`
   );
 } else {
-  console.log(`${TAG} [第 7 步补钉 BD-103] 主题盲纸墨字面量 0 处（兜底与固定纸色壳豁免；自检 3/3 通过）`);
+  console.log(`${TAG} [第 7 步补钉 BD-103/108] 主题盲纸墨字面量 0 处（仅 var() 兜底豁免；自检 2/2 通过）`);
+}
+
+/* ---------------------- 第 7 步补钉（BD-108）：运行时拼出来的类名必须有整词锚点 */
+
+/**
+ * Tailwind v3 会把 @layer components / utilities 里的自定义类按「content 扫到整词才发射」
+ * 处理。于是有一条静默的失败路径：类名只在运行时拼出来（`reader-shell-${background}`），
+ * 整词从没在任何被扫描的文件里写过 ⇒ 规则一条都不进产物，而 JSX 那边照样挂着这个类，
+ * 看上去「写了样式」其实什么都没画。BD-108 就是在这上面撞掉的：
+ * 7 支纸色壳全灭，正文继承应用主题墨色压在自己选的纸色上，夜校 + 白纸实测 1.05:1。
+ *
+ * 判据（静态，不依赖产物）：
+ *   ① 从 src/**\/*.{ts,tsx} 里抓「字符串或模板串的开头就是一个带连字符的类名前缀 + ${」，
+ *      即 `"${"…" + `xxx-yyy-${` 形式，得到候选前缀族（只认开头就是引号/反引号的那一撇，
+ *      和 className="a b xxx-${…}" 这种混在中间的写法不在射程里——本仓动态类名全是前者）；
+ *   ② 只看 @tailwind 处理过的文件（含 @tailwind 指令的 css）里 @layer components|utilities
+ *      块内的类选择器，按 `前缀-` 归族；
+ *   ③ 该族每个成员必须在被 content 扫描的文件里出现过**整词字面量**，或被 tailwind.config
+ *      的 safelist 正则命中；缺一个就红。整词判定与 Tailwind 自己的口径一致（纯文本扫描，
+ *      注释里出现也算，所以别指望用注释糊过去）。
+ * 自检：合成的「有成员没锚点」必须被抓到，reader-bg-* 这种每个成员都有字面量的必须放过。
+ */
+const DYN_FAMILY_SOURCE = /["'`]([a-z][a-z0-9]*(?:-[a-z0-9]+)*)-\$\{/g;
+const LAYER_BLOCK = /@layer\s+(?:components|utilities)\s*\{/g;
+const CLASS_IN_RULE = /\.([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\b/g;
+
+/** 取 @layer components / utilities 块内的文本（按花括号配平，块外的自定义类不受 tree-shaking 影响）。 */
+function layerComponentText(cssText) {
+  const out = [];
+  const body = stripComments(cssText);
+  let m;
+  LAYER_BLOCK.lastIndex = 0;
+  while ((m = LAYER_BLOCK.exec(body))) {
+    let depth = 0;
+    let i = m.index + m[0].length - 1;
+    const start = i + 1;
+    for (; i < body.length; i += 1) {
+      if (body[i] === "{") depth += 1;
+      else if (body[i] === "}") {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    out.push(body.slice(start, i));
+  }
+  return out.join("\n");
+}
+
+function dynamicFamilyGaps(sourcesText, tailwindText, cssText) {
+  const prefixes = new Set();
+  for (const m of sourcesText.matchAll(DYN_FAMILY_SOURCE)) prefixes.add(m[1]);
+  // tailwind.config 的 safelist 有两种写法：pattern: /正则/ 与 pattern: "字符串"（按正则源处理）。
+  const safelistPatterns = [
+    ...[...tailwindText.matchAll(/pattern:\s*\/([^/\n]*)\/[a-z]*/g)].map((m) => m[1]),
+    ...[...tailwindText.matchAll(/pattern:\s*["']([^"'\n]*)["']/g)].map((m) => m[1])
+  ];
+  const safelistAlive = (name) =>
+    safelistPatterns.some((p) => {
+      try {
+        return new RegExp(p).test(name);
+      } catch {
+        // 正则写歪了由 Tailwind 自己报错，这里不替它兜，也不因此放过。
+        return false;
+      }
+    });
+  const gaps = [];
+  const layerText = layerComponentText(cssText);
+  const inLayer = new Set();
+  for (const m of layerText.matchAll(CLASS_IN_RULE)) inLayer.add(m[1]);
+  for (const prefix of prefixes) {
+    const members = [...inLayer].filter((c) => c.startsWith(`${prefix}-`) && c.length > prefix.length + 1);
+    if (members.length === 0) continue;
+    for (const name of members) {
+      const anchored =
+        new RegExp(`(^|[^A-Za-z0-9_-])${name}([^A-Za-z0-9_-]|$)`).test(sourcesText) || safelistAlive(name);
+      if (!anchored) gaps.push(`${prefix} → ${name}`);
+    }
+  }
+  return gaps;
+}
+
+const dynSourcesText = anchorSourceFiles.map((f) => readFileSync(f, "utf8")).join("\n");
+const dynTailwindText = readFileSync(path.join(root, "tailwind.config.ts"), "utf8");
+// 自检四路：① 层内没锚点 ⇒ 必须抓到（本批真缺陷的形状）；② 层内锚点齐备 ⇒ 放过；
+// ③ 同样的碎片写在 @layer 之外 ⇒ 放过（不吃未用即删，判据不许越界误伤）；
+// ④ 层内没锚点但 safelist 正则命中 ⇒ 放过（这是判据给出的第二条合法出路）。
+const dynPhantomCss = "@layer components { .reader-shell-white { background: #f6f4ef; color: #241b16; } }";
+if (dynamicFamilyGaps('const c = `reader-shell-${bg}`;', "", dynPhantomCss).length !== 1)
+  fail("BD-108 补钉自检失败：@layer 里没锚点的动态类族没被抓到");
+if (
+  dynamicFamilyGaps(
+    'const c = `reader-bg-${bg}`; const d = "reader-bg-white"; const e = "reader-bg-night";',
+    "",
+    "@layer components { .reader-bg-white { background: #fff; } .reader-bg-night { background: #171210; } }"
+  ).length !== 0
+)
+  fail("BD-108 补钉自检失败：整词锚点齐备的动态类族被误杀");
+if (
+  dynamicFamilyGaps(
+    'const c = `reader-shell-${bg}`;',
+    "",
+    ".reader-shell-white { background: #f6f4ef; color: #241b16; }"
+  ).length !== 0
+)
+  fail("BD-108 补钉自检失败：@layer 之外的规则被误判（未用即删只管层内）");
+if (
+  dynamicFamilyGaps(
+    'const c = `reader-shell-${bg}`;',
+    "safelist: [{ pattern: /^reader-shell-(white|warm)$/ }]",
+    dynPhantomCss
+  ).length !== 0
+)
+  fail("BD-108 补钉自检失败：safelist 命中仍被判缺口（第二条合法出路没实现）");
+
+const dynGaps = [];
+for (const cssFile of tailwindCssFiles) {
+  const rel = path.relative(root, cssFile).split(path.sep).join("/");
+  for (const gap of dynamicFamilyGaps(dynSourcesText, dynTailwindText, readFileSync(cssFile, "utf8")))
+    dynGaps.push(`${rel}:${gap}`);
+}
+if (dynGaps.length > 0) {
+  fail(
+    `BD-108 补钉：${dynGaps.length} 个运行时拼出来的类名没有整词锚点——Tailwind 的 ` +
+      `@layer 未用即删看不见碎片，规则会被静默删掉（reader-shell-* 一族就是这么灭的）。` +
+      `补法二选一：在 content 扫到的文件里写出整词字面量，或进 tailwind.config 的 safelist。` +
+      `缺口：${dynGaps.slice(0, 8).join(" / ")}`
+  );
+} else {
+  console.log(`${TAG} [第 7 步补钉 BD-108] 动态类族整词锚点齐备（自检 4/4 通过）`);
 }
 
 /* ------------------------------------------------------ 主题色令牌成对性不变量 */

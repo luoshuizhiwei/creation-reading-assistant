@@ -12,7 +12,10 @@
  *  · 其余颜色（自定义/accent/半透明叠出来的）一律按 4.5:1 判——没有令牌身份就没有豁免。
  *  · 跳过 disabled、透明度 <0.35、尺寸 <2px、视口外的元素：它们不承载可读信息。
  *
- * 范围（BD-107 扩）：12 个主视图 + 5 个弹层 + 5 个设置分区，共 22 个范围，
+ * 范围（BD-107 扩，BD-108 再补正文）：12 个主视图 + 5 个弹层 + 5 个设置分区
+ *   + 7 种正文纸面 + 1 个 EPUB 阅读器，共 30 个范围。
+ * BD-108 补纸面是因为守卫第 7 步补钉对 .reader-shell-* 有一整族的豁免，理由写着
+ * 「壳的 background 同为字面量、成对写死」——这个前提此前只是断言，没人量过。
  * 每个都在晨校与夜校各量一遍——两套底色是两套事实，夜校绿不代表晨校绿。
  * BD-105 就是靠这条抓到收件箱筛选徽标 4.09:1：那一处在夜校是 4.85:1，只看夜校永远看不见。
  * 每个范围都要求「采样到足够多的文字元素」——采样数塌了说明选择器又漂了，
@@ -108,21 +111,117 @@ const sweepScript = ({ rootSelector, levels }) => {
     b: fg.b * fg.a + bg.b * (1 - fg.a),
     a: 1
   });
-  const bgOf = (el) => {
-    const stack = [];
-    let cur = el;
-    while (cur) {
-      const c = parse(getComputedStyle(cur).backgroundColor);
-      if (c && c.a > 0) {
-        stack.push(c);
-        if (c.a > 0.99) break;
+  const colorsIn = (str) => {
+    const out = [];
+    for (const m of String(str).matchAll(/rgba?\(([^)]+)\)|#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/g)) {
+      if (m[0].startsWith("#")) {
+        const hex = m[2].length === 3 ? m[2].split("").map((x) => x + x).join("") : m[2];
+        out.push({ r: parseInt(hex.slice(0, 2), 16), g: parseInt(hex.slice(2, 4), 16), b: parseInt(hex.slice(4, 6), 16), a: 1 });
+      } else {
+        const q = m[1].split(",").map((x) => Number(x.trim()));
+        out.push({ r: q[0], g: q[1], b: q[2], a: q.length > 3 ? q[3] : 1 });
       }
+    }
+    return out;
+  };
+  /**
+   * 把 `background-image` 串按**绘制顺序**切成一层一层。CSS 的规矩：先写的层在上。
+   * 切分要避开括号里的逗号（`radial-gradient(…, rgba(0,0,0,0) 38%), linear-gradient(…)`
+   * 中间那个逗号才是层界），所以按括号深度扫描，只在 depth===0 时切。
+   * 每一层内部再取色标——七种纸面都是「顶层 radial 高光 + 下层 linear 底色」两笔，
+   * 顶层 radial 是半透明的（0.04~0.7），它必须压在下面那层 linear 上看，
+   * 不能独立压在画布上；早先 bgCandidates 把两层色标拍平成一个数组、
+   * 各自独立合成，暖纸/羊皮纸那档 radial 半透明白就被当成"直接盖在深色画布上"，
+   * 于是白纸正文被量出 1.05:1 的假红（真实屏幕 ~14:1）。
+   */
+  const imageLayers = (str) => {
+    const s = String(str);
+    const parts = [];
+    let depth = 0;
+    let start = 0;
+    for (let i = 0; i < s.length; i += 1) {
+      const ch = s[i];
+      if (ch === "(") depth += 1;
+      else if (ch === ")") depth -= 1;
+      else if (ch === "," && depth === 0) {
+        parts.push(s.slice(start, i));
+        start = i + 1;
+      }
+    }
+    parts.push(s.slice(start));
+    // 每层带上形状标签：linear-gradient 铺满整个盒子，其色标合成后就代表实际屏幕
+    // 上文字可能压到的所有档；radial/ellipse 常常 `circle at 50% 0%`+`transparent 38%`
+    // ——圆外那块**根本不画**，下层原色会露出，所以下层的候选必须保留。
+    return parts.map((p) => ({
+      partial: /radial-gradient|conic-gradient|repeating-radial-gradient|ellipse/.test(p),
+      stops: colorsIn(p).filter((c) => c.a > 0)
+    }));
+  };
+  /**
+   * 返回「这块文字可能压在哪些实色上」的候选集合。
+   * 关键：书封（.library-cover）与七种纸面（.reader-bg-*）的底色写在 background-image
+   * 的渐变里，backgroundColor 是透明的——只摸 backgroundColor 会一路摸到画布，
+   * 于是白字压墨色书封被算成 1.05:1（实际 8.9~15:1），纸面正文同理。
+   *
+   * BD-108 三处修正：
+   *  ① 画布底色不能再写死 #15181c——晨校画布是 #eceff2，写死深色会让晨校量到的
+   *     半透明层全压到深色底上，虚报。改成实读 body 的 backgroundColor（跟随主题）。
+   *  ② `transparent` 色标计算值是 rgba(0,0,0,0)，colorsIn 把它当黑色收进来（a=0），
+   *     over() 又把它「合成」回下层实色——纸面 radial 的 transparent 一档被当成
+   *     黑色压在正文下面，白纸正文量出 1.05:1。全透明色标不贡献实色，直接丢。
+   *  ③ 一个元素的 background-image 有**多层**时，必须按 CSS 绘制顺序合成：
+   *     先算最下层（linear 纸底），把它的色标集当作 acc；上一层（radial 高光）
+   *     的每个色标压在 acc 里每一档上，得到新一档 acc；顺次往上。
+   *     顶层 radial 覆盖范围有限（circle at 50% 0%），它的 transparent 部分露出下层，
+   *     所以下层原色也留在 acc 里做候选。
+   */
+  const canvas = (() => {
+    const c = parse(getComputedStyle(document.body).backgroundColor);
+    return c && c.a > 0.99 ? c : { r: 236, g: 239, b: 242, a: 1 };
+  })();
+  const bgCandidates = (el) => {
+    let cur = el;
+    let acc = [canvas];
+    const stack = [];
+    while (cur) {
+      const cs = getComputedStyle(cur);
+      const bg = parse(cs.backgroundColor);
+      const layers = cs.backgroundImage && cs.backgroundImage !== "none" ? imageLayers(cs.backgroundImage) : [];
+      if ((bg && bg.a > 0) || layers.some((l) => l.stops.length)) stack.push({ bg, layers });
+      const opaqueSolid = bg && bg.a > 0.99 && !layers.length;
+      if (opaqueSolid) break;
       cur = cur.parentElement;
     }
-    let base = stack.length ? stack[stack.length - 1] : { r: 21, g: 24, b: 28, a: 1 };
-    if (base.a < 0.99) base = { r: 21, g: 24, b: 28, a: 1 };
-    for (let i = stack.length - 2; i >= 0; i -= 1) base = over(stack[i], base);
-    return base;
+    // stack 从最里层元素向外摸，index 0 是后代、末位是祖先；
+    // 绘制顺序反过来：祖先先画、后代压在上面，所以从末位往 0 走。
+    for (let i = stack.length - 1; i >= 0; i -= 1) {
+      const { bg, layers } = stack[i];
+      // 元素自己：先把背景色（若有）压到 acc 上（bg 在所有 background-image 之下，但画在祖先之上）。
+      let local = acc.slice();
+      if (bg && bg.a > 0) {
+        local = bg.a > 0.99 ? [bg] : local.map((base) => over(bg, base));
+      }
+      // 图像层：CSS 书写顺序是先写在上、后写在下；所以从后往前（下→上）逐层压。
+      for (let j = layers.length - 1; j >= 0; j -= 1) {
+        const { stops, partial } = layers[j];
+        if (!stops.length) continue;
+        const next = [];
+        for (const stop of stops) {
+          if (stop.a > 0.99) {
+            next.push(stop);
+          } else {
+            for (const base of local) next.push(over(stop, base));
+            // radial/conic 只画在局部，圆外那块整层不画——下层候选必须留着。
+            // linear 铺满整盒，半透明一档也已经 over(base) 算过了，下层不会露出，
+            // 于是**不**保留下层候选，免得把画布深色当成正文底。
+            if (partial) for (const base of local) next.push(base);
+          }
+        }
+        if (next.length) local = next;
+      }
+      acc = local;
+    }
+    return acc;
   };
   const hexOf = (c) => `#${[c.r, c.g, c.b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
   const levelOf = (fg, bg) => {
@@ -135,11 +234,16 @@ const sweepScript = ({ rootSelector, levels }) => {
     return "custom";
   };
   const scope = rootSelector ? document.querySelector(rootSelector) : document.body;
-  if (!scope) return { found: false, rows: [] };
+  if (!scope) return { found: false, rows: [], decorative: 0 };
   const rows = [];
+  let decorative = 0;
   for (const el of scope.querySelectorAll("*")) {
     const own = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent.trim()).join(" ").trim();
     if (!own) continue;
+    // 纯标点（没有任何字母/数字/CJK）不承载文字信息，按装饰处理：阅读底栏那个
+    // 用 --separator 上色的一竖 "|" 就是这种（实测 1.4:1），它的作用是把两组数字
+    // 隔开，不是被人读出来的字。单独计数，免得这条豁免被拿去当挡箭牌。
+    if (!/[\p{L}\p{N}]/u.test(own)) { decorative += 1; continue; }
     const r = el.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) continue;
     if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue;
@@ -149,11 +253,17 @@ const sweepScript = ({ rootSelector, levels }) => {
     if (cs.color === "transparent" || cs.color === "rgba(0, 0, 0, 0)") continue;
     const fg = parse(cs.color);
     if (!fg) continue;
-    const bg = bgOf(el);
-    const solidFg = fg.a < 1 ? over(fg, bg) : fg;
-    const l1 = lum(solidFg);
-    const l2 = lum(bg);
-    const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    const candidates = bgCandidates(el);
+    let bg = candidates[0];
+    let ratio = Infinity;
+    for (const cand of candidates) {
+      const solidFg = fg.a < 1 ? over(fg, cand) : fg;
+      const l1 = lum(solidFg);
+      const l2 = lum(cand);
+      const r = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+      if (r < ratio) { ratio = r; bg = cand; }
+    }
+    if (!Number.isFinite(ratio)) continue;
     const level = levelOf(fg, bg);
     const size = parseFloat(cs.fontSize);
     rows.push({
@@ -167,8 +277,20 @@ const sweepScript = ({ rootSelector, levels }) => {
       bg: `rgb(${Math.round(bg.r)}, ${Math.round(bg.g)}, ${Math.round(bg.b)})`
     });
   }
-  return { found: true, rows };
+  return { found: true, rows, decorative };
 };
+
+// 正文纸面那 7 个范围要有一本真书可读：先空跑一次让 profile 建好目录，
+// 再用 round4-seed 播种书库（它会写 book-txt-001.txt / EPUB / MD 与 library.json），
+// 然后正式起一次。probe-round7 也是这个顺序——seed 直接开库会报「database 目录不存在」。
+const warm = await launch();
+await warm.app.close();
+const seeded = spawnSync(electronPath, [path.join(__dirname, "round4-seed.cjs"), profileDir], {
+  cwd: root, encoding: "utf8",
+  env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", NODE_PATH: path.join(root, "node_modules") },
+  windowsHide: true, timeout: 60000
+});
+if (seeded.status !== 0) throw new Error(`seed failed: ${seeded.stderr}`);
 
 const { app, page } = await launch();
 await page.evaluate(() => { document.documentElement.dataset.appTheme = "dark"; });
@@ -185,14 +307,14 @@ async function auditScope(label, rootSelector, minSamples) {
   for (const [theme, levels] of Object.entries(THEMES)) {
     await page.evaluate((t) => { document.documentElement.dataset.appTheme = t; }, theme);
     await page.waitForTimeout(250);
-    const { found, rows } = await page.evaluate(sweepScript, { rootSelector: rootSelector ?? null, levels });
+    const { found, rows, decorative } = await page.evaluate(sweepScript, { rootSelector: rootSelector ?? null, levels });
     if (!found) {
       check(`${theme} ${label} 范围可定位`, false, rootSelector);
       continue;
     }
     const bad = rows.filter((r) => r.ratio < r.floor);
     const worst = rows.reduce((a, r) => (a === null || r.ratio < a.ratio ? r : a), null);
-    check(`${theme} ${label} 采样数 ≥${minSamples}`, rows.length >= minSamples, `实测 ${rows.length} 个文字元素`);
+    check(`${theme} ${label} 采样数 ≥${minSamples}`, rows.length >= minSamples, `实测 ${rows.length} 个文字元素（另跳过装饰性标点 ${decorative} 个）`);
     check(`${theme} ${label} 文字全部达标`, bad.length === 0,
       bad.length
         ? `${bad.length} 处低于底线，最差 ${Math.min(...bad.map((b) => b.ratio)).toFixed(2)}:1（"${bad.sort((a, b) => a.ratio - b.ratio)[0].text}" ${bad[0].color} on ${bad[0].bg}）`
@@ -338,6 +460,48 @@ for (const section of ["外观", "阅读器", "AI 助手", "数据与存储", "�
   });
   await auditScope(`设置·${section}`, ".settings-forms", 4);
 }
+
+// ---------- 正文纸面（BD-108）----------
+// 守卫对 .reader-shell-* / .reader-bg-* 的字面量整族豁免，前提是「壳的底与字成对写死、
+// 不随主题翻转」。这里把七种纸面逐个开进真正文里量：纸面文字确实两主题同值（豁免成立），
+// 而顶栏、目录面板、进度这些跟着主题走的部分也一并被扫到。
+// 纸面壳的底色写在 .reader-bg-* 的渐变里（backgroundColor 是透明的），所以判据必须
+// 把渐变色标一起收进候选，见上面 bgCandidates 的注释：取最坏一档，而不是取第一个色标。
+const PAPER_OPTIONS = [
+  ["白纸", 12], ["暖纸", 12], ["护眼", 12], ["夜间", 12], ["琥珀", 12], ["羊皮纸", 12], ["绿豆沙", 12]
+];
+for (const [label, minSamples] of PAPER_OPTIONS) {
+  await ok(`纸面·${label}`, async () => {
+    await goto(page, "设置");
+    await page.waitForSelector(".settings-nav", { timeout: 10000 });
+    await page.locator(".settings-nav button", { hasText: "阅读器" }).first().click();
+    const swatch = page.locator(`[role="radiogroup"][aria-label="书籍背景"] button[aria-label="${label}"]`).first();
+    await swatch.waitFor({ state: "visible", timeout: 10000 });
+    await swatch.click();
+    await page.waitForTimeout(300);
+    await goto(page, "书库");
+    await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
+    await page.locator(".desktop-library-row", { hasText: "测试 TXT 资料" }).first().click();
+    await page.waitForSelector(".reader-host article", { timeout: 30000 });
+    await page.waitForTimeout(600);
+  });
+  await auditScope(`纸面·${label}`, ".reader-host", minSamples);
+  await page.getByRole("button", { name: "返回书库" }).first().click().catch(() => {});
+  await page.waitForTimeout(400);
+}
+
+await ok("EPUB 阅读器", async () => {
+  await goto(page, "书库");
+  await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
+  await page.locator(".desktop-library-row", { hasText: "测试 EPUB 资料" }).first().click();
+  await page.waitForSelector(".reader-root", { timeout: 30000 });
+  await page.waitForTimeout(1200);
+});
+// EPUB 正文在 iframe 里（跨文档，本探针不穿进 iframe），这里量的是宿主壳：
+// 顶栏、翻页控件、目录侧栏。下限 6 就是这个意思——不是正文，是宿主。
+await auditScope("EPUB 阅读器", ".reader-root", 6);
+await page.getByRole("button", { name: "返回书库" }).first().click().catch(() => {});
+await page.waitForTimeout(400);
 
 await app.close();
 rmSync(profileDir, { recursive: true, force: true });

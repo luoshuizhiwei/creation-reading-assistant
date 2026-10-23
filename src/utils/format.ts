@@ -22,10 +22,6 @@ export function messageFromError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function readerShellClass(background: ReaderBackground): string {
-  return `reader-shell-${background}`;
-}
-
 export function readerPaperClass(background: ReaderBackground): string {
   return `reader-bg-${background}`;
 }

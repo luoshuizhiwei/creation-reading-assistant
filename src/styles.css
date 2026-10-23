@@ -301,40 +301,22 @@ button:disabled {
     @apply shadow-paper;
   }
 
-  .reader-shell-white {
-    background: #f6f4ef;
-    color: #241b16;
-  }
-
-  .reader-shell-warm {
-    background: #f7f0e7;
-    color: #241b16;
-  }
-
-  .reader-shell-green {
-    background: #e9f2e2;
-    color: #1f2a21;
-  }
-
-  .reader-shell-night {
-    background: #15100e;
-    color: #f4eadf;
-  }
-
-  .reader-shell-amber {
-    background: #f5e6c8;
-    color: #5c4a2a;
-  }
-
-  .reader-shell-parchment {
-    background: #f0e4d0;
-    color: #4a3728;
-  }
-
-  .reader-shell-beans {
-    background: #c7edcc;
-    color: #2d4a2d;
-  }
+  /* 批次 BD-108 删除 reader-shell-* 一族 7 条（white/warm/green/night/amber/parchment/beans，
+   * 原值 background #f6f4ef…#c7edcc + color #241b16…#2d4a2d，全文见本仓 git 历史）：
+   * 这一族是「有宿主、没产物」的幻影，与批次 AK 那批「查无宿主」的幻影是两种成因。
+   * Tailwind v3 对 @layer components 里的自定义类做未用即删，判据是 content 扫到的**完整类名**；
+   * 而宿主侧只以 `reader-shell-${background}` 碎片形式出现（src/utils/format.ts:26），
+   * 整词从没在任何文件里写过 ⇒ 一条都不发射。产物实测：
+   *   out/renderer/assets/index-*.css 里 `reader-shell` 命中 0 次，
+   *   同层同一批的 `reader-bg-*` 7 条各命中 1 次（它们活着是因为
+   *   src/features/settings/reader/reader-backgrounds.ts:11-17 把整词写成了字面量）。
+   * 对照实验：给 tailwind.config 加 safelist 后 7 条全部发射、正文立即可读，但导航条与
+   * 底栏那圈 chip 的背景是 color-mix 出来的半透明档，原本按深色应用底设计，压到纸色壳上
+   * 实测 1.09:1（"测试 TXT 资料"）、1.73:1（"书库"/"佚名"）——复活这条轴要连阅读器外壳
+   * 配色一起重做，是另一批的活。本批按幻影账口径删规则、删宿主类名与 readerShellClass()，
+   * 逐字节零视觉变化；正文墨色改由 <article> 自己按纸供值（见 TxtMarkdownReader.tsx:1033）。
+   * ⚠ 这条轴的「纸色不跟应用主题走」口径不变，EPUB 侧（EpubReaderPage.tsx:747 内联
+   * readerBackgroundColor）继续是另一半真相；两边统一留待外壳重做那批。 */
 
   .markdown-reader h1,
   .markdown-reader h2,
