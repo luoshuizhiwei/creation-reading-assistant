@@ -13,14 +13,16 @@
  *  · 跳过 disabled、有效透明度 <0.35（BD-114 起：沿祖先链累乘 CSS opacity，父级 dim 也算）、
  *    尺寸 <2px、视口外的元素：它们不承载可读信息。
  *
- * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe，BD-110 补 markdown 正文）：12 个主视图 + 7 个弹层
- *   + 5 个设置分区 + 7 种 TXT 正文纸面 + 7 种 MD 正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 47 个范围。
+ * 范围（BD-107 扩，BD-108 补正文纸面，BD-109 穿进 EPUB iframe，BD-110 补 markdown 正文）：12 个主视图 + 8 个弹层
+ *   + 5 个设置分区 + 7 种 TXT 正文纸面 + 7 种 MD 正文纸面 + 1 个 EPUB 宿主壳 + 7 种 EPUB 正文纸面 + 1 个 EPUB 统一夜间正文，共 48 个范围。
  * BD-112 把第 6 个弹层（全局搜索 Ctrl+K）补进来：命中词 <mark class="uni-hit"> 是又一处
  * 「<mark> 上色」面，此前从没量过；连同弹层 chrome 一起纳入晨校/夜校。
  * BD-113 把第 7 个弹层（写作速查 Ctrl+Shift+K，右侧 .writing-quick-reference）补进来：它的面板底是
  * color-mix(--bg-surface 97%, --accent-hover) 这套别处没有的轻染色，里面全族文字走 --text-main /
  * --text-muted / --text-meta 三档 token——「token 在别的底上验过、在这个新染色底上没验过」的典型面。
  * 列表行那 3px kind 竖脊是自闭合装饰 <span>（无文字），sweep 按无文字跳过，不参与文字对比。
+ * BD-115 把第 8 个弹层（阅读器设置抽屉 .motion-drawer，顶栏「阅读设置」唤起）补进来：它叠在正文纸面之上、
+ * 面板底 bg-paper-panel 走 paper-* 令牌族，此前从没量过；开本 TXT→点阅读设置→扫整块→关闭。
  * BD-108 补纸面是因为守卫第 7 步补钉对 .reader-shell-* 有一整族的豁免，理由写着
  * 「壳的 background 同为字面量、成对写死」——这个前提此前只是断言，没人量过。
  * BD-109 补 EPUB 正文是因为早先那个范围只量宿主壳、穿不进 iframe，于是夜纸 publisher
@@ -551,6 +553,25 @@ for (const [label, minSamples] of PAPER_OPTIONS) {
   await page.getByRole("button", { name: "返回书库" }).first().click().catch(() => {});
   await page.waitForTimeout(400);
 }
+
+// BD-115：阅读器设置抽屉（顶栏「阅读设置」按钮唤起的 .motion-drawer 覆盖层）此前从没被量过——
+// 它是叠在正文纸面之上、独立于七种纸面的一个弹层：面板底 bg-paper-panel、走 paper-* 令牌族，
+// 里面是排字号/行距/背景这些控件与「更多设置」入口。开一本 TXT → 点「阅读设置」→ 扫整块 → 关闭。
+await ok("阅读器设置抽屉", async () => {
+  await goto(page, "书库");
+  await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
+  await page.locator(".desktop-library-row", { hasText: "测试 TXT 资料" }).first().click();
+  await page.waitForSelector(".reader-host article", { timeout: 30000 });
+  await page.waitForTimeout(400);
+  await page.getByRole("button", { name: "阅读设置" }).first().click();
+  await page.waitForSelector(".motion-drawer", { timeout: 8000 });
+  await page.waitForTimeout(400);
+});
+await auditScope("阅读器设置抽屉", ".motion-drawer", 8);
+await page.locator(".motion-drawer").getByRole("button", { name: "关闭" }).first().click().catch(() => {});
+await page.waitForTimeout(300);
+await page.getByRole("button", { name: "返回书库" }).first().click().catch(() => {});
+await page.waitForTimeout(400);
 
 // BD-110：上面那圈纸面量的是纯 TXT 书（renderChapterParagraphs，只挂 mb-5 的 <p>）。
 // Markdown 书走的是另一条渲染路——dangerouslySetInnerHTML 吐出的 h1/h2、blockquote、
