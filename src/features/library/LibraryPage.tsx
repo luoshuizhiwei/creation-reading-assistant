@@ -306,7 +306,7 @@ export function LibraryPage() {
                           <span className="library-progress-percent">{percent}%</span>
                           <span>{formatDuration(itemProgress?.totalReadingTimeMs)}</span>
                         </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-paper-soft" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-paper-soft" role="progressbar" aria-label={`${book.title} 阅读进度`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
                           <div className="library-progress-fill" style={{ width: `${percent}%` }} />
                         </div>
                       </div>

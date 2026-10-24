@@ -291,7 +291,7 @@ export function ReadingStatsPage() {
                             </div>
                             <div className="text-right text-paper-muted">{formatDuration(book.totalDurationMs)}</div>
                             <div className="flex items-center gap-2">
-                              <div className="stats-mini-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+                              <div className="stats-mini-bar" role="progressbar" aria-label={`${book.title} 阅读进度`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
                                 <div className="stats-mini-bar-fill" style={{ width: `${pct}%` }} />
                               </div>
                               <span className="w-8 shrink-0 text-right text-xs text-paper-muted">{pct}%</span>
@@ -319,7 +319,7 @@ export function ReadingStatsPage() {
                             </div>
                             <div className="text-right text-paper-muted">{formatDuration(book.totalDurationMs)}</div>
                             <div className="flex items-center gap-2">
-                              <div className="stats-mini-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+                              <div className="stats-mini-bar" role="progressbar" aria-label={`${book.title} 阅读进度`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
                                 <div className="stats-mini-bar-fill" style={{ width: `${pct}%` }} />
                               </div>
                               <span className="w-8 shrink-0 text-right text-xs text-paper-muted">{pct}%</span>

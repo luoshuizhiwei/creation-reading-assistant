@@ -58,4 +58,10 @@ describe("书库 · 排序菜单", () => {
     expect(within(reopened).getByRole("button", { name: "书名" }).getAttribute("aria-pressed")).toBe("true");
     expect(within(reopened).getByRole("button", { name: "最近阅读" }).getAttribute("aria-pressed")).toBe("false");
   });
+
+  // BD-152：书库列表的进度条此前没有名字，读屏器不知道对应哪本书。
+  it("进度条带书名的可访问名", () => {
+    render(<LibraryPage />);
+    expect(screen.getByRole("progressbar", { name: "夜雨书 阅读进度" })).toBeTruthy();
+  });
 });
