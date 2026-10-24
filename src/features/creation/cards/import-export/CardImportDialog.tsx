@@ -4,7 +4,7 @@
  * 流程：选择文件（主进程 dialog + 解析）→ 预览 → 用户映射字段 → 计算计划（apply 前校验）
  * → 确认应用（一次性 planId + 单事务，失败回滚零写入）。渲染端不接触文件路径。
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FileUp } from "lucide-react";
 import { Button, Dialog, Spinner } from "@/components/ui";
 import { useUIStore } from "@/stores/ui-store";
@@ -75,10 +75,13 @@ export function CardImportDialog({ projectId, onClose, onImported }: CardImportD
     }
   };
 
-  // 选择文件阶段直接触发。
-  if (phase === "choose" && !preview) {
-    void chooseFile();
-  }
+  // 选择文件阶段直接触发。BD-142：原写法在渲染期调用 chooseFile，setBusy 触发
+  // 渲染期状态更新，React 会立刻重渲染并在同一帧再次触发，形成 "Too many re-renders"。
+  // 挪进 effect，等提交后再发起文件对话框。
+  useEffect(() => {
+    if (phase === "choose" && !preview) void chooseFile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const computePlan = async () => {
     if (!sourceText || !mapping) return;
@@ -423,11 +426,13 @@ function RelationMapping({
     <div className="card-import-relation-map">
       {columns.map((column) => {
         const current = relationSources[column];
+        const columnLabel = column || "（空列）";
         return (
           <div key={column} className="card-import-relation-row">
-            <span className="card-import-relation-col">{column || "（空列）"}</span>
+            <span className="card-import-relation-col">{columnLabel}</span>
             <select
               className="cards-input"
+              aria-label={`列「${columnLabel}」的关系类型`}
               value={current?.relationTypeId ?? ""}
               onChange={(e) => setColumn(column, e.target.value, current?.direction ?? "from")}
             >
@@ -438,6 +443,7 @@ function RelationMapping({
             </select>
             <select
               className="cards-input"
+              aria-label={`列「${columnLabel}」的关系方向`}
               value={current?.direction ?? "from"}
               disabled={!current}
               onChange={(e) => setColumn(column, current?.relationTypeId ?? "", e.target.value as "from" | "to")}
