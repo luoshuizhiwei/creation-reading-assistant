@@ -93,8 +93,8 @@ export function PurgeTrashDialog({
             </div>
           </dl>
 
-          {impactBusy && <p className="history-impact-loading">正在统计永久删除影响…</p>}
-          {impactError && <p className="history-impact-error">{impactError}</p>}
+          {impactBusy && <p className="history-impact-loading" role="status">正在统计永久删除影响…</p>}
+          {impactError && <p className="history-impact-error" role="alert">{impactError}</p>}
           {impact && (
             <div className="history-authoritative-preview" aria-label="永久删除影响">
               <h4>将被永久移除的内容</h4>
@@ -133,7 +133,7 @@ export function PurgeTrashDialog({
             <small>请输入“{item.title}”后才能永久删除。</small>
           </label>
 
-          {error && <p className="history-impact-error">{error}</p>}
+          {error && <p className="history-impact-error" role="alert">{error}</p>}
     </Dialog>
   );
 }

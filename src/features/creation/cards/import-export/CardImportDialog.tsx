@@ -150,7 +150,7 @@ export function CardImportDialog({ projectId, onClose, onImported }: CardImportD
         </>
       }
     >
-      {phase === "choose" && <p className="migration-note">正在读取文件…</p>}
+      {phase === "choose" && <p className="migration-note" role="status">正在读取文件…</p>}
 
           {phase === "mapping" && preview && mapping && schema && (
             <MappingEditor

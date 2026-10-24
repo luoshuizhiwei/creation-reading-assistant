@@ -131,8 +131,8 @@ export function RestoreSnapshotDialog({
             </div>
           </dl>
 
-          {previewBusy && <p className="history-impact-loading">正在读取权威恢复预览…</p>}
-          {previewError && <p className="history-impact-error">{previewError}</p>}
+          {previewBusy && <p className="history-impact-loading" role="status">正在读取权威恢复预览…</p>}
+          {previewError && <p className="history-impact-error" role="alert">{previewError}</p>}
           {preview && (
             <div className="history-authoritative-preview" aria-label="恢复影响预览">
               <h4>恢复后变化</h4>
@@ -165,7 +165,7 @@ export function RestoreSnapshotDialog({
             恢复前会自动为该对象的<strong>当前状态</strong>创建「恢复前保护」快照。
             若保护快照创建失败，恢复将中止，不会修改任何内容。
           </div>
-          {error && <p className="history-impact-error">{error}</p>}
+          {error && <p className="history-impact-error" role="alert">{error}</p>}
     </Dialog>
   );
 }

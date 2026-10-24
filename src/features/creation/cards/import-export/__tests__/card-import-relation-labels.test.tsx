@@ -66,8 +66,7 @@ async function renderInMappingPhase() {
   });
 }
 
-describe("卡片导入 · 关系列映射下拉框", () => {
-  // BD-142：两个下拉框都只有当前值、没有可访问名，读屏器一律念「组合框」，
+describe("卡片导入 · 关系列映射下拉框", () => {  // BD-142：两个下拉框都只有当前值、没有可访问名，读屏器一律念「组合框」，
   // 多列关系时无法区分是哪一列、哪个维度。
   it("每个关系列的类型/方向下拉框都有带列名的可访问名", async () => {
     await renderInMappingPhase();
@@ -82,5 +81,16 @@ describe("卡片导入 · 关系列映射下拉框", () => {
 
     expect(screen.getByRole("combobox", { name: "列「（空列）」的关系类型" })).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "列「（空列）」的关系方向" })).toBeTruthy();
+  });
+
+  // BD-153：自动打开文件后「正在读取文件…」只是普通段落，读屏器不会播报。
+  it("自动读取文件时的提示以 status 暴露", async () => {
+    render(<CardImportDialog projectId="p1" onClose={vi.fn()} onImported={vi.fn()} />);
+
+    expect(screen.getByRole("status").textContent).toContain("正在读取文件");
+
+    await act(async () => {
+      await Promise.resolve();
+    });
   });
 });
