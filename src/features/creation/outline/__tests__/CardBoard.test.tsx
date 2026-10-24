@@ -177,4 +177,13 @@ describe("CardBoard 编辑能力", () => {
     fireEvent.click(confirm);
     await waitFor(() => expect(onChaptersSetStatus).toHaveBeenCalledTimes(1));
   });
+
+  // BD-148：当前场景此前只靠 .active 类表达，读屏器不知道停在哪一场。
+  it("当前场景用 aria-current 暴露", () => {
+    renderBoard({ selectedSceneId: "s2" });
+    const sceneA = screen.getByText("场景A").closest(".card-board-card-main") as HTMLElement;
+    const sceneB = screen.getByText("场景B").closest(".card-board-card-main") as HTMLElement;
+    expect(sceneA.getAttribute("aria-current")).toBeNull();
+    expect(sceneB.getAttribute("aria-current")).toBe("true");
+  });
 });

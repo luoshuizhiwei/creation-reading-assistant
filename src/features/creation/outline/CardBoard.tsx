@@ -211,7 +211,12 @@ export function CardBoard({
 
   const renderCard = (item: (typeof allScenes)[number]) => (
     <div key={item.scene.id} className={`card-board-card ${item.scene.id === selectedSceneId ? "active" : ""}`}>
-      <button type="button" className="card-board-card-main" onClick={() => onSelectScene(item.scene.id)}>
+      <button
+        type="button"
+        className="card-board-card-main"
+        aria-current={item.scene.id === selectedSceneId ? "true" : undefined}
+        onClick={() => onSelectScene(item.scene.id)}
+      >
         <span className="card-board-card-title">
           <FileText size={13} />
           {item.scene.title}

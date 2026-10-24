@@ -276,4 +276,13 @@ describe("OutlineTree 重排边界（ReorderTarget）", () => {
     expect((within(sceneEl as HTMLElement).getByTitle("上移") as HTMLButtonElement).disabled).toBe(true);
     expect((within(sceneEl as HTMLElement).getByTitle("下移") as HTMLButtonElement).disabled).toBe(true);
   });
+
+  // BD-148：当前场景此前只靠 .active 类表达，读屏器不知道停在哪一场。
+  it("当前场景用 aria-current 暴露", () => {
+    renderTree(makeOutline(), undefined, { selectedSceneId: "s1" });
+    const sceneA = screen.getByText("场景A").closest(".outline-scene-main") as HTMLElement;
+    const sceneB = screen.getByText("场景B").closest(".outline-scene-main") as HTMLElement;
+    expect(sceneA.getAttribute("aria-current")).toBe("true");
+    expect(sceneB.getAttribute("aria-current")).toBeNull();
+  });
 });

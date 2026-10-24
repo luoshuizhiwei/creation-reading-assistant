@@ -529,7 +529,12 @@ export function OutlineTree({
       className={`outline-scene ${scene.id === selectedSceneId ? "active" : ""}`}
     >
       <GripVertical size={12} className="outline-grip" />
-      <button type="button" className="outline-scene-main" onClick={() => onSelectScene(scene.id)}>
+      <button
+        type="button"
+        className="outline-scene-main"
+        aria-current={scene.id === selectedSceneId ? "true" : undefined}
+        onClick={() => onSelectScene(scene.id)}
+      >
         <FileText size={12} />
         <span className="outline-scene-title" title={scene.summary || scene.title}>{scene.title}</span>
         <small className={`outline-scene-status outline-scene-status--${scene.status ?? "planned"}`}>
