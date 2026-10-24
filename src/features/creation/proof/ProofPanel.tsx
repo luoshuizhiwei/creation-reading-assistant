@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, EyeOff, FileWarning, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui";
+import { useModalKeyboard } from "@/components/ui/use-modal-keyboard";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import type { ProofIssue, ProofLocation, ProofRule, ProofView } from "@/types/creation";
 import {
@@ -35,6 +36,12 @@ export function ProofPanel({ projectId, onClose }: ProofPanelProps) {
   const [error, setError] = useState<string | null>(null);
   /** 正在提交忽略/取消忽略的位置键，用于禁用按钮防重复点击。 */
   const [pending, setPending] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const handleModalKeyDown = useModalKeyboard({
+    active: true,
+    containerRef: dialogRef,
+    onEscape: onClose
+  });
 
   /**
    * @param options.includeIgnored 显式传入，避免切换开关时读到尚未生效的 state。
@@ -165,7 +172,7 @@ export function ProofPanel({ projectId, onClose }: ProofPanelProps) {
   );
 
   return (
-    <div className="creation-search-overlay" role="dialog" aria-label="本地校对" aria-modal="true">
+    <div ref={dialogRef} onKeyDown={handleModalKeyDown} className="creation-search-overlay" role="dialog" aria-label="本地校对" aria-modal="true">
       <div className="creation-search-shell creation-proof-shell" role="search">
         <div className="creation-search-head">
           <FileWarning size={16} className="creation-search-head-icon" />

@@ -254,3 +254,66 @@ describe("ProofPanel 规则与阈值", () => {
     expect(runProof.mock.calls[1]![0].maxParagraphChars).toBe(800);
   });
 });
+
+describe("ProofPanel 键盘契约（BD-134）", () => {
+  beforeEach(() => {
+    runProof.mockReset();
+    ignoreProofLocation.mockReset();
+    unignoreProofLocation.mockReset();
+    runProof.mockResolvedValue(proofView());
+  });
+
+  afterEach(() => cleanup());
+
+  it("Esc 关闭校对面板并把焦点归还触发按钮", async () => {
+    if (typeof requestAnimationFrame !== "function") {
+      (globalThis as unknown as { requestAnimationFrame: (cb: FrameRequestCallback) => number }).requestAnimationFrame =
+        (cb) => setTimeout(() => cb(0), 0) as unknown as number;
+      (globalThis as unknown as { cancelAnimationFrame: (id: number) => void }).cancelAnimationFrame = (id) =>
+        clearTimeout(id as unknown as ReturnType<typeof setTimeout>);
+    }
+    const onClose = vi.fn();
+    function Harness() {
+      const [open, setOpen] = React.useState(false);
+      return (
+        <div>
+          <button type="button" onClick={() => setOpen(true)}>打开校对</button>
+          {open && <ProofPanel projectId="project-1" onClose={() => { onClose(); setOpen(false); }} />}
+        </div>
+      );
+    }
+    render(<Harness />);
+    const trigger = screen.getByRole("button", { name: "打开校对" });
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    const dialog = await screen.findByRole("dialog", { name: "本地校对" });
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "本地校对" })).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
+
+  it("Tab 在校对面板内首尾成环", async () => {
+    render(<ProofPanel projectId="project-1" onClose={() => undefined} />);
+    const dialog = await screen.findByRole("dialog", { name: "本地校对" });
+    const items = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])"
+      )
+    );
+    expect(items.length).toBeGreaterThan(2);
+    const first = items[0]!;
+    const last = items[items.length - 1]!;
+
+    last.focus();
+    fireEvent.keyDown(last, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+
+    first.focus();
+    fireEvent.keyDown(first, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+  });
+});

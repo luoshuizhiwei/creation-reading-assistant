@@ -18,6 +18,7 @@ import { creationDocumentToPlainText } from "@/features/creation/ai/diff-paragra
 import { plainTextToCreationDocument } from "@/features/creation/editor/paste-clean";
 import { AiSendConfirmDialog, rememberAiSendOptOut } from "@/features/creation/inbox/ai-send-confirm";
 import { Button } from "@/components/ui";
+import { useModalKeyboard } from "@/components/ui/use-modal-keyboard";
 import { getAISettings, runAIAction } from "@/services/ai-service";
 import { annotationReanchor, runStructure as runStructureRequest } from "@/services/creation-service";
 import {
@@ -140,6 +141,16 @@ export function WritingDeskMargin({
   const [reanchorBusy, setReanchorBusy] = useState(false);
   const [reanchorError, setReanchorError] = useState<string | null>(null);
   const annotationTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const reanchorDialogRef = useRef<HTMLElement>(null);
+  const handleReanchorKeyDown = useModalKeyboard({
+    active: Boolean(reanchorCandidate),
+    containerRef: reanchorDialogRef,
+    onEscape: () => {
+      if (reanchorBusy) return;
+      setReanchorCandidate(null);
+      setReanchorError(null);
+    }
+  });
 
   // AI 场景助手状态
   const [aiSettings, setAiSettings] = useState<AISettings | undefined>();
@@ -646,6 +657,8 @@ export function WritingDeskMargin({
             {reanchorCandidate && (
               <div className="writing-reanchor-backdrop" role="presentation">
                 <section
+                  ref={reanchorDialogRef}
+                  onKeyDown={handleReanchorKeyDown}
                   className="writing-reanchor-dialog"
                   role="dialog"
                   aria-modal="true"

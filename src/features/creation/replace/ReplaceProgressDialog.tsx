@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { Button } from "@/components/ui";
+import { useModalKeyboard } from "@/components/ui/use-modal-keyboard";
 import type { ReplaceApplyResultView, ReplaceErrorView, ReplacePlanProgress } from "./types";
 import { describeReplaceError } from "./types";
 
@@ -21,6 +23,19 @@ export function ReplaceProgressDialog({
   onCancel,
   onClose
 }: ReplaceProgressDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const handleModalKeyDown = useModalKeyboard({
+    active: open,
+    containerRef: dialogRef,
+    onEscape: () => {
+      if (error || result) {
+        onClose();
+      } else if (!isApplying) {
+        onCancel();
+      }
+    }
+  });
+
   if (!open) return null;
 
   const hasDenominator = progress !== null && progress.totalScenes > 0;
@@ -38,7 +53,7 @@ export function ReplaceProgressDialog({
           : "正在处理…";
 
   return (
-    <div className="replace-progress-overlay" role="dialog" aria-label="替换进度" data-testid="replace-progress-dialog">
+    <div ref={dialogRef} onKeyDown={handleModalKeyDown} className="replace-progress-overlay" role="dialog" aria-modal="true" aria-label="替换进度" data-testid="replace-progress-dialog">
       <div className="replace-progress-card">
         {error ? (
           <div className="replace-progress-error" data-testid="replace-error">

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-library/react";
 import { WritingDesk } from "@/features/creation/editor/WritingDesk";
 import { useCreationStore } from "@/stores/creation-store";
@@ -8,6 +8,15 @@ import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
 import type { SceneSelection } from "@/features/creation/editor/annotation-selection";
 import type { Annotation, CreationProjectNavigation, CreationProjectSummary, SceneBodyView } from "@/types/creation";
+
+beforeAll(() => {
+  if (typeof requestAnimationFrame !== "function") {
+    (globalThis as unknown as { requestAnimationFrame: (cb: FrameRequestCallback) => number }).requestAnimationFrame =
+      (cb) => setTimeout(() => cb(0), 0) as unknown as number;
+    (globalThis as unknown as { cancelAnimationFrame: (id: number) => void }).cancelAnimationFrame = (id) =>
+      clearTimeout(id as unknown as ReturnType<typeof setTimeout>);
+  }
+});
 
 const actions = vi.hoisted(() => ({
   loadOutline: vi.fn(async () => undefined),
@@ -570,6 +579,47 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
     expect(dialog.textContent).toContain("选中「保留选择」");
     expect(dialog.textContent).toContain("批注可能已被其他操作修改");
     expect(actions.loadAnnotations).toHaveBeenCalledTimes(1);
+  });
+
+  it("BD-134：Esc 关闭重新定位弹层并把焦点还给触发按钮", async () => {
+    actions.loadAnnotations.mockResolvedValue([invalidAnnotation()]);
+    editorControl.selection = {
+      sceneId: "scene-a", blockIndex: 0, textOffset: 2, textLength: 2, selectedText: "新址", collapsed: false
+    };
+    mountDesk();
+
+    const trigger = await screen.findByRole("button", { name: "重新定位" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "确认重新定位批注" });
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "确认重新定位批注" })).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+    expect(actions.reanchorAnnotation).not.toHaveBeenCalled();
+  });
+
+  it("BD-134：Tab 在重新定位弹层内首尾成环", async () => {
+    actions.loadAnnotations.mockResolvedValue([invalidAnnotation()]);
+    editorControl.selection = {
+      sceneId: "scene-a", blockIndex: 0, textOffset: 2, textLength: 2, selectedText: "新址", collapsed: false
+    };
+    mountDesk();
+
+    fireEvent.click(await screen.findByRole("button", { name: "重新定位" }));
+    const dialog = screen.getByRole("dialog", { name: "确认重新定位批注" });
+    const buttons = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button"));
+    const first = buttons[0]!;
+    const last = buttons[buttons.length - 1]!;
+
+    last.focus();
+    fireEvent.keyDown(last, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+
+    first.focus();
+    fireEvent.keyDown(first, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
   });
 });
 
