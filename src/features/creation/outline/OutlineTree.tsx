@@ -11,6 +11,7 @@ import {
   Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui";
+import { useModalKeyboard } from "@/components/ui/use-modal-keyboard";
 import type {
   ChapterNumberingKind,
   CreationOutlineChapter,
@@ -96,6 +97,16 @@ function commandForPending(outline: CreationProjectOutline, pending: PendingOper
 
 function PromptDialog({ prompt, onCancel }: { prompt: PromptState; onCancel(): void }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+
+  // BD-132：Esc 原先只挂在输入框上（焦点一到「取消/确定」就失效），且没有 Tab 环与
+  // 关闭后的焦点归还。统一交给 useModalKeyboard；输入框的 focus+select 仍留在下面。
+  const handleModalKeyDown = useModalKeyboard({
+    active: true,
+    containerRef: dialogRef,
+    onEscape: onCancel,
+    initialFocusRef: inputRef
+  });
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -111,6 +122,8 @@ function PromptDialog({ prompt, onCancel }: { prompt: PromptState; onCancel(): v
   return (
     <div className="absolute inset-0 z-[80] grid place-items-center bg-paper-ink/18 px-6 backdrop-blur-sm" onClick={onCancel}>
       <section
+        ref={dialogRef}
+        onKeyDown={handleModalKeyDown}
         // 批次 AM：原本挂 shadow-paper——jsdom 读真实产物 computed 值实测带与不带都是
         // var(--shadow-3)，家族 .motion-dialog 的 !important 一直压着它，零视觉。
         className="motion-dialog w-[min(420px,100%)] overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel"
@@ -128,7 +141,6 @@ function PromptDialog({ prompt, onCancel }: { prompt: PromptState; onCancel(): v
             defaultValue={prompt.defaultValue}
             onKeyDown={(event) => {
               if (event.key === "Enter") commit();
-              if (event.key === "Escape") onCancel();
             }}
           />
           <div className="mt-4 flex justify-end gap-2">
