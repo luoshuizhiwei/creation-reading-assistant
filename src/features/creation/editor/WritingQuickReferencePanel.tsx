@@ -346,7 +346,7 @@ export function WritingQuickReferencePanel({
               {scope === "global" && !query.trim() ? "输入关键词，在整个卡片库中查找。" : scope === "scene" ? "本场景尚未引用卡片。" : "没有匹配的卡片。"}
             </li>
           )}
-          {loading && <li className="writing-quick-empty">正在整理索引…</li>}
+          {loading && <li className="writing-quick-empty" role="status">正在整理索引…</li>}
         </ul>
 
         {draft ? (

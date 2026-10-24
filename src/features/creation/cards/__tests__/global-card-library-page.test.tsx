@@ -166,8 +166,18 @@ describe("GlobalCardLibraryPage", () => {
     await waitFor(() => expect(runStructure).toHaveBeenCalledWith({ type: "card.delete", cardId: "card-global" }));
   });
 
-  it("从全局回收站恢复卡片时不要求 projectId", async () => {
-    loadTrash.mockResolvedValue([{
+  // BD-154：影响统计完成前，对话框里只有一行字，读屏器不播报「正在统计」。
+  it("影响统计中的提示以 status 暴露", async () => {
+    loadTrashImpact.mockImplementation(() => new Promise<never>(() => {}));
+    render(<GlobalCardLibraryPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "删除全局卡片" }));
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain("正在统计关联项目和引用影响");
+  });
+
+  it("从全局回收站恢复卡片时不要求 projectId", async () => {    loadTrash.mockResolvedValue([{
       entity: "card",
       id: "card-deleted",
       projectId: null,

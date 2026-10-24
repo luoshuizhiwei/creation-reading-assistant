@@ -164,4 +164,13 @@ describe("WritingQuickReferencePanel", () => {
       expect(screen.getByRole("button", { name: /林晚/ }).getAttribute("aria-current")).toBe("true")
     );
   });
+
+  // BD-154：索引整理期间列表里只有一行文字，读屏器不会播报。
+  it("索引整理中的提示以 status 暴露", async () => {
+    cardsList.mockImplementation(() => new Promise(() => {}));
+    render(<Harness />);
+
+    const hint = await screen.findByText("正在整理索引…");
+    expect(hint.getAttribute("role")).toBe("status");
+  });
 });

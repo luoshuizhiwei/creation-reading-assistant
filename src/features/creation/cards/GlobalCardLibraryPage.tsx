@@ -286,7 +286,7 @@ export function GlobalCardLibraryPage() {
     </section>
     {deleteImpactBusy && (
       <Dialog open title="删除全局卡片" ariaLabel="删除全局卡片" onClose={() => setDeleteImpactBusy(false)}>
-        <p>正在统计关联项目和引用影响…</p>
+        <p role="status">正在统计关联项目和引用影响…</p>
       </Dialog>
     )}
     {deleteImpact && selectedCard && (
