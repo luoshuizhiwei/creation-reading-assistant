@@ -10,6 +10,7 @@ import {
 } from "react";
 import { AlertOctagon, AlertTriangle, CheckCircle2, HelpCircle, Info, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui";
+import { useModalKeyboard } from "@/components/ui/use-modal-keyboard";
 import { useUIStore, type ToastTone } from "@/stores/ui-store";
 
 /**
@@ -130,6 +131,7 @@ export function ConfirmDialog() {
   const request = useUIStore((state) => state.confirmRequest);
   const resolveConfirm = useUIStore((state) => state.resolveConfirm);
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!request) return undefined;
@@ -142,10 +144,15 @@ export function ConfirmDialog() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [request, resolveConfirm]);
 
-  useEffect(() => {
-    if (!request) return;
-    confirmRef.current?.focus();
-  }, [request]);
+  // BD-130：Tab 环 + 关闭后焦点归还（运行实测：打开后按 1 次 Tab 就穿到弹窗后的
+  // 窗口控制钮；Esc 关闭后焦点落到 body）。Esc 仍由上面的 document 监听兜底，
+  // 焦点在弹窗内时 hook 会先 stopPropagation，不会双次 resolve。
+  const handleModalKeyDown = useModalKeyboard({
+    active: Boolean(request),
+    containerRef: dialogRef,
+    onEscape: () => resolveConfirm(false),
+    initialFocusRef: confirmRef
+  });
 
   if (!request) return null;
 
@@ -157,7 +164,7 @@ export function ConfirmDialog() {
       {/* 批次 AM：原本挂 shadow-paper，同 ToastCenter 那条——jsdom 实测带与不带都是
         * var(--shadow-3)（家族 .motion-dialog 的 !important 压着）。border 留着：
         * --shadow-3 是纯投影档、不含 hairline 环，边框仍需这里供值（AE 只管 shadow-1）。 */}
-      <section className="motion-dialog w-[min(460px,100%)] overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message" onClick={(e) => e.stopPropagation()}>
+      <section ref={dialogRef} onKeyDown={handleModalKeyDown} className="motion-dialog w-[min(460px,100%)] overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message" onClick={(e) => e.stopPropagation()}>
         {/* 顶部 1px 状态条：实色底，走令牌族后晨/夜两边都过（红 5.45 / 5.59，
             琥珀 5.60 / 5.23 压在面板上）。原先的 bg-red-500(#ef4444) 在晨校面板只有
             3.57:1，且夜校还是同一支亮红——它不跟主题走。 */}
