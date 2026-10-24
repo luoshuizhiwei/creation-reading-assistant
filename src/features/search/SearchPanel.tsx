@@ -255,6 +255,7 @@ export function SearchPanel() {
                 key={value}
                 type="button"
                 className={filter === value ? "active" : ""}
+                aria-pressed={filter === value}
                 onClick={() => setFilter(value)}
               >
                 {label}
@@ -265,6 +266,8 @@ export function SearchPanel() {
             <button
               type="button"
               className={`uni-search-global ${allProjects ? "active" : ""}`}
+              aria-label="在全部项目中搜索"
+              aria-pressed={allProjects}
               onClick={() => setAllProjects(!allProjects)}
             >
               {allProjects ? "全部项目" : "当前项目"}

@@ -207,6 +207,29 @@ describe("SearchPanel 统一搜索界面", () => {
     expect(loading.getAttribute("role")).toBe("status");
   });
 
+  // BD-144：筛选范围只靠 .active 类表达，读屏器不知道当前选中哪一项。
+  it("筛选按钮用 aria-pressed 暴露当前范围", () => {
+    render(<SearchPanel />);
+    expect(screen.getByRole("button", { name: "全部" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "卡片" }).getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "卡片" }));
+    expect(screen.getByRole("button", { name: "卡片" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "全部" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("项目范围开关用 aria-pressed 暴露当前项目/全部项目", () => {
+    useSearchStore.setState({ projectContextId: "p1" });
+    render(<SearchPanel />);
+    const toggle = () =>
+      screen.getByRole("button", { name: "在全部项目中搜索" });
+
+    expect(toggle().getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(toggle());
+    expect(toggle().getAttribute("aria-pressed")).toBe("true");
+    expect(useSearchStore.getState().allProjects).toBe(true);
+  });
+
   // BD-141：结果条数此前从不播报，读屏器读完「正在搜索…」后静默。
   it("搜索完成后播报结果条数（polite live region）", async () => {
     setupAllSourcesMock();
