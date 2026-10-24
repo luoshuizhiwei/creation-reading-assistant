@@ -89,11 +89,20 @@ export function InboxItemList({
               onClick={() => onSelectId(item.id)}
             >
               <span className="inbox-item-main">
-                <span className="inbox-item-title">
+                <button
+                  type="button"
+                  className="inbox-item-title text-left"
+                  aria-label={`打开想法：${item.title}`}
+                  aria-current={item.id === selectedId ? "true" : undefined}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelectId(item.id);
+                  }}
+                >
                   {item.title}
                   {item.legacyId && <em>旧灵感</em>}
                   {item.status === "used" && <em className="used">已转卡片</em>}
-                </span>
+                </button>
                 <span className="inbox-item-body">
                   {item.body.length > 120 ? `${item.body.slice(0, 120)}…` : item.body}
                 </span>
