@@ -138,6 +138,7 @@ function PromptDialog({ prompt, onCancel }: { prompt: PromptState; onCancel(): v
           <input
             ref={inputRef}
             className="paper-input mt-3 h-8 w-full"
+            aria-label={prompt.title}
             defaultValue={prompt.defaultValue}
             onKeyDown={(event) => {
               if (event.key === "Enter") commit();
@@ -511,6 +512,7 @@ export function OutlineTree({
         <input
           autoFocus
           value={editing.title}
+          aria-label={editing.kind === "scene" ? "场景标题" : editing.kind === "chapter" ? "章节标题" : "卷标题"}
           onChange={(event) => setEditing({ ...editing, title: event.target.value })}
           onKeyDown={(event) => {
             if (event.key === "Enter") void commitEdit();

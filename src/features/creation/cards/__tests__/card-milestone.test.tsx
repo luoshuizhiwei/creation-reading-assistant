@@ -125,7 +125,8 @@ describe("卡片命名里程碑", () => {
   it("创建命名里程碑提交正确的 subjectId 与说明", async () => {
     render(<CardsPage project={p1} />);
     fireEvent.click(await screen.findByText("创建命名里程碑"));
-    fireEvent.change(screen.getByPlaceholderText("里程碑说明，例如：角色设定定稿 v1"), {
+    // BD-138：说明输入框用可见文案作可访问名，不靠 placeholder。
+    fireEvent.change(screen.getByRole("textbox", { name: "里程碑说明" }), {
       target: { value: "角色设定定稿 v1" }
     });
     fireEvent.click(screen.getByText("保存里程碑"));

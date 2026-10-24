@@ -476,6 +476,7 @@ export function CardsPage({ project }: CardsPageProps) {
               className="cards-input"
               value={milestoneReason}
               onChange={(event) => setMilestoneReason(event.target.value)}
+              aria-label="里程碑说明"
               placeholder="里程碑说明，例如：角色设定定稿 v1"
             />
             <div className="cards-form-actions">
@@ -543,6 +544,7 @@ export function CardsPage({ project }: CardsPageProps) {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
+                aria-label="搜索卡片名称或别名"
                 placeholder="搜索名称或别名"
               />
             </span>

@@ -110,7 +110,9 @@ describe("OutlineTree 改名与影响预览", () => {
     o.volumes[0].revision = 5;
     const { runStructure } = renderTree(o);
     fireEvent.click(screen.getAllByTitle("改名")[0]);
-    const input = screen.getByDisplayValue("卷一");
+    // BD-138：内联改名输入框有可访问名（此前只有 autoFocus 与值）。
+    const input = screen.getByRole("textbox", { name: "卷标题" });
+    expect(screen.getByDisplayValue("卷一")).toBe(input);
     fireEvent.change(input, { target: { value: "卷一新" } });
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => expect(runStructure).toHaveBeenCalled());
@@ -124,7 +126,8 @@ describe("OutlineTree 改名与影响预览", () => {
     o.volumes[0].chapters[0].revision = 7;
     const { runStructure } = renderTree(o);
     fireEvent.click(screen.getAllByTitle("改名")[1]);
-    const input = screen.getByDisplayValue("第一章");
+    const input = screen.getByRole("textbox", { name: "章节标题" });
+    expect(screen.getByDisplayValue("第一章")).toBe(input);
     fireEvent.change(input, { target: { value: "第一章新" } });
     fireEvent.keyDown(input, { key: "Enter" });
     await waitFor(() => expect(runStructure).toHaveBeenCalled());

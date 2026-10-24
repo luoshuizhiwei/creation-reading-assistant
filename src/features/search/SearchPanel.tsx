@@ -228,6 +228,7 @@ export function SearchPanel() {
           <input
             ref={inputRef}
             className="uni-search-input"
+            aria-label="搜索项目、正文、卡片、收件箱与资料"
             placeholder="搜索项目、正文、卡片、收件箱与资料（Ctrl+K）"
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}

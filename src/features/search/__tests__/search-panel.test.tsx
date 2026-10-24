@@ -249,6 +249,14 @@ describe("SearchPanel 键盘交互", () => {
     expect(useSearchStore.getState().open).toBe(false);
   });
 
+  // BD-138：输入框此前只有 placeholder，读屏器拿到的是「编辑框」而不是「搜索框」。
+  it("搜索输入框有可访问名，不只靠 placeholder（BD-138）", () => {
+    render(<SearchPanel />);
+    expect(
+      screen.getByRole("textbox", { name: "搜索项目、正文、卡片、收件箱与资料" })
+    ).toBeTruthy();
+  });
+
   // BD-129：Esc 原先只挂在输入框上，焦点一旦落到关闭/筛选按钮就失效（运行实测）。
   it("焦点在关闭按钮上按 Esc 仍关闭搜索", () => {
     render(<SearchPanel />);

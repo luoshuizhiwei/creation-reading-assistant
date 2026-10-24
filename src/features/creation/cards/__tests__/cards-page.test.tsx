@@ -296,8 +296,7 @@ describe("CardsPage 跨项目竞态与状态清空", () => {
   });
 });
 
-describe("CardsPage 看板视图键盘可达（BD-135）", () => {
-  it("看板卡片可聚焦，Enter 与空格都能选中", async () => {
+describe("CardsPage 看板视图键盘可达（BD-135）", () => {  it("看板卡片可聚焦，Enter 与空格都能选中", async () => {
     vi.mocked(creationService.cardsList).mockResolvedValue([aCard]);
     vi.mocked(creationService.cardTypesList).mockResolvedValue([aType]);
     vi.mocked(creationService.relationTypesList).mockResolvedValue([]);
@@ -328,5 +327,23 @@ describe("CardsPage 看板视图键盘可达（BD-135）", () => {
 
     fireEvent.keyDown(card, { key: " " });
     expect(useCreationStore.getState().selectedCardId).toBe("card-a");
+  });
+});
+
+describe("CardsPage 输入框可访问名（BD-138）", () => {
+  it("工具栏卡片搜索框有可访问名", async () => {
+    vi.mocked(creationService.cardsList).mockResolvedValue([aCard]);
+    vi.mocked(creationService.cardTypesList).mockResolvedValue([aType]);
+    vi.mocked(creationService.relationTypesList).mockResolvedValue([]);
+    useCreationStore.setState({
+      selectedId: "p1",
+      cardProjectId: "p1",
+      cards: [aCard],
+      selectedCardId: undefined
+    });
+
+    render(<CardsPage project={p1} />);
+    const search = await screen.findByRole("textbox", { name: "搜索卡片名称或别名" });
+    expect(search.getAttribute("placeholder")).toBe("搜索名称或别名");
   });
 });

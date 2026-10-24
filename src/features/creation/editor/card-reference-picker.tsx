@@ -77,6 +77,7 @@ export function CardReferencePicker({ cards, onSelect, onClose }: CardReferenceP
         <input
           ref={inputRef}
           className="card-reference-input"
+          aria-label="搜索卡片（标题或别名）"
           placeholder="搜索卡片（标题或别名）…"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
