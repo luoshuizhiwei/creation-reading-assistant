@@ -113,6 +113,15 @@ export function SearchPanel() {
 
   const flatResults = useMemo(() => grouped.flatMap((group) => group.items), [grouped]);
 
+  /** BD-141：搜索结果从未被播报——读屏器只在「正在搜索…」后陷入静默，用户不知道
+   * 搜到了几条、是不是 0 条。这里用常驻 polite 区域只播报「关键词 + 条数」，
+   * 结果列表本身不放进 live region，避免每敲一个字就重读全部结果。
+   * 加载中与错误态分别由既有 role=status / role=alert 负责，这里留空不抢话。 */
+  const resultAnnouncement =
+    !loading && !error && keyword.trim()
+      ? `「${keyword.trim()}」找到 ${flatResults.length} 条结果。`
+      : "";
+
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
       if (event.isComposing || event.keyCode === 229) return;
@@ -264,6 +273,9 @@ export function SearchPanel() {
         </div>
 
         <div className="uni-search-results">
+          <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {resultAnnouncement}
+          </p>
           {loading && (
             <p className="uni-search-state" role="status">
               正在搜索…

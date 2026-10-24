@@ -203,7 +203,42 @@ describe("SearchPanel 统一搜索界面", () => {
     await act(async () => {
       vi.advanceTimersByTime(400);
     });
-    expect(screen.getByRole("status")).toBeDefined();
+    const loading = screen.getByText("正在搜索…");
+    expect(loading.getAttribute("role")).toBe("status");
+  });
+
+  // BD-141：结果条数此前从不播报，读屏器读完「正在搜索…」后静默。
+  it("搜索完成后播报结果条数（polite live region）", async () => {
+    setupAllSourcesMock();
+    render(<SearchPanel />);
+    await typeAndFlush("词");
+
+    const status = screen.getByText("「词」找到 6 条结果。");
+    expect(status.getAttribute("role")).toBe("status");
+    expect(status.getAttribute("aria-live")).toBe("polite");
+    expect(status.getAttribute("aria-atomic")).toBe("true");
+  });
+
+  it("零结果同样播报条数，与可见空状态互不重复", async () => {
+    vi.mocked(creationService.search).mockResolvedValue({ query: "词", total: 0, hits: [] });
+    vi.mocked(creationService.inboxList).mockResolvedValue([]);
+    vi.mocked(searchService.globalSearch).mockResolvedValue([]);
+    vi.mocked(inspirationService.listInspirations).mockResolvedValue([]);
+    render(<SearchPanel />);
+    await typeAndFlush("词");
+
+    expect(screen.getByText("「词」找到 0 条结果。").getAttribute("role")).toBe("status");
+    expect(screen.getByText(/没有找到与「词」匹配的内容/)).toBeDefined();
+  });
+
+  it("加载中 live region 不抢话，只保留进行中状态", async () => {
+    vi.mocked(creationService.search).mockReturnValue(new Promise(() => undefined) as never);
+    render(<SearchPanel />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "词" } });
+    await act(async () => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(screen.queryByText(/找到 \d+ 条结果/)).toBeNull();
   });
 });
 
