@@ -101,6 +101,7 @@ export function BackgroundPage({ projectId }: BackgroundPageProps) {
                 key={card.id}
                 type="button"
                 className={`background-card ${card.id === selectedCardId ? "active" : ""}`}
+                aria-pressed={card.id === selectedCardId}
                 onClick={() => selectCard(card.id)}
               >
                 <span className="background-card-kind"><Icon size={13} /> {meta?.label ?? card.kind}</span>

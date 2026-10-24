@@ -204,13 +204,14 @@ export function ReadingStatsPage() {
                 <p className="mt-1 text-sm text-paper-muted">统计只计算有效阅读会话，后台挂起和空闲时间不会膨胀数据。</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="range-tabs inline-flex rounded-md border border-paper-line bg-paper-soft/50 p-1">
+                <div className="range-tabs inline-flex rounded-md border border-paper-line bg-paper-soft/50 p-1" role="group" aria-label="统计范围">
                   {(Object.keys(rangeLabels) as StatsRange[]).map((r) => (
                     <button
                       key={r}
                       className={`rounded-md px-3 py-1 text-xs font-medium transition ${
                         selectedRange === r ? "bg-copper text-[color:var(--fg-on-solid)]" : "text-paper-muted hover:text-paper-ink"
                       }`}
+                      aria-pressed={selectedRange === r}
                       onClick={() => changeRange(r)}
                     >
                       {rangeLabels[r]}

@@ -128,6 +128,21 @@ describe("BackgroundPage 跨项目隔离", () => {
     expect(screen.queryByText("苏青")).toBeNull();
   });
 
+  // BD-147：背景卡的选中态只靠 .active 类，读屏器不知道当前打开的是哪一张。
+  it("用 aria-pressed 暴露当前选中的背景卡", async () => {
+    vi.mocked(creationService.cardsList).mockResolvedValue([p1Loc, p1Rule]);
+    render(<BackgroundPage projectId="p1" />);
+
+    const loc = await screen.findByRole("button", { name: /黄沙镇/ });
+    const rule = screen.getByRole("button", { name: /灵气复苏/ });
+    expect(loc.getAttribute("aria-pressed")).toBe("false");
+    expect(rule.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(loc);
+    await waitFor(() => expect(screen.getByRole("button", { name: /黄沙镇/ }).getAttribute("aria-pressed")).toBe("true"));
+    expect(screen.getByRole("button", { name: /灵气复苏/ }).getAttribute("aria-pressed")).toBe("false");
+  });
+
   it("选中其他项目的背景卡时：不渲染详情并清除选择", async () => {
     vi.mocked(creationService.cardsList).mockResolvedValue([p1Loc, p2Loc]);
     useCreationStore.setState({ selectedCardId: "loc-2" });
