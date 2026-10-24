@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bookmark, Copy, Inbox as InboxIcon, X } from "lucide-react";
 import { Button } from "@/components/ui";
+import { useModalKeyboard } from "@/components/ui/use-modal-keyboard";
 import type { ExcerptResult, ExcerptSourceSnapshot, ExcerptTarget } from "@/types/library";
 
 interface ExcerptPickerProps {
@@ -22,6 +23,15 @@ interface ExcerptPickerProps {
 export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmit, onResult }: ExcerptPickerProps) {
   const [targetKind, setTargetKind] = useState<"inbox" | "projectCard">("inbox");
   const [projectId, setProjectId] = useState<string>(projects[0]?.id ?? "");
+  const dialogRef = useRef<HTMLElement>(null);
+
+  // BD-131：全屏弹层此前没有任何键盘契约——Esc 不关、焦点留在正文上、Tab 可直接
+  // 穿到弹层后的阅读器控件。组件只在打开时挂载，active 恒为 true。
+  const handleModalKeyDown = useModalKeyboard({
+    active: true,
+    containerRef: dialogRef,
+    onEscape: onClose
+  });
 
   // 项目列表异步加载后自动选择首个项目（首次打开时 projects 为空）
   useEffect(() => {
@@ -44,9 +54,12 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-paper-ink/30 backdrop-blur-[1px]" onMouseDown={onClose}>
       <aside
+        ref={dialogRef}
+        onKeyDown={handleModalKeyDown}
         className="motion-panel relative flex max-h-[80vh] w-[min(560px,calc(100%-32px))] flex-col overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel [box-shadow:var(--shadow-3)]"
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
+        aria-modal="true"
         aria-label="资料摘录"
       >
         <header className="flex items-center justify-between border-b border-paper-line px-5 py-3">
