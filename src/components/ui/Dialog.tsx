@@ -1,6 +1,29 @@
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { X } from "lucide-react";
 
+/**
+ * BD-127：打开中的弹窗栈（后进先出）。
+ *
+ * 每个 Dialog 原先各自往 `document` 挂一个 Escape 监听，且弹窗内层 div 又
+ * `stopPropagation()`——焦点在弹窗里时（打开后必然如此），document 上的监听根本收不到
+ * 事件，Esc 一直关不掉弹窗；真叠了两层弹窗时，若事件真到了 document，又会把两层一起关。
+ * 现在只认栈顶：Esc 只关最上面那一层。
+ */
+type DialogEntry = { close: () => void };
+const openDialogs: DialogEntry[] = [];
+let escapeListening = false;
+
+function closeTopDialog() {
+  openDialogs[openDialogs.length - 1]?.close();
+}
+
+function handleDocumentEscape(event: globalThis.KeyboardEvent) {
+  if (event.key !== "Escape") return;
+  if (openDialogs.length === 0) return;
+  event.preventDefault();
+  closeTopDialog();
+}
+
 export interface DialogProps {
   /** 是否显示弹窗 */
   open: boolean;
@@ -52,25 +75,46 @@ export function Dialog({
 }: DialogProps) {
 
   const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const entryRef = useRef<DialogEntry | null>(null);
 
+  // BD-127：入栈/出栈 + 单一 document Escape 监听（焦点不在弹窗内时也兜住）。
   useEffect(() => {
     if (!open) return;
-    const handler = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") onClose?.();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose]);
-
-  useEffect(() => {
-    if (open) {
-      requestAnimationFrame(() => {
-        const el = dialogRef.current?.querySelector<HTMLElement>(
-          "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"
-        );
-        el?.focus();
-      });
+    const entry: DialogEntry = { close: () => onCloseRef.current?.() };
+    entryRef.current = entry;
+    openDialogs.push(entry);
+    if (!escapeListening) {
+      document.addEventListener("keydown", handleDocumentEscape);
+      escapeListening = true;
     }
+    return () => {
+      const index = openDialogs.indexOf(entry);
+      if (index !== -1) openDialogs.splice(index, 1);
+      if (entryRef.current === entry) entryRef.current = null;
+      if (openDialogs.length === 0 && escapeListening) {
+        document.removeEventListener("keydown", handleDocumentEscape);
+        escapeListening = false;
+      }
+    };
+  }, [open]);
+
+  // BD-127：打开时聚焦首个可操作元素；关闭时把焦点还给打开前的元素（否则键盘用户
+  // 关闭弹窗后落到 body，下次 Tab 从页面开头重新走）。元素已卸载则跳过。
+  useEffect(() => {
+    if (!open) return;
+    const restoreTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => {
+      const el = dialogRef.current?.querySelector<HTMLElement>(
+        "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"
+      );
+      el?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      if (restoreTo && restoreTo.isConnected) restoreTo.focus({ preventScroll: true });
+    };
   }, [open]);
 
   if (!open) return null;
@@ -99,7 +143,12 @@ export function Dialog({
         ref={dialogRef}
         className={`relative z-10 w-full ${width} rounded-[var(--radius-3)] border border-paper-line bg-paper-panel [box-shadow:var(--shadow-3)] ${className}`}
         onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
-          if (e.key === "Escape") e.stopPropagation();
+          // BD-127：焦点在弹窗内时事件到不了 document（这里 stopPropagation 拦住了
+          // 外层快捷键），所以就地关栈顶；document 监听只负责焦点不在弹窗内的兜底。
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            closeTopDialog();
+          }
         }}
       >
         {(title || !hideCloseButton) && (
