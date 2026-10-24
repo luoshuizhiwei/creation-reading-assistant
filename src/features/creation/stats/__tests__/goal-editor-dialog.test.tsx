@@ -79,7 +79,8 @@ describe("GoalEditorDialog 目标编辑", () => {
     fireEvent.change(screen.getByLabelText(/总字数/), { target: { value: "-5" } });
     fireEvent.click(screen.getByRole("button", { name: "保存目标" }));
     expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getByText(/总字数必须是 0 或正整数/)).toBeDefined();
+    // BD-151：错误必须进入无障碍树，提交后读屏器才听得到。
+    expect(screen.getByRole("alert").textContent).toContain("总字数必须是 0 或正整数");
   });
 
   it("metricLocked 时主指标按钮禁用，其余字段仍可编辑", () => {
@@ -106,6 +107,6 @@ describe("GoalEditorDialog 目标编辑", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存目标" }));
     await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByText(/目标已被其他会话更新/)).toBeDefined();
+    expect(screen.getByRole("alert").textContent).toContain("目标已被其他会话更新");
   });
 });

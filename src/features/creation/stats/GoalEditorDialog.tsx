@@ -204,8 +204,8 @@ export function GoalEditorDialog({ open, initial, onClose, onSave, busy, error, 
             ) : null}
           </div>
 
-          {validationMessage && <span className="creation-field-error">{validationMessage}</span>}
-          {error && <span className="creation-field-error">{error}</span>}
+          {validationMessage && <span className="creation-field-error" role="alert">{validationMessage}</span>}
+          {error && <span className="creation-field-error" role="alert">{error}</span>}
     </Dialog>
   );
 }

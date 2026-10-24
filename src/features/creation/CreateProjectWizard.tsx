@@ -188,7 +188,7 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
                     aria-invalid={Boolean(titleError)}
                   />
                   <span className="creation-field-hint">1–200 字</span>
-                  {titleError && <span className="creation-field-error">{titleError}</span>}
+                  {titleError && <span className="creation-field-error" role="alert">{titleError}</span>}
                 </label>
                 <label className="creation-field">
                   <span>
@@ -310,7 +310,7 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
                     添加
                   </Button>
                 </div>
-                {step === 2 && !validation.ok && <span className="creation-field-error">{validation.message}</span>}
+                {step === 2 && !validation.ok && <span className="creation-field-error" role="alert">{validation.message}</span>}
               </div>
             </fieldset>
           )}

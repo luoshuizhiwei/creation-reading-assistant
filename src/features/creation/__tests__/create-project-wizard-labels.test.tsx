@@ -34,4 +34,16 @@ describe("CreateProjectWizard 可访问名", () => {
     const input = await screen.findByRole("textbox", { name: "添加自定义阶段" });
     expect(input.getAttribute("placeholder")).toContain("添加自定义阶段");
   });
+
+  // BD-151：标题校验错误此前只是普通文本，读屏器没有反馈。
+  it("标题校验错误以 alert 暴露", () => {
+    render(<CreateProjectWizard open onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
+    const title = screen.getByLabelText(/标题/);
+    fireEvent.change(title, { target: { value: "x" } });
+    fireEvent.change(title, { target: { value: "" } });
+
+    expect(screen.getByRole("alert").textContent).toBeTruthy();
+  });
 });

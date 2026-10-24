@@ -173,11 +173,11 @@ export function CreateMilestoneDialog({
               maxLength={200}
             />
             {!reasonValid && reason.length > 0 && (
-              <span className="history-field-error">名称不能为空</span>
+              <span className="history-field-error" role="alert">名称不能为空</span>
             )}
           </div>
 
-          {submitError && <p className="history-impact-error">{submitError}</p>}
+          {submitError && <p className="history-impact-error" role="alert">{submitError}</p>}
     </Dialog>
   );
 }
