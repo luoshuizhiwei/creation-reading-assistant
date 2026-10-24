@@ -33,6 +33,16 @@
   min-width: 150px;
 }
 
+/* BD-126：输入框自身 outline:none 且该规则在按需加载的 CardsPage 样式块里，
+ * 与全局 input:focus-visible 同特异度但文档序更晚，会把焦点环整条压掉——实测键盘
+ * Tab 进来时 :focus-visible 为真，outline-width 却是 0、无 box-shadow、边框 0。
+ * 和 .paper-stepper 一样把可见指示挂到容器上：外框变色 + 3px 纯环（§2.3 焦点机制，
+ * 不是投影层级）。 */
+.relation-graph-search:focus-within {
+  border-color: var(--accent-spine);
+  box-shadow: 0 0 0 3px var(--action-tint);
+}
+
 .relation-graph-chips {
   display: flex;
   flex-wrap: wrap;
