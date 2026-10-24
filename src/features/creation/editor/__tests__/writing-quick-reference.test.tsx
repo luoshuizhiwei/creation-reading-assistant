@@ -138,4 +138,18 @@ describe("WritingQuickReferencePanel", () => {
     expect(onPlanningSaved).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(onRestoreEditorFocus).toHaveBeenCalled());
   });
+
+  // BD-145：速查范围此前只靠 .active 类表达，读屏器不知道当前在哪一档。
+  it("速查范围用 aria-pressed 暴露当前档位", () => {
+    render(<Harness />);
+    const scene = () => screen.getByRole("button", { name: /本场景/ });
+    const project = () => screen.getByRole("button", { name: /本项目/ });
+
+    expect(scene().getAttribute("aria-pressed")).toBe("true");
+    expect(project().getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(project());
+    expect(project().getAttribute("aria-pressed")).toBe("true");
+    expect(scene().getAttribute("aria-pressed")).toBe("false");
+  });
 });

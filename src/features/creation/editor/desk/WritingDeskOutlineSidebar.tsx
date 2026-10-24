@@ -110,6 +110,7 @@ export function WritingDeskOutlineSidebar({
         <button
           type="button"
           className={outlineView === "tree" ? "active" : ""}
+          aria-pressed={outlineView === "tree"}
           onClick={() => setOutlineView("tree")}
         >
           大纲树
@@ -117,6 +118,7 @@ export function WritingDeskOutlineSidebar({
         <button
           type="button"
           className={outlineView === "board" ? "active" : ""}
+          aria-pressed={outlineView === "board"}
           onClick={() => setOutlineView("board")}
         >
           卡片板

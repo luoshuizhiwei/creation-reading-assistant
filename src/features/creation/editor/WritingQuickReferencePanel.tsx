@@ -313,9 +313,9 @@ export function WritingQuickReferencePanel({
       </div>
 
       <nav className="writing-quick-tabs" aria-label="速查范围">
-        <button type="button" className={scope === "scene" ? "active" : ""} onClick={() => setScope("scene")}>本场景 <span>{sceneCards.length}</span></button>
-        <button type="button" className={scope === "project" ? "active" : ""} onClick={() => setScope("project")}>本项目 <span>{projectCards.length}</span></button>
-        <button type="button" className={scope === "global" ? "active" : ""} onClick={() => setScope("global")}>全局搜索</button>
+        <button type="button" className={scope === "scene" ? "active" : ""} aria-pressed={scope === "scene"} onClick={() => setScope("scene")}>本场景 <span>{sceneCards.length}</span></button>
+        <button type="button" className={scope === "project" ? "active" : ""} aria-pressed={scope === "project"} onClick={() => setScope("project")}>本项目 <span>{projectCards.length}</span></button>
+        <button type="button" className={scope === "global" ? "active" : ""} aria-pressed={scope === "global"} onClick={() => setScope("global")}>全局搜索</button>
       </nav>
 
       {scope === "global" && (

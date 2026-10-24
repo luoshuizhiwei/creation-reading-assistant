@@ -340,7 +340,13 @@ describe("WritingDesk 内嵌大纲安全重组", () => {
     expect(actions.applyStructureWithProtection).toHaveBeenCalledWith(expect.objectContaining({ planId: "plan-writing-desk" }));
     expect(actions.loadOutline.mock.calls.length).toBeGreaterThan(initialRefreshes);
 
+    // BD-145：视图切换此前只靠 .active 类，读屏器不知道当前停在哪一栏。
+    expect(screen.getByRole("button", { name: "大纲树" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "卡片板" }).getAttribute("aria-pressed")).toBe("false");
+
     fireEvent.click(screen.getByRole("button", { name: "卡片板" }));
+    expect(screen.getByRole("button", { name: "卡片板" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "大纲树" }).getAttribute("aria-pressed")).toBe("false");
     expect(outlineHarness.boardProps?.previewStructure).toBe(actions.previewStructure);
     expect(outlineHarness.boardProps?.applyStructureWithProtection).toEqual(expect.any(Function));
     expect(outlineHarness.boardProps?.onProtectedApplied).toEqual(expect.any(Function));
