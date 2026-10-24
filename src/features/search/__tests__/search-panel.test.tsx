@@ -249,8 +249,31 @@ describe("SearchPanel 键盘交互", () => {
     expect(useSearchStore.getState().open).toBe(false);
   });
 
-  it("方向键选择 + Enter 打开选中结果", async () => {
-    setupAllSourcesMock();
+  // BD-129：Esc 原先只挂在输入框上，焦点一旦落到关闭/筛选按钮就失效（运行实测）。
+  it("焦点在关闭按钮上按 Esc 仍关闭搜索", () => {
+    render(<SearchPanel />);
+    expect(screen.getByRole("dialog")).toBeDefined();
+    const close = screen.getByRole("button", { name: "关闭搜索" });
+    close.focus();
+    fireEvent.keyDown(close, { key: "Escape" });
+    expect(useSearchStore.getState().open).toBe(false);
+  });
+
+  // BD-129：aria-modal 弹层的 Tab 必须首尾成环，不能穿到页面后方（运行实测会跑到窗口控制钮）。
+  it("Tab 在弹层内首尾成环", () => {
+    render(<SearchPanel />);
+    const input = screen.getByRole("textbox");
+    const lastFilter = screen.getByRole("button", { name: "资料" });
+
+    lastFilter.focus();
+    fireEvent.keyDown(lastFilter, { key: "Tab" });
+    expect(document.activeElement).toBe(input);
+
+    fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(lastFilter);
+  });
+
+  it("方向键选择 + Enter 打开选中结果", async () => {    setupAllSourcesMock();
     render(<SearchPanel />);
     await typeAndFlush("词");
 

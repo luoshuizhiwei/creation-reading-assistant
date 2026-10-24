@@ -35,6 +35,10 @@ const GROUP_ICONS: Record<UnifiedSearchSourceId, typeof PenLine> = {
   inspiration: InboxIcon
 };
 
+/** BD-129：弹层内可聚焦元素，Tab 环按它首尾成环（与 Dialog 同一口径）。 */
+const FOCUSABLE_SELECTOR =
+  "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tagName = target.tagName.toLowerCase();
@@ -163,11 +167,7 @@ export function SearchPanel() {
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     const composing = event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229;
-    if (event.key === "Escape" && !composing) {
-      event.preventDefault();
-      closeSearch();
-      return;
-    }
+    if (composing) return;
     if (flatResults.length === 0) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -182,6 +182,37 @@ export function SearchPanel() {
     }
   };
 
+  /** BD-129：Esc / Tab 不能再只挂在输入框上——实测焦点落到「关闭搜索」或筛选按钮后，
+   * Esc 完全失效；连按 Tab 也会穿到弹层后的窗口控制钮（aria-modal 承诺的惰性浏览器
+   * 不会自动兑现）。改为外壳统一处理：Esc 关闭、Tab 在壳内首尾成环。 */
+  const handleShellKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeSearch();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const root = event.currentTarget;
+    const items = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+    if (items.length === 0) {
+      event.preventDefault();
+      return;
+    }
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey) {
+      if (active === first || !root.contains(active)) {
+        event.preventDefault();
+        last.focus();
+      }
+    } else if (active === last || !root.contains(active)) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
     <div className="uni-search-overlay" onMouseDown={closeSearch}>
       <div
@@ -190,6 +221,7 @@ export function SearchPanel() {
         aria-label="全局搜索"
         aria-modal="true"
         onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={handleShellKeyDown}
       >
         <div className="uni-search-head">
           <Search size={17} className="uni-search-head-icon" />
