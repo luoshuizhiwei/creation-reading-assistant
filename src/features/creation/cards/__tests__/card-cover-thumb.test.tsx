@@ -123,4 +123,23 @@ describe("CardListSidebar 接入封面缩略图（Stage 4-A 增强）", () => {
     fireEvent.click(screen.getByRole("img", { name: "旧书店 封面" }));
     expect(picked).toBe("card-9");
   });
+
+  // BD-155：选中卡片此前只靠 .active 上色，读屏器不知道详情区正在看哪一张。
+  it("用 aria-current 暴露当前选中的卡片行", () => {
+    render(
+      <CardListSidebar
+        cards={[
+          cardOf({ id: "card-1", title: "林墨", coverResourceId: null }),
+          cardOf({ id: "card-2", title: "苏青", coverResourceId: null })
+        ]}
+        selectedCardId="card-2"
+        cardsLoading={false}
+        onSelectCard={() => {}}
+        typeNameMap={typeNameMap}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /苏青/ }).getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("button", { name: /林墨/ }).getAttribute("aria-current")).toBeNull();
+  });
 });

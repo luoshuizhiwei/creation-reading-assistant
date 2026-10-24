@@ -78,6 +78,7 @@ export function CardListSidebar({
             type="button"
             key={card.id}
             className={`cards-list-item ${card.id === selectedCardId ? "active" : ""}`}
+            aria-current={card.id === selectedCardId ? "true" : undefined}
             onClick={() => onSelectCard(card.id)}
           >
             <CardCoverThumb cardId={card.id} coverResourceId={card.coverResourceId} title={card.title} />
