@@ -1,5 +1,7 @@
+import { useRef } from "react";
 import { FileSearch, X } from "lucide-react";
 import { Button } from "@/components/ui";
+import { useModalKeyboard } from "@/components/ui/use-modal-keyboard";
 import "./scene-candidate.css";
 
 /**
@@ -15,9 +17,17 @@ interface SceneAiReportProps {
 }
 
 export function SceneAiReport({ actionLabel, content, model, onClose }: SceneAiReportProps) {
+  const dialogRef = useRef<HTMLElement>(null);
+  // BD-133：只读报告弹层同样要能 Esc 关闭、Tab 留在层内、关闭后归还焦点。
+  const handleModalKeyDown = useModalKeyboard({
+    active: true,
+    containerRef: dialogRef,
+    onEscape: onClose
+  });
+
   return (
     <div className="writing-reanchor-backdrop" role="presentation">
-      <section className="writing-reanchor-dialog scene-candidate-dialog" role="dialog" aria-modal="true" aria-label={`AI ${actionLabel}报告`} data-testid="scene-ai-report">
+      <section ref={dialogRef} onKeyDown={handleModalKeyDown} className="writing-reanchor-dialog scene-candidate-dialog" role="dialog" aria-modal="true" aria-label={`AI ${actionLabel}报告`} data-testid="scene-ai-report">
         <p className="desktop-card-label">AI Report</p>
         <h4>
           <FileSearch size={14} /> {actionLabel}报告

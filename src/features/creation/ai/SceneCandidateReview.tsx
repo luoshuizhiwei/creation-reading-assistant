@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { Check, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui";
+import { useModalKeyboard } from "@/components/ui/use-modal-keyboard";
 import { diffParagraphs, diffStats } from "@/features/creation/ai/diff-paragraphs";
 import { mergeSceneBody, sceneAiActionLabel, type SceneAiAdoptMode } from "@/features/creation/ai/scene-ai-actions";
 import "./scene-candidate.css";
@@ -43,10 +44,19 @@ export function SceneCandidateReview({ candidate, currentBodyText, busy, onAccep
   const entries = useMemo(() => diffParagraphs(currentBodyText, targetText), [currentBodyText, targetText]);
   const stats = useMemo(() => diffStats(entries), [entries]);
   const adoptLabel = mode === "append" ? "追加到正文" : "采纳为正文";
+  const dialogRef = useRef<HTMLElement>(null);
+  // BD-133：Esc 等同「丢弃候选」（与 busy 口径一致：保存中不允许关闭）。
+  const handleModalKeyDown = useModalKeyboard({
+    active: true,
+    containerRef: dialogRef,
+    onEscape: () => {
+      if (!busy) onDiscard();
+    }
+  });
 
   return (
     <div className="writing-reanchor-backdrop" role="presentation">
-      <section className="writing-reanchor-dialog scene-candidate-dialog" role="dialog" aria-modal="true" aria-label="AI 候选评审" data-testid="scene-candidate-review">
+      <section ref={dialogRef} onKeyDown={handleModalKeyDown} className="writing-reanchor-dialog scene-candidate-dialog" role="dialog" aria-modal="true" aria-label="AI 候选评审" data-testid="scene-candidate-review">
         <p className="desktop-card-label">AI Candidate</p>
         <h4>
           <Sparkles size={14} /> AI 候选 · {sceneAiActionLabel(candidate.action)}
