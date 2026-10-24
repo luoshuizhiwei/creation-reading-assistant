@@ -329,7 +329,12 @@ export function WritingQuickReferencePanel({
         <ul className="writing-quick-list" aria-label={`${scope === "scene" ? "本场景" : scope === "project" ? "本项目" : "全局搜索"}卡片`}>
           {visibleCards.map((card) => (
             <li key={card.id}>
-              <button type="button" className={selectedCardId === card.id ? "active" : ""} onClick={() => void openCard(card)}>
+              <button
+                type="button"
+                className={selectedCardId === card.id ? "active" : ""}
+                aria-current={selectedCardId === card.id ? "true" : undefined}
+                onClick={() => void openCard(card)}
+              >
                 <span className={`writing-quick-kind writing-quick-kind--${card.kind}`} />
                 <span><strong>{card.title}</strong><small>{cardTypes.find((type) => type.kind === card.kind)?.name ?? card.kind}</small></span>
                 <em>{card.usageCount}</em>

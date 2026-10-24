@@ -152,4 +152,16 @@ describe("WritingQuickReferencePanel", () => {
     expect(project().getAttribute("aria-pressed")).toBe("true");
     expect(scene().getAttribute("aria-pressed")).toBe("false");
   });
+
+  // BD-150：速查列表的选中卡片此前只靠 .active 类表达。
+  it("用 aria-current 暴露当前选中的速查卡片", async () => {
+    render(<Harness />);
+    const item = await screen.findByRole("button", { name: /林晚/ });
+    expect(item.getAttribute("aria-current")).toBeNull();
+
+    fireEvent.click(item);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /林晚/ }).getAttribute("aria-current")).toBe("true")
+    );
+  });
 });
