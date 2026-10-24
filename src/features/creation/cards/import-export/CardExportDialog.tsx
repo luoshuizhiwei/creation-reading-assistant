@@ -70,6 +70,7 @@ export function CardExportDialog({ projectId, filter, onClose }: CardExportDialo
               <button
                 type="button"
                 className={format === "csv" ? "active" : ""}
+                aria-pressed={format === "csv"}
                 onClick={() => setFormat("csv")}
               >
                 CSV
@@ -77,6 +78,7 @@ export function CardExportDialog({ projectId, filter, onClose }: CardExportDialo
               <button
                 type="button"
                 className={format === "markdown" ? "active" : ""}
+                aria-pressed={format === "markdown"}
                 onClick={() => setFormat("markdown")}
               >
                 Markdown
