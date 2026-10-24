@@ -13,6 +13,10 @@ type DialogEntry = { close: () => void };
 const openDialogs: DialogEntry[] = [];
 let escapeListening = false;
 
+/** BD-128：弹窗内可聚焦元素（同首焦点查询口径），Tab 陷阱按它首尾成环。 */
+const FOCUSABLE_SELECTOR =
+  "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+
 function closeTopDialog() {
   openDialogs[openDialogs.length - 1]?.close();
 }
@@ -106,9 +110,7 @@ export function Dialog({
     if (!open) return;
     const restoreTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = requestAnimationFrame(() => {
-      const el = dialogRef.current?.querySelector<HTMLElement>(
-        "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"
-      );
+      const el = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
       el?.focus();
     });
     return () => {
@@ -148,6 +150,30 @@ export function Dialog({
           if (e.key === "Escape") {
             e.stopPropagation();
             closeTopDialog();
+            return;
+          }
+          // BD-128：aria-modal 承诺了「弹窗外是惰性的」，但浏览器不会自动这么做——
+          // 实测 Tab 到最后一个控件后焦点直接跑到弹窗后的窗口控制按钮上。这里按首尾成环。
+          if (e.key === "Tab") {
+            const root = dialogRef.current;
+            if (!root) return;
+            const items = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+            if (items.length === 0) {
+              e.preventDefault();
+              return;
+            }
+            const first = items[0];
+            const last = items[items.length - 1];
+            const active = document.activeElement;
+            if (e.shiftKey) {
+              if (active === first || !root.contains(active)) {
+                e.preventDefault();
+                last.focus();
+              }
+            } else if (active === last || !root.contains(active)) {
+              e.preventDefault();
+              first.focus();
+            }
           }
         }}
       >
