@@ -173,13 +173,14 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
           {editingType && (
             <div className="cards-field">
               <label className="cards-field-label">稳定 key</label>
-              <input className="cards-input" value={editingType.name} disabled />
+              <input className="cards-input" aria-label="稳定 key" value={editingType.name} disabled />
             </div>
           )}
           <div className="cards-field">
             <label className="cards-field-label">正向名称<span className="cards-required">*</span></label>
             <input
               className="cards-input"
+              aria-label="正向名称"
               value={forwardName}
               onChange={(event) => setForwardName(event.target.value)}
               placeholder="如：师徒"
@@ -189,6 +190,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
             <label className="cards-field-label">反向名称<span className="cards-required">*</span></label>
             <input
               className="cards-input"
+              aria-label="反向名称"
               value={reverseName}
               onChange={(event) => setReverseName(event.target.value)}
               placeholder="如：师父"

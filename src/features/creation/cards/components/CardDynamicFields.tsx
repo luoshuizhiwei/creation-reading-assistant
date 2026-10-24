@@ -45,6 +45,7 @@ export function FieldEditor({
           {label}
           <textarea
             className="cards-input cards-textarea"
+            aria-label={schema.label}
             value={typeof value === "string" ? value : ""}
             onChange={(event) => onChange(event.target.value)}
           />
@@ -57,6 +58,7 @@ export function FieldEditor({
           <input
             className="cards-input"
             type="number"
+            aria-label={schema.label}
             value={typeof value === "number" ? value : value === "" ? "" : String(value ?? "")}
             onChange={(event) =>
               onChange(event.target.value === "" ? undefined : Number(event.target.value))
@@ -71,6 +73,7 @@ export function FieldEditor({
           <input
             className="cards-input"
             type="date"
+            aria-label={schema.label}
             value={typeof value === "string" ? value : ""}
             onChange={(event) => onChange(event.target.value)}
           />
@@ -82,6 +85,7 @@ export function FieldEditor({
           {label}
           <input
             type="checkbox"
+            aria-label={schema.label}
             checked={value === true}
             onChange={(event) => onChange(event.target.checked)}
           />
@@ -93,6 +97,7 @@ export function FieldEditor({
           {label}
           <Select
             className="cards-input"
+            aria-label={schema.label}
             value={typeof value === "string" ? value : ""}
             onChange={(event) => onChange(event.target.value)}
           >
@@ -115,6 +120,7 @@ export function FieldEditor({
                 <label key={option} className="cards-checkbox">
                   <input
                     type="checkbox"
+                    aria-label={`${schema.label}：${option}`}
                     checked={checked}
                     onChange={(event) => {
                       const next = new Set(current);
@@ -136,6 +142,7 @@ export function FieldEditor({
           {label}
           <Select
             className="cards-input"
+            aria-label={schema.label}
             value={typeof value === "string" ? value : ""}
             onChange={(event) => onChange(event.target.value || undefined)}
           >
@@ -153,6 +160,7 @@ export function FieldEditor({
           <input
             className="cards-input"
             type="text"
+            aria-label={schema.label}
             value={typeof value === "string" ? value : ""}
             placeholder="https://"
             onChange={(event) => onChange(event.target.value)}
@@ -175,6 +183,7 @@ export function FieldEditor({
           <input
             className="cards-input"
             type="text"
+            aria-label={schema.label}
             value={typeof value === "string" ? value : ""}
             onChange={(event) => onChange(event.target.value)}
           />

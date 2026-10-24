@@ -238,4 +238,10 @@ describe("RelationTypeEditor 自定义关系类型", () => {
     await waitFor(() => expect(screen.getByText(/请填写正向名称和反向名称/)).toBeDefined());
     expect(actions.runStructure).not.toHaveBeenCalled();
   });
+
+  it("BD-139：正反名称输入框以可见标签作可访问名", () => {
+    render(<RelationTypeEditor projectId="p1" cardTypes={cardTypes} onClose={() => {}} />);
+    expect(screen.getByRole("textbox", { name: "正向名称" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "反向名称" })).toBeTruthy();
+  });
 });

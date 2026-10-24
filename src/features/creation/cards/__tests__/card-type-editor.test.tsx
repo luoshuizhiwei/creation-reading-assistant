@@ -319,4 +319,15 @@ describe("CardTypeEditor 自定义卡片类型", () => {
     expect(actions.loadCardTypes).toHaveBeenCalledWith("p1");
     expect(actions.loadCards).toHaveBeenCalledWith({ projectId: "p1" });
   });
+
+  it("BD-139：可见标签与控件关联（类型名称 / 字段三项）", () => {
+    const { container } = render(<CardTypeEditor projectId="p1" onClose={() => {}} />);
+    expect(screen.getByRole("textbox", { name: "类型名称" })).toBeTruthy();
+
+    addFieldAndConfigure(container, 0, { label: "字段甲", key: "k1", kind: "text" });
+    expect(screen.getByRole("textbox", { name: "字段 1 名称" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "字段 1 稳定 key" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "字段 1 类型" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "字段 1 默认值" })).toBeTruthy();
+  });
 });

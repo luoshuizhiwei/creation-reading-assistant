@@ -47,6 +47,7 @@ export function CardEditorForm({
           <label className="cards-field-label">类型</label>
           <Select
             className="cards-input"
+            aria-label="类型"
             value={draft.kind}
             disabled={draft.id !== "new"}
             onChange={(event) => onChangeDraft({ ...draft, kind: event.target.value, fields: {} })}
@@ -60,6 +61,7 @@ export function CardEditorForm({
           <label className="cards-field-label">名称<span className="cards-required">*</span></label>
           <input
             className="cards-input"
+            aria-label="名称"
             value={draft.title}
             onChange={(event) => onChangeDraft({ ...draft, title: event.target.value })}
             placeholder="卡片主名称"
@@ -69,6 +71,7 @@ export function CardEditorForm({
           <label className="cards-field-label">别名</label>
           <input
             className="cards-input"
+            aria-label="别名"
             value={draft.aliases.join("，")}
             onChange={(event) => onChangeDraft({ ...draft, aliases: parseList(event.target.value) })}
             placeholder="用逗号分隔多个别名"
@@ -86,6 +89,7 @@ export function CardEditorForm({
           <label className="cards-field-label">标签</label>
           <input
             className="cards-input"
+            aria-label="标签"
             value={draft.tags.join("，")}
             onChange={(event) => onChangeDraft({ ...draft, tags: parseList(event.target.value) })}
             placeholder="用逗号分隔，如：主角，战斗"

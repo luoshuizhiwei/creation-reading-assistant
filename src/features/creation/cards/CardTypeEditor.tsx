@@ -299,13 +299,14 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
           {editingType && (
             <div className="cards-field">
               <label className="cards-field-label">稳定 kind</label>
-              <input className="cards-input" value={editingType.kind} disabled />
+              <input className="cards-input" aria-label="稳定 kind" value={editingType.kind} disabled />
             </div>
           )}
           <div className="cards-field">
             <label className="cards-field-label">类型名称<span className="cards-required">*</span></label>
             <input
               className="cards-input"
+              aria-label="类型名称"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="例如：功法、神兵"
@@ -348,15 +349,15 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
                 <div className="cte-field-grid">
                   <div className="cards-field">
                     <label className="cards-field-label">名称<span className="cards-required">*</span></label>
-                    <input className="cards-input" value={field.label} onChange={(e) => updateField(index, { label: e.target.value })} placeholder="字段显示名" />
+                    <input className="cards-input" aria-label={`字段 ${index + 1} 名称`} value={field.label} onChange={(e) => updateField(index, { label: e.target.value })} placeholder="字段显示名" />
                   </div>
                   <div className="cards-field">
                     <label className="cards-field-label">稳定 key<span className="cards-required">*</span></label>
-                    <input className="cards-input" value={field.key} disabled={field.existing} onChange={(e) => updateField(index, { key: e.target.value })} placeholder="如 magic_name" />
+                    <input className="cards-input" aria-label={`字段 ${index + 1} 稳定 key`} value={field.key} disabled={field.existing} onChange={(e) => updateField(index, { key: e.target.value })} placeholder="如 magic_name" />
                   </div>
                   <div className="cards-field">
                     <label className="cards-field-label">类型</label>
-                    <Select className="cards-input" value={field.kind} onChange={(e) => updateField(index, { kind: e.target.value as CardFieldKind })}>
+                    <Select className="cards-input" aria-label={`字段 ${index + 1} 类型`} value={field.kind} onChange={(e) => updateField(index, { kind: e.target.value as CardFieldKind })}>
                       {FIELD_KINDS.map((kind) => (
                         <option key={kind.value} value={kind.value}>{kind.label}</option>
                       ))}
@@ -368,6 +369,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
                     <label className="cards-field-label">选项（每行或逗号分隔）</label>
                     <textarea
                       className="cards-input cards-textarea"
+                      aria-label={`字段 ${index + 1} 选项`}
                       value={field.optionsText}
                       onChange={(e) => updateField(index, { optionsText: e.target.value })}
                       placeholder={"选项 A\n选项 B"}
@@ -378,11 +380,11 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
                   <div className="cards-field">
                     <label className="cards-field-label">默认值（可选）</label>
                     {field.kind === "number" ? (
-                      <input className="cards-input" type="number" value={field.defaultText} onChange={(e) => updateField(index, { defaultText: e.target.value })} placeholder="留空表示无默认" />
+                      <input className="cards-input" type="number" aria-label={`字段 ${index + 1} 默认值`} value={field.defaultText} onChange={(e) => updateField(index, { defaultText: e.target.value })} placeholder="留空表示无默认" />
                     ) : field.kind === "date" ? (
-                      <input className="cards-input" type="date" value={field.defaultText} onChange={(e) => updateField(index, { defaultText: e.target.value })} />
+                      <input className="cards-input" type="date" aria-label={`字段 ${index + 1} 默认值`} value={field.defaultText} onChange={(e) => updateField(index, { defaultText: e.target.value })} />
                     ) : (
-                      <input className="cards-input" value={field.defaultText} onChange={(e) => updateField(index, { defaultText: e.target.value })} placeholder="留空表示无默认" />
+                      <input className="cards-input" aria-label={`字段 ${index + 1} 默认值`} value={field.defaultText} onChange={(e) => updateField(index, { defaultText: e.target.value })} placeholder="留空表示无默认" />
                     )}
                   </div>
                 )}
@@ -391,6 +393,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
                     <label className="cards-field-label">默认值</label>
                     <Select
                       className="cards-input"
+                      aria-label={`字段 ${index + 1} 默认值`}
                       value={field.defaultBool ? "true" : "false"}
                       onChange={(e) => updateField(index, { defaultBool: e.target.value === "true" })}
                     >
