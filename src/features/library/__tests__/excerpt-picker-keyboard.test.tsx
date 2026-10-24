@@ -85,4 +85,15 @@ describe("BD-131 摘录弹层键盘契约", () => {
     fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
     expect(document.activeElement).toBe(save);
   });
+
+  // BD-143：切到「项目资料卡」后出现的项目下拉框没有任何可访问名，
+  // 读屏器只能念「组合框」，不知道它在选什么。
+  it("项目下拉框有可访问名", async () => {
+    render(<Harness onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "摘录" }));
+    await screen.findByRole("dialog");
+    fireEvent.click(screen.getByRole("radio", { name: /项目资料卡/ }));
+
+    expect(screen.getByRole("combobox", { name: "摘录到哪个项目" })).toBeTruthy();
+  });
 });

@@ -132,6 +132,7 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
                    目视一致），即本改动只把嵌套控件推回选项内容带，不牵动任何兄弟。 */
                 <select
                   className="paper-input h-8 ml-8"
+                  aria-label="摘录到哪个项目"
                   value={projectId}
                   onChange={(event) => setProjectId(event.target.value)}
                   disabled={projects.length === 0}

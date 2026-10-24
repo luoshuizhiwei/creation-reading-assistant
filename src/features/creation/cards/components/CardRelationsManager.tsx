@@ -141,6 +141,7 @@ export function CardRelationsManager({
           )}
           <input
             className="cards-input"
+            aria-label="关系说明"
             value={relationNote}
             onChange={(event) => setRelationNote(event.target.value)}
             placeholder="关系说明（可选）"

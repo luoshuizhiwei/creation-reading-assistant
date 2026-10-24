@@ -219,6 +219,14 @@ describe("建立关系时目标过滤与语义", () => {
     expect(screen.getByRole("combobox", { name: "关系类型" })).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "目标卡片" })).toBeTruthy();
   });
+
+  // BD-143：关系说明输入框只有 placeholder，读屏器拿不到名字。
+  it("关系说明输入框有可访问名", async () => {
+    vi.mocked(creationService.runStructure).mockResolvedValue(true);
+    render(<CardsPage project={p1} />);
+    fireEvent.click(await screen.findByText("建立关系"));
+    expect(screen.getByRole("textbox", { name: "关系说明" })).toBeTruthy();
+  });
 });
 
 describe("已有关系的删除", () => {
