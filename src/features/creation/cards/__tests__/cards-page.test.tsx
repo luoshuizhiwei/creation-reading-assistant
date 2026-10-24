@@ -295,3 +295,38 @@ describe("CardsPage 跨项目竞态与状态清空", () => {
     expect(useCreationStore.getState().cards).toEqual([bCard]);
   });
 });
+
+describe("CardsPage 看板视图键盘可达（BD-135）", () => {
+  it("看板卡片可聚焦，Enter 与空格都能选中", async () => {
+    vi.mocked(creationService.cardsList).mockResolvedValue([aCard]);
+    vi.mocked(creationService.cardTypesList).mockResolvedValue([aType]);
+    vi.mocked(creationService.relationTypesList).mockResolvedValue([]);
+    useCreationStore.setState({
+      selectedId: "p1",
+      cardProjectId: "p1",
+      cards: [aCard],
+      selectedCardId: undefined
+    });
+
+    const view = render(<CardsPage project={p1} />);
+    const card = await waitFor(() => {
+      const el = view.container.querySelector<HTMLElement>(".cards-board-card");
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+
+    expect(card.getAttribute("role")).toBe("button");
+    expect(card.getAttribute("tabindex")).toBe("0");
+    expect(card.getAttribute("aria-pressed")).toBe("false");
+    expect(card.getAttribute("aria-label")).toContain("卡片 A");
+
+    card.focus();
+    expect(document.activeElement).toBe(card);
+    fireEvent.keyDown(card, { key: "Enter" });
+    await waitFor(() => expect(useCreationStore.getState().selectedCardId).toBe("card-a"));
+    expect(card.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.keyDown(card, { key: " " });
+    expect(useCreationStore.getState().selectedCardId).toBe("card-a");
+  });
+});

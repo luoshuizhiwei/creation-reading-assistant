@@ -48,8 +48,17 @@ export function BoardView({
                   key={card.id}
                   className={`cards-board-card ${card.id === selectedCardId ? "active" : ""}`}
                   draggable
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={card.id === selectedCardId}
+                  aria-label={`选择卡片：${card.title}`}
                   onDragStart={() => setDraggingId(card.id)}
                   onClick={() => onSelectCard(card.id)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    onSelectCard(card.id);
+                  }}
                   title="拖到其他列可改变卡片类型"
                 >
                   <strong>{card.title}</strong>
