@@ -634,6 +634,7 @@ export function WritingDeskMargin({
               <textarea
                 ref={annotationTextareaRef}
                 className="paper-input min-h-[64px] resize-y text-xs"
+                aria-label="批注内容"
                 placeholder="批注内容（引用锚点记录真实选区文本）…"
                 value={annotationDraft}
                 onChange={(event) => setAnnotationDraft(event.target.value)}

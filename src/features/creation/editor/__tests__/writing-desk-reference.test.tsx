@@ -477,6 +477,14 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
     expect(screen.getByText("旧批注")).toBeDefined();
   });
 
+  it("BD-140：批注输入框有可访问名", async () => {
+    resetStores({ cards: [], sceneViews: { "scene-a": viewOf("scene-a", "正文") } });
+    mountDesk();
+
+    const textarea = await screen.findByRole("textbox", { name: "批注内容" });
+    expect(textarea.tagName).toBe("TEXTAREA");
+  });
+
   function invalidAnnotation(overrides: Partial<Annotation> = {}): Annotation {
     return {
       id: "a1",

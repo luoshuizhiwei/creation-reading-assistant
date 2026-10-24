@@ -211,6 +211,14 @@ describe("建立关系时目标过滤与语义", () => {
     const targetSelect = container.querySelectorAll(".cards-relation-form select")[1] as HTMLSelectElement;
     expect(targetSelect.disabled).toBe(true);
   });
+
+  it("BD-140：关系类型与目标卡片下拉有可访问名", async () => {
+    vi.mocked(creationService.runStructure).mockResolvedValue(true);
+    render(<CardsPage project={p1} />);
+    fireEvent.click(await screen.findByText("建立关系"));
+    expect(screen.getByRole("combobox", { name: "关系类型" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "目标卡片" })).toBeTruthy();
+  });
 });
 
 describe("已有关系的删除", () => {

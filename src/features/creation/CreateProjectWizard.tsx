@@ -294,6 +294,7 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
                   <input
                     ref={workflowInputRef}
                     className="paper-input h-8"
+                    aria-label="添加自定义阶段"
                     value={workflowInput}
                     maxLength={20}
                     placeholder="添加自定义阶段，回车确认"

@@ -97,6 +97,7 @@ export function CardRelationsManager({
         <div className="cards-relation-form">
           <Select
             className="cards-input"
+            aria-label="关系类型"
             value={relationTypeId}
             onChange={(event) => {
               setRelationTypeId(event.target.value);
@@ -123,6 +124,7 @@ export function CardRelationsManager({
           )}
           <Select
             className="cards-input"
+            aria-label="目标卡片"
             value={relationTargetId}
             disabled={!fromKindAllowed}
             onChange={(event) => setRelationTargetId(event.target.value)}

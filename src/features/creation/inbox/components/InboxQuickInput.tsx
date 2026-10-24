@@ -73,6 +73,7 @@ export function InboxQuickInput({
           <input
             type="text"
             className="paper-input h-8 w-full pr-14 text-xs placeholder:text-paper-muted"
+            aria-label="灵感速记"
             value={quickTitle}
             onChange={(e) => setQuickTitle(e.target.value)}
             onKeyDown={handleKeyDown}

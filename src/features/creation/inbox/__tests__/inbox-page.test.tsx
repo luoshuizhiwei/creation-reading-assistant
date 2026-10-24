@@ -512,4 +512,9 @@ describe("InboxPage 状态分组筛选", () => {
     fireEvent.click(screen.getByRole("button", { name: /归档/ }));
     expect(screen.getByText(/当前筛选下没有条目/)).toBeDefined();
   });
+
+  it("BD-140：速记输入框有可访问名", async () => {
+    render(<InboxPage />);
+    expect(await screen.findByRole("textbox", { name: "灵感速记" })).toBeTruthy();
+  });
 });

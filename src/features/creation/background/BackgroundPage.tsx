@@ -83,6 +83,7 @@ export function BackgroundPage({ projectId }: BackgroundPageProps) {
             className="cards-input cards-search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
+            aria-label="搜索背景卡"
             placeholder="搜索背景卡…"
           />
         </div>

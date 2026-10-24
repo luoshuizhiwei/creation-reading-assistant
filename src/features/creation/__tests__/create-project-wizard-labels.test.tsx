@@ -1,0 +1,37 @@
+// @vitest-environment jsdom
+/**
+ * BD-140：新建作品向导里「添加自定义阶段」输入框的可访问名。
+ *
+ * 该输入框与步骤 1/2 的其它字段不同：外部没有包裹 <label>，只有 placeholder
+ * （「添加自定义阶段，回车确认」），输入后 placeholder 消失即失去全部提示。
+ */
+import React from "react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
+
+vi.mock("@/hooks/useCreationActions", () => ({
+  useCreationActions: () => ({ createProject: vi.fn(async () => undefined) })
+}));
+
+beforeAll(() => {
+  if (typeof requestAnimationFrame !== "function") {
+    (globalThis as unknown as { requestAnimationFrame: (cb: FrameRequestCallback) => number }).requestAnimationFrame =
+      (cb) => setTimeout(() => cb(0), 0) as unknown as number;
+    (globalThis as unknown as { cancelAnimationFrame: (id: number) => void }).cancelAnimationFrame = (id) =>
+      clearTimeout(id as unknown as ReturnType<typeof setTimeout>);
+  }
+});
+
+describe("CreateProjectWizard 可访问名", () => {
+  it("步骤 2 的自定义阶段输入框有可访问名", async () => {
+    render(<CreateProjectWizard open onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
+    fireEvent.change(screen.getByLabelText(/标题/), { target: { value: "测试项目" } });
+    fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
+
+    const input = await screen.findByRole("textbox", { name: "添加自定义阶段" });
+    expect(input.getAttribute("placeholder")).toContain("添加自定义阶段");
+  });
+});

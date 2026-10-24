@@ -174,4 +174,10 @@ describe("BackgroundPage 跨项目隔离", () => {
     expect(useCreationStore.getState().cards).toEqual([p2Loc]);
     expect(screen.queryByText("黄沙镇")).toBeNull();
   });
+
+  it("BD-140：背景卡搜索框有可访问名", async () => {
+    vi.mocked(creationService.cardsList).mockResolvedValue([p1Loc]);
+    render(<BackgroundPage projectId="p1" />);
+    expect(await screen.findByRole("textbox", { name: "搜索背景卡" })).toBeTruthy();
+  });
 });
