@@ -85,7 +85,12 @@ export function ToastCenter() {
   const dismissToast = useUIStore((state) => state.dismissToast);
 
   return (
-    <div className="pointer-events-none absolute right-5 top-5 z-[70] grid w-[min(380px,calc(100vw-40px))] gap-2">
+    <div
+      className="pointer-events-none absolute right-5 top-5 z-[70] grid w-[min(380px,calc(100vw-40px))] gap-2"
+      role="status"
+      aria-live="polite"
+      aria-label="通知"
+    >
       {toasts.map((toast) => {
         const Icon = toastIcon[toast.tone];
         // 批次 AM：这里原本挂 shadow-paper。jsdom 加载真实产物读 computed 值实测：
@@ -93,7 +98,12 @@ export function ToastCenter() {
         // `box-shadow: var(--shadow-4) !important` 一直压着这条工具类（批次 N 那族层叠死），
         // 它从未画出一个像素，只在全仓阴影台账里挂着一笔真债。投影交给家族令牌。
         return (
-          <article key={toast.id} className={`motion-toast pointer-events-auto rounded-[var(--radius-3)] border p-3 ${toastClass[toast.tone]}`}>
+          <article
+            key={toast.id}
+            className={`motion-toast pointer-events-auto rounded-[var(--radius-3)] border p-3 ${toastClass[toast.tone]}`}
+            role={toast.tone === "error" ? "alert" : undefined}
+            aria-atomic="true"
+          >
             <div className="flex items-start gap-3">
               <Icon className="mt-0.5 shrink-0" size={17} />
               <div className="min-w-0 flex-1">
