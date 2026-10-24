@@ -27,9 +27,18 @@ export function CardReferencePicker({ cards, onSelect, onClose }: CardReferenceP
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     inputRef.current?.focus();
+    const target = restoreFocusRef.current;
+    return () => {
+      if (target && document.contains(target) && typeof target.focus === "function") {
+        target.focus({ preventScroll: true });
+      }
+    };
   }, []);
 
   const filtered = useMemo(() => cards.filter((card) => matchesCard(card, query)), [cards, query]);
@@ -44,11 +53,6 @@ export function CardReferencePicker({ cards, onSelect, onClose }: CardReferenceP
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onClose();
-      return;
-    }
     if (filtered.length === 0) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -63,6 +67,15 @@ export function CardReferencePicker({ cards, onSelect, onClose }: CardReferenceP
     }
   };
 
+  // 焦点可能停在输入框、关闭钮或某张卡片上，Esc 要在整个面板范围内生效。
+  const handleRootKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+    }
+  };
+
   useEffect(() => {
     const activeElement = listRef.current?.querySelector<HTMLElement>(".card-reference-item.active");
     if (activeElement && typeof activeElement.scrollIntoView === "function") {
@@ -71,7 +84,7 @@ export function CardReferencePicker({ cards, onSelect, onClose }: CardReferenceP
   }, [activeIndex]);
 
   return (
-    <div className="card-reference-picker" role="dialog" aria-label="引用卡片搜索" aria-modal="false">
+    <div className="card-reference-picker" role="dialog" aria-label="引用卡片搜索" aria-modal="false" onKeyDown={handleRootKeyDown}>
       <div className="card-reference-head">
         <Search size={14} />
         <input
