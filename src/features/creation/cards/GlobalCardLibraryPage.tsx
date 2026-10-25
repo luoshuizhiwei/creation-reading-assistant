@@ -291,9 +291,15 @@ export function GlobalCardLibraryPage() {
         <main className="cards-detail-pane">{detail}</main>
       </div>
     </section>
+    {/* BD-189：「正在统计…」横幅随忙碌对话框一起挂载（用户点删除后才发起异步统计），
+        带内容的 role="status" 挂载瞬间不会被播报。播报改由这条页面级常驻区承载——
+        它跨 busy 与结果两个对话框都活着，busy 起落都会刷新它的文本。 */}
+    <span className="sr-only" role="status">
+      {deleteImpactBusy ? "正在统计关联项目和引用影响…" : ""}
+    </span>
     {deleteImpactBusy && (
       <Dialog open title="删除全局卡片" ariaLabel="删除全局卡片" onClose={() => setDeleteImpactBusy(false)}>
-        <p role="status">正在统计关联项目和引用影响…</p>
+        <p>正在统计关联项目和引用影响…</p>
       </Dialog>
     )}
     {deleteImpact && selectedCard && (

@@ -150,7 +150,24 @@ export function CardImportDialog({ projectId, onClose, onImported }: CardImportD
         </>
       }
     >
-      {phase === "choose" && <p className="migration-note" role="status">正在读取文件…</p>}
+      {/* BD-189：导入全程待在同一个对话框里，相位文本却随内容挂载——首帧的
+          「正在读取文件…」自带 role="status" 不会被播报，读取完成、计划就绪、
+          导入完成这些结果更是无声。播报改由这条常驻区按相位换文本；
+          校验错误已有 role="alert"（assertive 可条件挂载），此处不重复。 */}
+      <span className="sr-only" role="status">
+        {phase === "choose"
+          ? "正在读取文件…"
+          : phase === "mapping"
+            ? "文件读取完成，请设置列映射。"
+            : phase === "plan"
+              ? summary && summary.errorCount === 0
+                ? `计划生成完成：${summary.cardCount} 张卡片、${summary.relationCount} 条关系，校验通过。`
+                : ""
+              : phase === "done" && appliedInfo
+                ? `已导入 ${appliedInfo.cards} 张卡片、${appliedInfo.relations} 条关系。`
+                : ""}
+      </span>
+      {phase === "choose" && <p className="migration-note">正在读取文件…</p>}
 
           {phase === "mapping" && preview && mapping && schema && (
             <MappingEditor

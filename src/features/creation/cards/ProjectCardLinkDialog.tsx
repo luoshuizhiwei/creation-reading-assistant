@@ -55,7 +55,12 @@ export function ProjectCardLinkDialog({ projectId, linkedCardIds, cardTypes, onC
           {cardTypes.map((type) => <option key={type.id} value={type.kind}>{type.name}</option>)}
         </Select>
       </div>
-      {loading ? <p className="project-card-link-empty" role="status">正在读取全局卡片…</p>
+      {/* BD-189：首帧的「正在读取…」随对话框一起挂载，带内容的 role="status" 不会被
+          播报；检索触发的忙/空结果同理。播报交给这条常驻区，可见横幅只作视觉提示。 */}
+      <span className="sr-only" role="status">
+        {loading ? "正在读取全局卡片…" : cards.length === 0 ? "没有符合条件的全局卡片。" : ""}
+      </span>
+      {loading ? <p className="project-card-link-empty">正在读取全局卡片…</p>
         : cards.length === 0 ? <p className="project-card-link-empty">没有符合条件的全局卡片。</p>
           : <ul className="project-card-link-list">{cards.map((card) => {
             const isLinked = linked(card);
