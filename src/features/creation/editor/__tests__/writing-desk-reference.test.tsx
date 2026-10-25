@@ -343,7 +343,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
     const dialog = await screen.findByRole("dialog", { name: "引用卡片搜索" });
     expect(dialog).toBeDefined();
     // BD-138：搜索框的可访问名不再依赖 placeholder。
-    expect(screen.getByRole("textbox", { name: "搜索卡片（标题或别名）" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "搜索卡片（标题或别名）" })).toBeTruthy();
     expect(dialog.textContent).toContain("苏青");
     expect(dialog.textContent).toContain("顾淮");
   });

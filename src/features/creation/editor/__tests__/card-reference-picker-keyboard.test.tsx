@@ -20,6 +20,8 @@ const card: CardSummary = {
   revision: 1
 };
 
+const secondCard: CardSummary = { ...card, id: "card-b", title: "顾淮" };
+
 function Harness() {
   const [open, setOpen] = useState(false);
   return (
@@ -28,7 +30,7 @@ function Harness() {
         打开引用
       </button>
       {open && (
-        <CardReferencePicker cards={[card]} onSelect={() => {}} onClose={() => setOpen(false)} />
+        <CardReferencePicker cards={[card, secondCard]} onSelect={() => {}} onClose={() => setOpen(false)} />
       )}
     </div>
   );
@@ -45,7 +47,7 @@ describe("卡片引用选择器 · 键盘", () => {
     trigger.focus();
     fireEvent.click(trigger);
 
-    const row = screen.getByRole("button", { name: /林晚/ });
+    const row = screen.getByRole("option", { name: /林晚/ });
     row.focus();
     fireEvent.keyDown(row, { key: "Escape" });
 
@@ -53,11 +55,29 @@ describe("卡片引用选择器 · 键盘", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  // BD-162：输入框没有组合框角色，方向键只在视觉上换高亮，
+  // 读屏器不知道当前候选是哪一张，而 Enter 会直接引用它。
+  it("候选卡片以 option 暴露，方向键同步 aria-activedescendant", () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "打开引用" }));
+
+    const input = screen.getByRole("combobox", { name: "搜索卡片（标题或别名）" });
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(2);
+    expect(options[0]!.getAttribute("aria-selected")).toBe("true");
+    expect(input.getAttribute("aria-activedescendant")).toBe(options[0]!.id);
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(options[0]!.getAttribute("aria-selected")).toBe("false");
+    expect(options[1]!.getAttribute("aria-selected")).toBe("true");
+    expect(input.getAttribute("aria-activedescendant")).toBe(options[1]!.id);
+  });
+
   it("输入法组合输入中的 Esc 不当作关闭", () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "打开引用" }));
 
-    const input = screen.getByRole("textbox", { name: "搜索卡片（标题或别名）" });
+    const input = screen.getByRole("combobox", { name: "搜索卡片（标题或别名）" });
     fireEvent.keyDown(input, { key: "Escape", keyCode: 229 });
 
     expect(screen.getByRole("dialog")).toBeTruthy();

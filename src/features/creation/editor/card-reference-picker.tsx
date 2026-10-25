@@ -42,6 +42,9 @@ export function CardReferencePicker({ cards, onSelect, onClose }: CardReferenceP
   }, []);
 
   const filtered = useMemo(() => cards.filter((card) => matchesCard(card, query)), [cards, query]);
+  const listId = "card-reference-list";
+  const optionId = (id: string) => `card-reference-option-${id}`;
+  const activeCard = filtered[Math.max(0, activeIndex)];
 
   useEffect(() => {
     setActiveIndex(0);
@@ -92,6 +95,11 @@ export function CardReferencePicker({ cards, onSelect, onClose }: CardReferenceP
           className="card-reference-input"
           aria-label="搜索卡片（标题或别名）"
           placeholder="搜索卡片（标题或别名）…"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={activeCard ? optionId(activeCard.id) : undefined}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={handleKeyDown}
@@ -100,14 +108,17 @@ export function CardReferencePicker({ cards, onSelect, onClose }: CardReferenceP
           <X size={14} />
         </button>
       </div>
-      <div className="card-reference-list" ref={listRef}>
+      <div className="card-reference-list" ref={listRef} id={listId} role="listbox" aria-label="可引用卡片">
         {filtered.length === 0 ? (
           <p className="card-reference-empty">没有匹配当前项目的卡片。可先到「卡片」页创建。</p>
         ) : (
           filtered.map((card, index) => (
             <button
               key={card.id}
+              id={optionId(card.id)}
               type="button"
+              role="option"
+              aria-selected={index === activeIndex}
               className={`card-reference-item ${index === activeIndex ? "active" : ""}`}
               onClick={() => commit(card)}
             >
