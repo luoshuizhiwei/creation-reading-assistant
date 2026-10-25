@@ -98,6 +98,7 @@ export function InboxQuickInput({
             <button
               key={t}
               type="button"
+              aria-pressed={selectedType === t}
               className={`rounded-full px-2 py-0.5 text-[11px] transition ${
                 selectedType === t
                   ? "bg-copper text-[color:var(--fg-on-solid)] font-medium"

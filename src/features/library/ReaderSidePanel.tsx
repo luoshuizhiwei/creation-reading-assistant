@@ -97,18 +97,21 @@ export function ReaderSidePanel({
     <ShellPanel className="flex min-h-0 flex-col overflow-hidden border-y-0 border-r-0 bg-paper-soft/45 p-4 shadow-none">
       <div className="mb-3 flex items-center gap-1 border-b border-paper-line pb-2">
         <button
+          aria-pressed={sidePanelTab === "toc"}
           className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${sidePanelTab === "toc" ? "bg-copper/10 text-copper" : "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"}`}
           onClick={() => onTabChange("toc")}
         >
           <List size={13} className="mr-1 inline" />目录
         </button>
         <button
+          aria-pressed={sidePanelTab === "highlights"}
           className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${sidePanelTab === "highlights" ? "bg-copper/10 text-copper" : "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"}`}
           onClick={() => onTabChange("highlights")}
         >
           <Highlighter size={13} className="mr-1 inline" />高亮{highlights.length > 0 ? ` (${highlights.length})` : ""}
         </button>
         <button
+          aria-pressed={sidePanelTab === "bookmarks"}
           className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${sidePanelTab === "bookmarks" ? "bg-copper/10 text-copper" : "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"}`}
           onClick={() => onTabChange("bookmarks")}
         >
@@ -182,6 +185,7 @@ export function ReaderSidePanel({
                     {HIGHLIGHT_COLORS.map((c) => (
                       <button
                         key={c.value}
+                        aria-pressed={hl.color === c.value}
                         className={`h-4 w-4 rounded-full border transition ${hl.color === c.value ? "border-paper-ink ring-1 ring-paper-ink/30" : "border-transparent opacity-60 hover:opacity-100"}`}
                         style={{ background: c.hex }}
                         title={c.label}

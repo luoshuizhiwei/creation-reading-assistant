@@ -842,6 +842,7 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
                       重命名
                     </Button>
                     <button
+                      aria-pressed={splitIndex === i}
                       className={`rounded px-1.5 py-0.5 ${splitIndex === i ? "bg-copper text-[color:var(--fg-on-solid)]" : "text-paper-muted hover:bg-paper-soft hover:text-paper-ink"}`}
                       onClick={() => setSplitIndex((cur) => (cur === i ? null : i))}
                     >
