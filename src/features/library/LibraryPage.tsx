@@ -34,6 +34,7 @@ export function LibraryPage() {
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+  const sortTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!showSortDropdown) return;
@@ -154,8 +155,23 @@ export function LibraryPage() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {/* Sort dropdown */}
-                <div className="relative" ref={sortDropdownRef}>
+                <div
+                  className="relative"
+                  ref={sortDropdownRef}
+                  // BD-182：排序下拉只有外面点一下才关。键盘用户按 Esc 毫无反应，
+                  // 只能 Tab 一圈再回来（BD-176 的浮层出口漏网点）。Esc 关菜单并把
+                  // 焦点交还触发钮——菜单项被卸载，否则焦点会掉回 body。
+                  onKeyDown={(event) => {
+                    if (!showSortDropdown || event.key !== "Escape") return;
+                    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setShowSortDropdown(false);
+                    sortTriggerRef.current?.focus();
+                  }}
+                >
                   <button
+                    ref={sortTriggerRef}
                     className={`inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition hover:border-copper ${
                       showSortDropdown ? "border-copper bg-copper/5" : "border-paper-line bg-paper-panel"
                     }`}
