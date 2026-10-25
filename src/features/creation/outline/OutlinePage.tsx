@@ -304,6 +304,12 @@ export function OutlinePage({ project }: OutlinePageProps) {
       <span className="sr-only" role="status">
         {lastProtectedApply ? "大纲安全重组已应用，并已创建保护快照。" : ""}
       </span>
+      {/* BD-192：页面级同族——「正在读取大纲…」挂在 {!outline && ...} 的条件分支上，
+          每次重新读取都是新节点连内容一起插入＝哑（BD-175/180/187 判据）。播报交给
+          常驻区，可见 p 退回纯视觉。 */}
+      <span className="sr-only" role="status">
+        {!outline ? "正在读取大纲…" : ""}
+      </span>
       {lastProtectedApply && (
         <div className="outline-revert-bar">
           <span>大纲安全重组已应用，并已创建保护快照。</span>
@@ -348,7 +354,7 @@ export function OutlinePage({ project }: OutlinePageProps) {
               />
             )
           ) : (
-            <p className="outline-loading" role="status">正在读取大纲…</p>
+            <p className="outline-loading">正在读取大纲…</p>
           )}
         </div>
         <aside className="outline-page-side" aria-label="场景任务卡">

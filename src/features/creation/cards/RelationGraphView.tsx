@@ -83,40 +83,36 @@ export function RelationGraphView({
   const centerX = layout.minX + layout.width / 2;
   const centerY = layout.minY + layout.height / 2;
 
-  if (loading && !graph) {
-    return (
-      <div className="relation-graph" data-testid="relation-graph">
-        <p className="relation-graph-state" role="status">
-          正在读取关系图…
-        </p>
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="relation-graph" data-testid="relation-graph">
-        <p className="relation-graph-state relation-graph-state--error" role="alert">
-          {error}
-        </p>
-        {onRetry && (
-          <Button variant="outline" onClick={onRetry}>
-            重试
-          </Button>
-        )}
-      </div>
-    );
-  }
-  if (!graph || !filtered) {
-    return (
-      <div className="relation-graph" data-testid="relation-graph">
-        <p className="relation-graph-state">暂无关系图数据。</p>
-      </div>
-    );
-  }
-
+  // BD-192：此前四个状态各回各的根、loading/error/empty 的横幅各挂各的 role——
+  // 「正在读取关系图…」是连内容一起插入的节点，polite 播报是哑的（BD-175/180/187
+  // 判据），重试也听不到。收敛成单根 + 常驻播报区：忙态换文本才播得出来；
+  // 可见状态块退回纯视觉（错误仍走 role="alert"——插入即播合法，BD-189）。
+  const busy = loading && !graph;
   return (
     <div className="relation-graph" data-testid="relation-graph">
-      <div className="relation-graph-toolbar">
+      <span className="sr-only" role="status">
+        {busy ? "正在读取关系图…" : ""}
+      </span>
+      {busy ? (
+        <p className="relation-graph-state">
+          正在读取关系图…
+        </p>
+      ) : error ? (
+        <>
+          <p className="relation-graph-state relation-graph-state--error" role="alert">
+            {error}
+          </p>
+          {onRetry && (
+            <Button variant="outline" onClick={onRetry}>
+              重试
+            </Button>
+          )}
+        </>
+      ) : !graph || !filtered ? (
+        <p className="relation-graph-state">暂无关系图数据。</p>
+      ) : (
+        <>
+          <div className="relation-graph-toolbar">
         <span className="relation-graph-search">
           <Search size={13} />
           <input
@@ -281,6 +277,8 @@ export function RelationGraphView({
           )}
         </aside>
       </div>
+        </>
+      )}
     </div>
   );
 }

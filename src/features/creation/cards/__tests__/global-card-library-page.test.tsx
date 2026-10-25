@@ -167,14 +167,16 @@ describe("GlobalCardLibraryPage", () => {
   });
 
   // BD-154：影响统计完成前，对话框里只有一行字，读屏器不播报「正在统计」。
+  // BD-192 后页面上另有侧栏忙态区一条 role=status，取页面级那条（在 aside 之外）。
   it("影响统计中的提示以 status 暴露", async () => {
     loadTrashImpact.mockImplementation(() => new Promise<never>(() => {}));
     render(<GlobalCardLibraryPage />);
 
     fireEvent.click(screen.getByRole("button", { name: "删除全局卡片" }));
 
-    const status = await screen.findByRole("status");
-    expect(status.textContent).toContain("正在统计关联项目和引用影响");
+    const statuses = await screen.findAllByRole("status");
+    const page = statuses.find((el) => !el.closest("aside.cards-list-pane"));
+    expect(page?.textContent).toContain("正在统计关联项目和引用影响");
   });
 
   it("从全局回收站恢复卡片时不要求 projectId", async () => {    loadTrash.mockResolvedValue([{

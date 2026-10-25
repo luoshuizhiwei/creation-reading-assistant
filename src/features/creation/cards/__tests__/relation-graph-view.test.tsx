@@ -199,6 +199,48 @@ describe("RelationGraphView（Stage 4-F）", () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
+  // BD-192：单根收敛后，忙态播报必须靠常驻区换文本——条件挂载的 p 连内容一起
+  // 插入是哑的，重试再忙也听不到。可见状态块退回纯视觉，错误仍走 alert。
+  it("加载→失败→重试：常驻区同一节点换文本，可见忙态块不带 status", () => {
+    const onRetry = vi.fn();
+    const { rerender } = render(
+      <RelationGraphView graph={null} loading error={null} onRetry={onRetry} onSelectCard={vi.fn()} />
+    );
+    const region = document.querySelector('div.relation-graph > span.sr-only[role="status"]');
+    expect(region?.textContent).toBe("正在读取关系图…");
+    const visible = document.querySelector("p.relation-graph-state");
+    expect(visible?.textContent).toBe("正在读取关系图…");
+    expect(visible?.getAttribute("role"), "回退：可见忙态块又自带 status，插入即哑").toBeNull();
+
+    rerender(
+      <RelationGraphView graph={null} loading={false} error="关系图读取失败。" onRetry={onRetry} onSelectCard={vi.fn()} />
+    );
+    expect(document.querySelector('div.relation-graph > span.sr-only[role="status"]'), "回退：区域随状态切换被卸载").toBe(region);
+    expect(region?.textContent).toBe("");
+    expect(screen.getByRole("alert").textContent).toContain("关系图读取失败。");
+
+    fireEvent.click(screen.getByRole("button", { name: "重试" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    rerender(
+      <RelationGraphView graph={null} loading error={null} onRetry={onRetry} onSelectCard={vi.fn()} />
+    );
+    expect(document.querySelector('div.relation-graph > span.sr-only[role="status"]')).toBe(region);
+    expect(region?.textContent).toBe("正在读取关系图…");
+  });
+
+  // BD-192：图落定后常驻区清空，但节点必须仍在——下次重载的忙态要有落点。
+  it("图落定后常驻区仍常驻（为空但在场），为下一次忙态保留播报点", () => {
+    const { rerender } = render(
+      <RelationGraphView graph={null} loading error={null} onSelectCard={vi.fn()} />
+    );
+    const region = document.querySelector('div.relation-graph > span.sr-only[role="status"]');
+    expect(region?.textContent).toBe("正在读取关系图…");
+
+    rerender(<RelationGraphView graph={graph()} loading={false} onSelectCard={vi.fn()} />);
+    expect(document.querySelector('div.relation-graph > span.sr-only[role="status"]')).toBe(region);
+    expect(region?.textContent).toBe("");
+  });
+
   it("空图不报错而是给出说明", () => {
     renderGraph({ nodes: [], edges: [], kindFacets: [], relationFacets: [] });
     expect(screen.getByTestId("relation-graph-canvas")).toBeTruthy();

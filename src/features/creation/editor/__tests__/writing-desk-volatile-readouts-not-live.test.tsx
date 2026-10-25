@@ -290,3 +290,38 @@ describe("BD-191 恢复提示由常驻区播报", () => {
     expect(notice.getAttribute("role"), "回退：可见块又挂回 status").toBeNull();
   });
 });
+
+/**
+ * BD-192：侧栏「正在读取大纲…」此前挂在 {!outline ? … : <p role="status">} 的
+ * 条件分支上——切项目/重载时该 p 连内容一起新插入＝哑。播报交给常驻区换文本。
+ */
+describe("BD-192 侧栏读卡忙态由常驻区换文本播报", () => {
+  it("大纲未落定前常驻区已带忙态，落定后同一节点清空、可见 p 退回纯视觉", async () => {
+    useCreationStore.setState({ outlines: {} });
+    let container!: HTMLElement;
+    await act(async () => {
+      ({ container } = render(
+        <WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />
+      ));
+    });
+    const aside = container.querySelector("aside.writing-outline") as HTMLElement;
+    expect(aside).toBeTruthy();
+
+    const busy = Array.from(aside.querySelectorAll('span.sr-only[role="status"]')).find(
+      (el) => el.textContent === "正在读取大纲…"
+    );
+    expect(busy, "回退：忙态又回到条件挂载的 p 上，侧栏常驻区没有接手").toBeTruthy();
+
+    const visible = aside.querySelector("p.outline-loading") as HTMLElement;
+    expect(visible, "可见读数仍要在界面上").toBeTruthy();
+    expect(visible.getAttribute("role"), "回退：可见 p 又自带 status，插入即哑").toBeNull();
+
+    act(() => {
+      useCreationStore.setState({ outlines: { p1: outline } });
+    });
+    const after = Array.from(aside.querySelectorAll('span.sr-only[role="status"]'));
+    expect(after, "回退：区域随忙态结束被卸载").toContain(busy);
+    expect(busy.textContent).toBe("");
+    expect(aside.querySelector("p.outline-loading")).toBeNull();
+  });
+});

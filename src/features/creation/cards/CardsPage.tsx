@@ -583,6 +583,14 @@ export function CardsPage({ project }: CardsPageProps) {
         )}
       </header>
 
+      {/* BD-192：看板视图的「正在读取卡片…」此前挂在条件分支的 <p role="status"> 上
+          ——每次翻进看板或重载卡片，那条 p 都是连内容一起插入的新节点，polite 播报
+          是哑的（BD-175/180/187 判据）。看板流的播报交给这条常驻区；可见 p 退回纯
+          视觉。列表视图的读卡在 CardListSidebar 自己的常驻区里，两条流互斥不重声。 */}
+      <span className="sr-only" role="status">
+        {mode === "cards" && view === "board" && cardsLoading ? "正在读取卡片…" : ""}
+      </span>
+
       {mode === "background" ? (
         <BackgroundPage projectId={project.id} />
       ) : view === "graph" ? (
@@ -595,7 +603,7 @@ export function CardsPage({ project }: CardsPageProps) {
           onRetry={() => void loadGraph()}
         />
       ) : cardsLoading && view === "board" ? (
-        <p className="cards-empty" role="status">正在读取卡片…</p>
+        <p className="cards-empty">正在读取卡片…</p>
       ) : view === "board" ? (
         <div className="cards-board-layout">
           <div className="cards-board-pane">

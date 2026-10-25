@@ -34,6 +34,12 @@ export function CardListSidebar({
 }: CardListSidebarProps) {
   return (
     <aside className="cards-list-pane">
+      {/* BD-192：列表侧栏的「正在读取卡片…」此前也是条件挂载的 <p role="status">
+          ——重载时连内容一起插入＝哑（BD-175/180/187 判据）。aside 本身常驻，播报
+          交给这条常驻区换文本；可见 p 退回纯视觉。 */}
+      <span className="sr-only" role="status">
+        {cardsLoading ? "正在读取卡片…" : ""}
+      </span>
       {showControls && (
         <div className="cards-sidebar-controls" style={{ display: "grid", gap: 6, marginBottom: 6 }}>
           {onSearchChange && (
@@ -69,7 +75,7 @@ export function CardListSidebar({
         </div>
       )}
       {cardsLoading ? (
-        <p className="cards-empty" role="status">正在读取卡片…</p>
+        <p className="cards-empty">正在读取卡片…</p>
       ) : cards.length === 0 ? (
         <p className="cards-empty">还没有卡片。点右上角「新建卡片」创建第一张。</p>
       ) : (

@@ -131,6 +131,13 @@ export function WritingDeskOutlineSidebar({
       <span className="sr-only" role="status">
         {lastProtectedApply ? "安全重组已应用，并已创建保护快照。" : ""}
       </span>
+      {/* BD-192：「正在读取大纲…」此前挂在 {outline ? … : <p role="status">} 的
+          条件分支上——切项目时该 p 是新插入的节点，插入即带内容＝哑（BD-175/180/187
+          判据），侧栏明明常驻却从来没播过一次。播报交给这条常驻区换文本；
+          可见 p 退回纯视觉。 */}
+      <span className="sr-only" role="status">
+        {!outline ? "正在读取大纲…" : ""}
+      </span>
       {lastProtectedApply && (
         <div className="writing-outline-revert">
           <span>安全重组已应用，并已创建保护快照。</span>
@@ -187,7 +194,7 @@ export function WritingDeskOutlineSidebar({
             />
           )
         ) : (
-          <p className="outline-loading" role="status">
+          <p className="outline-loading">
             正在读取大纲…
           </p>
         )}

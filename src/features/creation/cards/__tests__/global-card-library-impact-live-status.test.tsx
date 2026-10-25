@@ -81,7 +81,11 @@ const impact = {
 };
 
 function region(): HTMLElement {
-  return document.querySelector('span.sr-only[role="status"]') as HTMLElement;
+  // BD-192 后本页常驻两条 sr-only 播报区：列表侧栏的忙态区 + 本页级影响统计区。
+  // 页面级区在 aside 之外（与 section 平级的 fragment 子节点）。
+  return Array.from(document.querySelectorAll('span.sr-only[role="status"]')).find(
+    (el) => !el.closest("aside.cards-list-pane")
+  ) as HTMLElement;
 }
 
 beforeEach(() => {

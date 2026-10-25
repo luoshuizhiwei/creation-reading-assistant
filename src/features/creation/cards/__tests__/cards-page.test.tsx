@@ -381,3 +381,45 @@ describe("CardsPage 改卡片类型有键盘路径（BD-164）", () => {
     expect(command.kind).toBe("location");
   });
 });
+
+/**
+ * BD-192：看板流的「正在读取卡片…」此前挂在条件分支的 <p role="status"> 上——
+ * 每次翻进看板或重载，那条 p 都是连内容一起插入的新节点，polite 播报是哑的
+ * （BD-175/180/187 判据）。播报交给根上常驻区换文本，可见 p 退回纯视觉。
+ */
+describe("CardsPage 看板读卡忙态常驻播报（BD-192）", () => {
+  it("读卡落定前常驻区已带忙态，落定后同一节点清空、可见 p 不带 status", async () => {
+    let resolveList: (v: unknown) => void = () => {};
+    vi.mocked(creationService.cardsList).mockReturnValue(
+      new Promise((r) => {
+        resolveList = r;
+      }) as never
+    );
+    vi.mocked(creationService.cardTypesList).mockResolvedValue([]);
+    vi.mocked(creationService.relationTypesList).mockResolvedValue([]);
+
+    const view = render(<CardsPage project={p1} />);
+    await waitFor(() => expect(useCreationStore.getState().cardsLoading).toBe(true));
+
+    const regions = view.container.querySelectorAll('section.cards-page > span.sr-only[role="status"]');
+    expect(regions.length, "看板流只有根上这一条常驻播报区").toBe(1);
+    const region = regions[0];
+    expect(region.textContent, "回退：忙态没落进常驻区，播报是哑的").toBe("正在读取卡片…");
+
+    const visible = view.container.querySelector("p.cards-empty") as HTMLElement;
+    expect(visible, "可见读数仍要在界面上").toBeTruthy();
+    expect(visible.textContent).toBe("正在读取卡片…");
+    expect(visible.getAttribute("role"), "回退：可见 p 又自带 status").toBeNull();
+
+    await act(async () => {
+      resolveList([aCard]);
+    });
+    await waitFor(() => expect(useCreationStore.getState().cardsLoading).toBe(false));
+
+    expect(
+      view.container.querySelector('section.cards-page > span.sr-only[role="status"]'),
+      "回退：区域随忙态结束被卸载"
+    ).toBe(region);
+    expect(region.textContent).toBe("");
+  });
+});

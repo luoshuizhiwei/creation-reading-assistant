@@ -203,8 +203,11 @@ describe("SearchPanel 统一搜索界面", () => {
     await act(async () => {
       vi.advanceTimersByTime(400);
     });
-    const loading = screen.getByText("正在搜索…");
-    expect(loading.getAttribute("role")).toBe("status");
+    // BD-192：忙态并入 BD-141 的常驻 polite 区域（换文本才可播）；可见块退回纯视觉。
+    const region = document.querySelector("div.uni-search-results > p.sr-only[role='status']");
+    expect(region?.textContent).toBe("正在搜索…");
+    const visible = screen.getByText("正在搜索…", { selector: "p.uni-search-state" });
+    expect(visible.getAttribute("role")).toBeNull();
   });
 
   // BD-144：筛选范围只靠 .active 类表达，读屏器不知道当前选中哪一项。
@@ -262,6 +265,40 @@ describe("SearchPanel 统一搜索界面", () => {
       vi.advanceTimersByTime(400);
     });
     expect(screen.queryByText(/找到 \d+ 条结果/)).toBeNull();
+  });
+
+  // BD-192：忙态和结果必须由同一条常驻区换文本来播报——「插入即带内容」的
+  // role=status 是哑的（BD-175/180 判据），旧代码里「正在搜索…」从未播出来过。
+  it("忙态与结果落在同一个常驻节点上（换文本而非换节点）", async () => {
+    let resolveSearch: (v: unknown) => void = () => {};
+    vi.mocked(creationService.search).mockReturnValue(
+      new Promise((r) => {
+        resolveSearch = r;
+      }) as never
+    );
+    vi.mocked(creationService.inboxList).mockResolvedValue([]);
+    vi.mocked(searchService.globalSearch).mockResolvedValue([]);
+    vi.mocked(inspirationService.listInspirations).mockResolvedValue([]);
+    render(<SearchPanel />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "词" } });
+    await act(async () => {
+      vi.advanceTimersByTime(400);
+    });
+
+    const region = document.querySelector("div.uni-search-results > p.sr-only[role='status']");
+    expect(region?.textContent).toBe("正在搜索…");
+
+    await act(async () => {
+      resolveSearch({
+        query: "词",
+        total: 2,
+        hits: [creationHit({ id: "sc1" }), creationHit({ id: "sc2", title: "场景B" })],
+      });
+    });
+    await act(async () => {});
+    const after = document.querySelector("div.uni-search-results > p.sr-only[role='status']");
+    expect(after).toBe(region);
+    expect(after?.textContent).toBe("「词」找到 2 条结果。");
   });
 });
 

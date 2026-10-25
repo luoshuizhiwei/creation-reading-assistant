@@ -116,9 +116,13 @@ export function SearchPanel() {
   /** BD-141：搜索结果从未被播报——读屏器只在「正在搜索…」后陷入静默，用户不知道
    * 搜到了几条、是不是 0 条。这里用常驻 polite 区域只播报「关键词 + 条数」，
    * 结果列表本身不放进 live region，避免每敲一个字就重读全部结果。
-   * 加载中与错误态分别由既有 role=status / role=alert 负责，这里留空不抢话。 */
-  const resultAnnouncement =
-    !loading && !error && keyword.trim()
+   * BD-192：原注释说「加载中由既有 role=status 负责」——可那条 p 是 `{loading && ...}`
+   * 条件挂载的，「插入即带内容」的 polite 播报是哑的（BD-175/180/187 判据），
+   * 忙态从未播出来过。忙态并入这条常驻区换文本；可见块退回纯视觉。
+   * 错误仍由 role=alert 的可见块负责（alert 插入即播合法，BD-189）。 */
+  const resultAnnouncement = loading
+    ? "正在搜索…"
+    : !error && keyword.trim()
       ? `「${keyword.trim()}」找到 ${flatResults.length} 条结果。`
       : "";
 
@@ -280,7 +284,7 @@ export function SearchPanel() {
             {resultAnnouncement}
           </p>
           {loading && (
-            <p className="uni-search-state" role="status">
+            <p className="uni-search-state">
               正在搜索…
             </p>
           )}

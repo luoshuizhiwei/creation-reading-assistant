@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { OutlinePage } from "../OutlinePage";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
@@ -178,5 +178,56 @@ describe("OutlinePage 树与卡板同源闭环", () => {
     const bar = document.querySelector(".outline-revert-bar") as HTMLElement;
     expect(bar, "可见横幅（含撤回按钮）仍要在界面上").toBeTruthy();
     expect(bar.getAttribute("role"), "回退：横幅又整体挂回 role=status——落定即插入，播不出来").toBeNull();
+  });
+});
+
+/**
+ * BD-192：页面级「正在读取大纲…」此前挂在 {!outline && <p role="status">} 上——
+ * 每次重载都是连内容一起插入的新节点，polite 播报是哑的（BD-175/180/187 判据）。
+ * 播报交给常驻区换文本，可见 p 退回纯视觉。
+ */
+describe("OutlinePage 读大纲忙态常驻播报（BD-192）", () => {
+  it("大纲落定前常驻区已带忙态，落定后同一节点清空、可见 p 不带 status", async () => {
+    let resolveLoad: ((o: unknown) => void) | null = null;
+    (useCreationActions as unknown as vi.Mock).mockReturnValue({
+      runStructure: vi.fn().mockResolvedValue(true),
+      loadOutline: vi.fn().mockImplementation(async (id: string) => {
+        const o = await new Promise((r) => {
+          resolveLoad = r;
+        });
+        useCreationStore.setState((s) => ({ outlines: { ...s.outlines, [id]: o } }));
+        return o;
+      }),
+      loadCards: vi.fn().mockResolvedValue(undefined),
+      previewStructure: vi.fn(),
+      applyStructureWithProtection: vi.fn(),
+      revertStructure: vi.fn(),
+      loadScene: vi.fn().mockResolvedValue(undefined),
+      exportDraft: vi.fn()
+    });
+    useUIStore.setState({ toasts: [], showToast: vi.fn() });
+    useCreationStore.setState({ outlines: {}, selectedSceneId: "", cards: [] });
+    render(<OutlinePage project={project} />);
+
+    const busy = Array.from(document.querySelectorAll('span.sr-only[role="status"]')).find(
+      (el) => el.textContent === "正在读取大纲…"
+    );
+    expect(busy, "回退：忙态又回到条件挂载的 p 上，常驻区没有接手").toBeTruthy();
+
+    const visible = document.querySelector("p.outline-loading") as HTMLElement;
+    expect(visible, "可见读数仍要在界面上").toBeTruthy();
+    expect(visible.getAttribute("role"), "回退：可见 p 又自带 status，插入即哑").toBeNull();
+
+    await act(async () => {
+      resolveLoad?.(makeOutline());
+    });
+    await waitFor(() => expect(screen.getByText("卷一", { selector: ".outline-volume-title" })).toBeTruthy());
+
+    expect(
+      Array.from(document.querySelectorAll('span.sr-only[role="status"]')),
+      "回退：区域随忙态结束被卸载"
+    ).toContain(busy);
+    expect(busy!.textContent).toBe("");
+    expect(document.querySelector("p.outline-loading")).toBeNull();
   });
 });
