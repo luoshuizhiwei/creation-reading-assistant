@@ -66,6 +66,7 @@ export function ReaderTopNav({
           variant="quiet"
           aria-label="全文搜索"
           title="全文搜索 (Ctrl+F)"
+          aria-expanded={isSearchOpen}
           onClick={onToggleSearch}
           className={`h-8 w-8 p-0 ${isSearchOpen ? "text-copper bg-paper-soft/80" : ""}`}
         >
@@ -76,6 +77,7 @@ export function ReaderTopNav({
           variant="quiet"
           aria-label={isTocOpen ? "收起目录" : "展开目录"}
           title={isTocOpen ? "收起目录" : "展开目录"}
+          aria-expanded={isTocOpen}
           onClick={onToggleToc}
           className={`h-8 w-8 p-0 ${isTocOpen ? "text-copper bg-paper-soft/80" : ""}`}
         >

@@ -45,6 +45,28 @@ describe("ReaderTopNav", () => {
     fireEvent.click(screen.getByRole("button", { name: "阅读设置" }));
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
   });
+
+  // BD-158：「全文搜索」的名字不随开合变化，状态此前只靠图标底色；目录钮靠名字翻转，
+  // 但两者都没有 aria-expanded，读屏器拿不到标准的开合状态。
+  it("搜索与目录开关用 aria-expanded 暴露开合状态", () => {
+    const props = {
+      title: "测试作品",
+      progressPercent: 42,
+      onBack: vi.fn(),
+      onToggleSearch: vi.fn(),
+      onToggleToc: vi.fn(),
+      onOpenSettings: vi.fn()
+    };
+    const { rerender } = render(
+      <ReaderTopNav {...props} isTocOpen={false} isSearchOpen={false} />
+    );
+    expect(screen.getByRole("button", { name: "全文搜索" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: "展开目录" }).getAttribute("aria-expanded")).toBe("false");
+
+    rerender(<ReaderTopNav {...props} isTocOpen isSearchOpen />);
+    expect(screen.getByRole("button", { name: "全文搜索" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: "收起目录" }).getAttribute("aria-expanded")).toBe("true");
+  });
 });
 
 describe("ReaderBottomBar", () => {
