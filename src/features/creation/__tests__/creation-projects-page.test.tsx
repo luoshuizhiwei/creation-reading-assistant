@@ -442,3 +442,40 @@ describe("CreationProjectsPage 项目导航 seam 消费", () => {
     expect(useCreationStore.getState().projectNavigationRequests["p2"]).toBeUndefined();
   });
 });
+
+// BD-191：迁移横幅此前整块（连 role="status"）在异步检测落定后才挂载——插入即带内容
+// 的 polite 区是哑的，且横幅里有按钮本不该当播报容器。播报交给页面级常驻区换文本。
+describe("CreationProjectsPage 迁移横幅播报区常驻（BD-191）", () => {
+  const MIGRATION_TEXT = "检测到旧数据（灵感/书库）尚未迁移，迁移后旧灵感会进入全局收件箱，书库保持只读继续使用。";
+
+  it("检测落定由挂载前就存在的常驻区播报，横幅本体不再自带 status", async () => {
+    service.migrationStatus.mockResolvedValue({ activated: false, canProceed: true });
+    const { container } = render(<CreationProjectsPage />);
+
+    // 区域在检测落定前就存在且为空（常驻），随后只换文本。
+    await waitFor(() => expect(screen.getByText("查看迁移")).toBeTruthy());
+    const region = container.querySelector('span.sr-only[role="status"]') as HTMLSpanElement;
+    expect(region.textContent).toBe(MIGRATION_TEXT);
+
+    const banner = container.querySelector(".migration-banner") as HTMLElement;
+    expect(banner, "可见横幅（含查看迁移/关闭按钮）仍要在界面上").toBeTruthy();
+    expect(banner.getAttribute("role"), "回退：横幅又整体挂回 role=status——落定即插入，播不出来").toBeNull();
+
+    // 关闭只清文本，播报区不随横幅卸载（合法的空区域形态）。
+    fireEvent.click(screen.getByRole("button", { name: "关闭迁移提示" }));
+    await waitFor(() => expect(container.querySelector(".migration-banner")).toBeNull());
+    expect(container.querySelector('span.sr-only[role="status"]'), "回退：区域跟着横幅卸载，下次检测落定又是插入即哑").toBe(region);
+    expect(region.textContent).toBe("");
+  });
+
+  it("无迁移可报时区域常驻为空，不得随消息挂载卸载", async () => {
+    service.migrationStatus.mockResolvedValue(null);
+    const { container } = render(<CreationProjectsPage />);
+    await waitFor(() => expect(service.migrationStatus).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const region = container.querySelector('span.sr-only[role="status"]') as HTMLSpanElement;
+    expect(region, "播报区不该是条件挂载的——没有消息时它也得在").toBeTruthy();
+    expect(region.textContent).toBe("");
+    expect(container.querySelector(".migration-banner")).toBeNull();
+  });
+});

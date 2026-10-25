@@ -227,12 +227,16 @@ export function AnimatedPanel({ children, className = "", delay = 0 }: { childre
   );
 }
 
-export function InlineNotice({ children, tone = "info", className = "" }: { children: ReactNode; tone?: ToastTone; className?: string }) {
+export function InlineNotice({ children, tone = "info", className = "", announce = true }: { children: ReactNode; tone?: ToastTone; className?: string; announce?: boolean }) {
   // BD-173：这族提示都是动作之后才出现的（迁移结果、更新检查、同步状态、AI 连通性），
   // 此前只是一个普通 div，读屏器完全不会播报。错误走 alert（插入即播），其余走 status。
+  // BD-191：但 polite 区必须**先于内容存在**才播得出来（BD-175/180/187 判据）——本组件
+  // 常年被 `{msg && ...}` 条件挂载，「插入即带内容」的 status 是哑的；且消息清空再重发时
+  // 节点重挂载，同样哑。播报职责上收：宿主常驻一条 sr-only status 区、只换文本，可见块
+  // 退回纯视觉（announce={false}）。错误仍走 alert——插入即播是 alert 的合法形态（BD-189）。
   return (
     <div
-      role={tone === "error" ? "alert" : "status"}
+      role={tone === "error" ? "alert" : announce ? "status" : undefined}
       className={`motion-notice rounded-md border p-3 text-sm leading-[var(--leading-14)] ${toastClass[tone]} ${className}`}
     >
       {children}

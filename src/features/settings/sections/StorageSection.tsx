@@ -322,8 +322,11 @@ export function StorageSection({
             选择书籍目录
           </Button>
         </div>
+        {/* BD-191：迁移进度/结果只在 `{storageMessage && ...}` 条件挂载的可见块里出现，
+            polite 播报随内容插入是哑的（BD-175/187 判据）。常驻区先于消息存在，只换文本。 */}
+        <span className="sr-only" role="status">{storageMessage}</span>
         {storageMessage && (
-          <InlineNotice tone="info" className="mt-3 break-all p-2 text-xs">
+          <InlineNotice tone="info" announce={false} className="mt-3 break-all p-2 text-xs">
             {storageMessage}
           </InlineNotice>
         )}
@@ -449,8 +452,10 @@ export function StorageSection({
               <div>监听端口：{syncStatus?.port ?? "未开启"}</div>
               <div>可用地址：{syncStatus?.addresses.join(" / ") || "未读取到局域网地址"}</div>
             </div>
+            {/* BD-191：同步开关/配对码的消息与 storageMessage 同族——首发随条件挂载插入即哑。 */}
+            <span className="sr-only" role="status">{syncMessage}</span>
             {syncMessage && (
-              <InlineNotice tone="info" className="mt-3 p-2 text-xs">
+              <InlineNotice tone="info" announce={false} className="mt-3 p-2 text-xs">
                 {syncMessage}
               </InlineNotice>
             )}

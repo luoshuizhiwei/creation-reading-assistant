@@ -519,8 +519,16 @@ export function CreationProjectsPage() {
           </section>
         ) : null}
 
+        {/* BD-191：迁移横幅是异步检测落定后才整块挂载的——status 随内容插入即哑
+            （BD-175/187 判据），且横幅里有按钮、本不该整体当 status 容器。播报
+            交给常驻区换文本，可见横幅退回纯视觉（关闭后区域清空，属合法形态）。 */}
+        <span className="sr-only" role="status">
+          {migrationNotice
+            ? "检测到旧数据（灵感/书库）尚未迁移，迁移后旧灵感会进入全局收件箱，书库保持只读继续使用。"
+            : ""}
+        </span>
         {migrationNotice && (
-          <section className="migration-banner" role="status">
+          <section className="migration-banner">
             <ArchiveRestore size={15} />
             <span>检测到旧数据（灵感/书库）尚未迁移，迁移后旧灵感会进入全局收件箱，书库保持只读继续使用。</span>
             <Button onClick={() => setMigrationOpen(true)}>查看迁移</Button>

@@ -99,8 +99,11 @@ export function DebugSection({ settings, resetSection, showToast, setError }: De
             导出调试信息
           </Button>
         </div>
+        {/* BD-191：maintenanceMessage 首发随条件挂载的可见块一起插入，polite 区是哑的
+            （BD-175/187 判据）；播报交给常驻区，可见块退回纯视觉。 */}
+        <span className="sr-only" role="status">{maintenanceMessage}</span>
         {maintenanceMessage && (
-          <InlineNotice tone="info" className="mt-3 break-all p-2 text-xs">
+          <InlineNotice tone="info" announce={false} className="mt-3 break-all p-2 text-xs">
             {maintenanceMessage}
           </InlineNotice>
         )}
@@ -117,8 +120,17 @@ export function DebugSection({ settings, resetSection, showToast, setError }: De
         }
       >
         <div data-setting-id="debug.update">
+          {/* BD-191：更新结果是 await 之后才第一次挂载的整块内容——此前连 status 区都
+              随内容一起插入，首发永远哑（BD-175/187 判据）。播报交给常驻区换文本。 */}
+          <span className="sr-only" role="status">
+            {updateInfo
+              ? updateInfo.hasUpdate
+                ? `发现 v${updateInfo.latestVersion}，当前版本 ${updateInfo.currentVersion}。${updateInfo.desktopAssetName ? `安装包：${updateInfo.desktopAssetName}` : "未找到独立安装包，将打开 Release 页面。"}`
+                : `当前版本 ${updateInfo.currentVersion} 已是最新。`
+              : ""}
+          </span>
           {updateInfo && (
-            <InlineNotice tone={updateInfo.hasUpdate ? "success" : "info"} className="mb-3 p-2 text-xs">
+            <InlineNotice tone={updateInfo.hasUpdate ? "success" : "info"} announce={false} className="mb-3 p-2 text-xs">
               {updateInfo.hasUpdate
                 ? `发现 v${updateInfo.latestVersion}，当前版本 ${updateInfo.currentVersion}。${updateInfo.desktopAssetName ? `安装包：${updateInfo.desktopAssetName}` : "未找到独立安装包，将打开 Release 页面。"}`
                 : `当前版本 ${updateInfo.currentVersion} 已是最新。`}

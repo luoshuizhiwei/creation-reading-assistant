@@ -299,8 +299,13 @@ export function OutlinePage({ project }: OutlinePageProps) {
           <Download size={14} /> {exportingOutline ? "导出中…" : "导出 Markdown 大纲"}
         </Button>
       </header>
+      {/* BD-191：与 BD-187 侧栏同源的页面版——「安全重组已应用」横幅在落定后才连
+          role=status 一起挂载，插入即哑。播报交给常驻区，可见横幅（含撤回按钮）退回纯视觉。 */}
+      <span className="sr-only" role="status">
+        {lastProtectedApply ? "大纲安全重组已应用，并已创建保护快照。" : ""}
+      </span>
       {lastProtectedApply && (
-        <div className="outline-revert-bar" role="status">
+        <div className="outline-revert-bar">
           <span>大纲安全重组已应用，并已创建保护快照。</span>
           <button type="button" aria-label="撤回本次重组" disabled={revertBusy} onClick={() => void revertLastProtectedApply()}>
             {revertBusy ? "撤回中…" : "撤回"}

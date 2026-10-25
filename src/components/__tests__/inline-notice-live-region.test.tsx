@@ -28,4 +28,16 @@ describe("InlineNotice 的 live region 语义（BD-173）", () => {
     render(<InlineNotice>默认提示</InlineNotice>);
     expect(screen.getByRole("status").textContent).toBe("默认提示");
   });
+
+  // BD-191：宿主自带常驻播报区时，可见块退回纯视觉（announce={false}）。
+  it("announce={false} 的可见块不再自带 polite 播报（播报归宿主常驻区）", () => {
+    render(<InlineNotice tone="info" announce={false}>正在保存...</InlineNotice>);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByText("正在保存...")).toBeTruthy();
+  });
+
+  it("announce={false} 也拦不住错误——alert 插入即播是合法形态（BD-189）", () => {
+    render(<InlineNotice tone="error" announce={false}>目录不可写</InlineNotice>);
+    expect(screen.getByRole("alert").textContent).toBe("目录不可写");
+  });
 });

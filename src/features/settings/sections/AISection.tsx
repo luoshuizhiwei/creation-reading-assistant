@@ -96,8 +96,15 @@ export function AISection({
               AI 助手已关闭。开启后可用「润色 / 扩写 / 平台风格化」等本地灵感打磨，但开启前请先配置 API Key。
             </div>
           )}
+          {/* BD-191：这条警示此前随开关联动条件挂载、status 随内容插入即哑。开/关或
+              清 Key 之后播报交给常驻区换文本；可见块退回纯视觉。 */}
+          <span className="sr-only" role="status">
+            {settings.ai.enabled && !settings.ai.hasApiKey
+              ? "已启用 AI 助手，但尚未配置 API Key。请先在下方保存 API Key 才能使用 AI 打磨；在此之前不会产生任何网络请求。"
+              : ""}
+          </span>
           {settings.ai.enabled && !settings.ai.hasApiKey && (
-            <InlineNotice tone="warning" className="p-2 text-xs">
+            <InlineNotice tone="warning" announce={false} className="p-2 text-xs">
               已启用 AI 助手，但尚未配置 API Key。请先在下方保存 API Key 才能使用 AI 打磨；在此之前不会产生任何网络请求。
             </InlineNotice>
           )}
@@ -161,8 +168,11 @@ export function AISection({
                 测试连接
               </Button>
             </div>
+            {/* BD-191：aiMessage 全程只在 `{aiMessage && ...}` 条件挂载的可见块里出现，
+                polite 播报随内容插入是哑的（BD-175/187 判据）。常驻区先于消息存在，只换文本。 */}
+            <span className="sr-only" role="status">{aiMessage}</span>
             {aiMessage && (
-              <InlineNotice tone="info" className="p-2 text-xs">
+              <InlineNotice tone="info" announce={false} className="p-2 text-xs">
                 {aiMessage}
               </InlineNotice>
             )}

@@ -157,4 +157,26 @@ describe("OutlinePage 树与卡板同源闭环", () => {
     fireEvent.click(button);
     await waitFor(() => expect(exportDraft).toHaveBeenCalledWith("p1", "outline-markdown"));
   });
+
+  // BD-191：撤回横幅此前整块（连 role="status"）在 apply 落定后才挂载——「插入即带
+  // 内容」的 polite 区是哑的。播报交给页面级常驻区，可见横幅退回纯视觉。
+  it("重组落定由挂载前就存在的常驻区播报，撤回横幅不再自带 status", async () => {
+    setup();
+    await waitFor(() => expect(screen.getByText("卷一", { selector: ".outline-volume-title" })).toBeTruthy());
+    const region = document.querySelector('span.sr-only[role="status"]') as HTMLSpanElement;
+    expect(region, "播报区必须在结果出现前就存在").toBeTruthy();
+    expect(region.textContent).toBe("");
+
+    fireEvent.change(screen.getAllByLabelText(/移动到卷/)[0], { target: { value: "v2" } });
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect((within(dialog).getByText("确认移动") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(within(dialog).getByText("确认移动"));
+    await screen.findByRole("button", { name: "撤回本次重组" });
+
+    expect(document.querySelector('span.sr-only[role="status"]'), "回退：区域随横幅重挂载").toBe(region);
+    expect(region.textContent).toBe("大纲安全重组已应用，并已创建保护快照。");
+    const bar = document.querySelector(".outline-revert-bar") as HTMLElement;
+    expect(bar, "可见横幅（含撤回按钮）仍要在界面上").toBeTruthy();
+    expect(bar.getAttribute("role"), "回退：横幅又整体挂回 role=status——落定即插入，播不出来").toBeNull();
+  });
 });

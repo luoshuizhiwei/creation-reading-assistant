@@ -261,3 +261,32 @@ describe("BD-188 高频读数不做 live region", () => {
     expect(persistent?.textContent).toBe("");
   });
 });
+
+/**
+ * BD-191：恢复提示此前随 abnormalExit 条件挂载、可见块自带 status——启动检测
+ * 异步落定时「插入即带内容」是哑的。播报交给挂载前就存在的常驻区换文本。
+ */
+describe("BD-191 恢复提示由常驻区播报", () => {
+  it("abnormalExit 落定前区域已常驻，落定后同一节点换文本、可见块不带 status", async () => {
+    let container!: HTMLElement;
+    await act(async () => {
+      ({ container } = render(
+        <WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />
+      ));
+    });
+    const before = Array.from(container.querySelectorAll('span.sr-only[role="status"]'));
+    expect(before.length, "侧栏区与恢复提示区都应常驻在位").toBeGreaterThanOrEqual(2);
+    expect(container.querySelector(".writing-recovery-notice")).toBeNull();
+
+    act(() => {
+      useCreationStore.setState({ abnormalExit: true, recoveryNoticeDismissed: false });
+    });
+
+    const carrier = before.find((el) => el.textContent?.includes("已恢复最后确认保存的正文"));
+    expect(carrier, "回退：恢复文案没落进挂载时就存在的区域，而是随横幅插入（插入即哑）").toBeTruthy();
+
+    const notice = container.querySelector(".writing-recovery-notice") as HTMLElement;
+    expect(notice, "可见提示块仍要在界面上").toBeTruthy();
+    expect(notice.getAttribute("role"), "回退：可见块又挂回 status").toBeNull();
+  });
+});

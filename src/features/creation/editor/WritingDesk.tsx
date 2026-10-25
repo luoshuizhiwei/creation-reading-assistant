@@ -310,8 +310,15 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
           onToggleQuickReference={toggleQuickReference}
         />
 
+        {/* BD-191：恢复提示的可见块此前自带 status（随 abnormalExit 条件挂载，插入即哑）；
+            播报交给常驻区——启动检测异步落定时区域换文本才播得出来（BD-175/187 判据）。 */}
+        <span className="sr-only" role="status">
+          {abnormalExit && !recoveryNoticeDismissed
+            ? "已恢复最后确认保存的正文；异常退出前不足一秒的未提交输入可能未保存。"
+            : ""}
+        </span>
         {abnormalExit && !recoveryNoticeDismissed && (
-          <InlineNotice tone="warning" className="writing-recovery-notice">
+          <InlineNotice tone="warning" announce={false} className="writing-recovery-notice">
             <span>已恢复最后确认保存的正文；异常退出前不足一秒的未提交输入可能未保存。</span>
             <button type="button" onClick={dismissRecoveryNotice} aria-label="关闭恢复说明"><X size={14} /></button>
           </InlineNotice>

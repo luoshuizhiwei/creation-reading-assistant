@@ -553,7 +553,7 @@ const cases = [
   ["批次 S 回归·反向①：带祖先前缀的覆盖是显式决定（模式压平），不是全局接管，不该变红", () => mutate("src/features/creation/history/history-local.css", ".history-modal {\n  width: min(520px, 100%);", ".desktop-root--focus .history-modal {\n  border-radius: 0;\n}\n\n.history-modal {\n  width: min(520px, 100%);"), null],
   ["批次 S 回归·反向②：给面板钩子加非几何属性（padding）不该变红——判据只管圆角与投影这两条能被组件挂上的轴", () => mutate("src/features/creation/history/history-local.css", ".history-modal {\n  width: min(520px, 100%);", ".history-modal {\n  padding-left: 0;\n  width: min(520px, 100%);"), null],
   ["批次 S 回归：钩子扫描退化——把面板钩子从字面量改成常量引用（完整类名不再出现在开标签上），自检必须红，否则下一批人会把接管当合法写法", () => {
-    mutate("src/features/creation/editor/WritingDesk.tsx", "<InlineNotice tone=\"warning\" className=\"writing-recovery-notice\">", "<InlineNotice tone=\"warning\" className={ZZ_NOTICE_PANEL}>");
+    mutate("src/features/creation/editor/WritingDesk.tsx", "<InlineNotice tone=\"warning\" announce={false} className=\"writing-recovery-notice\">", "<InlineNotice tone=\"warning\" announce={false} className={ZZ_NOTICE_PANEL}>");
     mutate("src/features/creation/editor/WritingDesk.tsx", "export function WritingDesk(", "const ZZ_NOTICE_PANEL = \"writing-recovery-notice\";\n\nexport function WritingDesk(");
   }, /钩子扫描退化/],
   // 第 8 步批次 V：全局搜索托盘那 5 条「特性页与主题样式表逐字同分支、值不同」的死声明已退役，
