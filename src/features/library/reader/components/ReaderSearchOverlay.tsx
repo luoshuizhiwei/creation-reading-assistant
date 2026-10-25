@@ -16,9 +16,21 @@ export function ReaderSearchOverlay({
   const [keyword, setKeyword] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  // BD-183：浮层打开时把焦点抢进输入框，关闭（Esc/关闭钮/Ctrl+F 再按一次）后节点
+  // 直接消失，焦点掉回 body——键盘用户要从文档开头重新 Tab（同 BD-176 ReplacePanel
+  // 的出口契约）。挂载时先记住是谁开的，卸载时还给它；开手已不在文档里就不抢焦点。
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    const opener = document.activeElement;
+    restoreFocusRef.current =
+      opener instanceof HTMLElement && opener !== document.body ? opener : null;
     inputRef.current?.focus();
+    return () => {
+      const target = restoreFocusRef.current;
+      restoreFocusRef.current = null;
+      if (target?.isConnected) target.focus({ preventScroll: true });
+    };
   }, []);
 
   const matches = useMemo(() => {
