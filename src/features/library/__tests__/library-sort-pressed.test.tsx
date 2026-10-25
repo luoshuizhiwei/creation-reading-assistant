@@ -59,6 +59,17 @@ describe("书库 · 排序菜单", () => {
     expect(within(reopened).getByRole("button", { name: "最近阅读" }).getAttribute("aria-pressed")).toBe("false");
   });
 
+  // BD-163：菜单开关只靠底色和有无节点表达，读屏器不知道下拉是开着还是关着。
+  it("排序菜单按钮用 aria-expanded 暴露开合", () => {
+    render(<LibraryPage />);
+    const trigger = screen.getByRole("button", { name: "最近阅读" });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "书名" }));
+    expect(screen.getByRole("button", { name: "书名" }).getAttribute("aria-expanded")).toBe("false");
+  });
+
   // BD-152：书库列表的进度条此前没有名字，读屏器不知道对应哪本书。
   it("进度条带书名的可访问名", () => {
     render(<LibraryPage />);

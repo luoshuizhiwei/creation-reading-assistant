@@ -151,6 +151,7 @@ export function LibraryPage() {
                     className={`inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition hover:border-copper ${
                       showSortDropdown ? "border-copper bg-copper/5" : "border-paper-line bg-paper-panel"
                     }`}
+                    aria-expanded={showSortDropdown}
                     onClick={() => setShowSortDropdown(!showSortDropdown)}
                   >
                     <Filter size={12} />

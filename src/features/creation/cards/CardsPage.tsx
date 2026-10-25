@@ -466,7 +466,7 @@ export function CardsPage({ project }: CardsPageProps) {
       <section className="cards-relations">
         <header className="cards-relations-head">
           <h4>里程碑</h4>
-          <button type="button" onClick={() => { setShowMilestone((value) => !value); setMilestoneReason(""); }}>
+          <button type="button" aria-expanded={showMilestone} onClick={() => { setShowMilestone((value) => !value); setMilestoneReason(""); }}>
             <Flag size={13} /> 创建命名里程碑
           </button>
         </header>

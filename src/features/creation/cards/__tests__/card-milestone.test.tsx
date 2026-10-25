@@ -149,4 +149,15 @@ describe("卡片命名里程碑", () => {
     );
     expect(creationService.runStructure).not.toHaveBeenCalled();
   });
+
+  // BD-163：按钮只是把表单插到下面，开合状态从未挂到 DOM，读屏器点完仍是「按钮」。
+  it("创建命名里程碑按钮用 aria-expanded 暴露表单开合", async () => {
+    render(<CardsPage project={p1} />);
+    const trigger = await screen.findByRole("button", { name: "创建命名里程碑" });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(screen.getByText("取消"));
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  });
 });

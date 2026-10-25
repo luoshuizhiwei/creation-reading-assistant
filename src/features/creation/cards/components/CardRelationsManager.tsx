@@ -89,7 +89,7 @@ export function CardRelationsManager({
     <section className="cards-relations">
       <header className="cards-relations-head">
         <h4>关系</h4>
-        <button type="button" onClick={() => setShowRelationForm((value) => !value)}>
+        <button type="button" aria-expanded={showRelationForm} onClick={() => setShowRelationForm((value) => !value)}>
           <Plus size={13} /> 建立关系
         </button>
       </header>

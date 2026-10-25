@@ -63,6 +63,7 @@ export function ReaderSelectionToolbar({
         <button
           className="rounded px-2 py-1 hover:bg-stone-700 text-[color:var(--highlight-marker)]"
           title="高亮"
+          aria-expanded={showColorPicker}
           onClick={(e) => {
             e.stopPropagation();
             setShowColorPicker((v) => !v);

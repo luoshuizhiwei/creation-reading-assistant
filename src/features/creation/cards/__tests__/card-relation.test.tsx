@@ -187,6 +187,18 @@ describe("建立关系时目标过滤与语义", () => {
     expect(optionTexts.some((text) => text.includes("卡片 A"))).toBe(false);
   });
 
+  // BD-163：建表按钮只把表单插到下面，开合状态从未挂到 DOM。
+  it("建立关系按钮用 aria-expanded 暴露表单开合", async () => {
+    vi.mocked(creationService.runStructure).mockResolvedValue(true);
+    render(<CardsPage project={p1} />);
+    const trigger = await screen.findByRole("button", { name: "建立关系" });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  });
+
   it("显示正向/反向语义，起点类型不匹配时给出警告", async () => {
     vi.mocked(creationService.runStructure).mockResolvedValue(true);
     const { container } = render(<CardsPage project={p1} />);
