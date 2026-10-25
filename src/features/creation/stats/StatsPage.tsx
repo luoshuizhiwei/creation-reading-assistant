@@ -221,8 +221,12 @@ export function StatsPage({ projectId }: StatsPageProps) {
     }
   };
 
+  // BD-193：`!stats` 只在挂载头几帧为真——加载页是「插入即带内容」的节点，
+  // role="status" 播不出来（BD-175/180 判据），属死装饰，摘除。真正欠的是
+  // 统计就绪/失败的到达播报：stats 的忙态住在组件内部，要上抬到工作台宿主
+  // 才有常驻落点，另案处理，不在本批混做。
   if (!stats) {
-    return <section className="creation-writing-loading" role="status"><Library size={24} /><span>正在读取统计…</span></section>;
+    return <section className="creation-writing-loading"><Library size={24} /><span>正在读取统计…</span></section>;
   }
 
   const maxDaily = Math.max(...stats.daily.map((item) => Math.abs(item.netChars)), 1);

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { PreviewPage } from "@/features/creation/preview/PreviewPage";
 import { useUIStore } from "@/stores/ui-store";
 import type { ProjectExportView } from "@/types/creation";
@@ -192,6 +192,40 @@ describe("PreviewPage 打印", () => {
     fireEvent.click(screen.getByRole("button", { name: /导出打印版 PDF/ }));
     await waitFor(() => expect(service.printProject).toHaveBeenCalled());
     expect(useUIStore.getState().toasts).toHaveLength(0);
+  });
+
+  // BD-193：四个状态各回各的根时，loading 横幅连 role=status 一起新插入＝哑；
+  // 失败→重试的第二次忙态照样听不到。收敛同根后播报靠常驻区换文本。
+  it("忙态→失败→重试→忙态：同一常驻节点换文本，可见加载块不带 status", async () => {
+    service.projectPreview.mockRejectedValueOnce(new Error("无法读取创作工作区数据。"));
+    render(<PreviewPage projectId="p1" />);
+
+    const region = document.querySelector('span.sr-only[role="status"]') as HTMLElement;
+    expect(region.textContent).toBe("正在读取全书预览…");
+    const visible = document.querySelector("section.creation-writing-loading") as HTMLElement;
+    expect(visible, "可见加载块仍要在界面上").toBeTruthy();
+    expect(visible.getAttribute("role"), "回退：可见加载块又自带 status，插入即哑").toBeNull();
+
+    await screen.findByRole("alert");
+    expect(region.textContent).toBe("");
+
+    let resolveSecond: ((v: unknown) => void) | null = null;
+    service.projectPreview.mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          resolveSecond = r;
+        })
+    );
+    fireEvent.click(screen.getByRole("button", { name: /重试/ }));
+    await waitFor(() => expect(document.querySelector("section.creation-writing-loading")).not.toBeNull());
+    expect(document.querySelector('span.sr-only[role="status"]'), "回退：区域随根切换被重挂载").toBe(region);
+    expect(region.textContent, "回退：重试的第二次忙态没有落进常驻区").toBe("正在读取全书预览…");
+
+    await act(async () => {
+      resolveSecond?.(makeView());
+    });
+    await screen.findByText("第1章 风起");
+    expect(region.textContent).toBe("");
   });
 
   it("主进程报告失败原因时给出错误提示", async () => {

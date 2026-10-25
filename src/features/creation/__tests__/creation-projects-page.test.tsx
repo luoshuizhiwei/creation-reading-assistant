@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { CreationProjectsPage } from "@/features/creation/CreationProjectsPage";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -477,5 +477,58 @@ describe("CreationProjectsPage 迁移横幅播报区常驻（BD-191）", () => {
     expect(region, "播报区不该是条件挂载的——没有消息时它也得在").toBeTruthy();
     expect(region.textContent).toBe("");
     expect(container.querySelector(".migration-banner")).toBeNull();
+  });
+});
+
+/**
+ * BD-193：「正在打开项目写作台…」两处加载根都是插入即带内容的 role="status"——
+ * 返回列表再进项目、首屏拉列表，每次都新插一条，polite 哑（BD-175/180/192 判据）。
+ * 页面根常驻不换，忙态改由根上第二条常驻区换文本报导，可见加载块退回纯视觉。
+ */
+describe("CreationProjectsPage 工作台加载根忙态常驻播报（BD-193）", () => {
+  const project = {
+    id: "p1",
+    title: "项目甲",
+    setup: { template: "blank", weeklyUpdateDays: [], chapterWorkflow: ["规划"] },
+    updatedAt: "",
+    revision: 1,
+    chapterCount: 1,
+    sceneCount: 1,
+    currentChars: 0
+  };
+  const navigation = {
+    projectId: "p1",
+    chapters: [{ id: "ch1", title: "第一章", sortOrder: 0, scenes: [{ id: "sc1", title: "场景A", revision: 1 }] }]
+  };
+
+  it("导航落定前忙态住在页面根常驻区，落定后同一节点清空、可见加载块不带 status", async () => {
+    let resolveNav: ((v: unknown) => void) | null = null;
+    service.readProjectNavigation.mockReturnValue(
+      new Promise((r) => {
+        resolveNav = r;
+      }) as never
+    );
+    useCreationStore.setState({ projects: [project], selectedId: "p1", navigations: {} });
+    const { container } = render(<CreationProjectsPage />);
+
+    await waitFor(() => expect(service.readProjectNavigation).toHaveBeenCalledWith("p1"));
+    const busy = Array.from(container.querySelectorAll('span.sr-only[role="status"]')).find(
+      (el) => el.textContent === "正在打开项目写作台…"
+    );
+    expect(busy, "回退：忙态没落进页面根常驻区，加载根又是插入即哑").toBeTruthy();
+
+    const visible = container.querySelector("section.creation-writing-loading") as HTMLElement;
+    expect(visible, "可见加载块仍要在界面上").toBeTruthy();
+    expect(visible.getAttribute("role"), "回退：可见加载块又自带 status").toBeNull();
+
+    await act(async () => {
+      resolveNav?.(navigation);
+    });
+    await waitFor(() => expect(screen.getByTestId("writing-desk-stub")).toBeTruthy());
+    expect(
+      Array.from(container.querySelectorAll('span.sr-only[role="status"]')),
+      "回退：区域随加载根换页被卸载"
+    ).toContain(busy);
+    expect(busy!.textContent).toBe("");
   });
 });

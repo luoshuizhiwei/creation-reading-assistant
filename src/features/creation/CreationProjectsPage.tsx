@@ -527,6 +527,13 @@ export function CreationProjectsPage() {
             ? "检测到旧数据（灵感/书库）尚未迁移，迁移后旧灵感会进入全局收件箱，书库保持只读继续使用。"
             : ""}
         </span>
+        {/* BD-193：「正在打开项目写作台…」两处都是按状态插入即带内容的 role="status"
+            加载根——返回列表再进项目、首屏拉项目列表，每次都新插一条，polite 哑
+            （BD-175/180/192 判据）。页面根常驻不换，播报交给这条区；可见加载块退回
+            纯视觉。两分支互斥（selected 与否），同文案共用一条区不会重声。 */}
+        <span className="sr-only" role="status">
+          {(selected && view === "writing" && !navigation) || (!selected && loading) ? "正在打开项目写作台…" : ""}
+        </span>
         {migrationNotice && (
           <section className="migration-banner">
             <ArchiveRestore size={15} />
@@ -599,7 +606,7 @@ export function CreationProjectsPage() {
                   />
                 </Suspense>
               ) : (
-                <section className="creation-writing-loading" role="status">
+                <section className="creation-writing-loading">
                   <BookMarked size={24} />
                   <span>正在打开项目写作台…</span>
                 </section>
@@ -607,7 +614,7 @@ export function CreationProjectsPage() {
             </div>
           </div>
         ) : loading ? (
-          <section className="creation-writing-loading" role="status">
+          <section className="creation-writing-loading">
             <BookMarked size={24} />
             <span>正在打开项目写作台…</span>
           </section>

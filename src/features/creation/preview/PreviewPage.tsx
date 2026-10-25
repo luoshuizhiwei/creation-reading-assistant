@@ -103,43 +103,62 @@ export function PreviewPage({ projectId }: PreviewPageProps) {
     [printing, projectId, showToast]
   );
 
+  // BD-193：本页是「按状态各回各的根」——loading 横幅（连 role="status"）每次都是
+  // 连内容一起新插入的节点，polite 插入即哑（BD-175/180/192 判据）；失败页的「重试」
+  // 会再次进入 loading，第二次忙态照样听不到。四个返回支共用同一个根片段：播报交给
+  // 这条常驻区换文本，可见加载块退回纯视觉。错误块保留 role="alert"（插入即播合法，BD-189）。
+  const loadingAnnouncement = (
+    <span className="sr-only" role="status">{loading ? "正在读取全书预览…" : ""}</span>
+  );
+
   if (loading) {
     return (
-      <section className="creation-writing-loading" role="status">
-        <BookOpen size={24} />
-        <span>正在读取全书预览…</span>
-      </section>
+      <>
+        {loadingAnnouncement}
+        <section className="creation-writing-loading">
+          <BookOpen size={24} />
+          <span>正在读取全书预览…</span>
+        </section>
+      </>
     );
   }
 
   if (loadError) {
     return (
-      <section className="preview-page preview-page--failed" aria-label="全书预览">
-        <div className="preview-failure" role="alert">
-          <h2>无法读取全书预览</h2>
-          <p>{loadError}</p>
-          <Button onClick={() => void refresh()}>
-            <RefreshCw size={15} /> 重试
-          </Button>
-        </div>
-      </section>
+      <>
+        {loadingAnnouncement}
+        <section className="preview-page preview-page--failed" aria-label="全书预览">
+          <div className="preview-failure" role="alert">
+            <h2>无法读取全书预览</h2>
+            <p>{loadError}</p>
+            <Button onClick={() => void refresh()}>
+              <RefreshCw size={15} /> 重试
+            </Button>
+          </div>
+        </section>
+      </>
     );
   }
 
   if (!model || model.chapters.length === 0) {
     return (
-      <section className="preview-page preview-page--empty" aria-label="全书预览">
-        <div className="preview-empty">
-          <BookOpen size={22} aria-hidden="true" />
-          <h2>{model?.title ?? "全书预览"}</h2>
-          <p>这个项目还没有章节，先在大纲里建立卷、章与场景，再回来通读与打印。</p>
-        </div>
-      </section>
+      <>
+        {loadingAnnouncement}
+        <section className="preview-page preview-page--empty" aria-label="全书预览">
+          <div className="preview-empty">
+            <BookOpen size={22} aria-hidden="true" />
+            <h2>{model?.title ?? "全书预览"}</h2>
+            <p>这个项目还没有章节，先在大纲里建立卷、章与场景，再回来通读与打印。</p>
+          </div>
+        </section>
+      </>
     );
   }
 
   return (
-    <section className="preview-page" aria-label="全书预览">
+    <>
+      {loadingAnnouncement}
+      <section className="preview-page" aria-label="全书预览">
       <header className="preview-toolbar">
         <div className="preview-toolbar-meta">
           <h2>{model.title}</h2>
@@ -204,6 +223,7 @@ export function PreviewPage({ projectId }: PreviewPageProps) {
           </section>
         ))}
       </article>
-    </section>
+      </section>
+    </>
   );
 }
