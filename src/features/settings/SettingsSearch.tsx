@@ -19,6 +19,10 @@ export function SettingsSearch({ onSelect }: SettingsSearchProps) {
   const rootRef = useRef<HTMLDivElement>(null);
 
   const results = useMemo(() => searchSettings(query), [query]);
+  const listboxId = "settings-search-listbox";
+  const optionId = (id: string) => `settings-search-option-${id}`;
+  const activeEntry = results[activeIndex];
+  const expanded = open && results.length > 0;
 
   useEffect(() => {
     setActiveIndex(0);
@@ -46,7 +50,10 @@ export function SettingsSearch({ onSelect }: SettingsSearchProps) {
         <input
           type="search"
           role="combobox"
-          aria-expanded={open}
+          aria-expanded={expanded}
+          aria-controls={expanded ? listboxId : undefined}
+          aria-autocomplete="list"
+          aria-activedescendant={activeEntry ? optionId(activeEntry.id) : undefined}
           aria-label="搜索设置项"
           placeholder="搜索设置项..."
           className="paper-input h-8 w-full pl-8 text-xs"
@@ -73,14 +80,22 @@ export function SettingsSearch({ onSelect }: SettingsSearchProps) {
         />
       </div>
       {open && query.trim() !== "" && (
-        <div className="absolute left-2 right-2 top-full z-40 mt-1 overflow-hidden rounded-[var(--radius-2)] border border-paper-line bg-paper-panel py-1 [box-shadow:var(--shadow-2)]">
+        <div
+          id={listboxId}
+          role="listbox"
+          aria-label="设置搜索结果"
+          className="absolute left-2 right-2 top-full z-40 mt-1 overflow-hidden rounded-[var(--radius-2)] border border-paper-line bg-paper-panel py-1 [box-shadow:var(--shadow-2)]"
+        >
           {results.length === 0 ? (
             <div className="px-3 py-2 text-xs text-paper-muted">没有找到相关设置项</div>
           ) : (
             results.map((entry, index) => (
               <button
                 key={entry.id}
+                id={optionId(entry.id)}
                 type="button"
+                role="option"
+                aria-selected={index === activeIndex}
                 className={`settings-search-result block w-full px-3 py-1.5 text-left text-xs transition ${
                   index === activeIndex ? "bg-paper-soft" : "hover:bg-paper-soft/60"
                 }`}
