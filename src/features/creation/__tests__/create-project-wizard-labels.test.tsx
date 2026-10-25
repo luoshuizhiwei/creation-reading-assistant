@@ -53,4 +53,19 @@ describe("CreateProjectWizard 可访问名", () => {
     fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
     expect(screen.getByLabelText(/标题/).getAttribute("aria-required")).toBe("true");
   });
+
+  // BD-174：错误与提示此前只是输入框旁边的文字，字段本身没有指向它们。
+  it("标题字段用 aria-describedby 关联提示与错误（BD-174）", () => {
+    render(<CreateProjectWizard open onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
+    const title = screen.getByLabelText(/标题/);
+    expect(title.getAttribute("aria-describedby")).toBe("creation-title-hint");
+    expect(document.getElementById("creation-title-hint")?.textContent).toContain("1–200 字");
+
+    fireEvent.change(title, { target: { value: "x" } });
+    fireEvent.change(title, { target: { value: "" } });
+    expect(title.getAttribute("aria-describedby")).toBe("creation-title-hint creation-title-error");
+    expect(document.getElementById("creation-title-error")?.textContent).toBeTruthy();
+  });
 });

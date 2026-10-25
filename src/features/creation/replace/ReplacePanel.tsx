@@ -201,6 +201,8 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
             value={query.find}
             aria-label="查找内容"
             data-testid="replace-find"
+            aria-invalid={error?.code === "invalid-input"}
+            aria-describedby={error?.code === "invalid-input" ? "replace-error-banner" : undefined}
             onChange={(e) => setQuery((q) => ({ ...q, find: e.target.value }))}
           />
         </label>
@@ -230,7 +232,7 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
       </div>
 
       {error && phase === "error" && (
-        <div className="replace-error-banner" role="alert" data-testid="replace-error-banner">
+        <div className="replace-error-banner" role="alert" id="replace-error-banner" data-testid="replace-error-banner">
           <p>{error.message}</p>
           <Button variant="outline" size="sm" onClick={handleReset} data-testid="replace-error-reset">
             重新预览

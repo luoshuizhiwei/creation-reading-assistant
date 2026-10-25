@@ -313,4 +313,20 @@ describe("ReplacePanel 逐命中排除与替换计划", () => {
     expect(screen.getByTestId("replace-total-hits").textContent).toContain("共 200 处命中");
     expect(screen.getByTestId("replace-truncated")).toBeTruthy();
   });
+
+  // BD-174：空查找范围的报错只挂在横幅上，查找框自己不带错误状态。
+  it("空查找内容：查找框标错并关联错误横幅（BD-174）", () => {
+    const service = controllableService();
+    renderPanel(service);
+    const find = screen.getByTestId("replace-find");
+    expect(find.getAttribute("aria-invalid")).toBe("false");
+    expect(find.getAttribute("aria-describedby")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("replace-preview"));
+    const banner = screen.getByTestId("replace-error-banner");
+    expect(find.getAttribute("aria-invalid")).toBe("true");
+    expect(find.getAttribute("aria-describedby")).toBe("replace-error-banner");
+    expect(banner.id).toBe("replace-error-banner");
+    expect(banner.textContent).toContain("查找内容不能为空");
+  });
 });

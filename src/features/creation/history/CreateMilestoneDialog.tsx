@@ -171,9 +171,11 @@ export function CreateMilestoneDialog({
               placeholder="如：初稿完成、人物设定定稿"
               disabled={isBusy}
               maxLength={200}
+              aria-invalid={!reasonValid && reason.length > 0}
+              aria-describedby={!reasonValid && reason.length > 0 ? "history-reason-error" : undefined}
             />
             {!reasonValid && reason.length > 0 && (
-              <span className="history-field-error" role="alert">名称不能为空</span>
+              <span className="history-field-error" id="history-reason-error" role="alert">名称不能为空</span>
             )}
           </div>
 

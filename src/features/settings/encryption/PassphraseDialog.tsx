@@ -119,12 +119,14 @@ export function PassphraseDialog({
             autoComplete={isCreate ? "new-password" : "off"}
             value={passphrase}
             disabled={busy}
+            aria-invalid={tooShort}
+            aria-describedby={tooShort ? "pe-too-short" : undefined}
             onChange={(e) => setPassphrase(e.target.value)}
           />
         </label>
 
         {tooShort && (
-          <p className="pe-error mt-2" role="alert" data-testid="pe-too-short">
+          <p className="pe-error mt-2" role="alert" id="pe-too-short" data-testid="pe-too-short">
             口令至少需要 {minLength} 个字符
           </p>
         )}
@@ -139,13 +141,15 @@ export function PassphraseDialog({
               autoComplete="new-password"
               value={confirm}
               disabled={busy}
+              aria-invalid={mismatch}
+              aria-describedby={mismatch ? "pe-mismatch" : undefined}
               onChange={(e) => setConfirm(e.target.value)}
             />
           </label>
         )}
 
         {mismatch && (
-          <p className="pe-error mt-2" role="alert" data-testid="pe-mismatch">
+          <p className="pe-error mt-2" role="alert" id="pe-mismatch" data-testid="pe-mismatch">
             两次输入的口令不一致
           </p>
         )}

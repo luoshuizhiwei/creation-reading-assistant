@@ -37,4 +37,29 @@ describe("历史里程碑对话框 · 内联校验", () => {
     fireEvent.change(screen.getByLabelText("里程碑名称"), { target: { value: "   " } });
     expect(screen.getByRole("alert").textContent).toContain("名称不能为空");
   });
+
+  // BD-174：错误只是旁边的一行字，输入框本身既没标错、也没指向它。
+  it("空白名称让输入框带上 aria-invalid 并关联错误（BD-174）", () => {
+    render(
+      <CreateMilestoneDialog
+        projectId="p1"
+        navigation={navigation}
+        cards={[]}
+        onCancel={vi.fn()}
+        onSubmit={vi.fn(async () => true)}
+      />
+    );
+
+    const input = screen.getByLabelText("里程碑名称");
+    expect(input.getAttribute("aria-invalid")).toBe("false");
+
+    fireEvent.change(input, { target: { value: "   " } });
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(input.getAttribute("aria-describedby")).toBe("history-reason-error");
+    expect(document.getElementById("history-reason-error")?.textContent).toContain("名称不能为空");
+
+    fireEvent.change(input, { target: { value: "初稿完成" } });
+    expect(input.getAttribute("aria-invalid")).toBe("false");
+    expect(input.getAttribute("aria-describedby")).toBeNull();
+  });
 });

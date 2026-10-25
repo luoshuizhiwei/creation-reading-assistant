@@ -76,4 +76,23 @@ describe("PassphraseDialog", () => {
     expect(screen.getByTestId("pe-mismatch").getAttribute("role")).toBe("alert");
     expect(screen.getByTestId("pe-error").getAttribute("role")).toBe("alert");
   });
+
+  // BD-174：错误已经播报了，但用户回到输入框时字段本身不带错误状态，也读不到原因。
+  it("校验错误与对应字段建立程序化关联（BD-174）", () => {
+    render(<PassphraseDialog open error="口令错误" minLength={8} onConfirm={vi.fn()} />);
+    const passphrase = screen.getByTestId("pe-passphrase");
+    const confirm = screen.getByTestId("pe-confirm");
+    expect(passphrase.getAttribute("aria-invalid")).toBe("false");
+    expect(confirm.getAttribute("aria-invalid")).toBe("false");
+
+    fireEvent.change(passphrase, { target: { value: "a" } });
+    expect(passphrase.getAttribute("aria-invalid")).toBe("true");
+    expect(passphrase.getAttribute("aria-describedby")).toBe("pe-too-short");
+
+    fireEvent.change(confirm, { target: { value: "b" } });
+    expect(confirm.getAttribute("aria-invalid")).toBe("true");
+    expect(confirm.getAttribute("aria-describedby")).toBe("pe-mismatch");
+    expect(screen.getByTestId("pe-mismatch").id).toBe("pe-mismatch");
+    expect(screen.getByTestId("pe-too-short").id).toBe("pe-too-short");
+  });
 });
