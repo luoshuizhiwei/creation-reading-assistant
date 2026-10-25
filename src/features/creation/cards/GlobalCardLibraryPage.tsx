@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArchiveRestore, BookOpenCheck, Layers3, Paperclip, Pencil, Plus, Search, Trash2, UsersRound } from "lucide-react";
 import { Button, Dialog, Select } from "@/components/ui";
 import { CardEditorForm } from "@/features/creation/cards/components/CardEditorForm";
@@ -42,6 +42,7 @@ export function GlobalCardLibraryPage() {
   const [draft, setDraft] = useState<CardSummary | null>(null);
   const [resources, setResources] = useState<ResourceInfo[]>([]);
   const [confirmingResource, setConfirmingResource] = useState<string | null>(null);
+  const assetsSectionRef = useRef<HTMLElement>(null);
   const [trashItems, setTrashItems] = useState<TrashItem[]>([]);
   const [trashOpen, setTrashOpen] = useState(false);
   const [deleteImpact, setDeleteImpact] = useState<TrashImpactView | null>(null);
@@ -169,6 +170,10 @@ export function GlobalCardLibraryPage() {
     if (!selectedCard) return;
     const ok = await detachResource(resource.id);
     if (!ok) return;
+    // BD-190：确认「移除」后握着焦点的按钮会随整行卸载、焦点跌回 body（2.4.3）。
+    // 这一行的可聚焦件只有破坏性按钮，不该把焦点交给邻行的「移除」——
+    // 先把焦点收到附件分组容器（在行消失之前离开），读屏报「全局附件」分组名。
+    assetsSectionRef.current?.focus({ preventScroll: true });
     setResources(await loadResources({ cardId: selectedCard.id }));
     setConfirmingResource(null);
     showToast({ tone: "success", title: "全局附件已移除" });
@@ -226,7 +231,7 @@ export function GlobalCardLibraryPage() {
           </ul>
         )}
       </section>
-      <section className="global-card-library-assets" aria-label="全局附件">
+      <section className="global-card-library-assets" aria-label="全局附件" ref={assetsSectionRef} tabIndex={-1}>
         <header><span><Paperclip size={15} /> 全局附件</span><div className="global-card-library-asset-actions">
           {!resources.some((resource) => resource.role === "cover") && <Button size="sm" variant="outline" onClick={() => void addResource("cover")}><Plus size={13} /> 设置封面</Button>}
           <Button size="sm" variant="outline" onClick={() => void addResource()}><Plus size={13} /> 添加附件</Button>

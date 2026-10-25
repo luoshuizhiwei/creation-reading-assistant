@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Library, Lightbulb, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { InboxItemDetail } from "./InboxItemDetail";
@@ -68,9 +69,23 @@ export function InboxItemList({
   onCopyVariant,
   onRemoveVariant
 }: InboxItemListProps) {
+  // BD-190：确认「移出」后握着焦点的按钮随整行卸载，浏览器把焦点甩回 body——
+  // 键盘用户要从文档开头重新 Tab（WCAG 2.4.3，BD-179 在侧栏删高亮的同型缺陷）。
+  // 删除前记下「下一条」（末尾则退回上一条），等父级刷新使列表真正变化后交接过去；
+  // 列表删空就退到列表容器，至少留在原地。
+  const titleRefs = useRef(new Map<string, HTMLButtonElement>());
+  const pendingFocusRef = useRef<string | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending) return;
+    pendingFocusRef.current = null;
+    const target = titleRefs.current.get(pending);
+    (target?.isConnected ? target : listRef.current)?.focus({ preventScroll: true });
+  }, [filteredItems]);
   return (
     <div className="inbox-editor-grid">
-      <ul className="inbox-list">
+      <ul className="inbox-list" ref={listRef} tabIndex={-1}>
         {filteredItems.length === 0 ? (
           <li className="stats-card">
             <p className="stats-note">
@@ -94,6 +109,10 @@ export function InboxItemList({
                   className="inbox-item-title text-left"
                   aria-label={`打开想法：${item.title}`}
                   aria-current={item.id === selectedId ? "true" : undefined}
+                  ref={(el) => {
+                    if (el) titleRefs.current.set(item.id, el);
+                    else titleRefs.current.delete(item.id);
+                  }}
                   onClick={(event) => {
                     event.stopPropagation();
                     onSelectId(item.id);
@@ -135,8 +154,12 @@ export function InboxItemList({
                   variant={confirmingId === item.id ? "danger-outline" : "outline"}
                   onClick={(event) => {
                     event.stopPropagation();
-                    if (confirmingId === item.id) onDelete(item.id);
-                    else onConfirmDelete(item.id);
+                    if (confirmingId === item.id) {
+                      const index = filteredItems.findIndex((row) => row.id === item.id);
+                      const next = filteredItems[index + 1] ?? filteredItems[index - 1];
+                      pendingFocusRef.current = next?.id ?? item.id;
+                      onDelete(item.id);
+                    } else onConfirmDelete(item.id);
                   }}
                 >
                   <Trash2 size={13} />
