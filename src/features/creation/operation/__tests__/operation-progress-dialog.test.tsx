@@ -78,7 +78,8 @@ describe("OperationProgressDialog", () => {
   it("完成态显示成功文案", () => {
     const state = makeState({ status: "completed" });
     render(<OperationProgressDialog state={state} isCommitting={false} onCancel={vi.fn()} onClose={vi.fn()} onReset={vi.fn()} />);
-    expect(screen.getByText(/操作已完成/)).toBeTruthy();
+    // BD-187：同文案也常在常驻播报区里，可见结果块用 selector 钉住。
+    expect(screen.getByText(/操作已完成/, { selector: "p" })).toBeTruthy();
   });
 
   it("项目包导入完成态展示稳定 ID 映射（含加密项目包）", () => {
@@ -107,7 +108,7 @@ describe("OperationProgressDialog", () => {
   it("取消态显示已取消文案且无取消按钮（仅保留关闭）", () => {
     const state = makeState({ status: "cancelled" });
     render(<OperationProgressDialog state={state} isCommitting={false} onCancel={vi.fn()} onClose={vi.fn()} onReset={vi.fn()} />);
-    expect(screen.getByText(/操作已取消/)).toBeTruthy();
+    expect(screen.getByText(/操作已取消/, { selector: "p" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "取消" })).toBeNull();
     expect(screen.getAllByRole("button", { name: "关闭" }).length).toBeGreaterThan(0);
   });

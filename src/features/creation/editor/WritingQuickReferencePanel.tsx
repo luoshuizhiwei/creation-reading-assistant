@@ -332,7 +332,9 @@ export function WritingQuickReferencePanel({
         </label>
       )}
 
-      {/* BD-175：全局搜索是异步的，结果数与"没有匹配"只出现在列表里；常驻不可见区域负责播报。 */}
+      {/* BD-175：全局搜索是异步的，结果数与"没有匹配"只出现在列表里；常驻不可见区域负责播报。
+          BD-187：切页签时的「正在整理索引…」此前也挂在条件挂载的 li 上（role 随内容一起
+          插入，polite 区不播报），并入同一条常驻播报。 */}
       <span className="sr-only" role="status">
         {scope === "global" && query.trim()
           ? loading || settledQuery !== query.trim()
@@ -340,7 +342,9 @@ export function WritingQuickReferencePanel({
             : visibleCards.length > 0
               ? `共 ${visibleCards.length} 张卡片`
               : "没有匹配的卡片"
-          : ""}
+          : scope !== "global" && loading
+            ? "正在整理索引…"
+            : ""}
       </span>
 
       <div className="writing-quick-body">
@@ -364,7 +368,7 @@ export function WritingQuickReferencePanel({
               {scope === "global" && !query.trim() ? "输入关键词，在整个卡片库中查找。" : scope === "scene" ? "本场景尚未引用卡片。" : "没有匹配的卡片。"}
             </li>
           )}
-          {loading && <li className="writing-quick-empty" role="status">正在整理索引…</li>}
+          {loading && <li className="writing-quick-empty">正在整理索引…</li>}
         </ul>
 
         {draft ? (

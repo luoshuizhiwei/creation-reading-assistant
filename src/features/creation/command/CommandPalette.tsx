@@ -151,8 +151,14 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
         </div>
 
         <div className="creation-search-results creation-palette-results">
+          {/* BD-187：「没有匹配的命令」此前只在零结果那一刻连 role=status 一起挂载，
+              polite 区随内容出现不会被播报（BD-175/180 的判据）——打字的人只能对着
+              一片安静猜结果。改成常驻播报区，可见提示退回纯视觉。 */}
+          <span className="sr-only" role="status">
+            {query.trim() && flat.length === 0 ? "没有匹配的命令。" : ""}
+          </span>
           {flat.length === 0 && (
-            <p className="creation-search-state" role="status">没有匹配的命令。</p>
+            <p className="creation-search-state">没有匹配的命令。</p>
           )}
           <ul ref={listRef} id={listboxId} role="listbox" aria-label="命令列表">
             {groups.flatMap((group) => [

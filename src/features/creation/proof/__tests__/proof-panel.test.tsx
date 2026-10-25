@@ -98,7 +98,8 @@ describe("ProofPanel 全书扫描与总数", () => {
   it("截断时提示列表不完整，而不是假装只有这些", async () => {
     runProof.mockResolvedValue(proofView({ total: 500, truncated: true, issues: [] }));
     render(<ProofPanel projectId="project-1" onClose={() => undefined} />);
-    expect(await screen.findByText(/列表仅显示前 0 组/)).toBeTruthy();
+    // BD-187：同一段文本现在也出现在常驻播报区里，可见节点用 selector 钉住。
+    expect(await screen.findByText(/列表仅显示前 0 组/, { selector: "strong" })).toBeTruthy();
     expect(screen.getByText("结果超出上限，已按章节顺序截断")).toBeTruthy();
   });
 

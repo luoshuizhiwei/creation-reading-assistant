@@ -124,8 +124,15 @@ export function WritingDeskOutlineSidebar({
           卡片板
         </button>
       </div>
+      {/* BD-187：「安全重组已应用」横幅在拖拽落定后才连 role=status 一起挂载，
+          polite 区随内容出现不会被播报，而此刻焦点正停在被拖动的节点上——用户只
+          能靠肉眼发现横幅。可见横幅（含撤回按钮，不能 aria-hidden）保留，播报
+          交给常驻区。 */}
+      <span className="sr-only" role="status">
+        {lastProtectedApply ? "安全重组已应用，并已创建保护快照。" : ""}
+      </span>
       {lastProtectedApply && (
-        <div className="writing-outline-revert" role="status">
+        <div className="writing-outline-revert">
           <span>安全重组已应用，并已创建保护快照。</span>
           <div className="writing-outline-revert-actions">
             <button

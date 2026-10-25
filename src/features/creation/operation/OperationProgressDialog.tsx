@@ -125,8 +125,19 @@ export function OperationProgressDialog({
             </div>
           ) : null}
 
+          {/* BD-187：对话框在操作开始时已经打开，「已完成/已取消」结果块是之后才
+              挂载的——插入即带内容的 role=status 不会被播报（BD-175/180 的判据），
+              等长操作的用户只能靠肉眼回来核对。文本并入常驻区，可见结果块保留。 */}
+          <span className="sr-only" role="status">
+            {status === "completed"
+              ? "操作已完成。"
+              : status === "cancelled"
+                ? "操作已取消，已进行的安全阶段已回滚，当前数据未被破坏。"
+                : ""}
+          </span>
+
           {status === "completed" ? (
-            <div className="operation-result operation-success" role="status">
+            <div className="operation-result operation-success">
               {kind === "resource.scan" ? (
                 <ResourceIntegrityScanPanel
                   report={(state.result?.result ?? null) as ResourceIntegrityReport | null}
@@ -151,7 +162,7 @@ export function OperationProgressDialog({
           ) : null}
 
           {status === "cancelled" ? (
-            <div className="operation-result operation-cancelled" role="status">
+            <div className="operation-result operation-cancelled">
               <p>操作已取消。已进行的安全阶段被回滚，当前数据未被破坏。</p>
             </div>
           ) : null}

@@ -105,8 +105,18 @@ export function RestoreSnapshotDialog({
         )
       }
     >
+          {/* BD-187：对话框保持打开时，「预览读取中/恢复成功」两块 polite 播报都是
+              内容出现那一刻才连 role=status 一起挂载——插入即带内容的 status 区不会被
+              播报（BD-175/180 的判据）。改成常驻区承载文本，可见块退回纯视觉。 */}
+          <span className="sr-only" role="status">
+            {previewBusy
+              ? "正在读取权威恢复预览…"
+              : protectedId
+                ? "已恢复到目标版本，恢复前的当前内容已保存为「恢复前保护」快照，可随时回退。"
+                : ""}
+          </span>
           {protectedId && (
-            <div className="history-restore-success" role="status" aria-live="polite">
+            <div className="history-restore-success">
               <p className="history-restore-success-title">已恢复到目标版本</p>
               <p>恢复前的当前内容已自动保存为「恢复前保护」快照，可随时回退。</p>
               <p>
@@ -131,7 +141,7 @@ export function RestoreSnapshotDialog({
             </div>
           </dl>
 
-          {previewBusy && <p className="history-impact-loading" role="status">正在读取权威恢复预览…</p>}
+          {previewBusy && <p className="history-impact-loading">正在读取权威恢复预览…</p>}
           {previewError && <p className="history-impact-error" role="alert">{previewError}</p>}
           {preview && (
             <div className="history-authoritative-preview" role="group" aria-label="恢复影响预览">

@@ -93,7 +93,13 @@ export function PurgeTrashDialog({
             </div>
           </dl>
 
-          {impactBusy && <p className="history-impact-loading" role="status">正在统计永久删除影响…</p>}
+          {/* BD-187：影响统计在对话框打开后才异步开始，「正在统计…」连 role=status
+              一起挂载＝插入即带内容的 polite 区不会被播报（BD-175/180 的判据）。
+              文本并入常驻区，可见提示退回纯视觉。 */}
+          <span className="sr-only" role="status">
+            {impactBusy ? "正在统计永久删除影响…" : ""}
+          </span>
+          {impactBusy && <p className="history-impact-loading">正在统计永久删除影响…</p>}
           {impactError && <p className="history-impact-error" role="alert">{impactError}</p>}
           {impact && (
             <div className="history-authoritative-preview" role="group" aria-label="永久删除影响">

@@ -182,8 +182,20 @@ export function ProofPanel({ projectId, onClose }: ProofPanelProps) {
           </button>
         </div>
 
+        {/* BD-187：校对的「进行中/完成」两条播报此前都挂在**只在那一刻才出现**的
+            节点上——role=status 随内容一起插入，polite 区不会被播报（BD-175/180 的
+            判据）。点「开始检查」后按忽略重扫时焦点还在面板深处，结果却全程静默。
+            改成常驻播报区；可见摘要块与「正在逐场景检查」退回纯视觉。 */}
+        <span className="sr-only" role="status">
+          {running
+            ? "正在逐场景检查…"
+            : ran && view && !error
+              ? `检查完成：${totals?.text ?? "扫描完成"}`
+              : ""}
+        </span>
+
         {view && (
-          <div className="creation-proof-summary" role="status" aria-live="polite">
+          <div className="creation-proof-summary">
             <span className="creation-proof-scope">扫描范围：{formatProofScanScope(view.scanScope)}</span>
             {totals && (
               <span className="creation-proof-totals">
@@ -259,7 +271,7 @@ export function ProofPanel({ projectId, onClose }: ProofPanelProps) {
         </div>
 
         <div className="creation-search-results">
-          {running && <p className="creation-search-state" role="status">正在逐场景检查…</p>}
+          {running && <p className="creation-search-state">正在逐场景检查…</p>}
           {!running && error && <p className="creation-search-state creation-search-state--error" role="alert">{error}</p>}
           {!running && !error && ran && view && view.total === 0 && (
             <p className="creation-search-state">

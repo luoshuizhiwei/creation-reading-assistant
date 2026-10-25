@@ -165,13 +165,15 @@ describe("WritingQuickReferencePanel", () => {
     );
   });
 
-  // BD-154：索引整理期间列表里只有一行文字，读屏器不会播报。
-  it("索引整理中的提示以 status 暴露", async () => {
+  // BD-154 → BD-187：索引整理期间不能只让列表里多出一行——带 role 的 li 是随内容
+  // 一起挂载的，polite 区插入即带内容不会被播报。播报交给 BD-175 那条常驻 status 区。
+  it("索引整理中的提示经常驻 status 区播报", async () => {
     cardsList.mockImplementation(() => new Promise(() => {}));
-    render(<Harness />);
+    const { container } = render(<Harness />);
 
-    const hint = await screen.findByText("正在整理索引…");
-    expect(hint.getAttribute("role")).toBe("status");
+    const status = container.querySelector('span.sr-only[role="status"]') as HTMLElement;
+    await waitFor(() => expect(status.textContent).toBe("正在整理索引…"));
+    expect(container.querySelector("li.writing-quick-empty")?.textContent).toContain("正在整理索引…");
   });
 
   // BD-175：全局搜索是异步的，结果数与空态只出现在列表里；防抖期间也不能拿旧结果播报。
