@@ -411,10 +411,15 @@ export function OutlineTree({
       <button type="button" title="上移" aria-label={`上移卷「${volume.title}」`} disabled={!up.canMove} onClick={() => void moveVolume(volume, "up")}><ChevronRight size={12} className="rotate-270" /></button>
       <button type="button" title="下移" aria-label={`下移卷「${volume.title}」`} disabled={!down.canMove} onClick={() => void moveVolume(volume, "down")}><ChevronDown size={12} /></button>
       <button type="button" title="改名" aria-label={`改名卷「${volume.title}」`} onClick={() => startEdit({ kind: "volume", id: volume.id, title: volume.title })}><Pencil size={12} /></button>
+      {/* BD-172：删除是两步点击（第一次只进确认态），但确认态此前只有 .confirming
+          的红边。图标钮没有文字可变，读屏器按第二次前完全不知道已经在确认；
+          aria-label 用「再次点击确认删除…」把这一步说出来，title 保留原名。 */}
       <button
         type="button"
         title="删除卷（含其章节与场景）"
-        aria-label={`删除卷「${volume.title}」（含其章节与场景）`}
+        aria-label={confirm?.kind === "volume" && confirm.id === volume.id
+          ? `再次点击确认删除卷「${volume.title}」（含其章节与场景）`
+          : `删除卷「${volume.title}」（含其章节与场景）`}
         className={confirm?.kind === "volume" && confirm.id === volume.id ? "confirming" : ""}
         onClick={() => confirmDelete({ kind: "volume", id: volume.id })}
       >
@@ -466,7 +471,9 @@ export function OutlineTree({
       <button
         type="button"
         title="删除章节（含其场景）"
-        aria-label={`删除章节「${chapter.title}」（含其场景）`}
+        aria-label={confirm?.kind === "chapter" && confirm.id === chapter.id
+          ? `再次点击确认删除章节「${chapter.title}」（含其场景）`
+          : `删除章节「${chapter.title}」（含其场景）`}
         className={confirm?.kind === "chapter" && confirm.id === chapter.id ? "confirming" : ""}
         onClick={() => confirmDelete({ kind: "chapter", id: chapter.id })}
       >
@@ -504,7 +511,9 @@ export function OutlineTree({
       <button
         type="button"
         title="删除场景"
-        aria-label={`删除场景「${scene.title}」`}
+        aria-label={confirm?.kind === "scene" && confirm.id === scene.id
+          ? `再次点击确认删除场景「${scene.title}」`
+          : `删除场景「${scene.title}」`}
         className={confirm?.kind === "scene" && confirm.id === scene.id ? "confirming" : ""}
         onClick={() => confirmDelete({ kind: "scene", id: scene.id })}
       >

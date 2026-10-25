@@ -306,4 +306,15 @@ describe("OutlineTree 重排边界（ReorderTarget）", () => {
     // title 保留原语义，供鼠标悬停提示。
     expect(within(sceneRow).getByTitle("改名")).toBeTruthy();
   });
+
+  // BD-172：两步删除的中间态此前只有红边，读屏器按第二次前毫无提示。
+  it("删除钮进入确认态时改口播「再次点击确认删除」（BD-172）", async () => {
+    const { runStructure } = renderTree(makeOutline());
+    const remove = screen.getByRole("button", { name: "删除场景「场景A」" });
+    fireEvent.click(remove);
+    expect(remove.getAttribute("aria-label")).toBe("再次点击确认删除场景「场景A」");
+    expect(runStructure).not.toHaveBeenCalled();
+    fireEvent.click(remove);
+    await waitFor(() => expect(runStructure).toHaveBeenCalledWith({ type: "scene.delete", sceneId: "s1" }));
+  });
 });
