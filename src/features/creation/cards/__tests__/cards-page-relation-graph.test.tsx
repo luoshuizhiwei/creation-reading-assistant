@@ -184,7 +184,7 @@ describe("设定卡页 · 关系图视图（Stage 4-F）", () => {
     await waitFor(() => expect(creationService.cardsList).toHaveBeenCalled());
     expect(creationService.relationGraph).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("tab", { name: /关系图/ }));
+    fireEvent.click(screen.getByRole("button", { name: /关系图/ }));
 
     await waitFor(() => expect(creationService.relationGraph).toHaveBeenCalledTimes(1));
     expect(vi.mocked(creationService.relationGraph).mock.calls[0][0]).toEqual({
@@ -197,7 +197,7 @@ describe("设定卡页 · 关系图视图（Stage 4-F）", () => {
   it("渲染项目引用投影，并显式报出指向范围外的关系条数", async () => {
     vi.mocked(creationService.relationGraph).mockResolvedValue(graph);
     render(<CardsPage project={project} />);
-    fireEvent.click(screen.getByRole("tab", { name: /关系图/ }));
+    fireEvent.click(screen.getByRole("button", { name: /关系图/ }));
 
     await waitFor(() => expect(screen.getByTestId("relation-graph-node-card-a")).toBeTruthy());
     const scope = screen.getByTestId("relation-graph-scope").textContent ?? "";
@@ -208,7 +208,7 @@ describe("设定卡页 · 关系图视图（Stage 4-F）", () => {
   it("点击节点会选中该卡片（跳转），且不触发任何写入", async () => {
     vi.mocked(creationService.relationGraph).mockResolvedValue(graph);
     render(<CardsPage project={project} />);
-    fireEvent.click(screen.getByRole("tab", { name: /关系图/ }));
+    fireEvent.click(screen.getByRole("button", { name: /关系图/ }));
 
     await waitFor(() => expect(screen.getByTestId("relation-graph-node-card-a")).toBeTruthy());
     fireEvent.click(screen.getByTestId("relation-graph-node-card-a"));
@@ -220,7 +220,7 @@ describe("设定卡页 · 关系图视图（Stage 4-F）", () => {
   it("读取失败时给出可重试的错误状态", async () => {
     vi.mocked(creationService.relationGraph).mockRejectedValueOnce(new Error("关系图读取失败。")).mockResolvedValueOnce(graph);
     render(<CardsPage project={project} />);
-    fireEvent.click(screen.getByRole("tab", { name: /关系图/ }));
+    fireEvent.click(screen.getByRole("button", { name: /关系图/ }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
     expect(screen.getByRole("alert").textContent).toContain("关系图读取失败");

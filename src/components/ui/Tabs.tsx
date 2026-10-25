@@ -17,9 +17,11 @@ export interface TabsProps<T extends string = string> {
 }
 
 /**
- * Tabs — 统一标签页/分段切换原语
+ * Tabs — 统一分段切换原语
  *
- * 规范 role="tablist" / role="tab" / aria-selected，
+ * 这一组按钮切换的是整块视图，没有配套的 role="tabpanel"/aria-controls，
+ * 所以不用 tablist/tab 语义（读屏器会承诺方向键切换的标签页交互，实际不成立）；
+ * 按本库的分段按钮约定，用 role="group" + 每颗 aria-pressed 暴露当前档位。
  * 支持下划线风格（underline）和胶囊风格（pill）。
  */
 export function Tabs<T extends string = string>({
@@ -33,7 +35,7 @@ export function Tabs<T extends string = string>({
 }: TabsProps<T>) {
   return (
     <div
-      role="tablist"
+      role="group"
       aria-label={ariaLabel}
       className={`flex items-center gap-1 ${
         variant === "pill"
@@ -47,19 +49,18 @@ export function Tabs<T extends string = string>({
           <button
             key={item.id}
             type="button"
-            role="tab"
-            aria-selected={active}
+            aria-pressed={active}
             disabled={item.disabled}
             onClick={() => onChange(item.id)}
             className={`${
               variant === "pill"
                 ? `px-3 py-1 text-xs font-medium rounded-md transition ${
                     // 批次 AP：选中态原本挂 shadow-sm，按规格 §2.5「按钮一律无阴影」删掉。
-                    // 这个药丸是 <button role="tab">，§2.5 管的就是按钮角色——阴影棘轮豁免
+                    // 这个药丸是普通 <button>，§2.5 管的就是按钮角色——阴影棘轮豁免
                     // 刻度内令牌，但 §2.5 连令牌也不豁免，所以还法只有「不画投影」这一条。
                     // 选中态的辨识度交给纯色彩反馈（§2.1 指定的方向）：字色 copper 压 panel
                     // 晨 6.15:1 / 夜 6.53:1，未选中 muted 压 soft 晨 4.70:1 / 夜 7.72:1，
-                    // 两者本身色差就大，外加 font-semibold 与 aria-selected。
+                    // 两者本身色差就大，外加 font-semibold 与 aria-pressed。
                     active
                       ? "bg-paper-panel text-copper font-semibold"
                       : "text-paper-muted hover:text-paper-ink"

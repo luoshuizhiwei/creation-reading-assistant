@@ -279,10 +279,22 @@ afterEach(() => cleanup());
 /** 批注 UI 位于「批注与引用」页签（默认页签为场景雷达），挂载后先切换过去。 */
 function mountDesk() {
   render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
-  fireEvent.click(screen.getByRole("tab", { name: "批注与引用" }));
+  fireEvent.click(screen.getByRole("button", { name: "批注与引用" }));
 }
 
 describe("WritingDesk 写作速查与场景 AI 入口", () => {
+  // BD-157：场景信息页签此前是 role=tab，但没有 tabpanel/aria-controls 配套。
+  it("场景信息页签用 aria-pressed 暴露当前页", () => {
+    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+
+    const notes = screen.getByRole("button", { name: "批注与引用" });
+    expect(notes.getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByRole("tab")).toBeNull();
+
+    fireEvent.click(notes);
+    expect(screen.getByRole("button", { name: "批注与引用" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
   it("Ctrl+Shift+K 打开与关闭速查面板，关闭后焦点返回正文", async () => {
     render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
 

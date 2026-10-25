@@ -89,7 +89,7 @@ async function openSnapshotRestore(snap: SnapshotInfo = snapshot) {
   mocks.loadSnapshots.mockResolvedValue([snap]);
   render(<HistoryPage project={project} />);
   await waitFor(() => expect(mocks.loadNavigation).toHaveBeenCalledWith("p1"));
-  fireEvent.click(screen.getByRole("tab", { name: "版本快照" }));
+  fireEvent.click(screen.getByRole("button", { name: "版本快照" }));
   expect(await screen.findByText(snap.reason)).toBeDefined();
   fireEvent.click(screen.getByRole("button", { name: "恢复" }));
 }

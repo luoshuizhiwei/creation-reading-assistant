@@ -461,7 +461,7 @@ export function WritingDeskMargin({
         </button>
       )}
       <aside className="writing-margin" aria-label="场景信息">
-        <div className="writing-margin-tabs" role="tablist" aria-label="场景信息页签">
+        <div className="writing-margin-tabs" role="group" aria-label="场景信息页签">
           <button
             type="button"
             className="writing-margin-collapse"
@@ -473,8 +473,7 @@ export function WritingDeskMargin({
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={marginTab === "radar"}
+            aria-pressed={marginTab === "radar"}
             className={marginTab === "radar" ? "active" : ""}
             onClick={() => setMarginTab("radar")}
           >
@@ -482,8 +481,7 @@ export function WritingDeskMargin({
           </button>
           <button
             type="button"
-            role="tab"
-            aria-selected={marginTab === "notes"}
+            aria-pressed={marginTab === "notes"}
             aria-label="批注与引用"
             className={marginTab === "notes" ? "active" : ""}
             onClick={() => setMarginTab("notes")}
