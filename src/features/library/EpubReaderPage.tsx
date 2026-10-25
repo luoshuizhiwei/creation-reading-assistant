@@ -417,6 +417,11 @@ export function EpubReaderPage() {
     rendition.on("click", () => {
       handleActivityRef.current();
       setSelectionToolbar(null);
+      // BD-184：取色面板的开关状态住在这一层，不在工具栏组件里。只清工具栏不复位
+      // 它，下一次划词弹出的工具栏就会自带一块已经展开的调色盘（外面点空白、Esc、
+      // 选完颜色这三条路都是成对清的，iframe 内的 click 因为不冒泡到外层 document，
+      // 此前是漏的）。本批把这条和下面另外两处同样补齐。
+      setShowColorPicker(false);
     });
     rendition.on("rendered", () => {
       // Restore highlights on each page render
@@ -550,6 +555,7 @@ export function EpubReaderPage() {
       }
       if (event.key === "Escape") {
         setSelectionToolbar(null);
+        setShowColorPicker(false);
       }
     };
     window.addEventListener("keydown", handleKeydown);
@@ -730,6 +736,7 @@ export function EpubReaderPage() {
                 showToast({ tone: "error", title: "复制失败" });
               }
               setSelectionToolbar(null);
+              setShowColorPicker(false);
             }}
             onExcerpt={() => void openExcerptFromSelection()}
             onClose={() => {

@@ -1023,11 +1023,15 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
                   showToast({ tone: "error", title: "复制失败" });
                 }
                 setSelectionToolbar(null);
+                // BD-184：同 EpubReaderPage——工具栏清掉时取色面板的开关也得跟着收起，
+                // 否则下一次划词直接自带一块展开的调色盘。
+                setShowColorPicker(false);
               }}
               onExcerpt={openExcerptFromSelection}
               onAddChapterStart={(offset) => {
                 addChapterStartFromSelection(offset);
                 setSelectionToolbar(null);
+                setShowColorPicker(false);
               }}
               onClose={() => {
                 window.getSelection()?.removeAllRanges();
