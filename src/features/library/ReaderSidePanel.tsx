@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Bookmark, Highlighter, List, Trash2 } from "lucide-react";
 import { Button, ShellPanel } from "@/components/ui";
 import { saveHighlight } from "@/services/annotation-service";
@@ -93,6 +93,42 @@ export function ReaderSidePanel({
 }: ReaderSidePanelProps) {
   const highlightDelete = useConfirmDelete();
   const bookmarkDelete = useConfirmDelete();
+
+  // BD-179：删掉一条高亮/书签后，原来握焦点的删除钮随条目一起消失，浏览器把焦点
+  // 甩回 body——键盘用户得从文档开头重新 Tab 一遍才回得来（2.4.3）。删除前先记下
+  // 「下一条是谁」（末尾则退回上一条），等列表真被父级更新后把焦点交接过去；
+  // 列表删空时退到对应的 Tab 钮，至少留在侧栏里。
+  const pendingFocusRef = useRef<{ kind: "highlight" | "bookmark"; id?: string } | null>(null);
+  const highlightJumpRefs = useRef(new Map<string, HTMLButtonElement>());
+  const bookmarkJumpRefs = useRef(new Map<string, HTMLButtonElement>());
+  const highlightTabRef = useRef<HTMLButtonElement>(null);
+  const bookmarkTabRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending) return;
+    pendingFocusRef.current = null;
+    const target = pending.id
+      ? (pending.kind === "highlight" ? highlightJumpRefs.current : bookmarkJumpRefs.current).get(pending.id)
+      : undefined;
+    const fallback = pending.kind === "highlight" ? highlightTabRef.current : bookmarkTabRef.current;
+    (target ?? fallback)?.focus();
+  }, [highlights, bookmarks]);
+
+  const removeHighlight = (item: HighlightItem, index: number): void => {
+    const next = highlights[index + 1] ?? highlights[index - 1];
+    pendingFocusRef.current = { kind: "highlight", id: next?.id };
+    onRemoveHighlight(item.id);
+    highlightDelete.reset();
+  };
+
+  const removeBookmark = (item: BookmarkItem, index: number): void => {
+    const next = bookmarks[index + 1] ?? bookmarks[index - 1];
+    pendingFocusRef.current = { kind: "bookmark", id: next?.id };
+    onRemoveBookmark(item.id);
+    bookmarkDelete.reset();
+  };
+
   return (
     <ShellPanel className="flex min-h-0 flex-col overflow-hidden border-y-0 border-r-0 bg-paper-soft/45 p-4 shadow-none">
       <div className="mb-3 flex items-center gap-1 border-b border-paper-line pb-2">
@@ -104,6 +140,7 @@ export function ReaderSidePanel({
           <List size={13} className="mr-1 inline" />目录
         </button>
         <button
+          ref={highlightTabRef}
           aria-pressed={sidePanelTab === "highlights"}
           className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${sidePanelTab === "highlights" ? "bg-copper/10 text-copper" : "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"}`}
           onClick={() => onTabChange("highlights")}
@@ -111,6 +148,7 @@ export function ReaderSidePanel({
           <Highlighter size={13} className="mr-1 inline" />高亮{highlights.length > 0 ? ` (${highlights.length})` : ""}
         </button>
         <button
+          ref={bookmarkTabRef}
           aria-pressed={sidePanelTab === "bookmarks"}
           className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${sidePanelTab === "bookmarks" ? "bg-copper/10 text-copper" : "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"}`}
           onClick={() => onTabChange("bookmarks")}
@@ -153,7 +191,7 @@ export function ReaderSidePanel({
                 暂无高亮。在书中选中文字后点击“高亮”按钮即可添加。
               </div>
             ) : (
-              highlights.map((hl) => (
+              highlights.map((hl, index) => (
                 <div key={hl.id} className="group rounded-md border border-paper-line bg-paper-panel p-3 transition hover:[box-shadow:var(--shadow-2)]">
                   <div className="mb-1.5 flex items-center gap-2">
                     <span className="inline-block h-3 w-3 rounded-full" style={{ background: highlightHex(hl.color) }} />
@@ -162,8 +200,7 @@ export function ReaderSidePanel({
                       className={`rounded p-1 text-paper-muted transition hover:text-[color:var(--proof-mark)] group-hover:opacity-100 focus-visible:opacity-100 ${highlightDelete.confirmingId === hl.id ? "opacity-100 bg-[color:var(--proof-tint)] text-[color:var(--proof-mark)]" : "opacity-0"}`}
                       onClick={() => {
                         if (highlightDelete.request(hl.id)) {
-                          onRemoveHighlight(hl.id);
-                          highlightDelete.reset();
+                          removeHighlight(hl, index);
                         }
                       }}
                       title={highlightDelete.confirmingId === hl.id ? "再次点击确认删除" : "删除高亮"}
@@ -175,6 +212,10 @@ export function ReaderSidePanel({
                     </button>
                   </div>
                   <button
+                    ref={(node) => {
+                      if (node) highlightJumpRefs.current.set(hl.id, node);
+                      else highlightJumpRefs.current.delete(hl.id);
+                    }}
                     className="w-full text-left text-sm leading-[var(--leading-14)] text-paper-ink hover:text-copper"
                     onClick={() => onJumpToHighlight(hl)}
                   >
@@ -218,10 +259,15 @@ export function ReaderSidePanel({
                 暂无书签。
               </div>
             ) : (
-              bookmarks.map((bm) => (
+              bookmarks.map((bm, index) => (
                 <div key={bm.id} className="group flex items-center gap-2 rounded-md border border-paper-line bg-paper-panel p-3 transition hover:[box-shadow:var(--shadow-2)]">
                   <Bookmark size={14} className="shrink-0 text-copper/60" />
-                  <button className="min-w-0 flex-1 text-left" onClick={() => onJumpToBookmark(bm)}>
+                  <button
+                    ref={(node) => {
+                      if (node) bookmarkJumpRefs.current.set(bm.id, node);
+                      else bookmarkJumpRefs.current.delete(bm.id);
+                    }}
+                    className="min-w-0 flex-1 text-left" onClick={() => onJumpToBookmark(bm)}>
                     <div className="truncate text-sm text-paper-ink hover:text-copper">{bm.label}</div>
                     <div className="mt-0.5 text-[11px] text-paper-muted">
                       {bm.chapterTitle ? `${bm.chapterTitle} · ` : ""}
@@ -233,8 +279,7 @@ export function ReaderSidePanel({
                     className={`rounded p-1 text-paper-muted transition hover:text-[color:var(--proof-mark)] group-hover:opacity-100 focus-visible:opacity-100 ${bookmarkDelete.confirmingId === bm.id ? "opacity-100 bg-[color:var(--proof-tint)] text-[color:var(--proof-mark)]" : "opacity-0"}`}
                     onClick={() => {
                       if (bookmarkDelete.request(bm.id)) {
-                        onRemoveBookmark(bm.id);
-                        bookmarkDelete.reset();
+                        removeBookmark(bm, index);
                       }
                     }}
                     title={bookmarkDelete.confirmingId === bm.id ? "再次点击确认删除" : "删除书签"}
