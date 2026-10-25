@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Button, Tabs } from "@/components/ui";
 import { ReplacePlanView } from "./ReplacePlanView";
 import { ReplaceProgressDialog } from "./ReplaceProgressDialog";
@@ -58,6 +58,27 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
   // 浮动面板 top 跟随页面 hero 底部（写作台操作行会换行、宽度变化会变高），
   // 保证面板永不遮住 hero 里的查找/校对/导出等操作按钮。
   const [floatingTop, setFloatingTop] = useState(96);
+  const findInputRef = useRef<HTMLInputElement>(null);
+
+  // BD-176：面板打开后焦点此前留在触发钮上，键盘用户得把整页 Tab 一遍才够得到"查找"；
+  // Esc 也不关。桌面浮层的惯例是焦点直接落进主输入框、Esc 收起、关闭后焦点回到原处。
+  useEffect(() => {
+    const restoreTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => findInputRef.current?.focus());
+    return () => {
+      cancelAnimationFrame(frame);
+      if (restoreTo && restoreTo.isConnected) restoreTo.focus({ preventScroll: true });
+    };
+  }, []);
+
+  const handlePanelKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    // 输入法组合中的 Esc 是取消候选词，不能当成关闭面板。
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    onClose();
+  };
 
   useLayoutEffect(() => {
     const measure = (): void => {
@@ -181,6 +202,7 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
     <div
       className="replace-panel"
       data-testid="replace-panel"
+      onKeyDown={handlePanelKeyDown}
       style={{ top: floatingTop, maxHeight: `calc(100vh - ${floatingTop + 20}px)` }}
     >
       <header className="replace-panel-header">
@@ -197,6 +219,7 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
         <label>
           查找
           <input
+            ref={findInputRef}
             type="text"
             value={query.find}
             aria-label="查找内容"
