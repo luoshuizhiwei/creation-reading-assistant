@@ -100,7 +100,7 @@ describe("OutlinePage 树与卡板同源闭环", () => {
   it("保护应用后显示一次性撤回，并传回精确 affected revisions", async () => {
     const { revertStructure } = setup();
     await waitFor(() => expect(screen.getByText("卷一", { selector: ".outline-volume-title" })).toBeTruthy());
-    fireEvent.change(screen.getAllByLabelText("移动到卷")[0], { target: { value: "v2" } });
+    fireEvent.change(screen.getAllByLabelText(/移动到卷/)[0], { target: { value: "v2" } });
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect((within(dialog).getByText("确认移动") as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(within(dialog).getByText("确认移动"));
@@ -120,7 +120,7 @@ describe("OutlinePage 树与卡板同源闭环", () => {
     const { revertStructure } = setup();
     revertStructure.mockResolvedValueOnce(null);
     await waitFor(() => expect(screen.getByText("卷一", { selector: ".outline-volume-title" })).toBeTruthy());
-    fireEvent.change(screen.getAllByLabelText("移动到卷")[0], { target: { value: "v2" } });
+    fireEvent.change(screen.getAllByLabelText(/移动到卷/)[0], { target: { value: "v2" } });
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect((within(dialog).getByText("确认移动") as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(within(dialog).getByText("确认移动"));

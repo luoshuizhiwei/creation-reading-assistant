@@ -404,13 +404,17 @@ export function OutlineTree({
     const down = reorderTarget(volumeSiblingIds(outline), volume.id, "down");
     return (
     <span className="outline-node-actions">
-      <button type="button" title="新建章节" onClick={() => void addChapter(volume)}><Plus size={12} /></button>
-      <button type="button" title="上移" disabled={!up.canMove} onClick={() => void moveVolume(volume, "up")}><ChevronRight size={12} className="rotate-270" /></button>
-      <button type="button" title="下移" disabled={!down.canMove} onClick={() => void moveVolume(volume, "down")}><ChevronDown size={12} /></button>
-      <button type="button" title="改名" onClick={() => startEdit({ kind: "volume", id: volume.id, title: volume.title })}><Pencil size={12} /></button>
+      {/* BD-169：这些行内钮原本只有图标 + 通用 title，每卷/章/场景各一组，
+          读屏器的按钮列表里会出现一长串同名「上移」「下移」「改名」，
+          分不清动的是哪一条。aria-label 带上对象名，title 保留原名。 */}
+      <button type="button" title="新建章节" aria-label={`在卷「${volume.title}」新建章节`} onClick={() => void addChapter(volume)}><Plus size={12} /></button>
+      <button type="button" title="上移" aria-label={`上移卷「${volume.title}」`} disabled={!up.canMove} onClick={() => void moveVolume(volume, "up")}><ChevronRight size={12} className="rotate-270" /></button>
+      <button type="button" title="下移" aria-label={`下移卷「${volume.title}」`} disabled={!down.canMove} onClick={() => void moveVolume(volume, "down")}><ChevronDown size={12} /></button>
+      <button type="button" title="改名" aria-label={`改名卷「${volume.title}」`} onClick={() => startEdit({ kind: "volume", id: volume.id, title: volume.title })}><Pencil size={12} /></button>
       <button
         type="button"
         title="删除卷（含其章节与场景）"
+        aria-label={`删除卷「${volume.title}」（含其章节与场景）`}
         className={confirm?.kind === "volume" && confirm.id === volume.id ? "confirming" : ""}
         onClick={() => confirmDelete({ kind: "volume", id: volume.id })}
       >
@@ -425,13 +429,14 @@ export function OutlineTree({
     const down = reorderTarget(chapterSiblingIds(volume), chapter.id, "down");
     return (
     <span className="outline-node-actions">
-      <button type="button" title="新建场景" onClick={() => void addScene(chapter)}><Plus size={12} /></button>
-      <button type="button" title="上移" disabled={!up.canMove} onClick={() => void moveChapter(volume, chapter, "up")}><ChevronRight size={12} className="rotate-270" /></button>
-      <button type="button" title="下移" disabled={!down.canMove} onClick={() => void moveChapter(volume, chapter, "down")}><ChevronDown size={12} /></button>
+      {/* BD-169：与卷行同理，章节行的同名操作钮也带上章节名。 */}
+      <button type="button" title="新建场景" aria-label={`在章节「${chapter.title}」新建场景`} onClick={() => void addScene(chapter)}><Plus size={12} /></button>
+      <button type="button" title="上移" aria-label={`上移章节「${chapter.title}」`} disabled={!up.canMove} onClick={() => void moveChapter(volume, chapter, "up")}><ChevronRight size={12} className="rotate-270" /></button>
+      <button type="button" title="下移" aria-label={`下移章节「${chapter.title}」`} disabled={!down.canMove} onClick={() => void moveChapter(volume, chapter, "down")}><ChevronDown size={12} /></button>
       {outline.volumes.length > 1 && (
         <select
           className="outline-move-select"
-          aria-label="移动到卷"
+          aria-label={`把章节「${chapter.title}」移动到卷`}
           value=""
           onChange={(event) => {
             if (event.target.value) void moveChapterToVolume(chapter, event.target.value);
@@ -444,12 +449,12 @@ export function OutlineTree({
         </select>
       )}
       {volume.chapters.findIndex((item) => item.id === chapter.id) > 0 && (
-        <button type="button" title="并入上一章" onClick={() => void mergeChapterToPrevious(volume, chapter)}><Merge size={12} /></button>
+        <button type="button" title="并入上一章" aria-label={`把章节「${chapter.title}」并入上一章`} onClick={() => void mergeChapterToPrevious(volume, chapter)}><Merge size={12} /></button>
       )}
-      <button type="button" title="改名" onClick={() => startEdit({ kind: "chapter", id: chapter.id, title: chapter.title })}><Pencil size={12} /></button>
+      <button type="button" title="改名" aria-label={`改名章节「${chapter.title}」`} onClick={() => startEdit({ kind: "chapter", id: chapter.id, title: chapter.title })}><Pencil size={12} /></button>
       <select
         className="outline-numbering-select"
-        aria-label="章节编号模式"
+        aria-label={`章节「${chapter.title}」的编号模式`}
         value={chapter.numbering}
         onChange={(event) => setNumbering(chapter, event.target.value as ChapterNumberingKind)}
       >
@@ -461,6 +466,7 @@ export function OutlineTree({
       <button
         type="button"
         title="删除章节（含其场景）"
+        aria-label={`删除章节「${chapter.title}」（含其场景）`}
         className={confirm?.kind === "chapter" && confirm.id === chapter.id ? "confirming" : ""}
         onClick={() => confirmDelete({ kind: "chapter", id: chapter.id })}
       >
@@ -475,12 +481,13 @@ export function OutlineTree({
     const down = reorderTarget(sceneSiblingIds(chapter), scene.id, "down");
     return (
     <span className="outline-node-actions">
-      <button type="button" title="上移" disabled={!up.canMove} onClick={() => void moveScene(chapter, scene, "up")}><ChevronRight size={12} className="rotate-270" /></button>
-      <button type="button" title="下移" disabled={!down.canMove} onClick={() => void moveScene(chapter, scene, "down")}><ChevronDown size={12} /></button>
+      {/* BD-169：场景行同理。 */}
+      <button type="button" title="上移" aria-label={`上移场景「${scene.title}」`} disabled={!up.canMove} onClick={() => void moveScene(chapter, scene, "up")}><ChevronRight size={12} className="rotate-270" /></button>
+      <button type="button" title="下移" aria-label={`下移场景「${scene.title}」`} disabled={!down.canMove} onClick={() => void moveScene(chapter, scene, "down")}><ChevronDown size={12} /></button>
       {chapter.scenes.length > 0 && (
         <select
           className="outline-move-select"
-          aria-label="移动到章节"
+          aria-label={`把场景「${scene.title}」移动到章节`}
           value=""
           onChange={(event) => {
             if (event.target.value) void moveSceneToChapter(scene, event.target.value);
@@ -492,11 +499,12 @@ export function OutlineTree({
           ))}
         </select>
       )}
-      <button type="button" title="从该场景拆为新章" onClick={() => void splitChapterAtScene(chapter, scene)}><Scissors size={12} /></button>
-      <button type="button" title="改名" onClick={() => startEdit({ kind: "scene", id: scene.id, title: scene.title })}><Pencil size={12} /></button>
+      <button type="button" title="从该场景拆为新章" aria-label={`把场景「${scene.title}」拆为新章`} onClick={() => void splitChapterAtScene(chapter, scene)}><Scissors size={12} /></button>
+      <button type="button" title="改名" aria-label={`改名场景「${scene.title}」`} onClick={() => startEdit({ kind: "scene", id: scene.id, title: scene.title })}><Pencil size={12} /></button>
       <button
         type="button"
         title="删除场景"
+        aria-label={`删除场景「${scene.title}」`}
         className={confirm?.kind === "scene" && confirm.id === scene.id ? "confirming" : ""}
         onClick={() => confirmDelete({ kind: "scene", id: scene.id })}
       >

@@ -49,7 +49,7 @@ describe("OutlineTree 改名与影响预览", () => {
     const runStructure = vi.fn().mockResolvedValue(true);
     const { previewStructure, applyStructureWithProtection } = renderTree(makeOutline(), runStructure);
 
-    fireEvent.change(screen.getAllByLabelText("移动到卷")[0], { target: { value: "v2" } });
+    fireEvent.change(screen.getAllByLabelText(/移动到卷/)[0], { target: { value: "v2" } });
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("权威影响")).toBeTruthy();
@@ -74,7 +74,7 @@ describe("OutlineTree 改名与影响预览", () => {
   it("场景跨章移动也必须先权威预览再按 planId 应用", async () => {
     const { previewStructure, applyStructureWithProtection } = renderTree();
     const scene = screen.getByText("场景A").closest(".outline-scene")!;
-    fireEvent.change(within(scene as HTMLElement).getByLabelText("移动到章节"), { target: { value: "c2" } });
+    fireEvent.change(within(scene as HTMLElement).getByLabelText(/移动到章节/), { target: { value: "c2" } });
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect((within(dialog).getByText("确认移动") as HTMLButtonElement).disabled).toBe(false));
     expect(previewStructure).toHaveBeenCalledWith({
@@ -88,7 +88,7 @@ describe("OutlineTree 改名与影响预览", () => {
 
   it("章节编号变更也必须先权威预览再应用", async () => {
     const { previewStructure, applyStructureWithProtection } = renderTree();
-    fireEvent.change(screen.getAllByLabelText("章节编号模式")[0], { target: { value: "prologue" } });
+    fireEvent.change(screen.getAllByLabelText(/编号模式/)[0], { target: { value: "prologue" } });
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect((within(dialog).getByText("确认修改") as HTMLButtonElement).disabled).toBe(false));
     expect(previewStructure).toHaveBeenCalledWith({
@@ -177,7 +177,7 @@ describe("OutlineTree 改名与影响预览", () => {
   it("章节跨卷移动：确认前零写入", async () => {
     const runStructure = vi.fn().mockResolvedValue(true);
     const { applyStructureWithProtection } = renderTree(makeOutline(), runStructure);
-    fireEvent.change(screen.getAllByLabelText("移动到卷")[0], { target: { value: "v2" } });
+    fireEvent.change(screen.getAllByLabelText(/移动到卷/)[0], { target: { value: "v2" } });
     expect(await screen.findByText("跨卷移动影响预览")).toBeTruthy();
     expect(runStructure).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText("确认移动"));
@@ -198,7 +198,7 @@ describe("OutlineTree 改名与影响预览", () => {
   it("保护应用失败时保留对话框并显示错误", async () => {
     const applyStructureWithProtection = vi.fn().mockResolvedValue(null);
     renderTree(makeOutline(), vi.fn().mockResolvedValue(true), { applyStructureWithProtection });
-    fireEvent.change(screen.getAllByLabelText("移动到卷")[0], { target: { value: "v2" } });
+    fireEvent.change(screen.getAllByLabelText(/移动到卷/)[0], { target: { value: "v2" } });
     const dialog = await screen.findByRole("dialog");
     await waitFor(() => expect((within(dialog).getByText("确认移动") as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(within(dialog).getByText("确认移动"));
@@ -284,5 +284,24 @@ describe("OutlineTree 重排边界（ReorderTarget）", () => {
     const sceneB = screen.getByText("场景B").closest(".outline-scene-main") as HTMLElement;
     expect(sceneA.getAttribute("aria-current")).toBe("true");
     expect(sceneB.getAttribute("aria-current")).toBeNull();
+  });
+
+  // BD-169：每行都有一组图标钮，单靠通用 title 时读屏器的按钮列表里全是同名。
+  it("行内操作钮的可访问名带对象上下文（BD-169）", () => {
+    renderTree(makeOutline());
+    const volumeRow = document.querySelector(".outline-volume-row") as HTMLElement;
+    expect(within(volumeRow).getByRole("button", { name: "在卷「卷一」新建章节" })).toBeTruthy();
+    expect(within(volumeRow).getByRole("button", { name: "上移卷「卷一」" })).toBeTruthy();
+    const chapterRow = document.querySelector(".outline-chapter-row") as HTMLElement;
+    expect(within(chapterRow).getByRole("button", { name: "在章节「第一章」新建场景" })).toBeTruthy();
+    expect(within(chapterRow).getByRole("button", { name: "改名章节「第一章」" })).toBeTruthy();
+    expect(within(chapterRow).getByLabelText("把章节「第一章」移动到卷")).toBeTruthy();
+    expect(within(chapterRow).getByLabelText("章节「第一章」的编号模式")).toBeTruthy();
+    const sceneRow = document.querySelector(".outline-scene") as HTMLElement;
+    expect(within(sceneRow).getByRole("button", { name: "改名场景「场景A」" })).toBeTruthy();
+    expect(within(sceneRow).getByRole("button", { name: "删除场景「场景A」" })).toBeTruthy();
+    expect(within(sceneRow).getByLabelText("把场景「场景A」移动到章节")).toBeTruthy();
+    // title 保留原语义，供鼠标悬停提示。
+    expect(within(sceneRow).getByTitle("改名")).toBeTruthy();
   });
 });

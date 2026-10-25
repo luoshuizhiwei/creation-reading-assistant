@@ -59,6 +59,15 @@ function useConfirmDelete() {
   return { confirmingId, request, reset };
 }
 
+/**
+ * BD-169：侧栏里每条高亮/书签都带一个同名删除钮，读屏器的按钮列表无法区分
+ * 删的是哪一条。用正文/书签名的短摘录拼进 aria-label 作为对象上下文。
+ */
+function excerpt(text: string, max = 12): string {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  return normalized.length > max ? `${normalized.slice(0, max)}…` : normalized;
+}
+
 export function ReaderSidePanel({
   sidePanelTab,
   onTabChange,
@@ -155,6 +164,9 @@ export function ReaderSidePanel({
                         }
                       }}
                       title={highlightDelete.confirmingId === hl.id ? "再次点击确认删除" : "删除高亮"}
+                      aria-label={highlightDelete.confirmingId === hl.id
+                        ? `再次点击确认删除高亮「${excerpt(hl.text)}」`
+                        : `删除高亮「${excerpt(hl.text)}」`}
                     >
                       {highlightDelete.confirmingId === hl.id ? "确认?" : <Trash2 size={12} />}
                     </button>
@@ -222,6 +234,9 @@ export function ReaderSidePanel({
                       }
                     }}
                     title={bookmarkDelete.confirmingId === bm.id ? "再次点击确认删除" : "删除书签"}
+                    aria-label={bookmarkDelete.confirmingId === bm.id
+                      ? `再次点击确认删除书签「${excerpt(bm.label)}」`
+                      : `删除书签「${excerpt(bm.label)}」`}
                   >
                     {bookmarkDelete.confirmingId === bm.id ? "确认?" : <Trash2 size={12} />}
                   </button>

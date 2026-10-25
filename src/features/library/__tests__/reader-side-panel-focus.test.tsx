@@ -68,3 +68,18 @@ describe("阅读侧栏 · 悬停才显形的删除钮", () => {
     expect(button.className).toContain("focus-visible:opacity-100");
   });
 });
+
+// BD-169：删除钮在一列里同名，可访问名要用条目内容区分对象。
+describe("阅读侧栏 · 删除钮带对象上下文", () => {
+  it("高亮删除钮的可访问名包含高亮正文摘录", () => {
+    renderPanel("highlights");
+    const button = screen.getByTitle("删除高亮");
+    expect(button.getAttribute("aria-label")).toBe("删除高亮「雨夜」");
+  });
+
+  it("书签删除钮的可访问名包含书签名", () => {
+    renderPanel("bookmarks");
+    const button = screen.getByTitle("删除书签");
+    expect(button.getAttribute("aria-label")).toBe("删除书签「第一章」");
+  });
+});
