@@ -36,6 +36,16 @@ describe("OperationProgressDialog", () => {
     expect(screen.queryByText(/正在处理/)).toBeNull();
   });
 
+  // BD-159：进度条此前只有 aria-label 挂在普通 div 上，没有角色——名字被直接丢弃，
+  // 读屏器拿到的是一段无意义的装饰。
+  it("进度条以 progressbar 暴露名字与当前值", () => {
+    render(<OperationProgressDialog state={makeState()} isCommitting={false} onCancel={vi.fn()} onClose={vi.fn()} onReset={vi.fn()} />);
+    const bar = screen.getByRole("progressbar", { name: "操作进度" });
+    expect(bar.getAttribute("aria-valuenow")).toBe("42");
+    expect(bar.getAttribute("aria-valuemin")).toBe("0");
+    expect(bar.getAttribute("aria-valuemax")).toBe("100");
+  });
+
   it("不确定进度时只显示处理中提示，不显示任何百分比", () => {
     const state = makeState({
       progress: { phase: "scanning", completed: 0, total: null, bytesCompleted: null, bytesTotal: null, indeterminate: true }

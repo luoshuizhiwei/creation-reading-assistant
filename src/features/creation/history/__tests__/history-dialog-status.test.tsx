@@ -97,4 +97,52 @@ describe("历史对话框 · 异步进度与错误播报", () => {
 
     expect(screen.getByRole("alert").textContent).toContain("快照已失效");
   });
+
+  // BD-159：影响摘要与差异预览的 aria-label 挂在普通 div 上，没有角色，名字被丢弃。
+  it("删除影响摘要与恢复差异预览都是带名字的 group", () => {
+    render(
+      <PurgeTrashDialog
+        item={trashItem}
+        impact={{
+          title: "雨夜来客",
+          childVolumeCount: 0,
+          childChapterCount: 0,
+          childSceneCount: 3,
+          relatedCardCount: 2,
+          resourceCount: 0,
+          approxChars: 1200,
+          warnings: []
+        }}
+        impactBusy={false}
+        impactError={null}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn(async () => ({ ok: true }))}
+      />
+    );
+
+    expect(screen.getByRole("group", { name: "永久删除影响" })).toBeTruthy();
+
+    cleanup();
+    render(
+      <RestoreSnapshotDialog
+        snapshot={snapshot}
+        subjectTitle="雨夜来客"
+        preview={{
+          snapshotId: "snap-1",
+          subjectType: "scene",
+          subjectId: "scene-a",
+          title: "雨夜来客",
+          rows: [{ label: "标题", before: "雨夜来客", after: "雨夜归人", changed: true }],
+          warnings: [],
+          canRestore: true
+        }}
+        previewBusy={false}
+        previewError={null}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn(async () => ({ ok: true }))}
+      />
+    );
+
+    expect(screen.getByRole("group", { name: "恢复影响预览" })).toBeTruthy();
+  });
 });

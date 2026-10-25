@@ -173,4 +173,11 @@ describe("WritingQuickReferencePanel", () => {
     const hint = await screen.findByText("正在整理索引…");
     expect(hint.getAttribute("role")).toBe("status");
   });
+
+  // BD-159：AI 上下文条此前 aria-label 挂在普通 div 上，没有角色，名字被丢弃。
+  it("速查 AI 上下文条是带名字的 group", async () => {
+    render(<Harness />);
+
+    expect(await screen.findByRole("group", { name: "速查 AI 上下文" })).toBeTruthy();
+  });
 });

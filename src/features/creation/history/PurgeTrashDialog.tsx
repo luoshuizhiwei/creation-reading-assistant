@@ -96,7 +96,7 @@ export function PurgeTrashDialog({
           {impactBusy && <p className="history-impact-loading" role="status">正在统计永久删除影响…</p>}
           {impactError && <p className="history-impact-error" role="alert">{impactError}</p>}
           {impact && (
-            <div className="history-authoritative-preview" aria-label="永久删除影响">
+            <div className="history-authoritative-preview" role="group" aria-label="永久删除影响">
               <h4>将被永久移除的内容</h4>
               <ul className="history-impact-summary">
                 {impact.childVolumeCount > 0 && <li>{impact.childVolumeCount} 个子卷</li>}

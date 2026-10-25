@@ -93,7 +93,14 @@ export function OperationProgressDialog({
             <div className="operation-progress">
               <p className="operation-phase">{PHASE_LABEL[progress.phase] ?? progress.phase}</p>
               {percent !== null ? (
-                <div className="operation-bar" aria-label={`进度 ${percent}%`}>
+                <div
+                  className="operation-bar"
+                  role="progressbar"
+                  aria-label="操作进度"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={percent}
+                >
                   <div className="operation-bar-fill" style={{ width: `${percent}%` }} />
                   <span className="operation-bar-text">{percent}%</span>
                 </div>

@@ -307,7 +307,7 @@ export function WritingQuickReferencePanel({
         <button type="button" onClick={() => void closePanel()} aria-label="关闭写作速查" title="关闭（Ctrl+Shift+K）"><PanelRightClose size={16} /></button>
       </header>
 
-      <div className="writing-quick-context" aria-label="速查 AI 上下文">
+      <div className="writing-quick-context" role="group" aria-label="速查 AI 上下文">
         <Sparkles size={13} /> AI 上下文 {contextCards.length}
         {contextCards.length > 0 && <span>发送前可逐组排除</span>}
       </div>

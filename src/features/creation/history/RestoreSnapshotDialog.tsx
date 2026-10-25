@@ -134,7 +134,7 @@ export function RestoreSnapshotDialog({
           {previewBusy && <p className="history-impact-loading" role="status">正在读取权威恢复预览…</p>}
           {previewError && <p className="history-impact-error" role="alert">{previewError}</p>}
           {preview && (
-            <div className="history-authoritative-preview" aria-label="恢复影响预览">
+            <div className="history-authoritative-preview" role="group" aria-label="恢复影响预览">
               <h4>恢复后变化</h4>
               {preview.rows.length === 0 ? (
                 <p className="history-impact-empty">目标版本与当前对象没有可见差异。</p>
