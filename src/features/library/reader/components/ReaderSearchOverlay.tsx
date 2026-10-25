@@ -103,17 +103,29 @@ export function ReaderSearchOverlay({
         />
       </div>
 
+      {/* BD-180：命中位次只画不给——焦点始终留在输入框里，按 Enter 换一处、改一个字
+          改计数，读屏器都收不到通知（BD-175 的漏网点）。视觉串原样保留并对读屏器
+          隐藏，另挂一条常驻 role=status 的中文播报；sr-only 不占布局宽度。 */}
       <div className="flex items-center text-xs text-paper-muted min-w-[54px] justify-center tabular-nums">
-        {!keyword.trim() ? (
-          <span className="text-[11px] text-paper-muted">待输入</span>
-        ) : matches.length === 0 ? (
-          <span className="text-[11px] text-[color:var(--proof-mark)]">无结果</span>
-        ) : (
-          <span>
-            {currentIndex + 1} / {matches.length}
-            {matches.length >= 1000 ? "+" : ""}
-          </span>
-        )}
+        <span aria-hidden="true">
+          {!keyword.trim() ? (
+            <span className="text-[11px] text-paper-muted">待输入</span>
+          ) : matches.length === 0 ? (
+            <span className="text-[11px] text-[color:var(--proof-mark)]">无结果</span>
+          ) : (
+            <>
+              {currentIndex + 1} / {matches.length}
+              {matches.length >= 1000 ? "+" : ""}
+            </>
+          )}
+        </span>
+        <span className="sr-only" role="status">
+          {!keyword.trim()
+            ? ""
+            : matches.length === 0
+              ? "没有匹配结果"
+              : `第 ${currentIndex + 1} 处，共 ${matches.length}${matches.length >= 1000 ? " 处以上" : " 处"}`}
+        </span>
       </div>
 
       <Button
