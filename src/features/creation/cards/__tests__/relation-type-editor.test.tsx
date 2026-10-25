@@ -244,4 +244,11 @@ describe("RelationTypeEditor 自定义关系类型", () => {
     expect(screen.getByRole("textbox", { name: "正向名称" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "反向名称" })).toBeTruthy();
   });
+
+  // BD-165：星号只是视觉标记，读屏器从名字里拿不到「必填」。
+  it("正反名称都声明 aria-required", () => {
+    render(<RelationTypeEditor projectId="p1" cardTypes={cardTypes} onClose={() => {}} />);
+    expect(screen.getByRole("textbox", { name: "正向名称" }).getAttribute("aria-required")).toBe("true");
+    expect(screen.getByRole("textbox", { name: "反向名称" }).getAttribute("aria-required")).toBe("true");
+  });
 });

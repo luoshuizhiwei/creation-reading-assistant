@@ -61,6 +61,7 @@ export function CardEditorForm({
           <input
             className="cards-input"
             aria-label="名称"
+            aria-required="true"
             value={draft.title}
             onChange={(event) => onChangeDraft({ ...draft, title: event.target.value })}
             placeholder="卡片主名称"

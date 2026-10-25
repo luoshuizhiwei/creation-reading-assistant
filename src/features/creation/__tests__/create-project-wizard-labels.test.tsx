@@ -46,4 +46,11 @@ describe("CreateProjectWizard 可访问名", () => {
 
     expect(screen.getByRole("alert").textContent).toBeTruthy();
   });
+
+  // BD-165：标题旁的「必填」只是可见文字，输入框本身没有声明必填。
+  it("必填标题声明 aria-required", () => {
+    render(<CreateProjectWizard open onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
+    expect(screen.getByLabelText(/标题/).getAttribute("aria-required")).toBe("true");
+  });
 });

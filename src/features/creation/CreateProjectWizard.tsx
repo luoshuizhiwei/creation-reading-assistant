@@ -186,6 +186,7 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
                       setTitleTouched(true);
                     }}
                     aria-invalid={Boolean(titleError)}
+                    aria-required="true"
                   />
                   <span className="creation-field-hint">1–200 字</span>
                   {titleError && <span className="creation-field-error" role="alert">{titleError}</span>}

@@ -307,6 +307,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
             <input
               className="cards-input"
               aria-label="类型名称"
+              aria-required="true"
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="例如：功法、神兵"
@@ -349,11 +350,11 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
                 <div className="cte-field-grid">
                   <div className="cards-field">
                     <label className="cards-field-label">名称<span className="cards-required">*</span></label>
-                    <input className="cards-input" aria-label={`字段 ${index + 1} 名称`} value={field.label} onChange={(e) => updateField(index, { label: e.target.value })} placeholder="字段显示名" />
+                    <input className="cards-input" aria-label={`字段 ${index + 1} 名称`} aria-required="true" value={field.label} onChange={(e) => updateField(index, { label: e.target.value })} placeholder="字段显示名" />
                   </div>
                   <div className="cards-field">
                     <label className="cards-field-label">稳定 key<span className="cards-required">*</span></label>
-                    <input className="cards-input" aria-label={`字段 ${index + 1} 稳定 key`} value={field.key} disabled={field.existing} onChange={(e) => updateField(index, { key: e.target.value })} placeholder="如 magic_name" />
+                    <input className="cards-input" aria-label={`字段 ${index + 1} 稳定 key`} aria-required="true" value={field.key} disabled={field.existing} onChange={(e) => updateField(index, { key: e.target.value })} placeholder="如 magic_name" />
                   </div>
                   <div className="cards-field">
                     <label className="cards-field-label">类型</label>

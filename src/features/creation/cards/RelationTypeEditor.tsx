@@ -181,6 +181,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
             <input
               className="cards-input"
               aria-label="正向名称"
+              aria-required="true"
               value={forwardName}
               onChange={(event) => setForwardName(event.target.value)}
               placeholder="如：师徒"
@@ -191,6 +192,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
             <input
               className="cards-input"
               aria-label="反向名称"
+              aria-required="true"
               value={reverseName}
               onChange={(event) => setReverseName(event.target.value)}
               placeholder="如：师父"

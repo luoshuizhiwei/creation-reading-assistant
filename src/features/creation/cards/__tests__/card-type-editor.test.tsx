@@ -300,8 +300,18 @@ describe("CardTypeEditor 自定义卡片类型", () => {
     expect(actions.runStructure).not.toHaveBeenCalled();
   });
 
-  it("选项字段没有有效选项不提交", async () => {
+  // BD-165：类型名称与字段名称/key 的必填只靠星号，读屏器拿不到必填语义。
+  it("必填类型名称与字段名称/key 声明 aria-required", () => {
     const { container } = render(<CardTypeEditor projectId="p1" onClose={() => {}} />);
+    expect(screen.getByPlaceholderText("例如：功法、神兵").getAttribute("aria-required")).toBe("true");
+
+    addFieldAndConfigure(container, 0, { label: "字段甲", key: "k1", kind: "text" });
+    const { inputs } = rowControls(container, 0);
+    expect(inputs[0].getAttribute("aria-required")).toBe("true");
+    expect(inputs[1].getAttribute("aria-required")).toBe("true");
+  });
+
+  it("选项字段没有有效选项不提交", async () => {    const { container } = render(<CardTypeEditor projectId="p1" onClose={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText("例如：功法、神兵"), { target: { value: "选项类型" } });
     addFieldAndConfigure(container, 0, { label: "单选字段", key: "sel", kind: "select", options: "" });
     fireEvent.click(screen.getByText("创建类型"));

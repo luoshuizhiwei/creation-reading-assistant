@@ -70,8 +70,13 @@ describe("CardEditorForm 可访问名", () => {
     expect(screen.getByRole("textbox", { name: "标签" })).toBeTruthy();
   });
 
-  it("动态字段以 schema 的可见标签作可访问名（含数字/日期/开关/下拉/多行）", () => {
+  // BD-165：必填只靠标签后的星号，读屏器听到的名字里连星号都没有（名字来自 aria-label）。
+  it("必填的名称输入框用 aria-required 暴露", () => {
     renderForm();
+    expect(screen.getByRole("textbox", { name: "名称" }).getAttribute("aria-required")).toBe("true");
+  });
+
+  it("动态字段以 schema 的可见标签作可访问名（含数字/日期/开关/下拉/多行）", () => {    renderForm();
     expect(screen.getByRole("textbox", { name: "道号" })).toBeTruthy();
     expect(screen.getByRole("spinbutton", { name: "年岁" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "小传" })).toBeTruthy();
