@@ -261,21 +261,27 @@ export function LibraryPage() {
             )}
 
             {/* Book table */}
+            {/* BD-178：这是一张逐列对齐的记录表，但此前全由 div 拼接——读屏器只能线性念出
+                "TXT 夜雨书 未知作者 …"，听不到"本地路径/阅读进度"这些列名与值的对应。
+                用 ARIA 表格角色描述既有结构，不改 DOM 层级，display:grid 的列轨照旧。 */}
             <div className="desktop-panel-card desktop-library-panel motion-panel overflow-hidden">
-              <div className="desktop-library-grid-head">
-                <div>格式</div>
-                <div>书籍</div>
-                <div>本地路径</div>
-                <div>阅读进度</div>
-                <div>最近阅读</div>
-                <div className="text-right">操作</div>
-              </div>
-              {filteredAndSorted.length === 0 ? (
-                <div className="py-10 text-center text-sm text-paper-muted">
-                  {hasActiveFilters ? "没有匹配搜索结果的书。试试调整筛选条件。" : "书库暂无数据。"}
+              <div role="table" aria-label="书库书籍">
+                <div className="desktop-library-grid-head" role="row">
+                  <div role="columnheader">格式</div>
+                  <div role="columnheader">书籍</div>
+                  <div role="columnheader">本地路径</div>
+                  <div role="columnheader">阅读进度</div>
+                  <div role="columnheader">最近阅读</div>
+                  <div role="columnheader" className="text-right">操作</div>
                 </div>
-              ) : (
-                filteredAndSorted.map((book) => {
+                {filteredAndSorted.length === 0 ? (
+                  <div role="row">
+                    <div role="cell" className="py-10 text-center text-sm text-paper-muted">
+                      {hasActiveFilters ? "没有匹配搜索结果的书。试试调整筛选条件。" : "书库暂无数据。"}
+                    </div>
+                  </div>
+                ) : (
+                  filteredAndSorted.map((book) => {
                   const itemProgress = progress[book.id];
                   const percent = Math.round((itemProgress?.progressPercent ?? 0) * 100);
                   const sourcePath = book.originalPath ?? book.filePath;
@@ -288,12 +294,13 @@ export function LibraryPage() {
                       key={book.id}
                       className="desktop-library-row group"
                       data-format={book.format}
+                      role="row"
                       onClick={() => openReader(book.id)}
                     >
-                      <div>
+                      <div role="cell">
                         <span className={`format-chip format-chip--${book.format}`}>{book.format}</span>
                       </div>
-                      <div className="min-w-0 text-left">
+                      <div role="cell" className="min-w-0 text-left">
                         <div className="flex items-center gap-3">
                           <div className="library-cover" aria-hidden="true">
                             <span className="library-cover-glyph">{book.format === "epub" ? "书" : book.format === "md" ? "M" : "文"}</span>
@@ -307,10 +314,10 @@ export function LibraryPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="library-path" title={`完整路径：${sourcePath}`}>
+                      <div role="cell" className="library-path" title={`完整路径：${sourcePath}`}>
                         {displayPath}
                       </div>
-                      <div className="grid gap-1">
+                      <div role="cell" className="grid gap-1">
                         <div className="flex items-center justify-between text-xs text-paper-muted">
                           <span className="library-progress-percent">{percent}%</span>
                           <span>{formatDuration(itemProgress?.totalReadingTimeMs)}</span>
@@ -319,8 +326,8 @@ export function LibraryPage() {
                           <div className="library-progress-fill" style={{ width: `${percent}%` }} />
                         </div>
                       </div>
-                      <div className="font-mono text-xs text-paper-muted">{formatDate(itemProgress?.lastReadAt)}</div>
-                      <div className="flex justify-end gap-1">
+                      <div role="cell" className="font-mono text-xs text-paper-muted">{formatDate(itemProgress?.lastReadAt)}</div>
+                      <div role="cell" className="flex justify-end gap-1">
                         <Button
                           className="px-2"
                           variant="secondary"
@@ -348,6 +355,7 @@ export function LibraryPage() {
                   );
                 })
               )}
+              </div>
             </div>
           </div>
         )}
