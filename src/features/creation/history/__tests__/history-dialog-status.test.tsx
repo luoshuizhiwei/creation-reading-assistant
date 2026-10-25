@@ -144,5 +144,12 @@ describe("历史对话框 · 异步进度与错误播报", () => {
     );
 
     expect(screen.getByRole("group", { name: "恢复影响预览" })).toBeTruthy();
+
+    // BD-160：role="row" 的行里此前没有任何单元格角色，读屏器读到的是空行。
+    expect(screen.getByRole("rowheader", { name: "标题" })).toBeTruthy();
+    const cells = screen.getAllByRole("cell");
+    expect(cells).toHaveLength(2);
+    expect(cells[0]!.textContent).toContain("雨夜来客");
+    expect(cells[1]!.textContent).toContain("雨夜归人");
   });
 });

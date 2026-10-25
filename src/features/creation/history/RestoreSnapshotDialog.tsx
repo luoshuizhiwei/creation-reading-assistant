@@ -146,9 +146,9 @@ export function RestoreSnapshotDialog({
                       role="row"
                       key={`${row.label}-${index}`}
                     >
-                      <strong>{row.label}</strong>
-                      <span><small>当前</small>{displayValue(row.before)}</span>
-                      <span><small>恢复后</small>{displayValue(row.after)}</span>
+                      <strong role="rowheader">{row.label}</strong>
+                      <span role="cell"><small>当前</small>{displayValue(row.before)}</span>
+                      <span role="cell"><small>恢复后</small>{displayValue(row.after)}</span>
                     </div>
                   ))}
                 </div>
