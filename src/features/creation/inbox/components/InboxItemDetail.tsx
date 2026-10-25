@@ -245,7 +245,7 @@ export function InboxItemDetail({
                       size="sm"
                       className="shrink-0"
                       title="移除候选"
-                      aria-label="移除候选"
+                      aria-label={`移除${AI_LABELS[kind]}候选「${content.replace(/\s+/g, " ").trim().slice(0, 12)}${content.length > 12 ? "…" : ""}」`}
                       onClick={() => void onRemoveVariant(String(variant.id))}
                     >
                       <X size={14} />

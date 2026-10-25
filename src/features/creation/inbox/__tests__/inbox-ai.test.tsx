@@ -170,6 +170,13 @@ describe("InboxPage AI 门控", () => {
     expect(screen.getByText("已有候选正文")).toBeDefined();
     expect(screen.queryByText("润色")).toBeNull();
   });
+
+  // BD-171（续 BD-169）：候选列表里每个移除钮同名，可访问名要指出是哪一条。
+  it("候选移除钮的可访问名带候选内容", async () => {
+    const variant = { id: "v1", kind: "polish", content: "已有候选正文", model: "gpt", createdAt: new Date().toISOString(), prompt: "p" };
+    await renderAndSelect(makeItem({ variants: [variant] }), null);
+    expect(screen.getByLabelText("移除润色候选「已有候选正文」")).toBeDefined();
+  });
 });
 
 describe("InboxPage AI 候选生成与采纳", () => {

@@ -167,7 +167,7 @@ export function CardBoard({
     return onChaptersSetStatus!(ids, pendingOp.status);
   };
 
-  const renderSceneActions = (chapter: CreationOutlineChapter, sceneId: string) => {
+  const renderSceneActions = (chapter: CreationOutlineChapter, sceneId: string, sceneTitle: string) => {
     if (!editable) return null;
     const sceneIds = chapter.scenes.map((item) => item.id);
     const upTarget = reorderTarget(sceneIds, sceneId, "up");
@@ -176,12 +176,14 @@ export function CardBoard({
     const downBefore = downTarget.canMove ? downTarget.beforeId : undefined;
     return (
       <span className="card-board-card-actions">
+        {/* BD-171（续 BD-169）：卡板上每张卡都有一组同名的「上移」「下移」「移章」，
+            读屏器列表里分不清动的是哪一场；aria-label 带上场景名，title 保留原样。 */}
         {onSceneReorder && (
           <span className="card-board-reorder">
-            <button type="button" title="上移" disabled={!upTarget.canMove || busy} onClick={() => void runEdit(() => onSceneReorder(sceneId, upBefore))}>
+            <button type="button" title="上移" aria-label={`上移场景「${sceneTitle}」`} disabled={!upTarget.canMove || busy} onClick={() => void runEdit(() => onSceneReorder(sceneId, upBefore))}>
               <ChevronUp size={12} />
             </button>
-            <button type="button" title="下移" disabled={!downTarget.canMove || busy} onClick={() => void runEdit(() => onSceneReorder(sceneId, downBefore))}>
+            <button type="button" title="下移" aria-label={`下移场景「${sceneTitle}」`} disabled={!downTarget.canMove || busy} onClick={() => void runEdit(() => onSceneReorder(sceneId, downBefore))}>
               <ChevronDown size={12} />
             </button>
           </span>
@@ -189,7 +191,7 @@ export function CardBoard({
         {onSceneMove && (
           <select
             className="card-board-move-select"
-            aria-label="移动到章节"
+            aria-label={`把场景「${sceneTitle}」移动到章节`}
             value=""
             onChange={(event) => {
               if (event.target.value) setPendingOp({ type: "sceneMove", sceneId, targetChapterId: event.target.value });
@@ -231,7 +233,7 @@ export function CardBoard({
           {SCENE_STATUS_OPTIONS.find((entry) => entry.value === (item.scene.status ?? "planned"))?.label ?? "待规划"}
         </span>
       </button>
-      {renderSceneActions(item.chapter, item.scene.id)}
+      {renderSceneActions(item.chapter, item.scene.id, item.scene.title)}
     </div>
   );
 
@@ -347,7 +349,7 @@ export function CardBoard({
                   {onChapterSetStatus && (
                     <select
                       className="outline-status-select"
-                      aria-label="章节状态"
+                      aria-label={`章节「${chapterKey(chapter)}」的状态`}
                       value={chapter.status}
                       disabled={busy}
                       onChange={(event) => void runEdit(() => onChapterSetStatus(chapter.id, event.target.value))}

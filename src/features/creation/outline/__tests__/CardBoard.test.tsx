@@ -50,7 +50,7 @@ describe("CardBoard 编辑能力", () => {
     });
     const { onSceneMove } = renderBoard({ previewStructure, applyStructureWithProtection });
     const card = screen.getByText("场景A").closest(".card-board-card")!;
-    fireEvent.change(within(card as HTMLElement).getByLabelText("移动到章节"), { target: { value: "c2" } });
+    fireEvent.change(within(card as HTMLElement).getByLabelText(/移动到章节/), { target: { value: "c2" } });
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByText("工作区影响")).toBeTruthy();
     fireEvent.click(within(dialog).getByText("确认移动"));
@@ -77,7 +77,7 @@ describe("CardBoard 编辑能力", () => {
   it("场景跨章移动：取消不调用命令", async () => {
     const { onSceneMove } = renderBoard();
     const card = screen.getByText("场景A").closest(".card-board-card")!;
-    fireEvent.change(within(card as HTMLElement).getByLabelText("移动到章节"), { target: { value: "c2" } });
+    fireEvent.change(within(card as HTMLElement).getByLabelText(/移动到章节/), { target: { value: "c2" } });
     expect(await screen.findByText("场景跨章移动影响预览")).toBeTruthy();
     fireEvent.click(screen.getByText("取消"));
     expect(onSceneMove).not.toHaveBeenCalled();
@@ -86,7 +86,7 @@ describe("CardBoard 编辑能力", () => {
   it("场景跨章移动：确认调用 onSceneMove", async () => {
     const { onSceneMove } = renderBoard();
     const card = screen.getByText("场景A").closest(".card-board-card")!;
-    fireEvent.change(within(card as HTMLElement).getByLabelText("移动到章节"), { target: { value: "c2" } });
+    fireEvent.change(within(card as HTMLElement).getByLabelText(/移动到章节/), { target: { value: "c2" } });
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByText("确认移动"));
     await waitFor(() => expect(onSceneMove).toHaveBeenCalled());
@@ -95,7 +95,7 @@ describe("CardBoard 编辑能力", () => {
 
   it("缺省时卡板保持只读（无移章 / 批量控件）", () => {
     render(<CardBoard outline={makeOutline()} workflow={workflow} onSelectScene={vi.fn()} />);
-    expect(screen.queryByLabelText("移动到章节")).toBeNull();
+    expect(screen.queryByLabelText(/移动到章节/)).toBeNull();
     expect(screen.queryByLabelText("批量状态")).toBeNull();
   });
 
@@ -185,5 +185,18 @@ describe("CardBoard 编辑能力", () => {
     const sceneB = screen.getByText("场景B").closest(".card-board-card-main") as HTMLElement;
     expect(sceneA.getAttribute("aria-current")).toBeNull();
     expect(sceneB.getAttribute("aria-current")).toBe("true");
+  });
+
+  // BD-171（续 BD-169）：每张卡都有一组同名行内控件，可访问名要带场景名。
+  it("卡板行内控件的可访问名带场景上下文（BD-171）", () => {
+    renderBoard();
+    const card = screen.getByText("场景A").closest(".card-board-card") as HTMLElement;
+    expect(within(card).getByRole("button", { name: "上移场景「场景A」" })).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "下移场景「场景A」" })).toBeTruthy();
+    expect(within(card).getByLabelText("把场景「场景A」移动到章节")).toBeTruthy();
+    // title 保留原语义，供鼠标悬停提示。
+    expect(within(card).getByTitle("上移")).toBeTruthy();
+    expect(screen.getAllByLabelText(/^章节「/).length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText(/^章节「/)[0].getAttribute("aria-label")).toContain("的状态");
   });
 });

@@ -576,7 +576,7 @@ export function OutlineTree({
           )}
           <select
             className="outline-status-select"
-            aria-label="章节状态"
+            aria-label={`章节「${chapter.title}」的状态`}
             value={chapter.status}
             onChange={(event) => void setStatus(chapter, event.target.value)}
           >

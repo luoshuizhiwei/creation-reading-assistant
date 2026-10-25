@@ -297,6 +297,8 @@ describe("OutlineTree 重排边界（ReorderTarget）", () => {
     expect(within(chapterRow).getByRole("button", { name: "改名章节「第一章」" })).toBeTruthy();
     expect(within(chapterRow).getByLabelText("把章节「第一章」移动到卷")).toBeTruthy();
     expect(within(chapterRow).getByLabelText("章节「第一章」的编号模式")).toBeTruthy();
+    // BD-171（续 BD-169）：章节状态下拉同样每行一个，名要带章节。
+    expect(within(chapterRow).getByLabelText("章节「第一章」的状态")).toBeTruthy();
     const sceneRow = document.querySelector(".outline-scene") as HTMLElement;
     expect(within(sceneRow).getByRole("button", { name: "改名场景「场景A」" })).toBeTruthy();
     expect(within(sceneRow).getByRole("button", { name: "删除场景「场景A」" })).toBeTruthy();
