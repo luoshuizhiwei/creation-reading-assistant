@@ -58,10 +58,10 @@ describe("阅读侧栏 · 选中态暴露给辅助技术（BD-170）", () => {
     expect(screen.getByRole("button", { name: /^书签/ }).getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("高亮配色选项按当前颜色给出 aria-pressed", () => {
+  it("高亮配色选项按当前颜色给出 aria-pressed（BD-181 起可访问名带条目上下文）", () => {
     renderPanel("highlights");
-    expect(screen.getByRole("button", { name: "绿色" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "黄色" }).getAttribute("aria-pressed")).toBe("false");
-    expect(screen.getByRole("button", { name: "紫色" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: /绿色$/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: /黄色$/ }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: /紫色$/ }).getAttribute("aria-pressed")).toBe("false");
   });
 });

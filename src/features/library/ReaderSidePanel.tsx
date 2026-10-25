@@ -227,6 +227,10 @@ export function ReaderSidePanel({
                       <button
                         key={c.value}
                         aria-pressed={hl.color === c.value}
+                        // BD-181：色板此前只有 title=颜色名。一页里 N 条高亮就出现
+                        // 5N 颗同名按钮（「黄色」「红色」…），读屏器的按钮列表分不清
+                        // 点的是把哪一条改色（同 BD-169/BD-177 的对象上下文）。
+                        aria-label={`将高亮「${excerpt(hl.text)}」改为${c.label}`}
                         className={`h-4 w-4 rounded-full border transition ${hl.color === c.value ? "border-paper-ink ring-1 ring-paper-ink/30" : "border-transparent opacity-60 hover:opacity-100"}`}
                         style={{ background: c.hex }}
                         title={c.label}
