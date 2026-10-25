@@ -87,7 +87,12 @@ export function ReaderSettingsMorePanel({ settings, onChange, onReset, format = 
             保存
           </Button>
         </div>
-        {saveMessage && <div className="text-xs text-paper-muted">{saveMessage}</div>}
+        {saveMessage && <div className="text-xs text-paper-muted" aria-hidden="true">{saveMessage}</div>}
+        {/* BD-173：保存成功提示 2 秒后自清，此前是一个条件渲染的普通 div，读屏器既不播报、
+            消失也没有交代。可见行保持原样（不可见时它本来就占不到高度），另挂一个常驻的
+            sr-only live region：区域先于内容存在才播得出来（嵌进内容一起插入的 polite 区域
+            在部分读屏器里是哑的）。sr-only 走绝对定位，不参与上面的 grid gap。 */}
+        <span className="sr-only" role="status">{saveMessage}</span>
       </div>
 
       {onReset && (

@@ -91,14 +91,14 @@ export function MigrationDialog({ onClose, onMigrated }: MigrationDialogProps) {
         ) : (
           <>
             {status && !status.canProceed && (
-              <p className="migration-error"><AlertTriangle size={14} /> 迁移预检未通过：{status.blockingReasons.join("；")}</p>
+              <p className="migration-error" role="alert"><AlertTriangle size={14} /> 迁移预检未通过：{status.blockingReasons.join("；")}</p>
             )}
             {status?.canProceed && (
               <p className="migration-note">
                 将扫描旧数据目录：先在独立备份目录创建带校验和的完整备份，再把全部旧灵感复制到创作工作台收件箱（保留标题、正文、标签、来源与全部 AI 候选），校验通过后写入激活标记。旧数据文件不会被修改。
               </p>
             )}
-            {error && <p className="migration-error"><AlertTriangle size={14} /> {error}</p>}
+            {error && <p className="migration-error" role="alert"><AlertTriangle size={14} /> {error}</p>}
             <div className="migration-actions">
               <Button variant="secondary" onClick={onClose}>取消</Button>
               <Button

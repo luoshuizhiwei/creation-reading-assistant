@@ -192,6 +192,8 @@ describe("ReplacePanel 逐命中排除与替换计划", () => {
     fireEvent.click(screen.getByTestId("replace-apply"));
     await screen.findByTestId("replace-error-banner");
     expect(screen.getByText("场景正文自预览后已变更")).toBeTruthy();
+    // BD-173：错误横幅要作为 alert 播报，不能只在屏幕上出现。
+    expect(screen.getByTestId("replace-error-banner").getAttribute("role")).toBe("alert");
   });
 
   it("重叠命中：稳定拒绝并展示提示", async () => {

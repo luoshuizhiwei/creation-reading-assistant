@@ -228,5 +228,14 @@ export function AnimatedPanel({ children, className = "", delay = 0 }: { childre
 }
 
 export function InlineNotice({ children, tone = "info", className = "" }: { children: ReactNode; tone?: ToastTone; className?: string }) {
-  return <div className={`motion-notice rounded-md border p-3 text-sm leading-[var(--leading-14)] ${toastClass[tone]} ${className}`}>{children}</div>;
+  // BD-173：这族提示都是动作之后才出现的（迁移结果、更新检查、同步状态、AI 连通性），
+  // 此前只是一个普通 div，读屏器完全不会播报。错误走 alert（插入即播），其余走 status。
+  return (
+    <div
+      role={tone === "error" ? "alert" : "status"}
+      className={`motion-notice rounded-md border p-3 text-sm leading-[var(--leading-14)] ${toastClass[tone]} ${className}`}
+    >
+      {children}
+    </div>
+  );
 }

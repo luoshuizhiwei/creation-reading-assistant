@@ -260,7 +260,7 @@ export function ProofPanel({ projectId, onClose }: ProofPanelProps) {
 
         <div className="creation-search-results">
           {running && <p className="creation-search-state" role="status">正在逐场景检查…</p>}
-          {!running && error && <p className="creation-search-state creation-search-state--error">{error}</p>}
+          {!running && error && <p className="creation-search-state creation-search-state--error" role="alert">{error}</p>}
           {!running && !error && ran && view && view.total === 0 && (
             <p className="creation-search-state">
               <CheckCircle2 size={15} /> 未发现问题，正文很干净。

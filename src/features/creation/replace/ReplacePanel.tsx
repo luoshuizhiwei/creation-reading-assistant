@@ -230,7 +230,7 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
       </div>
 
       {error && phase === "error" && (
-        <div className="replace-error-banner" data-testid="replace-error-banner">
+        <div className="replace-error-banner" role="alert" data-testid="replace-error-banner">
           <p>{error.message}</p>
           <Button variant="outline" size="sm" onClick={handleReset} data-testid="replace-error-reset">
             重新预览

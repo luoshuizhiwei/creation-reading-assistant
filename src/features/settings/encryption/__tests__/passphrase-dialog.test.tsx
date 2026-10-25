@@ -66,4 +66,14 @@ describe("PassphraseDialog", () => {
     expect((screen.getByTestId("pe-submit") as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByTestId("pe-cancel") as HTMLButtonElement).disabled).toBe(true);
   });
+
+  // BD-173：口令校验与外部错误此前只是普通 <p>，读屏器不会播报。
+  it("三类口令错误都用 alert 播报（BD-173）", () => {
+    render(<PassphraseDialog open error="口令错误" minLength={8} onConfirm={vi.fn()} />);
+    fireEvent.change(screen.getByTestId("pe-passphrase"), { target: { value: "a" } });
+    expect(screen.getByTestId("pe-too-short").getAttribute("role")).toBe("alert");
+    fireEvent.change(screen.getByTestId("pe-confirm"), { target: { value: "b" } });
+    expect(screen.getByTestId("pe-mismatch").getAttribute("role")).toBe("alert");
+    expect(screen.getByTestId("pe-error").getAttribute("role")).toBe("alert");
+  });
 });

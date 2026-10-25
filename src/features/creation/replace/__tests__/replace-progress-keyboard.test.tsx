@@ -99,6 +99,13 @@ describe("ReplaceProgressDialog 键盘契约", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it("错误阶段把失败面板作为 alert 播报（BD-173）", () => {
+    renderDialog({ progress: null, error: { code: "transaction-failed", message: "替换事务失败" } });
+    const panel = screen.getByTestId("replace-error");
+    expect(panel.getAttribute("role")).toBe("alert");
+    expect(panel.textContent).toContain("替换未能完成");
+  });
+
   it("结果阶段 Esc 关闭", async () => {
     const { onCancel, onClose } = renderDialog({
       progress: null,

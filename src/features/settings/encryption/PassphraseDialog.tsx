@@ -124,7 +124,7 @@ export function PassphraseDialog({
         </label>
 
         {tooShort && (
-          <p className="pe-error mt-2" data-testid="pe-too-short">
+          <p className="pe-error mt-2" role="alert" data-testid="pe-too-short">
             口令至少需要 {minLength} 个字符
           </p>
         )}
@@ -145,7 +145,7 @@ export function PassphraseDialog({
         )}
 
         {mismatch && (
-          <p className="pe-error mt-2" data-testid="pe-mismatch">
+          <p className="pe-error mt-2" role="alert" data-testid="pe-mismatch">
             两次输入的口令不一致
           </p>
         )}
@@ -164,7 +164,7 @@ export function PassphraseDialog({
         )}
 
         {error && (
-          <p className="pe-error mt-2" data-testid="pe-error">
+          <p className="pe-error mt-2" role="alert" data-testid="pe-error">
             {error}
           </p>
         )}

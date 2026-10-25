@@ -56,7 +56,7 @@ export function ReplaceProgressDialog({
     <div ref={dialogRef} onKeyDown={handleModalKeyDown} className="replace-progress-overlay" role="dialog" aria-modal="true" aria-label="替换进度" data-testid="replace-progress-dialog">
       <div className="replace-progress-card">
         {error ? (
-          <div className="replace-progress-error" data-testid="replace-error">
+          <div className="replace-progress-error" role="alert" data-testid="replace-error">
             <h3>替换未能完成</h3>
             <p data-testid="replace-error-message">{describeReplaceError(error)}</p>
             <p className="replace-error-code" data-testid="replace-error-code">
