@@ -835,7 +835,7 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
                 <div className="flex items-center justify-between gap-1 text-xs">
                   <span className="truncate text-paper-ink font-medium">{ch.title}</span>
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <Button variant="ghost" size="sm" onClick={() => {
+                    <Button variant="ghost" size="sm" aria-label={`重命名「${ch.title}」`} onClick={() => {
                       setRenamingIndex(i);
                       setRenameValue(ch.title);
                     }}>
@@ -843,6 +843,7 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
                     </Button>
                     <button
                       aria-pressed={splitIndex === i}
+                      aria-label={`从此处拆分「${ch.title}」`}
                       className={`rounded px-1.5 py-0.5 ${splitIndex === i ? "bg-copper text-[color:var(--fg-on-solid)]" : "text-paper-muted hover:bg-paper-soft hover:text-paper-ink"}`}
                       onClick={() => setSplitIndex((cur) => (cur === i ? null : i))}
                     >
@@ -852,6 +853,7 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
                       <button
                         className="rounded px-1.5 py-0.5 text-[color:var(--proof-mark)] hover:bg-[color:var(--proof-tint)]"
                         title="删除该章节起点"
+                        aria-label={`删除章节起点「${ch.title}」`}
                         onClick={() => {
                           setDraftChapters((prev) => prev.filter((_, idx) => idx !== i));
                           if (splitIndex === i) setSplitIndex(null);

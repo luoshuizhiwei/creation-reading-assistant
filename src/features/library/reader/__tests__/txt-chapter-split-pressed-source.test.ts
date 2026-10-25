@@ -13,4 +13,13 @@ describe("TxtMarkdownReader 章节目录编辑的拆分开关", () => {
     const src = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
     expect(src).toMatch(/<button\b[^>]*aria-pressed=\{splitIndex === i\}[\s\S]{0,400}?从此处拆分/);
   });
+
+  // BD-177：目录编辑的每一行都有重命名/拆分/删除三个控件，名字此前完全相同。
+  it("行内三个控件都带章节名（BD-177）", () => {
+    const raw = readFileSync(fileURLToPath(new URL("../TxtMarkdownReader.tsx", import.meta.url)), "utf8");
+    const src = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    expect(src).toContain("aria-label={`重命名「${ch.title}」`}");
+    expect(src).toContain("aria-label={`从此处拆分「${ch.title}」`}");
+    expect(src).toContain("aria-label={`删除章节起点「${ch.title}」`}");
+  });
 });

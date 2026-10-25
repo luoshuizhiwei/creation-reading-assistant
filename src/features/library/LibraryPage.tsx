@@ -324,7 +324,7 @@ export function LibraryPage() {
                         <Button
                           className="px-2"
                           variant="secondary"
-                          aria-label="打开资料"
+                          aria-label={`打开「${book.title}」`}
                           onClick={(event) => {
                             event.stopPropagation();
                             openReader(book.id);
@@ -335,7 +335,7 @@ export function LibraryPage() {
                         <button
                           className="grid h-8 w-8 place-items-center rounded-md text-paper-muted transition hover:bg-[color:var(--proof-tint)] hover:text-[color:var(--proof-mark)]"
                           title="移除"
-                          aria-label="移除书籍"
+                          aria-label={`移除书籍「${book.title}」`}
                           onClick={(event) => {
                             event.stopPropagation();
                             handleRemoveBook(book.id, book.title);

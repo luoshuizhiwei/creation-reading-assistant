@@ -38,7 +38,12 @@ export function BoardView({
             <header className="cards-board-column-head">
               <span className="cards-board-column-title">{type.name}</span>
               <em>{columnCards.length}</em>
-              <button type="button" title="在此类型下新建卡片" onClick={() => onNewCard(type.kind)}>
+              <button
+                type="button"
+                title="在此类型下新建卡片"
+                aria-label={`在「${type.name}」下新建卡片`}
+                onClick={() => onNewCard(type.kind)}
+              >
                 <Plus size={13} />
               </button>
             </header>
