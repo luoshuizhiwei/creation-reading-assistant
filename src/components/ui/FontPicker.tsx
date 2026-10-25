@@ -32,6 +32,8 @@ export function FontPicker({
 }: FontPickerProps) {
   const listboxId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const { fonts, refresh } = useInstalledFonts();
@@ -71,27 +73,48 @@ export function FontPicker({
         onFontImported?.(imported);
       }
       setOpen(false);
+      triggerRef.current?.focus();
       return;
     }
     onChange(optionValue || undefined);
     setOpen(false);
+    // BD-166：列表收起后焦点不能落到 body，否则下次 Tab 从页首重走。
+    triggerRef.current?.focus();
   };
 
   const currentLabel = value ? value : "系统默认";
 
+  // BD-166：方向键此前只挪高亮不挪焦点，读屏器念的还是旧项，回车却提交新项。
+  // 让焦点跟着高亮走，两件事才是同一项。
+  const moveActive = (delta: number) => {
+    const next = (activeIndex + delta + options.length) % options.length;
+    setActiveIndex(next);
+    optionRefs.current[next]?.focus();
+  };
+
   const button = (
     <button
       type="button"
+      ref={triggerRef}
       className="paper-input flex h-8 w-full items-center justify-between gap-2 px-3 text-sm"
       aria-haspopup="listbox"
       aria-expanded={open}
       aria-controls={open ? listboxId : undefined}
       onClick={() => setOpen((prev) => !prev)}
       onKeyDown={(event) => {
-        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-          event.preventDefault();
-          setOpen(true);
+        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+          if (event.key === "Enter" && open) {
+            event.preventDefault();
+            void choose(options[activeIndex]?.value ?? "");
+          }
+          return;
         }
+        event.preventDefault();
+        if (!open) {
+          setOpen(true);
+          return;
+        }
+        moveActive(event.key === "ArrowDown" ? 1 : -1);
       }}
     >
       <span className="truncate" style={value ? { fontFamily: `'${value}'` } : undefined}>
@@ -114,12 +137,13 @@ export function FontPicker({
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               setOpen(false);
+              triggerRef.current?.focus();
             } else if (event.key === "ArrowDown") {
               event.preventDefault();
-              setActiveIndex((index) => (index + 1) % options.length);
+              moveActive(1);
             } else if (event.key === "ArrowUp") {
               event.preventDefault();
-              setActiveIndex((index) => (index - 1 + options.length) % options.length);
+              moveActive(-1);
             } else if (event.key === "Enter") {
               event.preventDefault();
               void choose(options[activeIndex]?.value ?? "");
@@ -130,10 +154,19 @@ export function FontPicker({
             const selected = option.value === (value ?? "");
             const isImport = option.importItem === true;
             const text = isImport ? "导入字体…" : option.value === "" ? "系统默认" : option.value;
+            // BD-166：option 曾经挂在 li 上、按钮长在 option 里面——嵌套交互，
+            // axe 的 nested-interactive 与「option 里出现 button」都会红。
+            // 把 li 降为 presentation，让按钮自己成为 listbox 的 option。
             return (
-              <li key={option.value === "" ? "__default__" : option.value} role="option" aria-selected={selected}>
+              <li key={option.value === "" ? "__default__" : option.value} role="presentation">
                 <button
                   type="button"
+                  ref={(node) => {
+                    optionRefs.current[index] = node;
+                  }}
+                  id={`${listboxId}-option-${index}`}
+                  role="option"
+                  aria-selected={selected}
                   className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left transition ${
                     index === activeIndex ? "bg-paper-soft" : "hover:bg-paper-soft/60"
                   }`}
