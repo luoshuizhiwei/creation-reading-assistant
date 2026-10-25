@@ -584,7 +584,10 @@ export function WritingDeskMargin({
               ))}
             </ul>
             <div className="writing-annotation-form">
-              <div className="writing-annotation-selection" aria-live="polite">
+              {/* BD-188：锚点文案随选区每一步刷新（shift+方向键每扩一个字，「选中 N 字」
+                  就变一次），做 live region 会在选择过程中播报刷屏。这是选完用来看的
+                  常驻读数，读屏用户导航到表单即可读到。 */}
+              <div className="writing-annotation-selection">
                 <span className="writing-annotation-selection-label">锚点</span>
                 <span
                   className={`writing-annotation-selection-value ${

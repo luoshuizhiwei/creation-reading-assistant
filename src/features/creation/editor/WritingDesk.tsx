@@ -390,7 +390,11 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
         />
       )}
       {focusMode && (
-        <div className="writing-focus-status" role="status">
+        /* BD-188：字数读数每敲一个字刷新一次，挂进 polite live region 会把播报刷屏——
+           连侧栏常驻播报区（BD-175/BD-187）也会被淹。场景标题在专注视图内恒定，
+           进入专注已由「专注模式」按钮的 aria-pressed 表达；这块 HUD 是「扫一眼」
+           的常驻读数，读屏用户用虚拟光标能读到，不打断输入（同 DesktopDock 保存灯的道理）。 */
+        <div className="writing-focus-status">
           <span>{selectedScene?.title ?? selectedChapter?.title ?? "专注写作"}</span>
           <span>{characterCount.toLocaleString("zh-CN")} 字</span>
           <kbd>Esc 退出专注</kbd>
