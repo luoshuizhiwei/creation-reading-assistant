@@ -98,6 +98,18 @@ export function CardsPage({ project }: CardsPageProps) {
     setMilestoneReason("");
   }, [project.id]);
 
+  // BD-185：卡片绑定的编辑/确认态必须随选中卡片复位。里程碑表单是**内联非模态**的
+  // ——开着的时候左侧列表照样能点，而 createMilestone 打的靶子是 selectedCard.id：
+  // 给 A 填好说明、手一滑点到 B，按下保存就把 A 的说明写成 B 的命名里程碑。
+  // confirmingResource 同理：两步确认的第一击留着，换卡再换回来，那颗按钮还停在
+  // 「确认移除」上，再点一下附件就没了。本仓这条契约早就立着——CardRelationsManager
+  // 的建关系表单正是按 selectedCard.id 复位的，这里补齐页面层漏掉的那一份。
+  useEffect(() => {
+    setShowMilestone(false);
+    setMilestoneReason("");
+    setConfirmingResource(null);
+  }, [selectedCardId]);
+
   useEffect(() => {
     if (mode !== "cards") return;
     void loadCardTypes(project.id);
