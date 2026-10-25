@@ -49,7 +49,6 @@ export function CardEditorForm({
             className="cards-input"
             aria-label="类型"
             value={draft.kind}
-            disabled={draft.id !== "new"}
             onChange={(event) => onChangeDraft({ ...draft, kind: event.target.value, fields: {} })}
           >
             {cardTypes.map((type) => (

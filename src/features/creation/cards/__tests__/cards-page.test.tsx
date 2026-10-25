@@ -296,8 +296,8 @@ describe("CardsPage 跨项目竞态与状态清空", () => {
   });
 });
 
-describe("CardsPage 看板视图键盘可达（BD-135）", () => {  it("看板卡片可聚焦，Enter 与空格都能选中", async () => {
-    vi.mocked(creationService.cardsList).mockResolvedValue([aCard]);
+describe("CardsPage 看板视图键盘可达（BD-135）", () => {
+  it("看板卡片可聚焦，Enter 与空格都能选中", async () => {    vi.mocked(creationService.cardsList).mockResolvedValue([aCard]);
     vi.mocked(creationService.cardTypesList).mockResolvedValue([aType]);
     vi.mocked(creationService.relationTypesList).mockResolvedValue([]);
     useCreationStore.setState({
@@ -345,5 +345,39 @@ describe("CardsPage 输入框可访问名（BD-138）", () => {
     render(<CardsPage project={p1} />);
     const search = await screen.findByRole("textbox", { name: "搜索卡片名称或别名" });
     expect(search.getAttribute("placeholder")).toBe("搜索名称或别名");
+  });
+});
+
+// BD-164：改卡片类型此前只有看板拖拽一条路（pointer-only），编辑表单里的「类型」下拉被禁用，
+// 键盘与读屏用户无法完成这次操作。下拉放开后，保存必须真的把 kind 写进 card.update。
+describe("CardsPage 改卡片类型有键盘路径（BD-164）", () => {
+  it("编辑已有卡片时类型下拉可用，保存把 kind 写进 card.update", async () => {
+    const locationType = makeType("t-loc", "location", "地点");
+    vi.mocked(creationService.cardsList).mockResolvedValue([aCard]);
+    vi.mocked(creationService.cardTypesList).mockResolvedValue([aType, locationType]);
+    vi.mocked(creationService.relationTypesList).mockResolvedValue([]);
+    vi.mocked(creationService.runStructure).mockResolvedValue(true);
+    useCreationStore.setState({
+      selectedId: "p1",
+      cardProjectId: "p1",
+      cards: [aCard],
+      selectedCardId: undefined
+    });
+
+    render(<CardsPage project={p1} />);
+    fireEvent.click(await screen.findByText("卡片 A"));
+    fireEvent.click(await screen.findByTitle("编辑"));
+
+    const kindSelect = screen.getByRole("combobox", { name: "类型" }) as HTMLSelectElement;
+    expect(kindSelect.disabled).toBe(false);
+    expect(kindSelect.value).toBe("character");
+    fireEvent.change(kindSelect, { target: { value: "location" } });
+    fireEvent.click(screen.getByText("保存修改"));
+
+    await waitFor(() => expect(creationService.runStructure).toHaveBeenCalledTimes(1));
+    const command = vi.mocked(creationService.runStructure).mock.calls[0][0] as Record<string, unknown>;
+    expect(command.type).toBe("card.update");
+    expect(command.cardId).toBe("card-a");
+    expect(command.kind).toBe("location");
   });
 });

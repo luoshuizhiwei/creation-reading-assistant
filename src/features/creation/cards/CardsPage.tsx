@@ -266,6 +266,7 @@ export function CardsPage({ project }: CardsPageProps) {
       const ok = await runStructure({
         type: "card.update",
         cardId: draft.id,
+        kind: draft.kind,
         title: draft.title.trim(),
         aliases: draft.aliases,
         fields,

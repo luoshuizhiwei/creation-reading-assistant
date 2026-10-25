@@ -143,7 +143,7 @@ export function GlobalCardLibraryPage() {
     }
     const ok = draft.id === "new"
       ? await runStructure({ type: "card.create", kind: draft.kind, title: draft.title.trim(), aliases: draft.aliases, fields, tags: draft.tags })
-      : await runStructure({ type: "card.update", cardId: draft.id, title: draft.title.trim(), aliases: draft.aliases, fields, tags: draft.tags, baseRevision: draft.revision });
+      : await runStructure({ type: "card.update", cardId: draft.id, kind: draft.kind, title: draft.title.trim(), aliases: draft.aliases, fields, tags: draft.tags, baseRevision: draft.revision });
     if (!ok) return;
     showToast({ tone: "success", title: draft.id === "new" ? "全局卡片已创建" : "全局卡片已保存" });
     setDraft(null);
