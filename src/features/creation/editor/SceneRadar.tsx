@@ -46,27 +46,32 @@ export function SceneRadar({ radar, onOpenOutline }: SceneRadarProps) {
             <RadarItem label="情绪" value={radar.planning?.emotion ?? null} />
           </dl>
           {radar.cast.length > 0 && (
-            <div className="scene-radar-block">
+            // BD-167：dt/dd 原本挂在一个普通 <div> 上，脱离 <dl> 后浏览器不给它们
+            // 术语/定义语义，读屏器听到的是两段散文本。容器改成 <dl>（preflight 已把
+            // dl 的默认外边距清零，视觉不变），这一组才重新成为「出场角色：…」。
+            <dl className="scene-radar-block">
               <dt>出场角色</dt>
               <dd className="scene-radar-tags">
                 {radar.cast.map((title) => (
                   <span key={title} className="scene-radar-tag">{title}</span>
                 ))}
               </dd>
-            </div>
+            </dl>
           )}
         </>
       )}
 
       <div className="scene-radar-block scene-radar-words">
-        <div className="scene-radar-words-row">
+        {/* BD-167：同上，字数这一行原本是 <div> 包 dt/dd，改成 <dl> 才成立。
+            外层不能直接是 <dl>：它还装着进度条 <span>，dl 只允许 dt/dd/div。 */}
+        <dl className="scene-radar-words-row">
           <dt>字数{radar.targetWords ? " / 目标" : ""}</dt>
           <dd>
             {radar.characterCount.toLocaleString("zh-CN")}
             {radar.targetWords ? ` / ${radar.targetWords.toLocaleString("zh-CN")}` : ""}
             {radar.estimatedMinutes ? ` · 约读 ${radar.estimatedMinutes} 分钟` : ""}
           </dd>
-        </div>
+        </dl>
         {progress !== null && (
           <span
             className="scene-radar-progressbar"
@@ -81,7 +86,7 @@ export function SceneRadar({ radar, onOpenOutline }: SceneRadarProps) {
         )}
       </div>
 
-      <div className="scene-radar-block">
+      <dl className="scene-radar-block">
         <dt>批注概览</dt>
         <dd className="scene-radar-note">
           待处理 {radar.unresolvedAnnotations} · 已解决 {radar.resolvedAnnotations}
@@ -108,7 +113,7 @@ export function SceneRadar({ radar, onOpenOutline }: SceneRadarProps) {
             ))}
           </dd>
         )}
-      </div>
+      </dl>
     </div>
   );
 }
