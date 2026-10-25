@@ -62,6 +62,9 @@ export function WritingQuickReferencePanel({
   const [globalCards, setGlobalCards] = useState<CardSummary[]>([]);
   const [cardTypes, setCardTypes] = useState<CardType[]>([]);
   const [query, setQuery] = useState("");
+  // BD-175：当前列表对应的是哪次搜索词——搜索有 240ms 防抖，期间列表还是上一次的结果，
+  // 不能拿旧结果去播报"共 N 张"或"没有匹配"。
+  const [settledQuery, setSettledQuery] = useState("");
   const [selectedCardId, setSelectedCardId] = useState<string>();
   const [draft, setDraft] = useState<CardSummary>();
   const [loading, setLoading] = useState(false);
@@ -103,6 +106,7 @@ export function WritingQuickReferencePanel({
     if (!open || scope !== "global") return;
     if (!query.trim()) {
       setGlobalCards([]);
+      setSettledQuery("");
       return;
     }
     let cancelled = false;
@@ -110,7 +114,10 @@ export function WritingQuickReferencePanel({
       setLoading(true);
       cardsList({ kind: "cards.list", search: query.trim() })
         .then((cards) => {
-          if (!cancelled) setGlobalCards(cards);
+          if (!cancelled) {
+            setGlobalCards(cards);
+            setSettledQuery(query.trim());
+          }
         })
         .catch((error) => {
           if (!cancelled) {
@@ -321,9 +328,20 @@ export function WritingQuickReferencePanel({
       {scope === "global" && (
         <label className="writing-quick-search">
           <Search size={14} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称、别名或字段" autoFocus />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称、别名或字段" aria-label="搜索卡片" autoFocus />
         </label>
       )}
+
+      {/* BD-175：全局搜索是异步的，结果数与"没有匹配"只出现在列表里；常驻不可见区域负责播报。 */}
+      <span className="sr-only" role="status">
+        {scope === "global" && query.trim()
+          ? loading || settledQuery !== query.trim()
+            ? "正在搜索…"
+            : visibleCards.length > 0
+              ? `共 ${visibleCards.length} 张卡片`
+              : "没有匹配的卡片"
+          : ""}
+      </span>
 
       <div className="writing-quick-body">
         <ul className="writing-quick-list" aria-label={`${scope === "scene" ? "本场景" : scope === "project" ? "本项目" : "全局搜索"}卡片`}>

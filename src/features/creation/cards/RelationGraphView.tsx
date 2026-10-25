@@ -180,7 +180,9 @@ export function RelationGraphView({
         </span>
       </div>
 
-      <p className="relation-graph-scope" data-testid="relation-graph-scope">
+      {/* BD-175：这行本来就会随筛选更新"过滤后 N 张卡片 · M 条关系"，但此前只是普通文本；
+          加上 status 后，筛掉的卡片变化才会被读屏器播报。 */}
+      <p className="relation-graph-scope" data-testid="relation-graph-scope" role="status">
         {describeRelationGraphScope(graph)}
         {filtered.nodes.length !== graph.nodes.length && `；当前过滤后 ${filtered.nodes.length} 张卡片 · ${filtered.edges.length} 条关系`}
       </p>

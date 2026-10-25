@@ -7,7 +7,7 @@
  */
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { render, fireEvent, screen } from "@testing-library/react";
 import { TocList } from "../TocList";
 
 const entries = [
@@ -28,5 +28,21 @@ describe("BD-124 目录行不再嵌套交互控件", () => {
     expect(container.querySelectorAll('button[aria-expanded]').length).toBeGreaterThan(0);
     fireEvent.click(getByRole("button", { name: /第一章 序幕/ }));
     expect(onJump).toHaveBeenCalledWith("p");
+  });
+
+  // BD-175：过滤后匹配数/空态只在屏幕上变化，焦点还在输入框里，读屏器听不到。
+  it("过滤结果数与空态通过常驻 status 播报（BD-175）", () => {
+    const many = Array.from({ length: 15 }, (_, index) => ({ id: `e${index}`, label: `第${index + 1}章 标题`, level: 1 }));
+    const { container } = render(<TocList entries={many} onJump={() => {}} emptyText="无" />);
+    const status = container.querySelector('span.sr-only[role="status"]') as HTMLElement;
+    expect(status).toBeTruthy();
+    expect(status.textContent).toBe("");
+
+    const input = screen.getByLabelText("搜索章节目录");
+    fireEvent.change(input, { target: { value: "第1章" } });
+    expect(status.textContent).toBe("共 1 个匹配");
+
+    fireEvent.change(input, { target: { value: "查无此章" } });
+    expect(status.textContent).toContain("没有匹配");
   });
 });

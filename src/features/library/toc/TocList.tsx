@@ -98,6 +98,7 @@ export function TocList({ entries, currentId, onJump, emptyText, disableSearch, 
 
   const showSearch = !disableSearch && entries.length > 12;
   const searching = Boolean(query.trim());
+  const matchCount = filtered?.length ?? 0;
 
   return (
     <div className={`flex min-h-0 flex-col gap-2 ${className ?? ""}`}>
@@ -136,6 +137,12 @@ export function TocList({ entries, currentId, onJump, emptyText, disableSearch, 
           )}
         </div>
       )}
+
+      {/* BD-175：目录过滤时匹配数与空态只在屏幕上变化，焦点还在输入框里，读屏器听不到。
+          常驻一个肉眼不可见的 status 区域，内容随打字更新，才能被播报。 */}
+      <span className="sr-only" role="status">
+        {searching ? (matchCount > 0 ? `共 ${matchCount} 个匹配` : `没有匹配「${query.trim()}」的章节`) : ""}
+      </span>
 
       {hasHierarchy && !searching && (
         <div className="flex items-center gap-2 text-xs text-paper-muted">

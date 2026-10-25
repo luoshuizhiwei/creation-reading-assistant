@@ -86,6 +86,17 @@ describe("RelationGraphView（Stage 4-F）", () => {
     expect(scope).toContain("另有 2 张卡片因节点上限未显示");
   });
 
+  // BD-175：过滤后"当前过滤后 N 张卡片 · M 条关系"只出现在普通段落里，读屏器不会播报。
+  it("过滤范围说明用 status 暴露（BD-175）", () => {
+    renderGraph();
+    const scope = screen.getByTestId("relation-graph-scope");
+    expect(scope.getAttribute("role")).toBe("status");
+    expect(scope.textContent).not.toContain("当前过滤后");
+
+    fireEvent.change(screen.getByLabelText("搜索卡片名或别名"), { target: { value: "苏青" } });
+    expect(scope.textContent).toContain("当前过滤后");
+  });
+
   it("每个节点与每条连线都渲染出来", () => {
     renderGraph();
     expect(screen.getByTestId("relation-graph-node-a")).toBeTruthy();

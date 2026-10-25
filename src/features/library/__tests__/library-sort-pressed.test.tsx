@@ -59,6 +59,21 @@ describe("书库 · 排序菜单", () => {
     expect(within(reopened).getByRole("button", { name: "最近阅读" }).getAttribute("aria-pressed")).toBe("false");
   });
 
+  // BD-175：筛选后本数变化只写在可见文案里，焦点还在输入框里，读屏器听不到。
+  it("筛选结果变化通过常驻 status 播报（BD-175）", () => {
+    const { container } = render(<LibraryPage />);
+    const status = container.querySelector('span.sr-only[role="status"]') as HTMLElement;
+    expect(status).toBeTruthy();
+    expect(status.textContent).toBe("");
+
+    const input = screen.getByLabelText("筛选书籍");
+    fireEvent.change(input, { target: { value: "夜雨" } });
+    expect(status.textContent).toBe("筛选后 1 本");
+
+    fireEvent.change(input, { target: { value: "查无此书" } });
+    expect(status.textContent).toBe("没有匹配搜索结果的书");
+  });
+
   // BD-163：菜单开关只靠底色和有无节点表达，读屏器不知道下拉是开着还是关着。
   it("排序菜单按钮用 aria-expanded 暴露开合", () => {
     render(<LibraryPage />);

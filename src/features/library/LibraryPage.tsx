@@ -143,6 +143,14 @@ export function LibraryPage() {
               <div>
                 <h1 className="paper-title text-2xl font-semibold">书库</h1>
                 <p className="mt-1 text-sm text-paper-muted">共 {filteredAndSorted.length} / {books.length} 本，进度和有效阅读时长保存在本地。</p>
+                {/* BD-175：筛选后本数变化只写在屏幕上的这句里，读屏器听不到。常驻不可见区域播报。 */}
+                <span className="sr-only" role="status">
+                  {hasActiveFilters
+                    ? filteredAndSorted.length > 0
+                      ? `筛选后 ${filteredAndSorted.length} 本`
+                      : "没有匹配搜索结果的书"
+                    : ""}
+                </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {/* Sort dropdown */}

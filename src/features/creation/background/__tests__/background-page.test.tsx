@@ -195,4 +195,21 @@ describe("BackgroundPage 跨项目隔离", () => {
     render(<BackgroundPage projectId="p1" />);
     expect(await screen.findByRole("textbox", { name: "搜索背景卡" })).toBeTruthy();
   });
+
+  // BD-175：搜索后剩余张数/无匹配只体现在网格上，焦点还在输入框里，读屏器听不到。
+  it("搜索结果的张数与空态通过常驻 status 播报（BD-175）", async () => {
+    vi.mocked(creationService.cardsList).mockResolvedValue([p1Loc, p1Rule]);
+    const { container } = render(<BackgroundPage projectId="p1" />);
+    await screen.findByText("黄沙镇");
+    const status = container.querySelector('span.sr-only[role="status"]') as HTMLElement;
+    expect(status).toBeTruthy();
+    expect(status.textContent).toBe("");
+
+    const input = screen.getByRole("textbox", { name: "搜索背景卡" });
+    fireEvent.change(input, { target: { value: "黄沙" } });
+    expect(status.textContent).toBe("1 张背景卡");
+
+    fireEvent.change(input, { target: { value: "查无此卡" } });
+    expect(status.textContent).toBe("没有匹配的背景卡");
+  });
 });

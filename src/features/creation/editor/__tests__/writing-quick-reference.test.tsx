@@ -174,6 +174,28 @@ describe("WritingQuickReferencePanel", () => {
     expect(hint.getAttribute("role")).toBe("status");
   });
 
+  // BD-175：全局搜索是异步的，结果数与空态只出现在列表里；防抖期间也不能拿旧结果播报。
+  it("全局搜索结果通过常驻 status 播报（BD-175）", async () => {
+    cardsList.mockImplementation(async (query: { projectId?: string; search?: string }) => {
+      if (query.projectId) return [projectCard];
+      return query.search === "顾淮" ? [globalCard] : [];
+    });
+    const { container } = render(<Harness />);
+    fireEvent.click(screen.getByRole("button", { name: "全局搜索" }));
+    const status = container.querySelector('span.sr-only[role="status"]') as HTMLElement;
+    expect(status).toBeTruthy();
+    expect(status.textContent).toBe("");
+
+    const input = screen.getByLabelText("搜索卡片");
+    fireEvent.change(input, { target: { value: "顾淮" } });
+    expect(status.textContent).toBe("正在搜索…");
+    await waitFor(() => expect(status.textContent).toBe("共 1 张卡片"), { timeout: 1600 });
+
+    fireEvent.change(input, { target: { value: "查无此卡" } });
+    expect(status.textContent).toBe("正在搜索…");
+    await waitFor(() => expect(status.textContent).toBe("没有匹配的卡片"), { timeout: 1600 });
+  });
+
   // BD-159：AI 上下文条此前 aria-label 挂在普通 div 上，没有角色，名字被丢弃。
   it("速查 AI 上下文条是带名字的 group", async () => {
     render(<Harness />);

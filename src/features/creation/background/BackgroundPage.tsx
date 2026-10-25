@@ -89,6 +89,15 @@ export function BackgroundPage({ projectId }: BackgroundPageProps) {
         </div>
       </header>
 
+      {/* BD-175：搜索时剩余张数/无匹配只体现在网格上，焦点还在输入框里，读屏器听不到。 */}
+      <span className="sr-only" role="status">
+        {search.trim()
+          ? backgroundCards.length > 0
+            ? `${backgroundCards.length} 张背景卡`
+            : "没有匹配的背景卡"
+          : ""}
+      </span>
+
       <div className="background-grid">
         {backgroundCards.length === 0 ? (
           <p className="cards-relations-empty">还没有背景设定卡。到「卡片」页创建地点、世界规则、组织或资料卡，这里会自动汇总。</p>
