@@ -115,6 +115,15 @@ export function ReaderSidePanel({
     (target ?? fallback)?.focus();
   }, [highlights, bookmarks]);
 
+  // BD-186：两步确认（第一击只进「确认?」态）是**就着眼前这一行**的临时契约。
+  // 侧栏的三个页签共用这一层状态，切去「书签」再切回「高亮」时，那颗按钮还停在
+  // 确认态上、而且因为 focus-visible:opacity-100 一直显形——用户以为要再确认一次，
+  // 实际一下就把高亮删了。视图换了，待确认就该作废。
+  useEffect(() => {
+    highlightDelete.reset();
+    bookmarkDelete.reset();
+  }, [sidePanelTab]);
+
   const removeHighlight = (item: HighlightItem, index: number): void => {
     const next = highlights[index + 1] ?? highlights[index - 1];
     pendingFocusRef.current = { kind: "highlight", id: next?.id };

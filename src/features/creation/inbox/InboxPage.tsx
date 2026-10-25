@@ -89,6 +89,13 @@ export function InboxPage({ projectId }: InboxPageProps) {
     [items, statusFilter]
   );
 
+  // BD-186：「移出」的两步确认（第一击只进「确认移出」态）是**就着眼前这一行**的
+  // 临时契约。换选中条目、或切状态筛选把这一行筛掉时，按钮还停在确认态——同一颗
+  // 按钮在新上下文里对应的是别的东西，再点一下就真删了。上下文变了，待确认就作废。
+  useEffect(() => {
+    setConfirmingId(null);
+  }, [selectedId, statusFilter]);
+
   useEffect(() => {
     setTargetProjectId((current) => resolveTargetProject(projects, projectId, current) ?? "");
   }, [projectId, projects]);

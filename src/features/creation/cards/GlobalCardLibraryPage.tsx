@@ -73,6 +73,13 @@ export function GlobalCardLibraryPage() {
     [projects]
   );
 
+  // BD-186：与 BD-185 同源——「移除」附件的两步确认绑的是当前卡片的上下文。
+  // 切去另一张卡再切回来，按钮若还停在「确认移除」态，用户以为还要再确认一次，
+  // 实际一下就把还想要的附件摘了。选中卡片变了，待确认就该作废。
+  useEffect(() => {
+    setConfirmingResource(null);
+  }, [selectedCardId]);
+
   useEffect(() => {
     if (selectedCardId && !selectedCard) selectCard(undefined);
   }, [selectCard, selectedCard, selectedCardId]);
