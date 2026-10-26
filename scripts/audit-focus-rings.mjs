@@ -36,7 +36,12 @@
  *
  * 需要 Xvfb 与已构建的 out/：
  *   timeout 900 xvfb-run -a --server-args="-screen 0 1600x1000x24" node scripts/audit-focus-rings.mjs
+ *
+ * BD-206 起自带书库种子（首启建 schema → round4-seed.cjs 播 TXT/EPUB/MD → 重开），
+ * 覆盖阅读器正文面：TXT/EPUB、阅读设置抽屉、目录面板、TXT 搜索浮层、新建项目向导。
+ * epub.js 正文 iframe 豁免（环由书内 CSS 管）。
  */
+import { spawnSync } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import { tmpdir, platform } from "node:os";
 import path from "node:path";
@@ -49,16 +54,36 @@ const profileDir = mkdtempSync(path.join(tmpdir(), "creation-focusrings-"));
 const electronPath = path.join(root, "node_modules", "electron", "dist", platform() === "win32" ? "electron.exe" : "electron");
 const mainJs = path.join(root, "out", "main", "index.js");
 
-const app = await electron.launch({
-  executablePath: electronPath,
-  args: [mainJs],
+const launch = async () => {
+  const app = await electron.launch({
+    executablePath: electronPath,
+    args: [mainJs],
+    cwd: root,
+    env: { ...process.env, CREATION_READER_CAPTURE_PROFILE: profileDir }
+  });
+  const page = await app.firstWindow();
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForSelector(".desktop-canvas", { timeout: 30000 });
+  await page.waitForTimeout(600);
+  return { app, page };
+};
+
+// BD-206：阅读器范围要真书——首启建 schema（workspace.sqlite），再用 round4 种子
+// 播 TXT/EPUB/MD 三本资料（与 probe-reader.mjs 同一套路），然后重开正式实例。
+{
+  const { app } = await launch();
+  await app.close();
+}
+const seed = spawnSync(electronPath, [path.join(__dirname, "round4-seed.cjs"), profileDir], {
   cwd: root,
-  env: { ...process.env, CREATION_READER_CAPTURE_PROFILE: profileDir }
+  encoding: "utf8",
+  env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", NODE_PATH: path.join(root, "node_modules") },
+  windowsHide: true,
+  timeout: 60000
 });
-const page = await app.firstWindow();
-await page.waitForLoadState("domcontentloaded");
-await page.waitForSelector(".desktop-canvas", { timeout: 30000 });
-await page.waitForTimeout(600);
+if (seed.status !== 0) throw new Error(`seed failed: ${seed.stderr}`);
+
+const { app, page } = await launch();
 
 const goto = async (label) => {
   await page.locator(".desktop-sidebar button", { hasText: label }).first().click();
@@ -86,6 +111,8 @@ async function createProject() {
   else await page.getByRole("button", { name: /新建项目/ }).first().click();
   const wizard = page.locator("[role=dialog]").first();
   await wizard.waitFor({ state: "visible", timeout: 15000 });
+  // BD-206：向导弹层也是键盘停靠面，先扫再走流程（Dialog 有焦点陷阱，Tab 出得去）。
+  await sweep("弹层·新建项目向导", { maxStops: 30 });
   await wizard.getByRole("button", { name: /下一步/ }).click();
   await page.locator("input[placeholder='例如：测试项目']").first().fill("焦点普查项目");
   await wizard.getByRole("button", { name: /下一步/ }).click();
@@ -101,7 +128,10 @@ const inspectScript = () => {
   const cs = getComputedStyle(el);
   const cls = (el.getAttribute("class") || "").split(/\s+/).filter(Boolean);
   const id = `${el.tagName.toLowerCase()}.${cls.join(".") || "(无类名)"}[${el.getAttribute("aria-label") || el.textContent?.trim().slice(0, 12) || ""}]`;
-  const skip = el.matches("[tabindex='-1']") || el.matches(":disabled") || el.closest("[inert]");
+  const skip = el.matches("[tabindex='-1']") || el.matches(":disabled") || el.closest("[inert]")
+    // BD-206：epub.js 正文在 iframe 里，焦点进 iframe 时主文档 activeElement 是
+    // <iframe> 壳——环由书内 CSS 管，不归 App 判据，豁免。
+    || el.tagName.toLowerCase() === "iframe";
   const outlineOk = cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) >= 1;
   const ringShadow = /0 0 0 [1-9]/.test(cs.boxShadow);
   const anyShadow = cs.boxShadow !== "none";
@@ -229,6 +259,58 @@ await page.keyboard.press("Control+Shift+k");
 await page.waitForTimeout(600);
 await sweep("弹层·写作速查", { maxStops: 60 });
 await page.keyboard.press("Control+Shift+k");
+await page.waitForTimeout(300);
+
+// —— BD-206：阅读器与向导弹层。开书失败的面逐个记跳过、不拖垮整网。——
+const tryScope = async (label, prep, opts) => {
+  try {
+    await prep();
+    await sweep(label, opts);
+  } catch (e) {
+    console.log(`跳过「${label}」：${String(e && e.message || e).split("\n")[0].slice(0, 120)}`);
+  }
+};
+
+await tryScope("阅读器·TXT", async () => {
+  await goto("资料阅读");
+  await page.waitForSelector('.desktop-library-row[data-format="txt"]', { timeout: 15000 });
+  await page.locator('.desktop-library-row[data-format="txt"]').first().click();
+  await page.waitForSelector('button[aria-label="阅读设置"]', { timeout: 20000 });
+  await page.waitForTimeout(900);
+});
+await tryScope("阅读器·TXT设置抽屉", async () => {
+  await page.locator('button[aria-label="阅读设置"]').first().click();
+  await page.waitForTimeout(500);
+}, { maxStops: 70 });
+await page.keyboard.press("Escape").catch(() => {}); // BD-203 族：抽屉 Escape 先关自己
+await page.waitForTimeout(350);
+await tryScope("阅读器·TXT目录面板", async () => {
+  // 目录面板默认就是展开的——只在收起态才点「展开目录」，别把开着的关掉。
+  const expand = page.locator('button[aria-label="展开目录"]');
+  if (await expand.count()) await expand.first().click();
+  await page.waitForTimeout(500);
+}, { maxStops: 80 });
+await page.locator('button[aria-label="收起目录"]').first().click().catch(() => {});
+await page.waitForTimeout(300);
+await tryScope("阅读器·TXT搜索浮层", async () => {
+  await page.keyboard.press("Control+f");
+  await page.waitForTimeout(500);
+}, { maxStops: 40 });
+await page.keyboard.press("Escape").catch(() => {});
+await page.waitForTimeout(300);
+
+await tryScope("阅读器·EPUB", async () => {
+  await page.locator('button[aria-label="返回书库"]').first().click();
+  await page.waitForSelector('.desktop-library-row[data-format="epub"]', { timeout: 15000 });
+  await page.locator('.desktop-library-row[data-format="epub"]').first().click();
+  await page.waitForSelector(".paper-topbar", { timeout: 30000 });
+  await page.waitForTimeout(1800); // epub.js 渲染正文
+});
+await tryScope("弹层·EPUB设置抽屉", async () => {
+  await page.locator(".paper-topbar button", { hasText: "设置" }).first().click();
+  await page.waitForTimeout(500);
+}, { maxStops: 70 });
+await page.keyboard.press("Escape").catch(() => {});
 await page.waitForTimeout(300);
 
 console.log(`扫描停靠点 ${seenAll.size} 个（按范围×元素去重）。`);

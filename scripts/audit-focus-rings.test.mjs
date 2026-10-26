@@ -41,4 +41,23 @@ describe("焦点环普查判据账本（BD-205）", () => {
     expect(src).toMatch(/0 0 0 \[1-9\]/);
     expect(src).toMatch(/\[tabindex='-1'\]/);
   });
+
+  // —— BD-206：阅读器覆盖扩面钉住 ——
+  it("书库种子必须跑在正式实例之前（首启建 schema → seed → 重开）", () => {
+    expect(code).toMatch(/const \{ app \} = await launch\(\);\s*\n\s*await app\.close\(\);/);
+    expect(code).toMatch(/round4-seed\.cjs/);
+    expect(code.indexOf("round4-seed.cjs")).toBeLessThan(code.lastIndexOf("await launch()"));
+  });
+
+  it("epub.js 正文 iframe 必须豁免（环由书内 CSS 管，不归 App 判）", () => {
+    expect(code).toMatch(/tagName\.toLowerCase\(\) === "iframe"/);
+  });
+
+  it("阅读器与向导键盘面必须各成范围：TXT/EPUB/抽屉/目录/搜索/向导", () => {
+    for (const label of ["阅读器·TXT", "阅读器·TXT设置抽屉", "阅读器·TXT目录面板", "阅读器·TXT搜索浮层", "阅读器·EPUB", "弹层·EPUB设置抽屉", "弹层·新建项目向导"]) {
+      expect(src, `缺范围「${label}」`).toContain(`"${label}"`);
+    }
+    // 目录面板默认展开，prep 必须幂等（count 判存在再点）
+    expect(code).toMatch(/if \(await expand\.count\(\)\) await expand\.first\(\)\.click\(\);/);
+  });
 });
