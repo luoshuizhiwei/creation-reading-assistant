@@ -17,6 +17,7 @@ export function SettingsSearch({ onSelect }: SettingsSearchProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const results = useMemo(() => searchSettings(query), [query]);
   const listboxId = "settings-search-listbox";
@@ -41,6 +42,11 @@ export function SettingsSearch({ onSelect }: SettingsSearchProps) {
     onSelect(entry);
     setOpen(false);
     setQuery("");
+    // BD-204：combobox 出口契约——选中后焦点归输入框（WAI-ARIA）。Enter 路径本
+    // 就停在输入框；指针路径在真实浏览器里会先把焦点落到被点的 option 再随
+    // listbox 卸载跌回 body（同批收口：FontPicker :76 选项点回交、BD-183 开手
+    // 回交）。宿主 SettingsPage 按 id 定向滚动/高亮，焦点留原地即可。
+    inputRef.current?.focus({ preventScroll: true });
   };
 
   return (
@@ -48,6 +54,7 @@ export function SettingsSearch({ onSelect }: SettingsSearchProps) {
       <div className="relative">
         <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-paper-muted" />
         <input
+          ref={inputRef}
           type="search"
           role="combobox"
           aria-expanded={expanded}
