@@ -15,6 +15,8 @@ interface PurgeTrashDialogProps {
   impactBusy: boolean;
   impactError: string | null;
   onCancel: () => void;
+  // BD-197：确认成功后关窗走这条（保留焦点交接预约）；取消/Esc 走 onCancel（作废预约）。
+  onCloseSuccess?: () => void;
   onConfirm: () => Promise<{ ok: boolean; error?: string | null }>;
 }
 
@@ -24,6 +26,7 @@ export function PurgeTrashDialog({
   impactBusy,
   impactError,
   onCancel,
+  onCloseSuccess,
   onConfirm
 }: PurgeTrashDialogProps) {
   const [busy, setBusy] = useState(false);
@@ -39,7 +42,7 @@ export function PurgeTrashDialog({
     try {
       const result = await onConfirm();
       if (result.ok) {
-        onCancel();
+        (onCloseSuccess ?? onCancel)();
       } else {
         setError(result.error || "删除失败，请稍后重试。");
       }

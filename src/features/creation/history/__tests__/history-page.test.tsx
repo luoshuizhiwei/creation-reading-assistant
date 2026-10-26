@@ -267,7 +267,8 @@ describe("HistoryPage 永久删除影响确认", () => {
     render(<HistoryPage project={project} />);
 
     expect(await screen.findByText("旧章节")).toBeDefined();
-    fireEvent.click(screen.getByRole("button", { name: "永久删除" }));
+    // BD-197：回收站行内按钮名带条目标题限定（同名按钮跨行不再含糊）。
+    fireEvent.click(screen.getByRole("button", { name: "永久删除：旧章节" }));
     await waitFor(() =>
       expect(mocks.loadTrashImpact).toHaveBeenCalledWith({
         kind: "trash.impact",
@@ -301,7 +302,7 @@ describe("HistoryPage 永久删除影响确认", () => {
 
     render(<HistoryPage project={project} />);
     expect(await screen.findByText("旧章节")).toBeDefined();
-    fireEvent.click(screen.getByRole("button", { name: "永久删除" }));
+    fireEvent.click(screen.getByRole("button", { name: "永久删除：旧章节" }));
     await waitFor(() =>
       expect(mocks.loadTrashImpact).toHaveBeenCalledWith({
         kind: "trash.impact",

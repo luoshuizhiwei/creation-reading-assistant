@@ -102,6 +102,24 @@ export function GlobalCardLibraryPage() {
 
   const refreshTrash = async () => setTrashItems(await loadTrash());
 
+  // BD-197：回收站「恢复」成功后该行随 refreshTrash 卸载，握着焦点的按钮被移除、
+  // 焦点跌回 body（WCAG 2.4.3，BD-190/HistoryPage 同型）。动作前记下条目 id 与
+  // 当时行序，列表换血后交接给原位置下一条（末尾退前一条），无残留退到列表容器。
+  const trashRestoreRefs = useRef(new Map<string, HTMLElement>());
+  const pendingTrashFocusRef = useRef<{ id: string; order: string[] } | null>(null);
+  const trashListRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const pending = pendingTrashFocusRef.current;
+    if (!pending) return;
+    const current = trashItems.map((item) => item.id);
+    if (current.includes(pending.id)) return; // 条目没走（失败/未刷新），不动焦点
+    pendingTrashFocusRef.current = null;
+    const idx = pending.order.indexOf(pending.id);
+    const handoff = current[idx] ?? current[idx - 1] ?? null;
+    const target = handoff ? trashRestoreRefs.current.get(handoff) : null;
+    (target?.isConnected ? target : trashListRef.current)?.focus({ preventScroll: true });
+  }, [trashItems]);
+
   const openDeleteImpact = async () => {
     if (!selectedCard) return;
     setDeleteImpactBusy(true);
@@ -122,11 +140,13 @@ export function GlobalCardLibraryPage() {
   };
 
   const restoreCard = async (item: TrashItem) => {
+    pendingTrashFocusRef.current = { id: item.id, order: trashItems.map((row) => row.id) };
     const ok = await runStructure({ type: "trash.restore", entity: "card", entityId: item.id });
-    if (!ok) return;
-    await refreshTrash();
-    refresh();
-    showToast({ tone: "success", title: "全局卡片已恢复", body: "原项目关联、关系、引用和附件仍然保留。" });
+    if (ok) {
+      await refreshTrash();
+      refresh();
+      showToast({ tone: "success", title: "全局卡片已恢复", body: "原项目关联、关系、引用和附件仍然保留。" });
+    }
   };
 
   const saveDraft = async () => {
@@ -333,14 +353,21 @@ export function GlobalCardLibraryPage() {
       </Dialog>
     )}
     {trashOpen && (
-      <Dialog open title="全局卡片回收站" ariaLabel="全局卡片回收站" onClose={() => setTrashOpen(false)}>
+      <Dialog open title="全局卡片回收站" ariaLabel="全局卡片回收站" onClose={() => {
+        pendingTrashFocusRef.current = null; // 关窗作废交接预约，防无关刷新误搬焦点
+        setTrashOpen(false);
+      }}>
         {trashItems.length === 0 ? <p>回收站为空。</p> : (
-          <ul className="global-card-trash-list">
+          <ul className="global-card-trash-list" ref={trashListRef} tabIndex={-1}>
             {trashItems.map((item) => (
               <li key={item.id}>
                 <div><strong>{item.title}</strong><span>{new Date(item.deletedAt).toLocaleString("zh-CN")} · 30 天内可恢复</span></div>
                 {/* 行内右侧按钮不参与收缩，沿用被删除的 .global-card-trash-list button 的 flex: 0 0 auto */}
-                <Button size="sm" className="shrink-0" variant="outline" onClick={() => void restoreCard(item)}><ArchiveRestore size={13} /> 恢复</Button>
+                <Button size="sm" className="shrink-0" variant="outline" onClick={() => void restoreCard(item)} aria-label={`恢复：${item.title}`} ref={(node) => {
+                  // BD-197：交接锚点——每条记「恢复」按钮；卸载时清账防 stale。
+                  if (node) trashRestoreRefs.current.set(item.id, node);
+                  else trashRestoreRefs.current.delete(item.id);
+                }}><ArchiveRestore size={13} /> 恢复</Button>
               </li>
             ))}
           </ul>

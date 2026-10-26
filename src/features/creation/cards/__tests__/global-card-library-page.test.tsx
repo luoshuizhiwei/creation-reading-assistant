@@ -190,7 +190,8 @@ describe("GlobalCardLibraryPage", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: "回收站 1" })).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "回收站 1" }));
-    fireEvent.click(screen.getByRole("button", { name: "恢复" }));
+    // BD-197：回收站行内「恢复」名带条目标题限定。
+    fireEvent.click(screen.getByRole("button", { name: "恢复：旧城地图" }));
 
     await waitFor(() => expect(runStructure).toHaveBeenCalledWith({
       type: "trash.restore",

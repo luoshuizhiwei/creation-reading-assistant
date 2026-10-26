@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Flag, RotateCcw, Trash2 } from "lucide-react";
 import { Button, Tabs } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
@@ -79,6 +79,29 @@ export function HistoryPage({ project }: HistoryPageProps) {
   const refreshSnapshots = async () =>
     setSnapshots(await loadSnapshots({ kind: "snapshot.list", projectId: project.id }));
 
+  // BD-197：回收站的「恢复/永久删除」成功后条目随列表刷新整行卸载，握着焦点的
+  // 按钮被移除、焦点跌回 body（WCAG 2.4.3，BD-190 收件箱删行的同型缺陷）——
+  // 键盘用户要从文档开头重新 Tab。动作前记下被移除行的键与当时的行序，列表
+  // 换血后把焦点交接给原位置的下一行（末尾则退上一行）；删空退到列表容器。
+  const rowActionRefs = useRef(new Map<string, HTMLElement>());
+  const pendingFocusRef = useRef<{ key: string; order: string[] } | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const emptyRef = useRef<HTMLParagraphElement>(null);
+  const rowKey = (item: TrashItem) => `${item.entity}-${item.id}`;
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending) return;
+    const current = trash.map(rowKey);
+    if (current.includes(pending.key)) return; // 条目没走（失败/未刷新），不动焦点
+    pendingFocusRef.current = null;
+    const idx = pending.order.indexOf(pending.key);
+    const survivors = current.filter((key) => key !== pending.key);
+    const handoffKey = survivors[idx] ?? survivors[idx - 1] ?? null;
+    const target = handoffKey ? rowActionRefs.current.get(handoffKey) : null;
+    // 删空时 ul 随空态换掉，退路是空态段落（tabIndex=-1），焦点仍留在原地区域。
+    (target?.isConnected ? target : listRef.current ?? emptyRef.current)?.focus({ preventScroll: true });
+  }, [trash]);
+
   useEffect(() => {
     void refreshTrash();
     // 预加载导航和卡片，供里程碑对话框选择对象
@@ -95,6 +118,7 @@ export function HistoryPage({ project }: HistoryPageProps) {
 
   // ---------- 回收站：恢复 ----------
   const handleRestoreTrash = async (item: TrashItem) => {
+    pendingFocusRef.current = { key: rowKey(item), order: trash.map(rowKey) };
     if (await restoreTrash(project.id, item.entity, item.id)) {
       showToast({ tone: "success", title: `已恢复 ${ENTITY_LABEL[item.entity] ?? "条目"}：${item.title}` });
       void refreshTrash();
@@ -117,6 +141,9 @@ export function HistoryPage({ project }: HistoryPageProps) {
   };
 
   const handleOpenPurge = async (item: TrashItem) => {
+    // BD-197：点「永久删除」时先记下行序快照——确认发生在对话框里，届时若再取
+    // trash 已是同一数组没问题，但交接判据要在条目消失前成立，与恢复流动作对称。
+    pendingFocusRef.current = { key: rowKey(item), order: trash.map(rowKey) };
     setPurgingItem(item);
     setTrashImpact(null);
     setTrashImpactError(null);
@@ -136,6 +163,16 @@ export function HistoryPage({ project }: HistoryPageProps) {
       setTrashImpactBusy(false);
     }
   };
+
+  const handleCancelPurge = () => {
+    // BD-197：取消即作废交接预约，防止下一次无关的列表刷新误把焦点搬走。
+    pendingFocusRef.current = null;
+    setPurgingItem(null);
+  };
+
+  // PurgeTrashDialog 成功路径原本也借 onCancel 关窗——成功必须保留交接预约，
+  // 与取消分开：确认成功走这条，只关窗不清预约。
+  const handleClosePurged = () => setPurgingItem(null);
 
   // ---------- 快照：创建命名里程碑 ----------
   const handleCreateMilestone = async (
@@ -238,11 +275,11 @@ export function HistoryPage({ project }: HistoryPageProps) {
 
       {tab === "trash" ? (
         trash.length === 0 ? (
-          <p className="history-empty">
+          <p className="history-empty" ref={emptyRef} tabIndex={-1}>
             回收站是空的。删除卷、章、场景或卡片后会出现在这里，可以恢复或永久删除。
           </p>
         ) : (
-          <ul className="history-list">
+          <ul className="history-list" ref={listRef} tabIndex={-1}>
             {trash.map((item) => (
               <li key={`${item.entity}-${item.id}`} className="history-item">
                 <span className="history-item-type">
@@ -252,10 +289,15 @@ export function HistoryPage({ project }: HistoryPageProps) {
                 <small>{new Date(item.deletedAt).toLocaleString("zh-CN")}</small>
                 <span className="history-item-subject"></span>
                 <div className="history-item-actions">
-                  <Button size="sm" variant="outline" onClick={() => void handleRestoreTrash(item)} title="恢复">
+                  <Button size="sm" variant="outline" onClick={() => void handleRestoreTrash(item)} title="恢复" aria-label={`恢复：${item.title}`} ref={(node) => {
+                    // BD-197：交接锚点——每行记「恢复」按钮；卸载时清账防 stale。
+                    const key = rowKey(item);
+                    if (node) rowActionRefs.current.set(key, node);
+                    else rowActionRefs.current.delete(key);
+                  }}>
                     <RotateCcw size={14} /> 恢复
                   </Button>
-                  <Button size="sm" variant="danger-outline" onClick={() => void handleOpenPurge(item)} title="永久删除">
+                  <Button size="sm" variant="danger-outline" onClick={() => void handleOpenPurge(item)} title="永久删除" aria-label={`永久删除：${item.title}`}>
                     <Trash2 size={14} /> 永久删除
                   </Button>
                 </div>
@@ -329,7 +371,8 @@ export function HistoryPage({ project }: HistoryPageProps) {
           impact={trashImpact}
           impactBusy={trashImpactBusy}
           impactError={trashImpactError}
-          onCancel={() => setPurgingItem(null)}
+          onCancel={handleCancelPurge}
+          onCloseSuccess={handleClosePurged}
           onConfirm={handleConfirmPurge}
         />
       )}
