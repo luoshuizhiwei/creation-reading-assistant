@@ -212,8 +212,20 @@ export function ConfirmDialog() {
 }
 
 export function PageTransition({ screenKey, children }: { screenKey: string; children: ReactNode }) {
+  // BD-202：路由切换的焦点着陆点（WCAG 2.4.3，BD-183/BD-198 同族）。切屏由入口
+  // 按钮触发，而那个按钮就在这棵被 key 整体重挂的子树里——卸载后焦点跌回 body，
+  // 键盘用户每次跳转都要从头重新 Tab。容器补 tabIndex={-1} 并在新路由挂载/换 key
+  // 时把焦点接住：脚本 focus 不满足 :focus-visible，不会画出多余的环；读屏器落在
+  // 容器上即读新页内容，与 BD-198 的根级到达播报互补。SearchPanel/Dialog 的 rAF
+  // 自动聚焦（BD-127/129）晚于本 passive effect，终态仍是它们说了算。
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    boxRef.current?.focus({ preventScroll: true });
+  }, [screenKey]);
+
   return (
-    <div key={screenKey} className="motion-page h-full">
+    <div key={screenKey} ref={boxRef} className="motion-page h-full" tabIndex={-1}>
       {children}
     </div>
   );
