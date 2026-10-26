@@ -56,8 +56,10 @@ describe("划词工具栏关闭路径必须连取色面板一起复位", () => {
   });
 
   it("EPUB：Esc 关掉工具栏时同样收起取色面板", () => {
+    // BD-203 起 Escape 块内先收设置抽屉（setSettingsDrawerOpen(false); return;）
+    // 再落到选区复位；成对复位的判据不变，只是前面多了一层。
     expect(epubSrc).toMatch(
-      /if \(event\.key === "Escape"\) \{\s*setSelectionToolbar\(null\);\s*setShowColorPicker\(false\);\s*\}/
+      /if \(event\.key === "Escape"\) \{\s*(?:\/\/[^\n]*\n\s*)*if \(settingsDrawerOpen\) \{\s*setSettingsDrawerOpen\(false\);\s*return;\s*\}\s*setSelectionToolbar\(null\);\s*setShowColorPicker\(false\);\s*\}/
     );
   });
 

@@ -555,13 +555,20 @@ export function EpubReaderPage() {
         void turnPage("prev");
       }
       if (event.key === "Escape") {
+        // BD-203：Escape 关浮层此前只认选区浮层，设置抽屉开着按 Escape 会被选区
+        // 清理抢掉且不关抽屉；TXT/MD 宿主（BD-182 家族）一直是「抽屉优先、逐层
+        // 收」。同型补齐——抽屉收法走 open=false，BD-201 的开手回交接住焦点。
+        if (settingsDrawerOpen) {
+          setSettingsDrawerOpen(false);
+          return;
+        }
         setSelectionToolbar(null);
         setShowColorPicker(false);
       }
     };
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [turnPage]);
+  }, [turnPage, settingsDrawerOpen]);
 
   useEffect(() => {
     if (!selectionToolbar?.visible) return;
