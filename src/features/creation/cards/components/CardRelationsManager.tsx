@@ -45,6 +45,10 @@ export function CardRelationsManager({
   const pendingFocusRef = useRef<{ key: string; order: string[] } | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const emptyRef = useRef<HTMLParagraphElement>(null);
+  // BD-200（焦点管理同族）：建关系表单由「建立关系」钮开合。成功/取消都在表单
+  // 内的按钮上握着焦点整块收起——焦点跌回 body（WCAG 2.4.3），收起后必须把焦点
+  // 交回常驻的开合钮，键盘用户就地续 Tab。
+  const formToggleRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const pending = pendingFocusRef.current;
     if (!pending) return;
@@ -99,6 +103,8 @@ export function CardRelationsManager({
       setRelationTypeId("");
       setRelationTargetId("");
       setRelationNote("");
+      // BD-200：成功收起，焦点交回开合钮（建立中钮即将随表单卸载）。
+      formToggleRef.current?.focus({ preventScroll: true });
     }
   };
 
@@ -115,7 +121,12 @@ export function CardRelationsManager({
     <section className="cards-relations">
       <header className="cards-relations-head">
         <h4>关系</h4>
-        <button type="button" aria-expanded={showRelationForm} onClick={() => setShowRelationForm((value) => !value)}>
+        <button
+          type="button"
+          aria-expanded={showRelationForm}
+          ref={formToggleRef}
+          onClick={() => setShowRelationForm((value) => !value)}
+        >
           <Plus size={13} /> 建立关系
         </button>
       </header>
@@ -182,6 +193,8 @@ export function CardRelationsManager({
                 setShowRelationForm(false);
                 setRelationTypeId("");
                 setRelationTargetId("");
+                // BD-200：取消收起，焦点同样交回开合钮。
+                formToggleRef.current?.focus({ preventScroll: true });
               }}
             >
               取消

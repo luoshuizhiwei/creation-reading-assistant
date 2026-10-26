@@ -45,6 +45,11 @@ function clickDelete(forward: string) {
   fireEvent.click(screen.getByLabelText(`确认删除${forward}`));
 }
 
+/** Dialog 打开帧会用 requestAnimationFrame 把焦点移到首个可聚焦元素（BD-127）；
+ * 高负载下它可能迟到，抢走我们手动 focus 的钮——先冲刷两帧再布防，断言才确定。 */
+const flushFrames = () =>
+  new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.deleteRelationType.mockResolvedValue(true);
@@ -56,6 +61,7 @@ describe("BD-199：关系类型行卸载焦点交接", () => {
   it("删中间行：焦点交给原位置下一行", async () => {
     const [a, b, c] = [relType("r-a", "师徒"), relType("r-b", "盟友"), relType("r-c", "仇敌")];
     const view = render(<Editor relationTypes={[a, b, c]} />);
+    await flushFrames(); // 先让对话框开帧的 rAF 落定
     clickDelete("盟友");
     await waitFor(() => expect(mocks.loadRelationTypes).toHaveBeenCalledWith("p1"));
     view.rerender(<Editor relationTypes={[a, c]} />);
@@ -65,6 +71,7 @@ describe("BD-199：关系类型行卸载焦点交接", () => {
   it("删空：列表 section 卸载，焦点退到编辑器标题", async () => {
     const a = relType("r-a", "师徒");
     const view = render(<Editor relationTypes={[a]} />);
+    await flushFrames(); // 先让对话框开帧的 rAF 落定
     clickDelete("师徒");
     await waitFor(() => expect(mocks.loadRelationTypes).toHaveBeenCalledWith("p1"));
     view.rerender(<Editor relationTypes={[]} />);
@@ -75,6 +82,7 @@ describe("BD-199：关系类型行卸载焦点交接", () => {
     mocks.deleteRelationType.mockResolvedValue(false);
     const [a, b] = [relType("r-a", "师徒"), relType("r-b", "盟友")];
     const view = render(<Editor relationTypes={[a, b]} />);
+    await flushFrames(); // 先让对话框开帧的 rAF 落定
     clickDelete("盟友");
     await waitFor(() => expect(mocks.deleteRelationType).toHaveBeenCalled());
     view.rerender(<Editor relationTypes={[a, b]} />);

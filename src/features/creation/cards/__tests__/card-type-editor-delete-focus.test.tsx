@@ -46,6 +46,11 @@ function clickDelete(name: string) {
   return btn;
 }
 
+/** Dialog 打开帧会用 requestAnimationFrame 把焦点移到首个可聚焦元素（BD-127）；
+ * 高负载下它可能迟到，抢走我们手动 focus 的钮——先冲刷两帧再布防，断言才确定。 */
+const flushFrames = () =>
+  new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.deleteCardType.mockResolvedValue(true);
@@ -57,6 +62,7 @@ describe("BD-199：卡片类型行卸载焦点交接", () => {
   it("删中间行：焦点交给原位置下一行", async () => {
     const [a, b, c] = [type("t-a", "甲"), type("t-b", "乙"), type("t-c", "丙")];
     const view = render(<Editor cardTypes={[a, b, c]} />);
+    await flushFrames(); // 先让对话框开帧的 rAF 落定
     clickDelete("乙");
     await waitFor(() => expect(mocks.loadCardTypes).toHaveBeenCalledWith("p1"));
     view.rerender(<Editor cardTypes={[a, c]} />);
@@ -66,6 +72,7 @@ describe("BD-199：卡片类型行卸载焦点交接", () => {
   it("删末行：末尾退前一条", async () => {
     const [a, b, c] = [type("t-a", "甲"), type("t-b", "乙"), type("t-c", "丙")];
     const view = render(<Editor cardTypes={[a, b, c]} />);
+    await flushFrames(); // 先让对话框开帧的 rAF 落定
     clickDelete("丙");
     await waitFor(() => expect(mocks.loadCardTypes).toHaveBeenCalledWith("p1"));
     view.rerender(<Editor cardTypes={[a, b]} />);
@@ -75,6 +82,7 @@ describe("BD-199：卡片类型行卸载焦点交接", () => {
   it("删空：列表 section 卸载，焦点退到编辑器标题", async () => {
     const a = type("t-a", "甲");
     const view = render(<Editor cardTypes={[a]} />);
+    await flushFrames(); // 先让对话框开帧的 rAF 落定
     clickDelete("甲");
     await waitFor(() => expect(mocks.loadCardTypes).toHaveBeenCalledWith("p1"));
     view.rerender(<Editor cardTypes={[]} />);
@@ -85,6 +93,7 @@ describe("BD-199：卡片类型行卸载焦点交接", () => {
     const a = type("t-a", "乙");
     const b = type("t-b", "内置", true);
     const view = render(<Editor cardTypes={[a, b]} />);
+    await flushFrames(); // 先让对话框开帧的 rAF 落定
     clickDelete("乙");
     await waitFor(() => expect(mocks.loadCardTypes).toHaveBeenCalledWith("p1"));
     view.rerender(<Editor cardTypes={[b]} />);
@@ -95,6 +104,7 @@ describe("BD-199：卡片类型行卸载焦点交接", () => {
     mocks.deleteCardType.mockResolvedValue(false);
     const [a, b, c] = [type("t-a", "甲"), type("t-b", "乙"), type("t-c", "丙")];
     const view = render(<Editor cardTypes={[a, b, c]} />);
+    await flushFrames(); // 先让对话框开帧的 rAF 落定
     clickDelete("乙");
     await waitFor(() => expect(mocks.deleteCardType).toHaveBeenCalled());
     // 父层照常刷新但条目还在——预约保持，焦点不搬（此时钮仍在确认态文案上）

@@ -55,4 +55,15 @@ describe("BD-199 源码账：卡片编辑族行卸载焦点交接", () => {
     const registrations = code.match(/rowActionRefs\.current\.set\(relation\.id, node\)/g) ?? [];
     expect(registrations.length, `出边/入边两处删除钮都要登记 ref，实为 ${registrations.length}`).toBe(2);
   });
+
+  it("BD-200：建关系表单收起焦点回交开合钮，成功/取消两条收起路径都在账", () => {
+    const code = read("../components/CardRelationsManager.tsx");
+    expect(code, "BD-200 判据注释缺失").toContain("BD-200");
+    expect(code).toMatch(/<button\s+type="button"\s+aria-expanded=\{showRelationForm\}\s+ref=\{formToggleRef\}/);
+    // 成功与取消两处收起都以「setShowRelationForm(false) → … → focus(formToggleRef)」成对出现。
+    const handoffs = code.match(/setShowRelationForm\(false\);[\s\S]{0,220}formToggleRef\.current\?\.focus\(\{ preventScroll: true \}\);/g) ?? [];
+    expect(handoffs.length, `成功/取消两条收起路径都要回交焦点，实为 ${handoffs.length}`).toBe(2);
+    // 失败不收起：回交只住在 ok 分支里（表单还开着，焦点原地不动才是对的）。
+    expect(code).toMatch(/if \(ok\) \{\s*setShowRelationForm\(false\);/);
+  });
 });
