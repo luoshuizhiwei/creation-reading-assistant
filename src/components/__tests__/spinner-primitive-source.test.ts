@@ -50,9 +50,14 @@ describe("BD-195 源码账：Spinner 是纯视觉原语", () => {
       /className="operation-indeterminate[^"]*"[^>]*aria-live/
     );
     expect(code).toMatch(/const showingIndeterminateHint =/);
-    expect(code, "常驻区换文本必须复用可见分支的同一判据").toMatch(/\{showingIndeterminateHint/);
+    // BD-196：播报优先级链抽成 statusAnnouncement（提交警示 > 不确定进度 > 终态），
+    // 常驻区只引用这一个变量——可见块与播报共用同一判据，不许两处各写一份。
+    expect(code).toMatch(/const statusAnnouncement = isCommitting/);
+    expect(code, "常驻区换文本必须复用同一判据变量").toMatch(/\{statusAnnouncement\}/);
     expect(code).toMatch(/正在处理，请稍候…/);
+    expect(code).toMatch(/正在完成安全提交，此阶段不可取消，请勿关闭应用。/);
     expect(read("../../features/creation/operation/OperationProgressDialog.tsx")).toContain("BD-195");
+    expect(read("../../features/creation/operation/OperationProgressDialog.tsx")).toContain("BD-196");
   });
 
   it("指纹防线：Spinner 原语不得再长出 status+aria-label 双装饰", () => {

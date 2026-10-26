@@ -63,7 +63,9 @@ describe("OperationProgressDialog", () => {
     render(<OperationProgressDialog state={state} isCommitting onCancel={onCancel} onClose={vi.fn()} onReset={vi.fn()} />);
     const cancel = screen.getByRole("button", { name: "取消" }) as HTMLButtonElement;
     expect(cancel.disabled).toBe(true);
-    expect(screen.getByText(/正在完成安全提交/)).toBeTruthy();
+    // BD-196：警示文本同时镜像进常驻区（对话框开着时插入是无声的），可见块钉死到 p 上。
+    expect(screen.getByText(/正在完成安全提交/, { selector: "p.operation-commit-note" })).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("正在完成安全提交，此阶段不可取消，请勿关闭应用。");
     fireEvent.click(cancel);
     expect(onCancel).not.toHaveBeenCalled();
   });

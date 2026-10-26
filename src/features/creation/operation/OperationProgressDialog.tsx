@@ -64,6 +64,22 @@ export function OperationProgressDialog({
     !(progress.total !== null && progress.total > 0) &&
     !(progress.bytesTotal !== null && progress.bytesTotal > 0);
 
+  // BD-196：「正在完成安全提交」警示块与 deferredCancel 尾注都随状态挂载/变文本，
+  // 对话框开着时它们是无声的插入（BD-175 判据）——不可中断、勿关应用这种
+  // 最需要读屏的警示反而只有肉眼能看见。并入常驻区换文本，优先级：
+  // 提交警示（当下最要紧的动作约束）> 不确定进度 > 终态收尾。
+  const statusAnnouncement = isCommitting
+    ? "正在完成安全提交，此阶段不可取消，请勿关闭应用。"
+    : showingIndeterminateHint
+      ? "正在处理，请稍候…"
+      : status === "completed"
+        ? state.deferredCancel
+          ? "操作已完成。取消请求落在不可中断阶段，已在安全边界后完成，无法撤销。"
+          : "操作已完成。"
+        : status === "cancelled"
+          ? "操作已取消，已进行的安全阶段已回滚，当前数据未被破坏。"
+          : "";
+
   return (
     <Dialog
       open
@@ -137,15 +153,10 @@ export function OperationProgressDialog({
               等长操作的用户只能靠肉眼回来核对。文本并入常驻区，可见结果块保留。
               BD-195：不确定进度分支此前靠自带 aria-live 的挂载段落 + Spinner label
               播报，两者都是插入即带内容的死形态；「正在处理，请稍候…」并入本常驻区，
-              进入该分支是同一节点上的换文本。 */}
+              进入该分支是同一节点上的换文本。
+              BD-196：提交警示与 deferredCancel 尾注同样并入（statusAnnouncement）。 */}
           <span className="sr-only" role="status">
-            {showingIndeterminateHint
-              ? "正在处理，请稍候…"
-              : status === "completed"
-                ? "操作已完成。"
-                : status === "cancelled"
-                  ? "操作已取消，已进行的安全阶段已回滚，当前数据未被破坏。"
-                  : ""}
+            {statusAnnouncement}
           </span>
 
           {status === "completed" ? (

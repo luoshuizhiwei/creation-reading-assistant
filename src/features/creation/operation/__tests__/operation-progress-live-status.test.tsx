@@ -74,3 +74,53 @@ describe("操作进度对话框 · 终态播报走常驻区（BD-187）", () => 
     expect(screen.getByRole("status").textContent).toBe("");
   });
 });
+
+// BD-196：提交警示与 deferredCancel 尾注此前只随状态挂载/变文本，对话框开着时
+// 读屏全程无声；并入同一条常驻区换文本。
+describe("操作进度对话框 · 提交警示与延后取消尾注走常驻区（BD-196）", () => {
+  it("不确定进度中进入提交阶段：同一节点换文本播警示", () => {
+    const view = render(
+      <OperationProgressDialog
+        state={makeState({ progress: { phase: "scanning", completed: 0, total: null, bytesCompleted: null, bytesTotal: null, indeterminate: true } })}
+        isCommitting={false}
+        onCancel={vi.fn()}
+        onClose={vi.fn()}
+        onReset={vi.fn()}
+      />
+    );
+    const region = screen.getByRole("status");
+    expect(region.textContent).toBe("正在处理，请稍候…");
+
+    view.rerender(
+      <OperationProgressDialog
+        state={makeState({ progress: { phase: "committing", completed: 0, total: null, bytesCompleted: null, bytesTotal: null, indeterminate: true } })}
+        isCommitting
+        onCancel={vi.fn()}
+        onClose={vi.fn()}
+        onReset={vi.fn()}
+      />
+    );
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region.textContent).toBe("正在完成安全提交，此阶段不可取消，请勿关闭应用。");
+    expect(document.querySelectorAll('[role="status"]').length).toBe(1);
+  });
+
+  it("延后取消的完成态：尾注并进同一条播报，节点不换", () => {
+    const view = render(
+      <OperationProgressDialog state={makeState()} isCommitting={false} onCancel={vi.fn()} onClose={vi.fn()} onReset={vi.fn()} />
+    );
+    const region = screen.getByRole("status");
+
+    view.rerender(
+      <OperationProgressDialog
+        state={makeState({ status: "completed", deferredCancel: true })}
+        isCommitting={false}
+        onCancel={vi.fn()}
+        onClose={vi.fn()}
+        onReset={vi.fn()}
+      />
+    );
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region.textContent).toBe("操作已完成。取消请求落在不可中断阶段，已在安全边界后完成，无法撤销。");
+  });
+});
