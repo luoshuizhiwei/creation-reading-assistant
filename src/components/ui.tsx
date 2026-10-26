@@ -201,8 +201,12 @@ export function ShellPanel({ children, className = "" }: { children: ReactNode; 
 }
 
 export function EmptyState({ title, body }: { title: string; body: string }) {
+  // BD-194：空态原语是「带内容一起挂起的块」——polite 区只在换文本时才播，
+  // 插入即带内容的第一帧是哑的（BD-175/180/192 判据），这枚 role="status"
+  // aria-live 从未播出过任何东西，反倒让宿主误以为「播报已有人管」。
+  // 到达播报归宿主的常驻区（BD-187/191/192/193 的形态），空态退回纯视觉。
   return (
-    <div className="grid h-full place-items-center px-8 py-10 text-center" role="status" aria-live="polite">
+    <div className="grid h-full place-items-center px-8 py-10 text-center">
       <div className="max-w-sm">
         <h2 className="paper-title text-base font-semibold">{title}</h2>
         <p className="mt-2 text-sm leading-[var(--leading-14)] text-paper-muted">{body}</p>
