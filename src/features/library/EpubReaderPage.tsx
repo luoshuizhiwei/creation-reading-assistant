@@ -14,6 +14,7 @@ import { findCurrentTocItem, normalizeEpubHref } from "@/features/library/toc/cu
 import { getHighlightsByBook, saveHighlight, deleteHighlight as removeHighlightById, getBookmarksByBook, saveBookmark, deleteBookmark as removeBookmarkById } from "@/services/annotation-service";
 import { saveEpubLocation } from "@/services/reader-service";
 import { useReadingSessionTracker } from "@/hooks/useReadingSessionTracker";
+import { EPUB_OPENING_STATUS, useRouteStatus } from "@/hooks/useRouteStatus";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
@@ -577,6 +578,11 @@ export function EpubReaderPage() {
     };
   }, [selectionToolbar?.visible]);
 
+  // BD-198：可见覆盖层与到达播报共用一条谓词（BD-196 同族）——空态分支里
+  // loading 会永远为真，不能拿它单独当忙态；只有真在开书路上才播。
+  const readerOpening = loading && activeBook?.format === "epub" && Boolean(settings) && Boolean(epubUrl);
+  useRouteStatus(readerOpening, EPUB_OPENING_STATUS);
+
   if (!activeBook || activeBook.format !== "epub" || !settings || !epubUrl) {
     return <EpubEmptyState onBackToLibrary={() => setScreen("library")} onBackToHome={() => setScreen("projects")} />;
   }
@@ -712,10 +718,11 @@ export function EpubReaderPage() {
 
       <div className={`grid min-h-0 ${tocCollapsed ? "grid-cols-[1fr_56px]" : "grid-cols-[1fr_320px]"}`}>
         <div ref={viewerContainerRef} className="relative min-h-0 overflow-hidden" onWheel={handleWheelPageTurn}>
-          {loading && (
+          {readerOpening && (
             // BD-195：Spinner 不再自带 role=status/aria-label——这块覆盖层本就是
             // 插入即带内容的挂载形态，死装饰摘除后视觉不变；「正在打开 EPUB…」
-            // 的到达播报需由开书入口的常驻区承担（与 StatsPage 到达播报同属另案）。
+            // 的到达播报已由 BD-198 接上：上方 useRouteStatus 以 readerOpening
+            // 喂根级常驻区，与本页可见覆盖层共用同一条谓词。
             <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-paper-panel/80 text-sm text-paper-muted">
               <Spinner size={18} /> 正在打开 EPUB...
             </div>

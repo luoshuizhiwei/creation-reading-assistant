@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarClock, Clock3, Edit3, Flame, Layers, Library, PencilLine, Target, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
+import { STATS_LOADING_STATUS, useRouteStatus } from "@/hooks/useRouteStatus";
 import { useUIStore } from "@/stores/ui-store";
 import type { CreationProjectSetup, ProjectHomeEntry, ProjectStatsView, ProjectUpdateGoalCommand, SessionEntry } from "@/types/creation";
 import { SCENE_STATUS_LABELS, SCENE_STATUS_ORDER, sceneStatusLabel } from "@/features/creation/scene-status";
@@ -191,6 +192,10 @@ export function StatsPage({ projectId }: StatsPageProps) {
     void refresh();
   }, [refresh]);
 
+  // BD-198：统计到达播报改由 App 根级常驻区发声。谓词与下方可见加载块同一条
+  // （!stats，BD-196 单一谓词同族）；stats 落定即清账，卸载也只清自己的文本。
+  useRouteStatus(!stats, STATS_LOADING_STATUS);
+
   const handleDeleteSession = async (sessionId: string) => {
     const ok = await deleteSession({ projectId, sessionId });
     if (ok) {
@@ -222,9 +227,8 @@ export function StatsPage({ projectId }: StatsPageProps) {
   };
 
   // BD-193：`!stats` 只在挂载头几帧为真——加载页是「插入即带内容」的节点，
-  // role="status" 播不出来（BD-175/180 判据），属死装饰，摘除。真正欠的是
-  // 统计就绪/失败的到达播报：stats 的忙态住在组件内部，要上抬到工作台宿主
-  // 才有常驻落点，另案处理，不在本批混做。
+  // role="status" 播不出来（BD-175/180 判据），属死装饰，摘除。当年欠的统计
+  // 到达播报已由 BD-198 接上：上方 useRouteStatus 把 !stats 忙态喂给根级常驻区。
   if (!stats) {
     return <section className="creation-writing-loading"><Library size={24} /><span>正在读取统计…</span></section>;
   }

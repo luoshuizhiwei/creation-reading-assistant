@@ -120,6 +120,7 @@ export default function App() {
   const setScreen = useAppStore((state) => state.setScreen);
   const settings = useSettingsStore((state) => state.settings);
   const showToast = useUIStore((state) => state.showToast);
+  const routeStatus = useUIStore((state) => state.routeStatus);
   const setCreationAbnormalExit = useCreationStore((state) => state.setAbnormalExit);
   const [recoveryInfo, setRecoveryInfo] = useState<StartupRecoveryInfo>();
   const { loadSettings } = useSettingsActions();
@@ -204,6 +205,11 @@ export default function App() {
 
   return (
     <div className="relative h-screen overflow-hidden paper-shell">
+      {/* BD-198：路由级到达播报的全局常驻区。PageTransition 以 screen 为 key，路由一切换整棵子树重挂，
+          页面内部的 role="status" 只能"带内容挂载"——BD-175 已证明那是静音的。所以播报必须活在任何
+          屏幕之前：这一只 span 与 ToastCenter 同层、永不卸载，由各入口动作与 useRouteStatus 钩子经
+          ui-store.routeStatus 单槽总线换文本喂入（同文不换、不换不重声，BD-196 单一谓词同族）。 */}
+      <span className="sr-only" role="status">{routeStatus}</span>
       <ToastCenter />
       <ConfirmDialog />
       <SearchPanel />

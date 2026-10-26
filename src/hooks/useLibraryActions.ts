@@ -4,6 +4,7 @@ import { getBatchProgress, openBook, openEpub } from "@/services/reader-service"
 import { useLibraryStore } from "@/stores/library-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
+import { EPUB_OPENING_STATUS } from "@/hooks/useRouteStatus";
 import { executeAction } from "@/utils/async-action";
 
 async function hydrateProgress(bookIds: string[]) {
@@ -88,17 +89,27 @@ export function useLibraryActions() {
 
   const openReader = useCallback(
     async (bookId: string) => {
-      await executeAction(
+      // BD-198：EPUB 开书入口点击即换文本——此刻阅读器路由还没挂，页面内部
+      // 没有能发声的常驻区（BD-175：插入即带内容＝静音），「正在打开 EPUB…」
+      // 只能从入口侧喂根级常驻区。成功后由阅读器页接手同一字符串（同文不换、
+      // 不换不重声）；失败在这里清自己的文本，清账规则同 useRouteStatus。
+      const currentBook = useLibraryStore.getState().books.find((book) => book.id === bookId);
+      const isEpub = currentBook?.format === "epub";
+      if (isEpub) useUIStore.getState().setRouteStatus(EPUB_OPENING_STATUS);
+      const opened = await executeAction(
         async () => {
-          const currentBook = useLibraryStore.getState().books.find((book) => book.id === bookId);
-          const payload = currentBook?.format === "epub" ? await openEpub(bookId) : await openBook(bookId);
+          const payload = isEpub ? await openEpub(bookId) : await openBook(bookId);
           setActiveBook(payload.book, "content" in payload ? payload.content : "", "epubUrl" in payload ? payload.epubUrl : undefined);
           if (payload.progress) useLibraryStore.getState().setProgress(payload.progress);
           setReaderSettings(payload.settings);
           setScreen("reader");
+          return true;
         },
         { setLoading, setError }
       );
+      if (isEpub && opened === undefined && useUIStore.getState().routeStatus === EPUB_OPENING_STATUS) {
+        useUIStore.getState().setRouteStatus("");
+      }
     },
     [setActiveBook, setError, setLoading, setReaderSettings, setScreen]
   );

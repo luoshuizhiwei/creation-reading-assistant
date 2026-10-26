@@ -8,6 +8,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { useAppStore } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
+import { EPUB_OPENING_STATUS } from "@/hooks/useRouteStatus";
 import { messageFromError } from "@/utils/format";
 import type { SearchNavigateIntent, UnifiedSearchEntry } from "@/types/search";
 
@@ -170,17 +171,29 @@ export function useSearchActions() {
             book = books.find((item) => item.id === intent.bookId);
           }
           if (!book) throw new Error("未找到要打开的书籍");
-          const payload = book.format === "epub" ? await openEpub(intent.bookId) : await openBook(intent.bookId);
-          const content = "content" in payload ? payload.content : "";
-          const epubUrl = "epubUrl" in payload ? payload.epubUrl : undefined;
-          useLibraryStore.getState().setActiveBook(payload.book, content, epubUrl, intent.epubHref);
-          if (payload.progress) useLibraryStore.getState().setProgress(payload.progress);
-          useLibraryStore.getState().setReaderSettings(payload.settings);
-          if (book.format !== "epub" && typeof intent.charOffset === "number") {
-            useLibraryStore.setState({ activeTextJump: { bookId: intent.bookId, charOffset: intent.charOffset } });
+          // BD-198：搜索直达 EPUB 与书库开书入口同病——阅读器路由未挂、页内无区可播，
+          // 确认要开书后立刻喂根级常驻区；IPC 或后续任一步抛错就清自己的文本再上抛，
+          // 成功则交给阅读器页接手（同文不换、不换不重声）。
+          const isEpub = book.format === "epub";
+          if (isEpub) useUIStore.getState().setRouteStatus(EPUB_OPENING_STATUS);
+          try {
+            const payload = isEpub ? await openEpub(intent.bookId) : await openBook(intent.bookId);
+            const content = "content" in payload ? payload.content : "";
+            const epubUrl = "epubUrl" in payload ? payload.epubUrl : undefined;
+            useLibraryStore.getState().setActiveBook(payload.book, content, epubUrl, intent.epubHref);
+            if (payload.progress) useLibraryStore.getState().setProgress(payload.progress);
+            useLibraryStore.getState().setReaderSettings(payload.settings);
+            if (!isEpub && typeof intent.charOffset === "number") {
+              useLibraryStore.setState({ activeTextJump: { bookId: intent.bookId, charOffset: intent.charOffset } });
+            }
+            useAppStore.getState().setScreen("reader");
+          } catch (error) {
+            if (isEpub && useUIStore.getState().routeStatus === EPUB_OPENING_STATUS) {
+              useUIStore.getState().setRouteStatus("");
+            }
+            throw error;
           }
-          useAppStore.getState().setScreen("reader");
-          if (book.format === "epub" && !intent.epubHref) {
+          if (isEpub && !intent.epubHref) {
             showToast({
               tone: "info",
               title: "EPUB 全文索引未建立",

@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
  *     必须住在常驻区表达式里，可见加载块不带 role="status"；
  *  2) 只有挂载头几帧忙态、组件内无循环的（StatsPage），role="status" 属死装饰，
  *     必须摘除——到达播报需上抬宿主，另案，不许就地造假常驻区。
+ *     （BD-198 结案：全局根级常驻区接住了 StatsPage/EpubReaderPage 两处「另案」。）
  */
 
 function read(rel: string): string {
@@ -53,6 +54,8 @@ describe("BD-193 源码账：早返回加载根的播报常驻化", () => {
     expect(LOADING_SECTION_WITH_ROLE.test(src), "回退：加载根又把 role=status 挂了回去").toBe(false);
     // 该组件内没有第二次忙态循环；若有人就地造 <span sr-only> 假常驻区，也不解决问题。
     expect(/sr-only" role="status"|sr-only role="status"/.test(src), "StatsPage 不该就地加假常驻区（到达播报另案）").toBe(false);
+    // BD-198 结案：忙态经钩子喂全局根级常驻区，这才是「另案」的正解。
+    expect(/useRouteStatus\(!stats, STATS_LOADING_STATUS\);/.test(src), "回退：BD-198 的根区接线被拆了").toBe(true);
   });
 
   it("账外防线：全仓不得再出现 creation-writing-loading 自带 status 的形态", () => {
