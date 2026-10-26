@@ -57,6 +57,13 @@ export function OperationProgressDialog({
     ? (state.result?.result as ProjectBundleImportResult | undefined)
     : undefined;
 
+  // BD-195：可见区里「正在处理，请稍候…」分支的显示条件，播报复用同一判据。
+  const showingIndeterminateHint =
+    (status === "running" || status === "cancelling") &&
+    percent === null &&
+    !(progress.total !== null && progress.total > 0) &&
+    !(progress.bytesTotal !== null && progress.bytesTotal > 0);
+
   return (
     <Dialog
       open
@@ -114,8 +121,8 @@ export function OperationProgressDialog({
                   {(progress.bytesTotal / 1024 / 1024).toFixed(1)} MB
                 </p>
               ) : (
-                <p className="operation-indeterminate flex items-center gap-2" aria-live="polite">
-                  <Spinner size={14} label="处理中" />
+                <p className="operation-indeterminate flex items-center gap-2">
+                  <Spinner size={14} />
                   正在处理，请稍候…
                 </p>
               )}
@@ -127,13 +134,18 @@ export function OperationProgressDialog({
 
           {/* BD-187：对话框在操作开始时已经打开，「已完成/已取消」结果块是之后才
               挂载的——插入即带内容的 role=status 不会被播报（BD-175/180 的判据），
-              等长操作的用户只能靠肉眼回来核对。文本并入常驻区，可见结果块保留。 */}
+              等长操作的用户只能靠肉眼回来核对。文本并入常驻区，可见结果块保留。
+              BD-195：不确定进度分支此前靠自带 aria-live 的挂载段落 + Spinner label
+              播报，两者都是插入即带内容的死形态；「正在处理，请稍候…」并入本常驻区，
+              进入该分支是同一节点上的换文本。 */}
           <span className="sr-only" role="status">
-            {status === "completed"
-              ? "操作已完成。"
-              : status === "cancelled"
-                ? "操作已取消，已进行的安全阶段已回滚，当前数据未被破坏。"
-                : ""}
+            {showingIndeterminateHint
+              ? "正在处理，请稍候…"
+              : status === "completed"
+                ? "操作已完成。"
+                : status === "cancelled"
+                  ? "操作已取消，已进行的安全阶段已回滚，当前数据未被破坏。"
+                  : ""}
           </span>
 
           {status === "completed" ? (

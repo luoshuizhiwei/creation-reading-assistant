@@ -713,6 +713,9 @@ export function EpubReaderPage() {
       <div className={`grid min-h-0 ${tocCollapsed ? "grid-cols-[1fr_56px]" : "grid-cols-[1fr_320px]"}`}>
         <div ref={viewerContainerRef} className="relative min-h-0 overflow-hidden" onWheel={handleWheelPageTurn}>
           {loading && (
+            // BD-195：Spinner 不再自带 role=status/aria-label——这块覆盖层本就是
+            // 插入即带内容的挂载形态，死装饰摘除后视觉不变；「正在打开 EPUB…」
+            // 的到达播报需由开书入口的常驻区承担（与 StatsPage 到达播报同属另案）。
             <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-paper-panel/80 text-sm text-paper-muted">
               <Spinner size={18} /> 正在打开 EPUB...
             </div>

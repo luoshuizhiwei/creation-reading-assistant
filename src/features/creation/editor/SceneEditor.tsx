@@ -407,7 +407,7 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
           <button className={`scene-tool ${focusMode ? "active" : ""}`} type="button" onClick={onToggleFocusMode} aria-label="专注模式" aria-pressed={focusMode}><Focus size={15} /></button>
         </span>
         <span className={`scene-save-status scene-save-status--${sessionState.status}`} aria-live="polite">
-          {sessionState.status === "saving" && <Spinner size={13} label="正文保存中" />}
+          {sessionState.status === "saving" && <Spinner size={13} />}
           {sessionState.status === "saved" && <CheckCircle2 size={13} />}
           {(sessionState.status === "error" || sessionState.status === "conflict") && <XCircle size={13} />}
           {statusLabel[sessionState.status]}

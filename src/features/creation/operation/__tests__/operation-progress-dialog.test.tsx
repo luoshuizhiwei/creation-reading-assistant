@@ -51,7 +51,9 @@ describe("OperationProgressDialog", () => {
       progress: { phase: "scanning", completed: 0, total: null, bytesCompleted: null, bytesTotal: null, indeterminate: true }
     });
     render(<OperationProgressDialog state={state} isCommitting={false} onCancel={vi.fn()} onClose={vi.fn()} onReset={vi.fn()} />);
-    expect(screen.getByText(/正在处理，请稍候/)).toBeTruthy();
+    // BD-195：同一文本也镜像进常驻区（换文本播报），可见块钉死到 p 上。
+    expect(screen.getByText(/正在处理，请稍候/, { selector: "p.operation-indeterminate" })).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("正在处理，请稍候…");
     expect(screen.queryByText(/%/)).toBeNull();
   });
 
