@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button, Dialog, Select } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
@@ -105,6 +105,31 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
   const [editingType, setEditingType] = useState<CardType | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
+  // BD-199（BD-197 同族）：类型行删除成功后列表随刷新换血，握着焦点的删除按钮
+  // 整行卸载、焦点跌回 body——键盘用户要从文档开头重新 Tab（WCAG 2.4.3）。
+  // 动作前记行序快照，列表换血后把焦点交给原位置下一行（末尾退前一条）；
+  // 列表清空时 section 整块卸载，退路是编辑器标题（tabIndex=-1）；条目没走
+  // （失败/未刷新）不动焦点。
+  const rowActionRefs = useRef(new Map<string, HTMLElement>());
+  const pendingFocusRef = useRef<{ key: string; order: string[] } | null>(null);
+  const listRef = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending) return;
+    const current = cardTypes.map((item) => item.id);
+    if (current.includes(pending.key)) return; // 条目没走（失败/未刷新），不动焦点
+    pendingFocusRef.current = null;
+    const idx = pending.order.indexOf(pending.key);
+    const survivors = current.filter((key) => key !== pending.key);
+    const handoffKey = survivors[idx] ?? survivors[idx - 1] ?? null;
+    const target = handoffKey ? rowActionRefs.current.get(handoffKey) : null;
+    // 幸存行的删除钮可能因内置/被引用 disabled（disabled 不可聚焦），继续退列表→标题。
+    (target && target.isConnected && !target.hasAttribute("disabled")
+      ? target
+      : listRef.current ?? titleRef.current)?.focus({ preventScroll: true });
+  }, [cardTypes]);
+
   const updateField = (index: number, patch: Partial<DraftField>) => {
     setFields((current) => current.map((field, i) => (i === index ? { ...field, ...patch } : field)));
   };
@@ -154,6 +179,8 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
       setConfirmingDeleteId(type.id);
       return;
     }
+    // BD-199：预约记在点击即、await 前——删除成功后列表换血才有交接依据。
+    pendingFocusRef.current = { key: type.id, order: cardTypes.map((item) => item.id) };
     setSubmitting(true);
     setError(null);
     const ok = await actions.deleteCardType({
@@ -263,7 +290,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
       }
     >
       {cardTypes.length > 0 && (
-            <section className="cards-type-list" aria-label="现有卡片类型">
+            <section className="cards-type-list" aria-label="现有卡片类型" ref={listRef} tabIndex={-1}>
               {cardTypes.map((type) => {
                 const impact = impactFor(type);
                 const builtin = type.builtIn;
@@ -285,6 +312,11 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
                         disabled={builtin || blocked || submitting}
                         title={blocked ? `仍被 ${impact.cards} 张卡片和 ${impact.relationTypes} 个关系类型引用` : builtin ? "内置类型不可删除" : "删除类型"}
                         aria-label={confirmingDeleteId === type.id ? `确认删除${type.name}` : `删除${type.name}`}
+                        ref={(node) => {
+                          // BD-199：行卸载后的焦点交接按 id 找回幸存行的删除钮。
+                          if (node) rowActionRefs.current.set(type.id, node);
+                          else rowActionRefs.current.delete(type.id);
+                        }}
                         onClick={() => void deleteType(type)}
                       >
                         <Trash2 size={13} />
@@ -295,7 +327,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
               })}
             </section>
           )}
-          <h4 className="cards-type-editor-title">{editingType ? `编辑：${editingType.name}` : "新建卡片类型"}</h4>
+          <h4 className="cards-type-editor-title" ref={titleRef} tabIndex={-1}>{editingType ? `编辑：${editingType.name}` : "新建卡片类型"}</h4>
           {editingType && (
             <div className="cards-field">
               <label className="cards-field-label">稳定 kind</label>

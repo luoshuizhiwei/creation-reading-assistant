@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button, Dialog } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
@@ -26,6 +26,29 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
   const [submitting, setSubmitting] = useState(false);
   const [editingType, setEditingType] = useState<RelationType | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+
+  // BD-199（BD-197/CardTypeEditor 同族）：关系类型行删除成功后列表随刷新换血，
+  // 握着焦点的删除钮整行卸载、焦点跌回 body。动作前记行序快照，换血后交接给
+  // 原位置下一行（末尾退前一条）；列表清空 section 卸载，退路是编辑器标题；
+  // 条目没走（失败/未刷新）不动焦点。
+  const rowActionRefs = useRef(new Map<string, HTMLElement>());
+  const pendingFocusRef = useRef<{ key: string; order: string[] } | null>(null);
+  const listRef = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending) return;
+    const current = relationTypes.map((item) => item.id);
+    if (current.includes(pending.key)) return; // 条目没走（失败/未刷新），不动焦点
+    pendingFocusRef.current = null;
+    const idx = pending.order.indexOf(pending.key);
+    const survivors = current.filter((key) => key !== pending.key);
+    const handoffKey = survivors[idx] ?? survivors[idx - 1] ?? null;
+    const target = handoffKey ? rowActionRefs.current.get(handoffKey) : null;
+    (target && target.isConnected && !target.hasAttribute("disabled")
+      ? target
+      : listRef.current ?? titleRef.current)?.focus({ preventScroll: true });
+  }, [relationTypes]);
 
   const toggleKind = (list: string[], setList: (next: string[]) => void, kind: string) => {
     setList(list.includes(kind) ? list.filter((item) => item !== kind) : [...list, kind]);
@@ -60,6 +83,8 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
       setConfirmingDeleteId(type.id);
       return;
     }
+    // BD-199：预约记在点击即、await 前——删除成功后列表换血才有交接依据。
+    pendingFocusRef.current = { key: type.id, order: relationTypes.map((item) => item.id) };
     setSubmitting(true);
     setError(null);
     const ok = await actions.deleteRelationType({
@@ -138,7 +163,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
       }
     >
       {relationTypes.length > 0 && (
-            <section className="cards-type-list" aria-label="现有关系类型">
+            <section className="cards-type-list" aria-label="现有关系类型" ref={listRef} tabIndex={-1}>
               {relationTypes.map((type) => {
                 const impact = impactFor(type);
                 const builtin = type.builtIn;
@@ -159,6 +184,11 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
                         disabled={builtin || impact > 0 || submitting}
                         title={impact > 0 ? `仍被 ${impact} 条关系引用` : builtin ? "内置类型不可删除" : "删除类型"}
                         aria-label={confirmingDeleteId === type.id ? `确认删除${type.forwardName}` : `删除${type.forwardName}`}
+                        ref={(node) => {
+                          // BD-199：行卸载后的焦点交接按 id 找回幸存行的删除钮。
+                          if (node) rowActionRefs.current.set(type.id, node);
+                          else rowActionRefs.current.delete(type.id);
+                        }}
                         onClick={() => void deleteType(type)}
                       >
                         <Trash2 size={13} />
@@ -169,7 +199,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
               })}
             </section>
           )}
-          <h4 className="cards-type-editor-title">{editingType ? `编辑：${editingType.forwardName}` : "新建关系类型"}</h4>
+          <h4 className="cards-type-editor-title" ref={titleRef} tabIndex={-1}>{editingType ? `编辑：${editingType.forwardName}` : "新建关系类型"}</h4>
           {editingType && (
             <div className="cards-field">
               <label className="cards-field-label">稳定 key</label>

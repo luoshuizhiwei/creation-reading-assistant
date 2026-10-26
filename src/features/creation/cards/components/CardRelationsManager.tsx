@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button, Select } from "@/components/ui";
 import type { CardRelation, CardSummary, RelationType } from "@/types/creation";
@@ -35,12 +35,36 @@ export function CardRelationsManager({
   const [relationNote, setRelationNote] = useState("");
   const [confirmingRelationId, setConfirmingRelationId] = useState<string | null>(null);
 
+  // BD-199（BD-197 同族）：关系行删除成功后列表随父层刷新换血，握着焦点的
+  // 删除钮整行卸载、焦点跌回 body。动作前记行序快照（出边在前、入边在后，
+  // 与渲染序一致），换血后交接给原位置下一行（末尾退前一条）；删空时 ul 换成
+  // 空态段落，退路是空态段（tabIndex=-1）；条目没走（失败/未刷新）不动焦点。
+  const relationIds = (value: CardRelationsManagerProps["relations"]) =>
+    value ? [...value.outgoing.map((item) => item.id), ...value.incoming.map((item) => item.id)] : [];
+  const rowActionRefs = useRef(new Map<string, HTMLElement>());
+  const pendingFocusRef = useRef<{ key: string; order: string[] } | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const emptyRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending) return;
+    const current = relationIds(relations);
+    if (current.includes(pending.key)) return; // 条目没走（失败/未刷新），不动焦点
+    pendingFocusRef.current = null;
+    const idx = pending.order.indexOf(pending.key);
+    const survivors = current.filter((key) => key !== pending.key);
+    const handoffKey = survivors[idx] ?? survivors[idx - 1] ?? null;
+    const target = handoffKey ? rowActionRefs.current.get(handoffKey) : null;
+    (target?.isConnected ? target : listRef.current ?? emptyRef.current)?.focus({ preventScroll: true });
+  }, [relations]);
+
   useEffect(() => {
     setShowRelationForm(false);
     setRelationTypeId("");
     setRelationTargetId("");
     setRelationNote("");
     setConfirmingRelationId(null);
+    pendingFocusRef.current = null; // BD-199：换卡即作废上一张卡的交接预约
   }, [selectedCard.id]);
 
   const relationTypeForForm = useMemo(
@@ -79,6 +103,8 @@ export function CardRelationsManager({
   };
 
   const handleDelete = async (relationId: string) => {
+    // BD-199：预约记在点击即、await 前——删除成功后列表换血才有交接依据。
+    pendingFocusRef.current = { key: relationId, order: relationIds(relations) };
     const ok = await onDeleteRelation(relationId);
     if (ok) {
       setConfirmingRelationId(null);
@@ -164,7 +190,7 @@ export function CardRelationsManager({
         </div>
       )}
       {relations && (relations.outgoing.length > 0 || relations.incoming.length > 0) ? (
-        <ul className="cards-relation-list">
+        <ul className="cards-relation-list" ref={listRef} tabIndex={-1}>
           {relations.outgoing.map((relation) => (
             <li key={relation.id}>
               <span>{selectedCard.title}</span>
@@ -176,6 +202,11 @@ export function CardRelationsManager({
               <button
                 type="button"
                 className={`cards-relation-delete ${confirmingRelationId === relation.id ? "confirming" : ""}`}
+                ref={(node) => {
+                  // BD-199：行卸载后的焦点交接按 id 找回幸存行的删除钮。
+                  if (node) rowActionRefs.current.set(relation.id, node);
+                  else rowActionRefs.current.delete(relation.id);
+                }}
                 onClick={() => {
                   if (confirmingRelationId === relation.id) void handleDelete(relation.id);
                   else setConfirmingRelationId(relation.id);
@@ -198,6 +229,11 @@ export function CardRelationsManager({
               <button
                 type="button"
                 className={`cards-relation-delete ${confirmingRelationId === relation.id ? "confirming" : ""}`}
+                ref={(node) => {
+                  // BD-199：行卸载后的焦点交接按 id 找回幸存行的删除钮。
+                  if (node) rowActionRefs.current.set(relation.id, node);
+                  else rowActionRefs.current.delete(relation.id);
+                }}
                 onClick={() => {
                   if (confirmingRelationId === relation.id) void handleDelete(relation.id);
                   else setConfirmingRelationId(relation.id);
@@ -211,7 +247,7 @@ export function CardRelationsManager({
           ))}
         </ul>
       ) : (
-        <p className="cards-relations-empty">暂无关系。</p>
+        <p className="cards-relations-empty" ref={emptyRef} tabIndex={-1}>暂无关系。</p>
       )}
     </section>
   );
