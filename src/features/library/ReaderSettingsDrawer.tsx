@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, Settings2, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { ReaderSettingsMorePanel } from "@/features/library/ReaderSettingsMorePanel";
@@ -34,6 +34,28 @@ export function ReaderSettingsDrawer({
   subtitle = format === "epub" ? "EPUB 默认保留原书样式，需要统一排版时再切换。" : "调整字号、行距与背景，设置实时生效。"
 }: ReaderSettingsDrawerProps) {
   const [view, setView] = useState<"main" | "more">("main");
+  const titleRef = useRef<HTMLDivElement>(null);
+
+  // BD-201：抽屉的三条关闭路径（「关闭」钮、遮罩 mousedown、TXT/MD 宿主顶栏下的
+  // Escape 快捷键）都直接把整棵抽屉子树卸载，焦点从被点的节点跌回 body——键盘
+  // 用户要从文档开头重新 Tab（同 BD-183 ReaderSearchOverlay 的出口契约）。抽屉
+  // 由宿主常驻挂载、靠 open 翻转出内容，所以回交挂在 [open] 的 effect cleanup 上：
+  // 开时记住是谁开的，收时还给它；开手已不在文档里（切路由整页卸载）就不抢焦点。
+  // 抽屉内的视图切换（「更多设置」↔「返回阅读设置」）卸载的同样是焦点所在按钮，
+  // 但抽屉还没关，焦点不该跑出抽屉——回交给两视图都常驻的标题。
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const opener = document.activeElement;
+    restoreFocusRef.current =
+      opener instanceof HTMLElement && opener !== document.body ? opener : null;
+    return () => {
+      const target = restoreFocusRef.current;
+      restoreFocusRef.current = null;
+      if (target?.isConnected) target.focus({ preventScroll: true });
+    };
+  }, [open]);
 
   useEffect(() => {
     if (open) setView("main");
@@ -53,13 +75,17 @@ export function ReaderSettingsDrawer({
                 type="button"
                 className="rounded-md p-1.5 text-paper-muted hover:bg-paper-soft hover:text-paper-ink"
                 aria-label="返回阅读设置"
-                onClick={() => setView("main")}
+                onClick={() => {
+                  setView("main");
+                  // BD-201：本按钮随视图切换卸载，焦点先交给常驻标题，别跌落。
+                  titleRef.current?.focus({ preventScroll: true });
+                }}
               >
                 <ChevronLeft size={17} />
               </button>
             )}
             <div className="min-w-0">
-              <div className="paper-title text-base font-semibold">{view === "main" ? "阅读设置" : "更多设置"}</div>
+              <div className="paper-title text-base font-semibold" ref={titleRef} tabIndex={-1}>{view === "main" ? "阅读设置" : "更多设置"}</div>
               {view === "main" && <div className="mt-1 truncate text-xs text-paper-muted">{subtitle}</div>}
             </div>
           </div>
@@ -86,7 +112,11 @@ export function ReaderSettingsDrawer({
             <Button
               variant="outline"
               className="mt-5 w-full"
-              onClick={() => setView("more")}
+              onClick={() => {
+                setView("more");
+                // BD-201：本按钮随视图切换卸载，焦点先交给常驻标题，别跌落。
+                titleRef.current?.focus({ preventScroll: true });
+              }}
             >
               <Settings2 size={15} />
               更多设置
