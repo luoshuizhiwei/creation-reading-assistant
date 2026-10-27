@@ -90,6 +90,8 @@ export interface WritingDeskMarginProps {
   onOpenOutline?: () => void;
   /** 写作速查中显式打开、可在发送确认中排除的卡片。 */
   quickReferenceCards?: CardSummary[];
+  /** 写作速查面板已打开，整列在它层下（BD-209）。 */
+  covered: boolean;
 }
 
 export function WritingDeskMargin({
@@ -108,7 +110,8 @@ export function WritingDeskMargin({
   focusMode,
   getActiveEditor,
   onOpenOutline,
-  quickReferenceCards = []
+  quickReferenceCards = [],
+  covered
 }: WritingDeskMarginProps) {
   const cardList = useCreationStore((state) => state.cards);
   const cardTypes = useCreationStore((state) => state.cardTypes);
@@ -158,6 +161,21 @@ export function WritingDeskMargin({
   const [aiCandidate, setAiCandidate] = useState<SceneCandidate | null>(null);
   const [aiReport, setAiReport] = useState<{ content: string; model: string; actionLabel: string } | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
+
+  /**
+   * BD-209：写作速查面板是 z-45 的贴右全高列，宽度下限 280px 不小于检查列本身——
+   * 面板一开，本列（含收起态的「展开检查器」钮）指针整列打不到，Tab 却照样路过，
+   * 焦点矩形全被面板盖住（2.4.11 摸底红：收起/页签/雷达钮停靠点，
+   * 取证 /tmp/bd209-probe.json）。面板不是模态——「边写边核对设定」是它的核心
+   * 用法，正文输入必须自由，所以修法不是把键盘圈进面板，而是让被盖层 inert：
+   * 指针与 Tab 一起离场，与 BD-208「被遮罩盖住的目标不该参与判定」同一逻辑。
+   * 例外：本列里那几个确认/评审浮层（批注重定位、AI 发送确认、候选评审、报告）
+   * 是 z70+ 的 fixed 层，盖在面板之上、开着时仍可见可用；它们的子树长在本 aside
+   * 里，inert 会把它们一起锁死——任一开着时本列暂不 inert（正常流里面板与
+   * 确认框几乎不叠，这个豁免只是不破既有弹层契约的保险丝）。
+   */
+  const modalOverlaysOpen = Boolean(reanchorCandidate) || Boolean(aiPackDialog) || Boolean(aiReport) || Boolean(aiCandidate);
+  const marginInert = covered && !modalOverlaysOpen;
 
   useEffect(() => {
     void getAISettings().then(setAiSettings).catch(() => setAiSettings(undefined));
@@ -455,12 +473,13 @@ export function WritingDeskMargin({
           className="writing-margin-expand"
           aria-label="展开检查器"
           title="展开检查器"
+          {...(marginInert ? { inert: "" } : {})}
           onClick={() => onToggleCollapse(false)}
         >
           «
         </button>
       )}
-      <aside className="writing-margin" aria-label="场景信息">
+      <aside className="writing-margin" aria-label="场景信息" {...(marginInert ? { inert: "" } : {})}>
         <div className="writing-margin-tabs" role="group" aria-label="场景信息页签">
           <button
             type="button"

@@ -94,7 +94,8 @@
     "dist:dir": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
     "test": "vitest run",
-    "audit:target-size": "node scripts/audit-target-size.mjs"
+    "audit:target-size": "node scripts/audit-target-size.mjs",
+    "audit:focus-obscured": "node scripts/audit-focus-obscured.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",

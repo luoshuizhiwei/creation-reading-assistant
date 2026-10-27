@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, Settings2, X } from "lucide-react";
 import { Button } from "@/components/ui";
+import { useModalKeyboard } from "@/components/ui/use-modal-keyboard";
 import { ReaderSettingsMorePanel } from "@/features/library/ReaderSettingsMorePanel";
 import { ReaderSettingsPanel } from "@/features/library/ReaderSettingsPanel";
 import { resetReaderSettings } from "@/services/settings-service";
@@ -35,6 +36,22 @@ export function ReaderSettingsDrawer({
 }: ReaderSettingsDrawerProps) {
   const [view, setView] = useState<"main" | "more">("main");
   const titleRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+
+  // BD-209：遮罩是全屏层（inset-0，z-30），抽屉一开，阅读器正文、顶栏页签、底栏进度
+  // 滑杆的 Tab 停靠点全被压在它下面——焦点矩形整块看不见（2.4.11 红，摸底 14 停靠点，
+  // 取证 /tmp/bd209-probe.json）。修法不是给遮罩下元素打补丁，而是把抽屉按 BD-130
+  // 弹层键盘契约补齐：Tab 在抽屉内成环、Escape 关自己并 stopPropagation、落焦进标题。
+  // 环把键盘圈在可见层里，背景停靠点根本到不了，遮挡随契约一起消失；aria-modal
+  // 的承诺由 hook 兑现（浏览器不会自动兑现）。hook 的关后回交与下方 BD-201 的
+  // 开手回交捕捉的是同一节点（都在 open 翻真时记 activeElement），双还同一目标幂等；
+  // BD-201 账本形状（宿主翻 open 的覆盖面）原样保留。
+  const handleDrawerKeyDown = useModalKeyboard({
+    active: open,
+    containerRef: drawerRef,
+    onEscape: onClose,
+    initialFocusRef: titleRef
+  });
 
   // BD-201：抽屉的三条关闭路径（「关闭」钮、遮罩 mousedown、TXT/MD 宿主顶栏下的
   // Escape 快捷键）都直接把整棵抽屉子树卸载，焦点从被点的节点跌回 body——键盘
@@ -65,6 +82,11 @@ export function ReaderSettingsDrawer({
   return (
     <div className="absolute inset-0 z-30 bg-paper-ink/10 backdrop-blur-[1px]" onMouseDown={onClose}>
       <aside
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reader-settings-drawer-title"
+        onKeyDown={handleDrawerKeyDown}
         className="motion-drawer absolute right-0 top-0 h-full w-[320px] overflow-auto rounded-[var(--radius-3)] border-l border-paper-line bg-paper-panel p-5 [box-shadow:var(--shadow-3)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
@@ -85,7 +107,7 @@ export function ReaderSettingsDrawer({
               </button>
             )}
             <div className="min-w-0">
-              <div className="paper-title text-base font-semibold" ref={titleRef} tabIndex={-1}>{view === "main" ? "阅读设置" : "更多设置"}</div>
+              <div id="reader-settings-drawer-title" className="paper-title text-base font-semibold" ref={titleRef} tabIndex={-1}>{view === "main" ? "阅读设置" : "更多设置"}</div>
               {view === "main" && <div className="mt-1 truncate text-xs text-paper-muted">{subtitle}</div>}
             </div>
           </div>

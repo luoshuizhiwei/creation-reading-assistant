@@ -382,6 +382,7 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
         getActiveEditor={getActiveEditor}
         onOpenOutline={onOpenOutline}
         quickReferenceCards={quickReferenceContextCards}
+        covered={!focusMode && quickReferenceOpen}
       />
       {!focusMode && (
         <WritingQuickReferencePanel
