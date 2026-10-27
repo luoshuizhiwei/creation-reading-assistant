@@ -32,6 +32,13 @@
   --accent-hover: var(--action-tint);
   --border-subtle: var(--separator-subtle);
   --border-strong: var(--separator);
+  /* BD-210（WCAG 1.4.11 非文本对比 AA）：纯字段（input/select/textarea）的边界是
+   * 「识别控件所需视觉信息」，必须对内外两侧 ≥3:1。--border-strong(=#ced3da 浅，
+   * 实测对面板/画布两头 1.21–1.49) 够不到地板；--text-secondary 是仓里唯一在浅/深
+   * 两主题都 ≥3 的中性实色档（浅 4.85 对 --surface-1、深 4.8+ 对暗面板，运行时普查
+   * 实测 /tmp/bd210-probe4.log 同一族字段 12 处红全部因此色档不达标而起）。
+   * 本令牌只供给字段描边自识别，分隔线（--separator/--separator-subtle）不动。 */
+  --border-field: var(--text-secondary);
   --studio-cloth: var(--surface-1);
   --studio-cloth-soft: var(--surface-2);
   --studio-cloth-text: var(--text-primary);
@@ -2627,7 +2634,10 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid var(--paper-line);
+  /* BD-210：卡片库搜索壳。壳内 input 自身 border:0、填色 transparent，边界全由这条壳线
+   * 供给——实测 1.21（/tmp/bd210-probe4.log 「搜索卡片名称或别名」），1.4.11 判红，抬到
+   * --border-field。 */
+  border: 1px solid var(--border-field);
   border-radius: var(--radius-2);
   background: var(--paper-panel);
   color: var(--paper-muted);

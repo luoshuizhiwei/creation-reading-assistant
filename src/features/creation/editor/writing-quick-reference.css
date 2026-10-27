@@ -207,7 +207,9 @@
    * 9 → margin `9px 12px 0`、壳 y309/h38、首项 y355、面板 h689 恒定；
    * 8 → 壳 y308、首项 y354；10 → 壳 y310、首项 y356。 */
   margin: 8px 12px 0;
-  border: 1px solid var(--border-subtle);
+  /* BD-210：壳边原先 --border-subtle 实测 1.21——搜索框 input 自身 border:0，
+   * 边界全由壳供线，与 .cards-search/.uni-search-shell 同批升档 --border-field。 */
+  border: 1px solid var(--border-field);
   border-radius: var(--radius-2);
   background: var(--bg-subtle);
   color: var(--text-muted);
@@ -285,8 +287,10 @@
 }
 .writing-quick-field > span,
 .writing-quick-detail .cards-field-label { color: var(--text-muted); font-size: 11px; font-weight: 700; }
+/* BD-210：字段边原先 --border-subtle（#e0e4e9 对 #f8f9fa 底实测 1.21，1.4.11 边界
+ * ≥3 不达标）——与 .paper-input 族同批升档 --border-field。 */
 .writing-quick-field input,
-.writing-quick-detail .cards-input { box-sizing: border-box; width: 100%; min-height: 31px; border: 1px solid var(--border-subtle); border-radius: var(--radius-2); background: var(--bg-surface); padding: 6px 8px; font-size: 12px; }
+.writing-quick-detail .cards-input { box-sizing: border-box; width: 100%; min-height: 31px; border: 1px solid var(--border-field); border-radius: var(--radius-2); background: var(--bg-surface); padding: 6px 8px; font-size: 12px; }
 .writing-quick-detail textarea.cards-input { min-height: 64px; resize: vertical; }
 .writing-quick-save { display: grid; gap: 2px; min-height: 28px; margin: 4px 0 8px; color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
 .writing-quick-save--dirty { color: var(--warning); }

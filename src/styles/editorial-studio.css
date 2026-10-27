@@ -440,7 +440,11 @@ select:focus-visible,
   width: 20px;
   height: 20px;
   padding: 0;
-  border: 1px solid transparent;
+  /* BD-210：原先 1px solid transparent——三个主题点在侧栏上没有任何边界，
+   * 「浅色」点（--surface-1 底）与侧栏底色逐值相同（实测 1.0），非激活钮整族
+   * 无边界可辨（1.4.11）。常态走字段档环（浅色 #666d77 对侧栏 4.96 / 深色
+   * #a7afb9 实测过 ≥3），激活态由下方 .active 的 seal 环换色指认选中。 */
+  border: 1px solid var(--border-field);
   border-radius: var(--radius-full);
   background: transparent;
 }
@@ -1447,15 +1451,29 @@ select:focus-visible,
   font-size: 11px;
 }
 
+/* BD-210：原先整族 border-color: var(--border-strong)（浅 #ced3da）——普查实测字段边界
+ * 对内外两侧只有 1.21–1.49（/tmp/bd210-probe4.log：写作台下拉 1.21、大纲 cards-input
+ * 1.49、TXT 抽屉「应用阅读预设」1.43），WCAG 1.4.11 判红。整族抬到 --border-field
+ * （= --text-secondary，浅 4.85 对面板、深档同样过地板）。 */
 .writing-project-switcher select,
 .scene-block-select,
 .paper-input,
 .cards-input {
-  border-color: var(--border-strong);
+  border-color: var(--border-field);
   border-radius: var(--radius-2);
   background: var(--bg-surface);
   color: var(--text-main);
   box-shadow: none;
+}
+
+/* BD-210：desktop-canvas 的字段重映射层（产物实测胜者，运行时 CSSOM 定罪：
+ * `.desktop-canvas .paper-input { border-color: var(--paper-line) }` 1.21 判红——
+ * 书库「筛选书籍」、收件箱「灵感速记」、设置「搜索设置项/跟随系统…」四处实测；
+ * 全局搜索输入框 border:0、壳线走 --border-subtle（同 1.21 族）且壳内输入两头 1.06。
+ * 同特异度后置压住（BD-29/BD-35 记过的发射序：editorial 比 styles.css 更晚）。 */
+.desktop-canvas .paper-input,
+.desktop-canvas .cards-input {
+  border-color: var(--border-field);
 }
 
 .writing-outline-scroll {
@@ -2150,7 +2168,10 @@ select:focus-visible,
 
 .uni-search-shell {
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--studio-cloth) 32%, var(--border-subtle));
+  /* BD-210：壳边原先 color-mix(--studio-cloth 32%, --border-subtle) 实测 1.21–1.06
+   * （全局搜索输入框自身 border:0、填色对壳两头 1.06，/tmp/bd210-probe4.log）——
+   * 复合控件的边界由壳供线，抬到 --border-field 后输入经壳边判定可辨。 */
+  border: 1px solid var(--border-field);
   border-radius: var(--radius-3);
   background: var(--studio-paper);
   box-shadow: var(--shadow-3);
@@ -2577,7 +2598,9 @@ select:focus-visible,
 }
 
 .reader-root .paper-input {
-  border-color: var(--border-strong);
+  /* BD-210：同组规则，--border-strong 实测 1.43 判红（TXT 抽屉「应用阅读预设」，
+   * /tmp/bd210-probe4.log），抬到 --border-field。 */
+  border-color: var(--border-field);
   background: var(--bg-surface);
   color: var(--text-main);
 }
@@ -2594,6 +2617,48 @@ select:focus-visible,
 /* Settings panel: a quiet instrument column beside the paper. */
 .reader-root input[type="range"] {
   accent-color: var(--accent-spine);
+}
+
+/* BD-210（WCAG 1.4.11 非文本对比 AA）：TXT 底部「阅读进度跳转」滑杆。
+ * 旧写法 `bg-paper-line/60 … appearance-none` 半透明轨道 + 无自定义 thumb——
+ * 运行时实测（/tmp/bd210-probe4.log）滑块/轨道对底只有 1.3，判红；appearance:none
+ * 撤了 UA 默认外观又不画 thumb，「拖动位置」这个状态视觉上不成立。
+ * 裁决口径同 .paper-slider（settings-controls.css）：**细轨是装饰**（进度值另有
+ * 紧邻的百分比文本随拖动同步），状态识别由 thumb 承担——thumb 走 2px --action-primary
+ * 描边 + --surface-1 面（对轨道与外侧画布两头由普查复验 ≥3），薄影复用材质令牌 --shadow-control-thumb
+ * （BD-88 立的档，同 paper-slider 逐字同款）。轨道底改不透明 --separator（比原
+ * paper-line/60 混色更可辨；1.43 属装饰档，不参与判定）。 */
+.reader-progress-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 999px;
+  background: var(--separator);
+}
+
+.reader-progress-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.reader-progress-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--action-primary);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-control-thumb);
+}
+
+.reader-progress-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--action-primary);
+  background: var(--surface-1);
 }
 
 .reader-root input[type="checkbox"] {
