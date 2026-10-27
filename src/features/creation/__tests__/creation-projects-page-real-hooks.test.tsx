@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, cleanup, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, cleanup, waitFor } from "@testing-library/react";
 import { CreationProjectsPage } from "@/features/creation/CreationProjectsPage";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -336,5 +336,35 @@ describe("跨项目卡片导航（当前项目 A，搜索目标属于项目 B）
     // 不得选择 B 的卡片（当前已切回 A）
     expect(useCreationStore.getState().selectedId).toBe("p1");
     expect(useCreationStore.getState().selectedCardId).toBeUndefined();
+  });
+});
+
+describe("BD-207 工作台页级 h1（sr-only·项目名·视图名）", () => {
+  it("工作台态全档恰有一个 h1，文案「项目甲 · 写作」且挂 sr-only", async () => {
+    useCreationStore.setState({ selectedId: "p1", navigations: { p1: navigationOf("p1", "ch1", "sc1") } });
+    render(<CreationProjectsPage />);
+    await flushMicrotasks(3);
+    const h1s = document.querySelectorAll("h1");
+    expect(h1s).toHaveLength(1);
+    expect(h1s[0].className).toContain("sr-only");
+    expect(h1s[0].textContent).toBe("项目甲 · 写作");
+  });
+
+  it("点导航切到设定卡，h1 跟着换成「项目甲 · 设定卡」", async () => {
+    useCreationStore.setState({ selectedId: "p1", navigations: { p1: navigationOf("p1", "ch1", "sc1") } });
+    render(<CreationProjectsPage />);
+    await flushMicrotasks(3);
+    fireEvent.click(screen.getByRole("button", { name: "设定卡" }));
+    await flushMicrotasks(2);
+    const h1s = document.querySelectorAll("h1");
+    expect(h1s).toHaveLength(1);
+    expect(h1s[0].textContent).toBe("项目甲 · 设定卡");
+  });
+
+  it("项目首页（未进工作台）不渲染 h1——页级标题归命令栏，别双 h1", async () => {
+    render(<CreationProjectsPage />);
+    await flushMicrotasks(3);
+    expect(document.querySelector(".project-workbench")).toBeNull();
+    expect(document.querySelector("h1")).toBeNull();
   });
 });

@@ -546,6 +546,12 @@ export function CreationProjectsPage() {
         )}
         {selected ? (
           <div className="project-workbench">
+            {/* BD-207：命令栏 h1 在沉浸态整条卸载，工作台七个视图全档无页级标题——
+             * 与「每屏一个 h1」的自家模式断根。壳层补一条 sr-only h1（项目名·视图名，
+             * 随 aria-current 同源联动），零像素，不动任何视图内部。 */}
+            <h1 className="sr-only">
+              {selected.title} · {PROJECT_NAV_ITEMS.find((item) => item.view === view)?.label ?? "工作台"}
+            </h1>
             <nav className="project-nav" aria-label="项目导航">
               <RingButton type="button" className="project-nav-back" onClick={backToProjectHome}>
                 <ChevronLeft size={14} /> 项目列表
