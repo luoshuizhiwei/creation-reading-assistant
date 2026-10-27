@@ -93,7 +93,8 @@
     "preview": "electron-vite preview",
     "dist:dir": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
-    "test": "vitest run"
+    "test": "vitest run",
+    "audit:target-size": "node scripts/audit-target-size.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",

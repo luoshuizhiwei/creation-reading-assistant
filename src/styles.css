@@ -2345,8 +2345,15 @@ button:disabled {
      key、写注释别钉行号」防的那种漂移）：.cards-board-column-head button、
      .creation-proof-ignore、.desktop-home-inbox-count。作用域含写作台左栏——它内嵌同一个 OutlineTree
      （WritingDeskOutlineSidebar.tsx:159），所以 03-写作台 屏本批确实有差异，
-     属预期而非污染。 */
-  padding: 4px;
+     属预期而非污染。
+     ⚠ 批次 BD-208（WCAG 2.5.8 指针目标最小尺寸）：4→6，图标钮实渲 20×20 → 24×24。
+     运行时普查（scripts/audit-target-size.mjs，遮挡过滤 + 活体邻域 + 中心 24 圆）
+     实测这族按钮是全仓唯一「既不足 24、又吃不到间距豁免」的图标簇：活体邻钮
+     对（改名卷/删除卷、拆章/改名场景/删除场景）实渲 20×20、中心距 22<24——
+     两头圆相交（牙齿取证 /tmp/bd208-teeth-dbg.log）。24 档与豁免同时了断
+     （§5.1 在档、BD-48 立的「命中区地板 24」同值）。行高代价实测：卷/章/场三行
+     本就被 24+ 的 select/文本撑着，钮 20→24 不撑行（普查修复后 TARGETSIZE_OK 复测）。 */
+  padding: 6px;
   cursor: pointer;
 }
 
@@ -3418,6 +3425,14 @@ button:disabled {
   /* BD-38 摘死声明：font-size: 13px 从未渲染——「.stats-card h3」被 src/styles/editorial-studio.css:788 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-38 摘死声明：font-weight: 700 从未渲染——「.stats-card h3」被 src/styles/editorial-studio.css:789 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.stats-card h3」 在产物里被 editorial-studio.css:775 同键更晚的一条整条压住 */
+}
+
+/* 批次 BD-208（WCAG 2.5.8）：「字」单字钮实渲 16×24，宽度不足 24 且左右邻钮
+ * （32×24、96×24）的矩形直接压进它的中心 24 圆（点到矩形距离 8<12，牙齿取证
+ * /tmp/bd208-teeth-dbg.log）——吃不到间距豁免。padding-inline 6px 抬到 ≥24 宽；
+ * 高度本就 24 不动。汉字 32→40、含标点 96→104 一并受益，全组无行为变化。6px 在 §5.1 刻度上。 */
+.stats-metric-switch button {
+  padding-inline: 6px;
 }
 
 .stats-card h3 svg {

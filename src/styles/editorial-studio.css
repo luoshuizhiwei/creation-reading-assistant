@@ -3912,6 +3912,13 @@ input[type="text"],
   align-items: center;
   min-width: 0;
   flex: 1;
+  /* 批次 BD-208（WCAG 2.5.8）·预防性对齐（普查判合规，非缺陷修复）：整行钮实渲高 18，
+   * 中心 24 圆与邻域不交——按 Understanding 的圆规则它合法吃间距豁免（牙齿取证
+   * /tmp/bd208-teeth-dbg.log）。抬到 24 是对齐 BD-48「命中区地板 24」与本仓行钮
+   * 惯例，顺带把早期 Tab 遍历摸底（把 disabled 邻钮算进邻域）报出的红一次性了断。
+   * min-height 24 收进 §5.1 档，文本/徽标列本就垂直居中（align-items: center），
+   * 视觉只增行内衬 3px 上下。 */
+  min-height: 24px;
 }
 
 .outline-scene-status,

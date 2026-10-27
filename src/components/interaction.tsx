@@ -122,8 +122,13 @@ export function ToastCenter() {
                   正文同时去掉 opacity-80：那层 80% 透明度把警示/错误正文从
                   5.11 / 4.85 压到 3.46 / 3.45（晨校），不满足 12px 正文的 AA 4.5；
                   被替换的旧 amber-800 也只有 4.41，一直没达标。层级靠字号与半粗体已经分开。 */}
+              {/* BD-208（WCAG 2.5.8）：p-1 时 14px 的 × 实渲 22×22，不足 24 的指针目标地板，
+                  且标题栏窗控钮（44×40）的矩形压进它的中心 24 圆（点到矩形距离 4<12，
+                  牙齿取证 /tmp/bd208-teeth-dbg.log）——吃不到间距豁免。
+                  p-1.5（6px 在 §5.1 档）+ flex 居中抬到 26×26；图标不挪位（原本也居中，
+                  X 是行内 svg、按钮块级化后由 flex 接管对中）。 */}
               <button
-                className="rounded-md p-1 hover:bg-[color:color-mix(in_srgb,var(--text-primary)_10%,transparent)]"
+                className="rounded-md p-1.5 flex items-center justify-center hover:bg-[color:color-mix(in_srgb,var(--text-primary)_10%,transparent)]"
                 onClick={() => dismissToast(toast.id)}
                 title="关闭提示"
               >
