@@ -33,6 +33,9 @@ interface UIState {
   routeStatus: string;
   showToast: (input: Omit<ToastItem, "id" | "createdAt">) => string;
   dismissToast: (id: string) => void;
+  /** BD-215（WCAG 2.2.1）：暂停/恢复单条提示的自动消失倒计时（悬停或焦点停留即延长时限）。 */
+  pauseToast: (id: string) => void;
+  resumeToast: (id: string) => void;
   setRouteStatus: (status: string) => void;
   confirmAction: (input: {
     title: string;
@@ -46,6 +49,18 @@ interface UIState {
 
 const makeUiId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
 
+/**
+ * BD-215（WCAG 2.2.1 时限可调）：toast 到点自动消失原是一条无条件 setTimeout，
+ * 错误提示里的失败原因 6.5 秒后连读屏带眼睛一起没了，用户既不能关停也不能延长。
+ * 这里把倒计时句柄与「还剩多久」留在模块里，供悬停/焦点暂停；恢复时按**剩余时长**
+ * 续计——停留期间时钟不走，停留多久就延长多久（2.2.1 的「延长」；关闭键照旧保留）。
+ * 用剩余时长而不是重挂完整时长，是为了让键盘焦点只是「路过」提示时，提示不会
+ * 因此在页面上多赖一整轮、盖住随后获得焦点的控件（2.4.11 焦点不被遮挡）。
+ */
+const toastTimers = new Map<string, number>();
+const toastRemaining = new Map<string, number>();
+const toastDeadlines = new Map<string, number>();
+
 export const useUIStore = create<UIState>((set, get) => ({
   toasts: [],
   routeStatus: "",
@@ -54,10 +69,37 @@ export const useUIStore = create<UIState>((set, get) => ({
     const id = makeUiId("toast");
     const toast: ToastItem = { id, createdAt: Date.now(), ...input };
     set((state) => ({ toasts: [toast, ...state.toasts].slice(0, 4) }));
-    window.setTimeout(() => get().dismissToast(id), input.tone === "error" ? 6500 : 4200);
+    const duration = input.tone === "error" ? 6500 : 4200;
+    toastRemaining.set(id, duration);
+    toastDeadlines.set(id, Date.now() + duration);
+    toastTimers.set(id, window.setTimeout(() => get().dismissToast(id), duration));
     return id;
   },
-  dismissToast: (id) => set((state) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) })),
+  pauseToast: (id) => {
+    const timer = toastTimers.get(id);
+    if (timer === undefined) return;
+    window.clearTimeout(timer);
+    toastTimers.delete(id);
+    const deadline = toastDeadlines.get(id);
+    if (deadline === undefined) return;
+    toastRemaining.set(id, Math.max(0, deadline - Date.now()));
+  },
+  resumeToast: (id) => {
+    if (toastTimers.has(id)) return;
+    if (!get().toasts.some((toast) => toast.id === id)) return;
+    const remaining = toastRemaining.get(id);
+    if (remaining === undefined) return;
+    toastDeadlines.set(id, Date.now() + remaining);
+    toastTimers.set(id, window.setTimeout(() => get().dismissToast(id), remaining));
+  },
+  dismissToast: (id) => {
+    const timer = toastTimers.get(id);
+    if (timer !== undefined) window.clearTimeout(timer);
+    toastTimers.delete(id);
+    toastRemaining.delete(id);
+    toastDeadlines.delete(id);
+    set((state) => ({ toasts: state.toasts.filter((toast) => toast.id !== id) }));
+  },
   confirmAction: (input) =>
     new Promise<boolean>((resolve) => {
       const id = makeUiId("confirm");

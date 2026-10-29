@@ -83,13 +83,52 @@ const toastClass: Record<ToastTone, string> = {
 export function ToastCenter() {
   const toasts = useUIStore((state) => state.toasts);
   const dismissToast = useUIStore((state) => state.dismissToast);
+  const pauseToast = useUIStore((state) => state.pauseToast);
+  const resumeToast = useUIStore((state) => state.resumeToast);
+  // BD-215（WCAG 2.2.1 时限可调）：指针悬停或焦点落在这叠提示上时暂停倒计时，离开后
+  // 按剩余时长续计——「停留即延长」，键盘用户把焦点移到关闭键上同样生效。两路停留
+  // 分开记：悬停离开时焦点可能仍在里面（鼠标悬停后 Tab 进去），此时不能恢复倒计时。
+  const pointerHeld = useRef(false);
+  const focusHeld = useRef(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  // 焦点停留必须是「此刻真的在提示里」：被聚焦的那条提示可能被挤掉/关掉，节点移除
+  // 不会补发 blur，只看标志位会把整叠提示永久挂起。
+  const held = () => pointerHeld.current || (focusHeld.current && Boolean(containerRef.current?.contains(document.activeElement)));
+  const holdAll = () => toasts.forEach((toast) => pauseToast(toast.id));
+  const releaseAll = () => {
+    if (held()) return;
+    toasts.forEach((toast) => resumeToast(toast.id));
+  };
+  // 停留期间新到的提示不会再触发一次进入事件，靠列表变化补挂暂停。
+  useEffect(() => {
+    if (!held()) return;
+    toasts.forEach((toast) => pauseToast(toast.id));
+  }, [toasts, pauseToast]);
 
   return (
     <div
+      ref={containerRef}
       className="pointer-events-none absolute right-5 top-5 z-[70] grid w-[min(380px,calc(100vw-40px))] gap-2"
       role="status"
       aria-live="polite"
       aria-label="通知"
+      onMouseEnter={() => {
+        pointerHeld.current = true;
+        holdAll();
+      }}
+      onMouseLeave={() => {
+        pointerHeld.current = false;
+        releaseAll();
+      }}
+      onFocusCapture={() => {
+        focusHeld.current = true;
+        holdAll();
+      }}
+      onBlurCapture={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+        focusHeld.current = false;
+        releaseAll();
+      }}
     >
       {toasts.map((toast) => {
         const Icon = toastIcon[toast.tone];
@@ -129,7 +168,13 @@ export function ToastCenter() {
                   X 是行内 svg、按钮块级化后由 flex 接管对中）。 */}
               <button
                 className="rounded-md p-1.5 flex items-center justify-center hover:bg-[color:color-mix(in_srgb,var(--text-primary)_10%,transparent)]"
-                onClick={() => dismissToast(toast.id)}
+                onClick={() => {
+                  // BD-215：键盘停在关闭键上时整叠提示处于暂停态；关掉这条后焦点随节点消失，
+                  // 不会再有 blur 可等——先把「焦点停留」撤掉并把同叠其余提示的倒计时接回去。
+                  focusHeld.current = false;
+                  dismissToast(toast.id);
+                  releaseAll();
+                }}
                 title="关闭提示"
               >
                 <X size={14} />

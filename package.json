@@ -100,7 +100,8 @@
     "audit:drag-alternatives": "node scripts/audit-drag-alternatives.mjs",
     "audit:landmarks": "node scripts/audit-landmarks.mjs",
     "audit:label-in-name": "node scripts/audit-label-in-name.mjs",
-    "audit:form-labels": "node scripts/audit-form-labels.mjs"
+    "audit:form-labels": "node scripts/audit-form-labels.mjs",
+    "audit:timing-adjustable": "node scripts/audit-timing-adjustable.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",
