@@ -36,6 +36,16 @@
 
 .writing-quick-reference-resizer:hover::after { opacity: 1; }
 
+/* BD-211：分隔条进键盘序列（2.5.7 的非拖拽替代）之后，焦点必须看得见（2.4.7）。
+ * 10px 细条只靠 ::after 提亮不够——补一圈主色描边，并在聚焦时把渐变线拉到满。 */
+.writing-quick-reference-resizer:focus-visible {
+  outline: 2px solid var(--action-primary);
+  outline-offset: -2px;
+  border-radius: 999px;
+}
+
+.writing-quick-reference-resizer:focus-visible::after { opacity: 1; }
+
 .writing-quick-reference-head {
   display: flex;
   align-items: center;

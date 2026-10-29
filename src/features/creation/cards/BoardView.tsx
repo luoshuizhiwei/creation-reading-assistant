@@ -20,9 +20,23 @@ export function BoardView({
   onNewCard
 }: BoardViewProps) {
   const [draggingId, setDraggingId] = useState<string>();
+  const [announcement, setAnnouncement] = useState("");
+
+  // BD-211（WCAG 2.5.7）：拖到别列改类型原本是唯一入口——键盘用户按 Enter 只能「选中」。
+  // 补一条非拖拽路径：选中卡片后 Ctrl/⌘ + ←/→ 在类型列之间移动（与拖动同义），
+  // 结果走常驻 role=status 播报（BD-175 的账：状态区必须常驻，不能随内容一起挂）。
+  const moveByKeyboard = (card: CardSummary, direction: -1 | 1) => {
+    const index = cardTypes.findIndex((type) => type.kind === card.kind);
+    if (index < 0) return;
+    const target = cardTypes[index + direction];
+    if (!target) return;
+    onMoveKind(card.id, target.kind);
+    setAnnouncement(`已把「${card.title}」移到「${target.name}」`);
+  };
 
   return (
     <div className="cards-board">
+      <span className="sr-only" role="status">{announcement}</span>
       {cardTypes.map((type) => {
         const columnCards = cards.filter((card) => card.kind === type.kind);
         return (
@@ -60,11 +74,17 @@ export function BoardView({
                   onDragStart={() => setDraggingId(card.id)}
                   onClick={() => onSelectCard(card.id)}
                   onKeyDown={(event) => {
-                    if (event.key !== "Enter" && event.key !== " ") return;
-                    event.preventDefault();
-                    onSelectCard(card.id);
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onSelectCard(card.id);
+                      return;
+                    }
+                    if ((event.key === "ArrowLeft" || event.key === "ArrowRight") && (event.ctrlKey || event.metaKey)) {
+                      event.preventDefault();
+                      moveByKeyboard(card, event.key === "ArrowLeft" ? -1 : 1);
+                    }
                   }}
-                  title="拖到其他列可改变卡片类型"
+                  title="拖到其他列可改变卡片类型；也可 Ctrl+←/→ 移动"
                 >
                   <strong>{card.title}</strong>
                   {card.aliases.length > 0 && (

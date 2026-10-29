@@ -16,6 +16,7 @@ export interface EpubSelectionToolbarProps {
   showColorPicker: boolean;
   onToggleColorPicker(): void;
   onDragStart(e: React.MouseEvent): void;
+  onNudge(dx: number, dy: number): void;
   onHighlight(color: HighlightColor): void;
   onCopy(text: string): void;
   onExcerpt(): void;
@@ -28,6 +29,7 @@ export function EpubSelectionToolbar({
   showColorPicker,
   onToggleColorPicker,
   onDragStart,
+  onNudge,
   onHighlight,
   onCopy,
   onExcerpt,
@@ -40,13 +42,29 @@ export function EpubSelectionToolbar({
       style={{ left: toolbar.x + toolbarOffset.x, top: toolbar.y + toolbarOffset.y, transform: "translate(-50%, -100%)" }}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <span
-        className="mr-0.5 cursor-grab rounded px-0.5 py-0.5 text-stone-400 hover:text-white active:cursor-grabbing"
+      {/* BD-211（WCAG 2.5.7）：握把原是个只有 onMouseDown 的 span——键盘完全够不着，
+          而拖动是「让工具条别压住正文」的唯一手段。改成真按钮：可聚焦、有可读名称，
+          方向键微调（Shift 加速），拖动照旧。 */}
+      <button
+        type="button"
+        className="mr-0.5 cursor-grab rounded px-0.5 py-0.5 text-stone-400 hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-white/70 active:cursor-grabbing"
         onMouseDown={onDragStart}
-        title="拖动"
+        onKeyDown={(event) => {
+          const step = event.shiftKey ? 40 : 8;
+          const delta: Record<string, [number, number]> = {
+            ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step]
+          };
+          const move = delta[event.key];
+          if (!move) return;
+          event.preventDefault();
+          event.stopPropagation();
+          onNudge(move[0], move[1]);
+        }}
+        aria-label="移动工具条（方向键微调，按住 Shift 加速）"
+        title="拖动或用方向键移动"
       >
         <GripHorizontal size={12} />
-      </span>
+      </button>
       <div className="relative">
       {/* 批次 C 顺手清掉这里的一个假令牌：text-copper-300。
           tailwind.config.ts 的 copper 只有 DEFAULT / soft / dark 三档，

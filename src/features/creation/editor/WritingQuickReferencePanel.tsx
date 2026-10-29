@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { BookOpenCheck, Link2, PanelRightClose, Search, Sparkles, Unlink2, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui";
 import { CardDynamicFields } from "@/features/creation/cards/components/CardDynamicFields";
@@ -20,6 +20,9 @@ type SaveStatus = "saved" | "dirty" | "saving" | "error";
 const MIN_WIDTH = 280;
 const MAX_WIDTH = 480;
 const DEFAULT_WIDTH = 320;
+// BD-211：键盘调整步长（ARIA window splitter：单步 16，Shift 加速 64）。
+const RESIZE_STEP = 16;
+const RESIZE_STEP_LARGE = 64;
 const WIDTH_STORAGE_KEY = "creation-writing-quick-reference-width";
 
 function readInitialWidth(): number {
@@ -277,14 +280,22 @@ export function WritingQuickReferencePanel({
     }
   };
 
+  // BD-211（WCAG 2.5.7）：分隔条原只有 pointer 拖拽——键盘用户够不着面板宽度。
+  // 拖与键共用 applyWidth（同一夹取与落盘），键位按 ARIA window splitter：
+  // ←/→ 16px、Shift 64px、Home/End 到两端；面板贴右，左移变宽（与拖动同向）。
+  const applyWidth = (next: number) => {
+    const clamped = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(next)));
+    setWidth(clamped);
+    window.localStorage.setItem(WIDTH_STORAGE_KEY, String(clamped));
+    return clamped;
+  };
+
   const beginResize = (event: ReactPointerEvent<HTMLDivElement>) => {
     const startX = event.clientX;
     const startWidth = width;
     event.currentTarget.setPointerCapture(event.pointerId);
     const move = (moveEvent: PointerEvent) => {
-      const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + startX - moveEvent.clientX));
-      setWidth(next);
-      window.localStorage.setItem(WIDTH_STORAGE_KEY, String(next));
+      applyWidth(startWidth + startX - moveEvent.clientX);
     };
     const finish = () => {
       window.removeEventListener("pointermove", move);
@@ -296,6 +307,14 @@ export function WritingQuickReferencePanel({
     window.addEventListener("pointercancel", finish);
   };
 
+  const resizeByKeyboard = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? RESIZE_STEP_LARGE : RESIZE_STEP;
+    if (event.key === "ArrowLeft") { event.preventDefault(); applyWidth(width + step); }
+    else if (event.key === "ArrowRight") { event.preventDefault(); applyWidth(width - step); }
+    else if (event.key === "Home") { event.preventDefault(); applyWidth(MIN_WIDTH); }
+    else if (event.key === "End") { event.preventDefault(); applyWidth(MAX_WIDTH); }
+  };
+
   if (!open) return null;
   const statusText = saveStatus === "saving" ? "保存中…" : saveStatus === "dirty" ? "等待失焦保存" : saveStatus === "error" ? "保存失败" : "已保存";
 
@@ -305,7 +324,19 @@ export function WritingQuickReferencePanel({
       aria-label="写作速查"
       style={{ "--quick-reference-width": `${width}px` } as CSSProperties}
     >
-      <div className="writing-quick-reference-resizer" role="separator" aria-orientation="vertical" aria-label="调整速查面板宽度" onPointerDown={beginResize} />
+      <div
+        className="writing-quick-reference-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="调整速查面板宽度"
+        aria-valuemin={MIN_WIDTH}
+        aria-valuemax={MAX_WIDTH}
+        aria-valuenow={width}
+        aria-valuetext={`${width} 像素`}
+        tabIndex={0}
+        onPointerDown={beginResize}
+        onKeyDown={resizeByKeyboard}
+      />
       <header className="writing-quick-reference-head">
         <div>
           <p className="desktop-card-label">Index drawer</p>

@@ -613,6 +613,12 @@ export function EpubReaderPage() {
     };
   }, []);
 
+  // BD-211：握把的方向键微调与拖动同一条 offset（同一份状态，两条路都落到这里）。
+  const handleToolbarNudge = (dx: number, dy: number) => {
+    toolbarOffsetRef.current = { x: toolbarOffsetRef.current.x + dx, y: toolbarOffsetRef.current.y + dy };
+    setSelectionToolbar((prev) => prev ? { ...prev } : null);
+  };
+
   const handleToolbarDragStart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -740,6 +746,7 @@ export function EpubReaderPage() {
             showColorPicker={showColorPicker}
             onToggleColorPicker={() => setShowColorPicker((v) => !v)}
             onDragStart={handleToolbarDragStart}
+            onNudge={handleToolbarNudge}
             onHighlight={async (color) => {
               if (selectionToolbar) await addHighlight(selectionToolbar.cfiRange, selectionToolbar.text, color);
               setSelectionToolbar(null);
