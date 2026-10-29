@@ -299,7 +299,7 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
         onSelectScene={(sceneId) => void chooseScene(sceneId)}
       />
 
-      <main className="writing-manuscript">
+      <div className="writing-manuscript">
         <WritingDeskHeader
           editMode={editMode}
           selectedChapter={selectedChapter}
@@ -363,7 +363,7 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
             <div className="scene-editor-placeholder">{selectedSceneId ? "正在读取场景正文…" : "这个项目还没有可编辑场景。"}</div>
           )}
         </div>
-      </main>
+      </div>
 
       <WritingDeskMargin
         project={project}

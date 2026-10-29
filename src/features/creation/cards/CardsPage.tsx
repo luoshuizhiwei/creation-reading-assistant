@@ -633,7 +633,7 @@ export function CardsPage({ project }: CardsPageProps) {
             onSearchChange={setSearch}
             onNewCard={() => newCardInKind(filterKind)}
           />
-          <main className="cards-detail-pane">{detailPane}</main>
+          <div className="cards-detail-pane">{detailPane}</div>
         </div>
       )}
       {showCardTypeEditor && (

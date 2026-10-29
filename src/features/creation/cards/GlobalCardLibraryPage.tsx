@@ -313,7 +313,7 @@ export function GlobalCardLibraryPage() {
           onSelectCard={selectCard}
           typeNameMap={typeNameMap}
         />
-        <main className="cards-detail-pane">{detail}</main>
+        <div className="cards-detail-pane">{detail}</div>
       </div>
     </section>
     {/* BD-189：「正在统计…」横幅随忙碌对话框一起挂载（用户点删除后才发起异步统计），

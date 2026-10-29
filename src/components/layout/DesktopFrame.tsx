@@ -108,9 +108,12 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
         <WindowControls />
       </header>
       <div className="desktop-workbench">
+      {/* BD-212：这块地标是 complementary（aside），名字却叫「桌面端主导航」——读屏器的
+          地标列表里于是出现「complementary 桌面端主导航」，而真正的一级导航在它内部
+          （nav[aria-label="一级导航"]）。名字改回它真实的角色：工作区侧栏。 */}
       <aside
         className={`desktop-sidebar ${screen === "projects" && workbenchActive ? "desktop-sidebar--rail" : ""}`}
-        aria-label="桌面端主导航"
+        aria-label="工作区侧栏"
         aria-hidden={creationFocusMode && screen === "projects"}
       >
         <RingButton
@@ -185,7 +188,10 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
             </RingButton>
           </header>
         )}
-        <div className="desktop-canvas">{children}</div>
+        {/* BD-212：主内容此前没有 main 地标（只有 3 个页面自带 <main>，其余 5 个视图
+            整页裸奔）——2.4.1 的「跳过重复区块」在键盘/读屏侧没有落点。主内容收进壳层
+            的 main：一屏一个，页面内不再各自声明（那会变成两个 main）。 */}
+        <div className="desktop-canvas" role="main">{children}</div>
       </section>
       </div>
     </div>

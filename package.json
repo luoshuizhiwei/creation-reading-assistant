@@ -97,7 +97,8 @@
     "audit:target-size": "node scripts/audit-target-size.mjs",
     "audit:focus-obscured": "node scripts/audit-focus-obscured.mjs",
     "audit:non-text-contrast": "node scripts/audit-non-text-contrast.mjs",
-    "audit:drag-alternatives": "node scripts/audit-drag-alternatives.mjs"
+    "audit:drag-alternatives": "node scripts/audit-drag-alternatives.mjs",
+    "audit:landmarks": "node scripts/audit-landmarks.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",
