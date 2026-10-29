@@ -29,6 +29,22 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
   const workflowInputRef = useRef<HTMLInputElement>(null);
   const [workflowInput, setWorkflowInput] = useState("");
 
+  // BD-219（BD-179/199 同族）：点「删除阶段」后整颗按钮随阶段一起卸载，焦点跌回
+  // body，键盘用户得从文档开头重新 Tab（WCAG 2.4.3）。动作前记下被删下标，阶段
+  // 列表更新后把焦点交给原位置的下一个阶段（末尾则向前退一位）；列表被删空时退到
+  // 「添加自定义阶段」输入框，至少留在同一组控件里。
+  const stageDeleteRefs = useRef(new Map<number, HTMLButtonElement>());
+  const pendingStageFocusRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const pending = pendingStageFocusRef.current;
+    if (pending === null) return;
+    pendingStageFocusRef.current = null;
+    const total = draft.chapterWorkflow.length;
+    const target = total > 0 ? stageDeleteRefs.current.get(Math.min(pending, total - 1)) : undefined;
+    (target ?? workflowInputRef.current)?.focus({ preventScroll: true });
+  }, [draft.chapterWorkflow]);
+
   useEffect(() => {
     if (!open) return;
     setStep(0);
@@ -285,7 +301,14 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
                       <button
                         type="button"
                         aria-label={`删除阶段 ${stage}`}
-                        onClick={() => setDraft((current) => ({ ...current, chapterWorkflow: current.chapterWorkflow.filter((_, itemIndex) => itemIndex !== index) }))}
+                        ref={(node) => {
+                          if (node) stageDeleteRefs.current.set(index, node);
+                          else stageDeleteRefs.current.delete(index);
+                        }}
+                        onClick={() => {
+                          pendingStageFocusRef.current = index;
+                          setDraft((current) => ({ ...current, chapterWorkflow: current.chapterWorkflow.filter((_, itemIndex) => itemIndex !== index) }));
+                        }}
                       >
                         <X size={11} />
                       </button>

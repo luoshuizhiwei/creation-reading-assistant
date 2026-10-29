@@ -136,7 +136,25 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
 
   const addField = () => setFields((current) => [...current, emptyField()]);
 
-  const removeField = (index: number) => setFields((current) => current.filter((_, i) => i !== index));
+  // BD-219（BD-179/199 同族）：删除字段钮随行卸载，焦点跌回 body（WCAG 2.4.3）。
+  // 动作前记下被删下标，字段列表更新后交给原位置下一行的删除钮（末尾向前退一位）；
+  // 字段被删空时退「添加字段」钮，至少留在同一管理区。
+  const fieldDeleteRefs = useRef(new Map<number, HTMLButtonElement>());
+  const pendingFieldFocusRef = useRef<number | null>(null);
+  const addFieldBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const pending = pendingFieldFocusRef.current;
+    if (pending === null) return;
+    pendingFieldFocusRef.current = null;
+    const target = fields.length > 0 ? fieldDeleteRefs.current.get(Math.min(pending, fields.length - 1)) : undefined;
+    (target ?? addFieldBtnRef.current)?.focus({ preventScroll: true });
+  }, [fields]);
+
+  const removeField = (index: number) => {
+    pendingFieldFocusRef.current = index;
+    setFields((current) => current.filter((_, i) => i !== index));
+  };
 
   const moveField = (index: number, direction: -1 | 1) => {
     setFields((current) => {
@@ -350,7 +368,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
           <div className="cards-fields-manager">
             <header className="cards-fields-manager-head">
               <h4>字段（{fields.length}）</h4>
-              <Button className="shrink-0 whitespace-nowrap" onClick={addField}><Plus size={13} /> 添加字段</Button>
+              <Button className="shrink-0 whitespace-nowrap" ref={addFieldBtnRef} onClick={addField}><Plus size={13} /> 添加字段</Button>
             </header>
             {fields.length === 0 && <p className="cards-relations-empty">还没有字段。可添加单行文本、数字、日期、单选、附件声明等。</p>}
             {fields.map((field, index) => (
@@ -375,7 +393,17 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
                   >
                     <ArrowDown size={13} />
                   </button>
-                  <button type="button" className="cards-icon-btn cards-danger" disabled={field.existing} onClick={() => removeField(index)} title={field.existing ? "既有字段 key 必须保持稳定" : "删除字段"}>
+                  <button
+                    type="button"
+                    className="cards-icon-btn cards-danger"
+                    disabled={field.existing}
+                    ref={(node) => {
+                      if (node) fieldDeleteRefs.current.set(index, node);
+                      else fieldDeleteRefs.current.delete(index);
+                    }}
+                    onClick={() => removeField(index)}
+                    title={field.existing ? "既有字段 key 必须保持稳定" : "删除字段"}
+                  >
                     <Trash2 size={13} />
                   </button>
                 </div>

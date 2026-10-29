@@ -104,7 +104,8 @@
     "audit:timing-adjustable": "node scripts/audit-timing-adjustable.mjs",
     "audit:pointer-cancellation": "node scripts/audit-pointer-cancellation.mjs",
     "audit:sensory-instructions": "node scripts/audit-sensory-instructions.mjs",
-    "audit:text-zoom": "node scripts/audit-text-zoom.mjs"
+    "audit:text-zoom": "node scripts/audit-text-zoom.mjs",
+    "audit:removal-focus": "node scripts/audit-removal-focus.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",

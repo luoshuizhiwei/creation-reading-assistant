@@ -94,6 +94,20 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
   // --- 目录编辑模式（TXT 手动修正章节表） ---
   const [tocEditMode, setTocEditMode] = useState(false);
   const [draftChapters, setDraftChapters] = useState<DraftChapter[]>([]);
+  // BD-219（BD-179/199 同族）：点「删除章节起点」后按钮随行卸载，焦点跌回 body
+  // （WCAG 2.4.3）。动作前记下被删下标，章节表更新后交给原位置下一行（末尾向前
+  // 退一位）；列表至少保留一行，所以幸存行一定可聚焦。
+  const chapterDeleteRefs = useRef(new Map<number, HTMLButtonElement>());
+  const pendingChapterFocusRef = useRef<number | null>(null);
+  useEffect(() => {
+    const pending = pendingChapterFocusRef.current;
+    if (pending === null) return;
+    pendingChapterFocusRef.current = null;
+    const target = draftChapters.length > 0
+      ? chapterDeleteRefs.current.get(Math.min(pending, draftChapters.length - 1))
+      : undefined;
+    target?.focus({ preventScroll: true });
+  }, [draftChapters]);
   const [splitIndex, setSplitIndex] = useState<number | null>(null);
   const [renamingIndex, setRenamingIndex] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -854,7 +868,12 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
                         className="rounded px-1.5 py-0.5 text-[color:var(--proof-mark)] hover:bg-[color:var(--proof-tint)]"
                         title="删除该章节起点"
                         aria-label={`删除章节起点「${ch.title}」`}
+                        ref={(node) => {
+                          if (node) chapterDeleteRefs.current.set(i, node);
+                          else chapterDeleteRefs.current.delete(i);
+                        }}
                         onClick={() => {
+                          pendingChapterFocusRef.current = i;
                           setDraftChapters((prev) => prev.filter((_, idx) => idx !== i));
                           if (splitIndex === i) setSplitIndex(null);
                         }}
