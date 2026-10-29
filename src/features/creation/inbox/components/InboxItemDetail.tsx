@@ -219,7 +219,7 @@ export function InboxItemDetail({
         <div className="mt-3 grid gap-3">
           {item.variants.length === 0 ? (
             <div className="rounded-md border border-dashed border-paper-line p-4 text-sm text-paper-muted">
-              还没有候选版本。{aiAvailable ? "点击上方按钮生成。" : "启用 AI 并配置 Key 后可生成。"}
+              还没有候选版本。{aiAvailable ? "点击「润色」「扩写」等按钮生成。" : "启用 AI 并配置 Key 后可生成。"}
             </div>
           ) : (
             item.variants.map((variant) => {

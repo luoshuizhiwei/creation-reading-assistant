@@ -102,7 +102,8 @@
     "audit:label-in-name": "node scripts/audit-label-in-name.mjs",
     "audit:form-labels": "node scripts/audit-form-labels.mjs",
     "audit:timing-adjustable": "node scripts/audit-timing-adjustable.mjs",
-    "audit:pointer-cancellation": "node scripts/audit-pointer-cancellation.mjs"
+    "audit:pointer-cancellation": "node scripts/audit-pointer-cancellation.mjs",
+    "audit:sensory-instructions": "node scripts/audit-sensory-instructions.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",

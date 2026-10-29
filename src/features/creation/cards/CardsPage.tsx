@@ -504,7 +504,7 @@ export function CardsPage({ project }: CardsPageProps) {
   ) : (
     <div className="cards-detail-empty">
       <Layers size={28} />
-      <p>在左侧选择一张已关联卡片查看详情，或关联、新建一张。</p>
+      <p>选择一张已关联卡片查看详情，或关联、新建一张。</p>
     </div>
   );
 

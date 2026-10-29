@@ -85,7 +85,7 @@ export function InboxItemList({
   }, [filteredItems]);
   return (
     <div className="inbox-editor-grid">
-      <ul className="inbox-list" ref={listRef} tabIndex={-1}>
+      <ul className="inbox-list" ref={listRef} tabIndex={-1} aria-label="想法列表">
         {filteredItems.length === 0 ? (
           <li className="stats-card">
             <p className="stats-note">
@@ -192,7 +192,7 @@ export function InboxItemList({
       {!selectedItem ? (
         <div className="stats-card inbox-detail-empty">
           <p className="stats-note">
-            <Lightbulb size={14} /> 从左侧选择一个条目查看与编辑，或新建一条想法。
+            <Lightbulb size={14} /> 在「想法列表」中选择一个条目查看与编辑，或新建一条想法。
           </p>
         </div>
       ) : (

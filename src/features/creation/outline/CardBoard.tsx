@@ -325,7 +325,7 @@ export function CardBoard({
         </div>
       )}
       <div className="card-board-scroll">
-        {allScenes.length === 0 && <p className="card-board-empty">暂无场景。在左侧大纲中新建卷、章节或场景。</p>}
+        {allScenes.length === 0 && <p className="card-board-empty">暂无场景。在「大纲树」中新建卷、章节或场景。</p>}
         {mode === "chapter"
           ? flatChapters.map(({ volumeTitle, chapter }) => (
               <section key={chapter.id} className="card-board-group">

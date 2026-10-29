@@ -35,7 +35,7 @@ function ScenePlanningForm({ scene, onSaved }: {
   }, [scene]);
 
   if (!scene) {
-    return <p className="cards-relations-empty">在左侧选择一个场景，编辑它的任务卡字段。</p>;
+    return <p className="cards-relations-empty">先选择一个场景，再编辑它的任务卡字段。</p>;
   }
 
   const set = (patch: Partial<ScenePlanning>) => setPlanning((current) => ({ ...current, ...patch }));
@@ -71,7 +71,7 @@ function ScenePlanningForm({ scene, onSaved }: {
         <label className="scene-planning-full">
           <span>场景状态</span>
           <Select value={status} onChange={(event) => setStatus(event.target.value as SceneStatus)} options={SCENE_STATUS_OPTIONS} />
-          <small className="scene-status-help">场景状态独立于左侧章节工作流状态。</small>
+          <small className="scene-status-help">场景状态独立于章节工作流状态。</small>
         </label>
         <label>
           <span>视角角色</span>
@@ -292,7 +292,7 @@ export function OutlinePage({ project }: OutlinePageProps) {
           ]}
           ariaLabel="大纲视图切换"
         />
-        <p className="outline-page-hint">树与卡片板共享同一数据与排序；选中场景可在右侧编辑任务卡。</p>
+        <p className="outline-page-hint">树与卡片板共享同一数据与排序；选中场景后可编辑任务卡字段。</p>
         <span className="outline-book-word-count">全书 {Number(outline?.wordCount ?? 0).toLocaleString("zh-CN")} 字</span>
         {/* 原本是描边表面按钮，按规格 §3.1 等价映射为 outline（不是 primary，避免抢走页面主操作权重） */}
         <Button variant="outline" disabled={!outline || exportingOutline} className="whitespace-nowrap" onClick={() => void exportMarkdownOutline()}>

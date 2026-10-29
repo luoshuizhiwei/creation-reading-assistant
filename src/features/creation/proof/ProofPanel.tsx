@@ -165,7 +165,7 @@ export function ProofPanel({ projectId, onClose }: ProofPanelProps) {
           })}
         </ul>
         {ignoredGroup && (
-          <span className="creation-proof-item-desc">该分组的全部位置都被忽略，因此不计入上方总数。</span>
+          <span className="creation-proof-item-desc">该分组的全部位置都被忽略，因此不计入总计。</span>
         )}
       </span>
     </li>

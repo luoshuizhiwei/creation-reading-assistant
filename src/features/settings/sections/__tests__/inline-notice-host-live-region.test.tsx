@@ -165,7 +165,7 @@ describe("AISection 播报区常驻（BD-191）", () => {
     const after = statusRegions(container)[0];
     expect(after).toBe(warningRegion);
     expect(after.textContent).toBe("");
-    expect(screen.queryByText(/请先在下方保存 API Key/)).toBeNull();
+    expect(screen.queryByText(/请先填写「API Key」并保存/)).toBeNull();
   });
 });
 

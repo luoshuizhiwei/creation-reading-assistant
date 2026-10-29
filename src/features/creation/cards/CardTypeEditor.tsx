@@ -345,7 +345,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
               placeholder="例如：功法、神兵"
             />
           </div>
-          <p className="cards-hint">稳定标识（kind）由系统生成，创建后不再变化；下方每个字段的 key 也必须在类型内唯一且创建后保持稳定。</p>
+          <p className="cards-hint">稳定标识（kind）由系统生成，创建后不再变化；每个字段的 key 都必须在类型内唯一且创建后保持稳定。</p>
 
           <div className="cards-fields-manager">
             <header className="cards-fields-manager-head">

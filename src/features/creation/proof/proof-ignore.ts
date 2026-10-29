@@ -18,7 +18,7 @@ export const PROOF_RULE_DESCRIPTIONS: Record<ProofRule, string> = {
   repeatedChar: "同一汉字连续出现 3 次及以上（「他他他」）",
   unbalancedPunctuation: "「」（）《》等成对标点开闭数量不等",
   abnormalSpacing: "段首半角空格、连续全角空格、半角全角混用",
-  longParagraph: "单段超过阈值字符（可在下方调整）",
+  longParagraph: "单段超过阈值字符（可在「超长段落阈值」中调整）",
   bannedWord: "命中你输入的禁用词列表",
   mixedPunctuation: "汉字紧邻半角标点（,.!?;:），常见于网页粘贴",
   crutchWord: "突然/顿时/仿佛等叙述词单场景出现 ≥3 次",

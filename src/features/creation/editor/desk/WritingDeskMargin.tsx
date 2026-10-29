@@ -754,7 +754,7 @@ export function WritingDeskMargin({
         )}
         <div className="writing-margin-rule" />
         <p className="writing-boundary">
-          <Eye size={14} /> 卷章结构可在左侧大纲树或卡片板中管理。批注锚定正文真实选区；正文改动后失效会进入待重新定位，不会静默丢失。在正文中输入
+          <Eye size={14} /> 卷章结构可在「大纲树」或「卡片板」中管理。批注锚定正文真实选区；正文改动后失效会进入待重新定位，不会静默丢失。在正文中输入
           @ 可引用当前项目卡片。
         </p>
       </aside>

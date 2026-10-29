@@ -304,7 +304,7 @@ function MappingEditor({
             value={mapping.typeSource ?? ""}
             onChange={(e) => set({ typeSource: e.target.value || undefined })}
           >
-            <option value="">（不按列判断，使用下方固定类型）</option>
+            <option value="">（不按列判断，使用「固定类型」）</option>
             {headers.map((h) => (
               <option key={h} value={h}>{h || "（空列）"}</option>
             ))}

@@ -100,12 +100,12 @@ export function AISection({
               清 Key 之后播报交给常驻区换文本；可见块退回纯视觉。 */}
           <span className="sr-only" role="status">
             {settings.ai.enabled && !settings.ai.hasApiKey
-              ? "已启用 AI 助手，但尚未配置 API Key。请先在下方保存 API Key 才能使用 AI 打磨；在此之前不会产生任何网络请求。"
+              ? "已启用 AI 助手，但尚未配置 API Key。请先填写「API Key」并保存才能使用 AI 打磨；在此之前不会产生任何网络请求。"
               : ""}
           </span>
           {settings.ai.enabled && !settings.ai.hasApiKey && (
             <InlineNotice tone="warning" announce={false} className="p-2 text-xs">
-              已启用 AI 助手，但尚未配置 API Key。请先在下方保存 API Key 才能使用 AI 打磨；在此之前不会产生任何网络请求。
+              已启用 AI 助手，但尚未配置 API Key。请先填写「API Key」并保存才能使用 AI 打磨；在此之前不会产生任何网络请求。
             </InlineNotice>
           )}
           {/* 批次 C：琥珀一族从 Tailwind 默认调色板收进 --warning 令牌。
