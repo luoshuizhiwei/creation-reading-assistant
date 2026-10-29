@@ -293,9 +293,14 @@ export function GlobalCardLibraryPage() {
             <option value="">全部类型</option>
             {cardTypes.map((type) => <option key={type.id} value={type.kind}>{type.name}</option>)}
           </Select>
-          <label className="cards-search" aria-label="搜索卡片名称、别名或字段">
+          <label className="cards-search">
             <Search size={14} />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索名称、别名或字段" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              aria-label="搜索卡片名称、别名或字段"
+              placeholder="搜索名称、别名或字段"
+            />
           </label>
           <Button className="shrink-0 whitespace-nowrap" onClick={() => setDraft(newGlobalCard(filterKind || cardTypes[0]?.kind || "character"))}>
             <Plus size={15} /> 新建全局卡片
