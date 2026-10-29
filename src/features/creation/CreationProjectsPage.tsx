@@ -495,19 +495,19 @@ export function CreationProjectsPage() {
                   <Download size={16} />
                   <span>导出成稿</span>
                 </Button>
-                <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导出项目包" title="导出项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleExportBundle()}>
+                <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导出包" title="导出项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleExportBundle()}>
                   <FolderOutput size={16} />
                   <span>导出包</span>
                 </Button>
-              <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导出加密项目包" title="导出加密项目包" variant="secondary" disabled={operation.isActive || bundleEncryptFlow !== null} onClick={requestEncryptedBundleExport}>
+              <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="加密导出" title="导出加密项目包" variant="secondary" disabled={operation.isActive || bundleEncryptFlow !== null} onClick={requestEncryptedBundleExport}>
                 <Lock size={16} />
                 <span>加密导出</span>
               </Button>
-              <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导入项目包" title="导入项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleImportBundle()}>
+              <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导入包" title="导入项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleImportBundle()}>
                 <FolderInput size={16} />
                 <span>导入包</span>
               </Button>
-              <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导入加密项目包" title="导入加密项目包" variant="secondary" disabled={operation.isActive || bundleEncryptFlow !== null} onClick={() => void requestEncryptedBundleImport()}>
+              <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="加密导入" title="导入加密项目包" variant="secondary" disabled={operation.isActive || bundleEncryptFlow !== null} onClick={() => void requestEncryptedBundleImport()}>
                 <Unlock size={16} />
                 <span>加密导入</span>
               </Button>

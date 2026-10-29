@@ -107,13 +107,13 @@ function resolveConfirm(confirmed: boolean) {
 describe("CreationProjectsPage 加密项目包入口", () => {
   it("工具栏出现加密导出/加密导入按钮", () => {
     render(<CreationProjectsPage />);
-    expect(screen.getByRole("button", { name: "导出加密项目包" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "导入加密项目包" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "加密导出" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "加密导入" })).toBeTruthy();
   });
 
   it("加密导出：口令合格后以选中项目启动 bundle.export-encrypted", async () => {
     render(<CreationProjectsPage />);
-    fireEvent.click(screen.getByRole("button", { name: "导出加密项目包" }));
+    fireEvent.click(screen.getByRole("button", { name: "加密导出" }));
     fireEvent.change(screen.getByTestId("pe-passphrase"), { target: { value: "passphrase1" } });
     fireEvent.change(screen.getByTestId("pe-confirm"), { target: { value: "passphrase1" } });
     fireEvent.click(screen.getByTestId("pe-ack"));
@@ -130,14 +130,14 @@ describe("CreationProjectsPage 加密项目包入口", () => {
 
   it("加密导入：先危险确认再输入口令，确认后启动 bundle.import-encrypted", async () => {
     render(<CreationProjectsPage />);
-    fireEvent.click(screen.getByRole("button", { name: "导入加密项目包" }));
+    fireEvent.click(screen.getByRole("button", { name: "加密导入" }));
     await waitFor(() => expect(useUIStore.getState().confirmRequest?.title).toContain("导入加密项目包"));
     // 取消危险确认时不得进入口令输入流程（对话框保持关闭）。
     resolveConfirm(false);
     await waitFor(() => expect(useUIStore.getState().confirmRequest).toBeUndefined());
     expect(screen.queryByTestId("pe-submit")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "导入加密项目包" }));
+    fireEvent.click(screen.getByRole("button", { name: "加密导入" }));
     await waitFor(() => expect(useUIStore.getState().confirmRequest).toBeTruthy());
     resolveConfirm(true);
     await waitFor(() => expect(screen.getByTestId("passphrase-dialog")).toBeTruthy());
@@ -151,7 +151,7 @@ describe("CreationProjectsPage 加密项目包入口", () => {
   it("启动失败时错误留在对话框内，用户可改口令重试", async () => {
     operation.startOperation.mockRejectedValueOnce(new Error("解密失败：口令不正确"));
     render(<CreationProjectsPage />);
-    fireEvent.click(screen.getByRole("button", { name: "导入加密项目包" }));
+    fireEvent.click(screen.getByRole("button", { name: "加密导入" }));
     await waitFor(() => expect(useUIStore.getState().confirmRequest).toBeTruthy());
     resolveConfirm(true);
     await waitFor(() => expect(screen.getByTestId("passphrase-dialog")).toBeTruthy());
@@ -177,12 +177,12 @@ describe("CreationProjectsPage 加密项目包入口", () => {
     );
     operation.getOperationState.mockImplementation(() => new Promise(() => undefined));
     render(<CreationProjectsPage />);
-    fireEvent.click(screen.getByRole("button", { name: "导出加密项目包" }));
+    fireEvent.click(screen.getByRole("button", { name: "加密导出" }));
     fireEvent.change(screen.getByTestId("pe-passphrase"), { target: { value: "passphrase1" } });
     fireEvent.change(screen.getByTestId("pe-confirm"), { target: { value: "passphrase1" } });
     fireEvent.click(screen.getByTestId("pe-ack"));
     fireEvent.click(screen.getByTestId("pe-submit"));
-    await waitFor(() => expect((screen.getByRole("button", { name: "导入项目包" }) as HTMLButtonElement).disabled).toBe(true));
-    expect((screen.getByRole("button", { name: "导入加密项目包" }) as HTMLButtonElement).disabled).toBe(true);
+    await waitFor(() => expect((screen.getByRole("button", { name: "导入包" }) as HTMLButtonElement).disabled).toBe(true));
+    expect((screen.getByRole("button", { name: "加密导入" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

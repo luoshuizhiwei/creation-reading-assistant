@@ -181,7 +181,7 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
               <h1>{title.title}</h1>
               <span title={tip}>{tip}</span>
             </div>
-            <RingButton className="desktop-search-command" type="button" aria-label="打开全局搜索（Ctrl K）" onClick={() => setSearchOpen(true)}>
+            <RingButton className="desktop-search-command" type="button" aria-label="打开全局搜索：搜索项目、收件箱、资料 Ctrl K" onClick={() => setSearchOpen(true)}>
               <Search size={17} />
               <span>搜索项目、收件箱、资料</span>
               <kbd>Ctrl K</kbd>
