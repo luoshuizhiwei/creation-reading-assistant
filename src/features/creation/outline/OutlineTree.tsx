@@ -188,6 +188,27 @@ export function OutlineTree({
   const [impactPreview, setImpactPreview] = useState<StructurePreviewView | null>(null);
   const [impactError, setImpactError] = useState<string | null>(null);
 
+  // BD-220（BD-219 同族）：两步确认删除卷/章/场景后，节点整行卸载、焦点跌回
+  // body（WCAG 2.4.3）。删除前按 DOM 顺序记下所有删除钮的节点键，结构刷新后把
+  // 焦点交给原位置的下一个删除钮（末尾向前退一位）；树删空时退到树容器。
+  // 条目没走（失败/未刷新）就不动焦点，避免结构刷新把焦点抢走。
+  const treeRef = useRef<HTMLDivElement>(null);
+  const pendingDeleteFocusRef = useRef<{ key: string; order: string[] } | null>(null);
+  useEffect(() => {
+    const pending = pendingDeleteFocusRef.current;
+    if (!pending) return;
+    const tree = treeRef.current;
+    if (!tree) return;
+    const nodes = Array.from(tree.querySelectorAll<HTMLButtonElement>("button[data-outline-node]"));
+    const keys = nodes.map((node) => node.getAttribute("data-outline-node") ?? "");
+    if (keys.includes(pending.key)) return;
+    pendingDeleteFocusRef.current = null;
+    const idx = pending.order.indexOf(pending.key);
+    const survivor = keys[idx] ?? keys[keys.length - 1];
+    const target = survivor ? nodes.find((node) => node.getAttribute("data-outline-node") === survivor) : undefined;
+    (target ?? tree)?.focus({ preventScroll: true });
+  }, [outline]);
+
   useEffect(() => {
     setImpactPreview(null);
     setImpactError(null);
@@ -259,8 +280,16 @@ export function OutlineTree({
     });
   };
 
-  const confirmDelete = (target: ConfirmTarget) => {
+  const confirmDelete = (target: ConfirmTarget, button: HTMLButtonElement) => {
     if (confirm?.kind === target.kind && confirm.id === target.id) {
+      const key = `${target.kind}:${target.id}`;
+      const tree = button.closest(".outline-tree");
+      if (tree) {
+        const order = Array.from(tree.querySelectorAll<HTMLButtonElement>("button[data-outline-node]"))
+          .map((node) => node.getAttribute("data-outline-node") ?? "")
+          .filter(Boolean);
+        pendingDeleteFocusRef.current = { key, order };
+      }
       void runDelete(target);
       setConfirm(undefined);
     } else {
@@ -417,11 +446,12 @@ export function OutlineTree({
       <button
         type="button"
         title="删除卷（含其章节与场景）"
+        data-outline-node={`volume:${volume.id}`}
         aria-label={confirm?.kind === "volume" && confirm.id === volume.id
           ? `再次点击确认删除卷「${volume.title}」（含其章节与场景）`
           : `删除卷「${volume.title}」（含其章节与场景）`}
         className={confirm?.kind === "volume" && confirm.id === volume.id ? "confirming" : ""}
-        onClick={() => confirmDelete({ kind: "volume", id: volume.id })}
+        onClick={(event) => confirmDelete({ kind: "volume", id: volume.id }, event.currentTarget)}
       >
         <Trash2 size={12} />
       </button>
@@ -471,11 +501,12 @@ export function OutlineTree({
       <button
         type="button"
         title="删除章节（含其场景）"
+        data-outline-node={`chapter:${chapter.id}`}
         aria-label={confirm?.kind === "chapter" && confirm.id === chapter.id
           ? `再次点击确认删除章节「${chapter.title}」（含其场景）`
           : `删除章节「${chapter.title}」（含其场景）`}
         className={confirm?.kind === "chapter" && confirm.id === chapter.id ? "confirming" : ""}
-        onClick={() => confirmDelete({ kind: "chapter", id: chapter.id })}
+        onClick={(event) => confirmDelete({ kind: "chapter", id: chapter.id }, event.currentTarget)}
       >
         <Trash2 size={12} />
       </button>
@@ -511,11 +542,12 @@ export function OutlineTree({
       <button
         type="button"
         title="删除场景"
+        data-outline-node={`scene:${scene.id}`}
         aria-label={confirm?.kind === "scene" && confirm.id === scene.id
           ? `再次点击确认删除场景「${scene.title}」`
           : `删除场景「${scene.title}」`}
         className={confirm?.kind === "scene" && confirm.id === scene.id ? "confirming" : ""}
-        onClick={() => confirmDelete({ kind: "scene", id: scene.id })}
+        onClick={(event) => confirmDelete({ kind: "scene", id: scene.id }, event.currentTarget)}
       >
         <Trash2 size={12} />
       </button>
@@ -707,7 +739,7 @@ export function OutlineTree({
   };
 
   return (
-    <div className="outline-tree">
+    <div className="outline-tree" ref={treeRef} tabIndex={-1}>
       <div className="outline-toolbar">
         <span className="outline-toolbar-label">大纲</span>
         <Button variant="outline" size="sm" className="shrink-0" onClick={() => void addVolume()}>

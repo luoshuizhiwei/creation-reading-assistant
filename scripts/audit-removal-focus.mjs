@@ -6,10 +6,11 @@
  * 不能跌回 body。焦点跌回 body 的后果是键盘用户要整页重新 Tab（BD-179/199
  * 已修过同族：阅读器侧栏、卡片类型/关系类型行、收件箱、清空回收站）。
  *
- * 本批覆盖三个仍漏交接的流程（全部是弹层或管理面板内的条目）：
- *   ① 阅读器·TXT「编辑章节」里「删除章节起点」行；
- *   ② 新建作品向导·步骤 2「删除阶段」chip；
- *   ③ 设定卡页·卡片类型编辑器「删除字段」行。
+ * 本批覆盖四个流程（弹层/管理面板/页面列表三处形状）：
+ *   ① 阅读器·TXT「编辑章节」里「删除章节起点」行（BD-219）；
+ *   ② 新建作品向导·步骤 2「删除阶段」chip（BD-219）；
+ *   ③ 设定卡页·卡片类型编辑器「删除字段」行（BD-219）；
+ *   ④ 工作台·大纲树两步确认删除场景（BD-220）。
  * 统一判据：activeElement 仍是同类删除钮，或退到组内指定退路
  * （「添加自定义阶段」输入框 / 「添加字段」钮）；章节表至少保留一行。
  *
@@ -212,6 +213,24 @@ try {
   await page.waitForTimeout(300);
 } catch (error) {
   skipped.push(`卡片类型编辑器：${String(error && error.message).split("\n")[0].slice(0, 160)}`);
+}
+
+// ④ 工作台·大纲树：两步确认删除场景 → 焦点交给幸存删除钮。
+try {
+  await page.locator(".project-nav button", { hasText: "大纲" }).first().click();
+  await page.waitForSelector(".outline-page", { timeout: 15000 });
+  await page.waitForTimeout(500);
+  const sceneDeletes = page.getByRole("button", { name: /^删除场景/ });
+  const count = await sceneDeletes.count();
+  if (count < 1) throw new Error("大纲树里没有场景删除钮");
+  await sceneDeletes.first().focus();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(250);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(700);
+  await expectHandoff("大纲树·两步确认删场景", (el) => /^删除/.test(el.name) || el.tag === "div");
+} catch (error) {
+  skipped.push(`大纲树删场景：${String(error && error.message).split("\n")[0].slice(0, 160)}`);
 }
 
 await app.close();

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarClock, Clock3, Edit3, Flame, Layers, Library, PencilLine, Target, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
@@ -172,6 +172,24 @@ export function StatsPage({ projectId }: StatsPageProps) {
   const [sessionBusy, setSessionBusy] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
+  // BD-220（BD-219 同族）：两步确认删除会话后行随刷新卸载，焦点跌回 body
+  // （WCAG 2.4.3）。删除前记行序快照，刷新后交给原位置下一行（末尾退前一行）；
+  // 会话删空时退回会话卡片容器。条目没走（失败/未刷新）不动焦点。
+  const sessionDeleteRefs = useRef(new Map<string, HTMLButtonElement>());
+  const pendingSessionFocusRef = useRef<{ id: string; order: string[] } | null>(null);
+  const sessionsCardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const pending = pendingSessionFocusRef.current;
+    if (!pending) return;
+    const current = sessions.map((item) => item.id);
+    if (current.includes(pending.id)) return;
+    pendingSessionFocusRef.current = null;
+    const idx = pending.order.indexOf(pending.id);
+    const survivor = current[idx] ?? current[current.length - 1];
+    const target = survivor ? sessionDeleteRefs.current.get(survivor) : undefined;
+    (target ?? sessionsCardRef.current)?.focus({ preventScroll: true });
+  }, [sessions]);
+
     const refresh = useCallback(async () => {
     setStats(await loadStats(projectId));
     setSessions(await loadSessions({ projectId, limit: 100 }));
@@ -197,10 +215,13 @@ export function StatsPage({ projectId }: StatsPageProps) {
   useRouteStatus(!stats, STATS_LOADING_STATUS);
 
   const handleDeleteSession = async (sessionId: string) => {
+    pendingSessionFocusRef.current = { id: sessionId, order: sessions.map((item) => item.id) };
     const ok = await deleteSession({ projectId, sessionId });
     if (ok) {
       showToast({ tone: "success", title: "已删除该写作会话", body: "统计会按剩余会话重新计算。" });
       await refresh();
+    } else {
+      pendingSessionFocusRef.current = null;
     }
     setConfirmingId(null);
   };
@@ -314,7 +335,7 @@ export function StatsPage({ projectId }: StatsPageProps) {
         )}
       </div>
 
-      <div className="stats-card stats-sessions-card">
+      <div className="stats-card stats-sessions-card" ref={sessionsCardRef} tabIndex={-1}>
         <h3><PencilLine size={15} /> 写作会话（可修正）</h3>
         {sessions.length === 0 ? (
           <p className="stats-note">在写作台输入、选择或结构操作时才会计时；空闲超过 5 分钟自动暂停，不记录具体按键内容。</p>
@@ -343,6 +364,10 @@ export function StatsPage({ projectId }: StatsPageProps) {
                   </Button>
                   <Button
                     size="sm"
+                    ref={(node) => {
+                      if (node) sessionDeleteRefs.current.set(session.id, node);
+                      else sessionDeleteRefs.current.delete(session.id);
+                    }}
                     variant={confirmingId === session.id ? "danger-outline" : "outline"}
                     onClick={() => {
                       if (confirmingId === session.id) void handleDeleteSession(session.id);
