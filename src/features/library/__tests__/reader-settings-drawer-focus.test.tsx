@@ -94,7 +94,7 @@ describe("BD-201：阅读设置抽屉关闭与视图切换的焦点回交", () =
     expect(document.activeElement).toBe(opener);
   });
 
-  it("遮罩 mousedown 关闭后焦点同样回到开手", () => {
+  it("遮罩按下并松开关闭后焦点同样回到开手", () => {
     const { opener } = openDrawer();
     // 焦点在抽屉内部（如「更多设置」钮）时被遮罩点掉——卸载的是整个覆盖层。
     const moreBtn = screen.getByRole("button", { name: "更多设置" });
@@ -104,7 +104,11 @@ describe("BD-201：阅读设置抽屉关闭与视图切换的焦点回交", () =
     // 的话，关闭后的 activeElement 本来就还在抽屉里，回交断言会假绿。
     moreBtn.blur();
     expect(document.activeElement).toBe(document.body); // 前提：blur 后焦点确实跌到了 body
-    fireEvent.mouseDown(backdrop);
+    // BD-216（2.5.2）：遮罩只在「按下且松开都在遮罩上」时关闭，按下本身不再生效。
+    fireEvent.pointerDown(backdrop);
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.pointerUp(backdrop);
+    fireEvent.click(backdrop);
     expect(document.activeElement).toBe(opener);
   });
 

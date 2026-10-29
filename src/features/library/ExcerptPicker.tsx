@@ -24,6 +24,9 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
   const [targetKind, setTargetKind] = useState<"inbox" | "projectCard">("inbox");
   const [projectId, setProjectId] = useState<string>(projects[0]?.id ?? "");
   const dialogRef = useRef<HTMLElement>(null);
+  // BD-216（WCAG 2.5.2）：遮罩原先是 onMouseDown 关弹层——按下即关。改为按下记起点、
+  // 松手后的 click 再核对目标，起点在弹层里拖到遮罩松手不会误关。
+  const scrimDownRef = useRef(false);
 
   // BD-131：全屏弹层此前没有任何键盘契约——Esc 不关、焦点留在正文上、Tab 可直接
   // 穿到弹层后的阅读器控件。组件只在打开时挂载，active 恒为 true。
@@ -52,12 +55,24 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-paper-ink/30 backdrop-blur-[1px]" onMouseDown={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-paper-ink/30 backdrop-blur-[1px]"
+      onPointerDown={(event) => {
+        scrimDownRef.current = event.target === event.currentTarget;
+      }}
+      onClick={(event) => {
+        const downOnScrim = scrimDownRef.current;
+        scrimDownRef.current = false;
+        if (downOnScrim && event.target === event.currentTarget) onClose();
+      }}
+      onPointerUp={(event) => {
+        if (event.target !== event.currentTarget) scrimDownRef.current = false;
+      }}
+    >
       <aside
         ref={dialogRef}
         onKeyDown={handleModalKeyDown}
         className="motion-panel relative flex max-h-[80vh] w-[min(560px,calc(100%-32px))] flex-col overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel [box-shadow:var(--shadow-3)]"
-        onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label="资料摘录"

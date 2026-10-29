@@ -103,6 +103,10 @@ export function SearchPanel() {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  // BD-216（WCAG 2.5.2）：遮罩原先挂 onMouseDown 关搜索——按下去就关，松手前已经
+  // 回不来，拖选/误触都算数。改为按下只记「这一下起点在遮罩上」，松手后的 click
+  // 再核对目标仍是遮罩才关：起点在面板里、拖到遮罩松手不会误关（up 事件可撤销）。
+  const scrimDownRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(-1);
 
   const grouped = useMemo(() => {
@@ -227,13 +231,25 @@ export function SearchPanel() {
   };
 
   return (
-    <div className="uni-search-overlay" onMouseDown={closeSearch}>
+    <div
+      className="uni-search-overlay"
+      onPointerDown={(event) => {
+        scrimDownRef.current = event.target === event.currentTarget;
+      }}
+      onClick={(event) => {
+        const downOnScrim = scrimDownRef.current;
+        scrimDownRef.current = false;
+        if (downOnScrim && event.target === event.currentTarget) closeSearch();
+      }}
+      onPointerUp={(event) => {
+        if (event.target !== event.currentTarget) scrimDownRef.current = false;
+      }}
+    >
       <div
         className="uni-search-shell motion-dialog"
         role="dialog"
         aria-label="全局搜索"
         aria-modal="true"
-        onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={handleShellKeyDown}
       >
         <div className="uni-search-head">

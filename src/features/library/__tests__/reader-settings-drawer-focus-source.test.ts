@@ -30,7 +30,10 @@ describe("BD-201 账本：抽屉关闭与视图切换的焦点回交", () => {
 
   it("三条关闭路径都汇入 open=false：关闭钮与遮罩走 onClose，宿主常驻挂载", () => {
     expect(/<button[\s\S]*?aria-label="关闭"[\s\S]*?onClick=\{onClose\}/.test(drawerSrc), "回退：关闭钮不再调 onClose").toBe(true);
-    expect(/onMouseDown=\{onClose\}/.test(drawerSrc), "回退：遮罩关闭路径被拆").toBe(true);
+    // BD-216（2.5.2）：遮罩关闭改走「按下记起点、松开后 click 核对目标」，不再在
+    // mousedown 上直接关；onClose 仍是唯一出口，只是落在 up 事件完成。
+    expect(/scrimDownRef\.current = event\.target === event\.currentTarget;/.test(drawerSrc), "回退：遮罩关闭起点没有核对").toBe(true);
+    expect(/if \(downOnScrim && event\.target === event\.currentTarget\) onClose\(\);/.test(drawerSrc), "回退：遮罩不再走 onClose").toBe(true);
     const epubHost = source("../EpubReaderPage.tsx");
     const txtHost = source("../reader/TxtMarkdownReader.tsx");
     expect(/onClose=\{\(\) => setSettingsDrawerOpen\(false\)\}/.test(epubHost), "回退：EPUB 宿主仍要常驻挂抽屉、只翻 open").toBe(true);

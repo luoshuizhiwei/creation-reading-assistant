@@ -37,6 +37,9 @@ export function ReaderSettingsDrawer({
   const [view, setView] = useState<"main" | "more">("main");
   const titleRef = useRef<HTMLDivElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+  // BD-216（WCAG 2.5.2）：遮罩原先是 onMouseDown 关抽屉——按下即关。改为按下记起点、
+  // 松手后的 click 再核对目标，起点在抽屉里拖到遮罩松手不会误关。
+  const scrimDownRef = useRef(false);
 
   // BD-209：遮罩是全屏层（inset-0，z-30），抽屉一开，阅读器正文、顶栏页签、底栏进度
   // 滑杆的 Tab 停靠点全被压在它下面——焦点矩形整块看不见（2.4.11 红，摸底 14 停靠点，
@@ -80,7 +83,20 @@ export function ReaderSettingsDrawer({
 
   if (!open) return null;
   return (
-    <div className="absolute inset-0 z-30 bg-paper-ink/10 backdrop-blur-[1px]" onMouseDown={onClose}>
+    <div
+      className="absolute inset-0 z-30 bg-paper-ink/10 backdrop-blur-[1px]"
+      onPointerDown={(event) => {
+        scrimDownRef.current = event.target === event.currentTarget;
+      }}
+      onClick={(event) => {
+        const downOnScrim = scrimDownRef.current;
+        scrimDownRef.current = false;
+        if (downOnScrim && event.target === event.currentTarget) onClose();
+      }}
+      onPointerUp={(event) => {
+        if (event.target !== event.currentTarget) scrimDownRef.current = false;
+      }}
+    >
       <aside
         ref={drawerRef}
         role="dialog"
@@ -88,7 +104,6 @@ export function ReaderSettingsDrawer({
         aria-labelledby="reader-settings-drawer-title"
         onKeyDown={handleDrawerKeyDown}
         className="motion-drawer absolute right-0 top-0 h-full w-[320px] overflow-auto rounded-[var(--radius-3)] border-l border-paper-line bg-paper-panel p-5 [box-shadow:var(--shadow-3)]"
-        onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-1">
