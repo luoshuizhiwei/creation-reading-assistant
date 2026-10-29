@@ -323,10 +323,10 @@ export function LibraryPage() {
                           </div>
                           <div className="min-w-0">
                             <div className="flex min-w-0 items-center gap-2">
-                              <h2 className="paper-title truncate text-base font-semibold group-hover:text-copper">{book.title}</h2>
+                              <h2 className="paper-title min-w-0 break-words text-base font-semibold group-hover:text-copper">{book.title}</h2>
                               {book.importLabel && <span className="paper-chip shrink-0">{book.importLabel}</span>}
                             </div>
-                            <div className="mt-1 truncate text-xs text-paper-muted">{book.author ? `作者：${book.author}` : "未知作者"}</div>
+                            <div className="mt-1 break-words text-xs text-paper-muted">{book.author ? `作者：${book.author}` : "未知作者"}</div>
                           </div>
                         </div>
                       </div>

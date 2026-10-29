@@ -10,6 +10,7 @@ import { registerCreationIpc } from "./creation-ipc";
 import { registerCreationAssetProtocol } from "./creation-asset-protocol";
 import { createOperationCoordinator } from "./operation/coordinator";
 import { registerOperationIpc, disposeAllOperations } from "./operation/ipc";
+import { resolveZoomFactor } from "./zoom-shortcuts";
 import { BackupError, createBackupSnapshot, readBackupManifest, restoreBackupFromDirectory } from "./backup";
 import {
   openCreationWorkspace,
@@ -878,6 +879,18 @@ function createWindow(): void {
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     void writeLog("warn", "Blocked renderer window.open; external links must use shell.openExternal whitelist.", { url });
     return { action: "deny" };
+  });
+  // BD-218（WCAG 1.4.4）：整页缩放。应用内字号档只覆盖 rem 文案且上限 140%，
+  // 固定 px 字号不跟；页面缩放把 px/rem 与布局一起放大，是 200% 文本缩放的标准机制。
+  mainWindow.webContents.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown") return;
+    const win = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    if (!win || win.isDestroyed()) return;
+    const modifier = process.platform === "darwin" ? input.meta : input.control;
+    const next = resolveZoomFactor(win.webContents.getZoomFactor(), input.key, modifier, input.alt);
+    if (next === null) return;
+    event.preventDefault();
+    win.webContents.setZoomFactor(next);
   });
   if (captureProfileDir) {
     mainWindow.webContents.setBackgroundThrottling(false);
