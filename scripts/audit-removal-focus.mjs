@@ -6,11 +6,13 @@
  * 不能跌回 body。焦点跌回 body 的后果是键盘用户要整页重新 Tab（BD-179/199
  * 已修过同族：阅读器侧栏、卡片类型/关系类型行、收件箱、清空回收站）。
  *
- * 本批覆盖四个流程（弹层/管理面板/页面列表三处形状）：
+ * 本批覆盖六个流程（弹层/管理面板/页面列表/详情面板/写作台侧栏五处形状）：
  *   ① 阅读器·TXT「编辑章节」里「删除章节起点」行（BD-219）；
  *   ② 新建作品向导·步骤 2「删除阶段」chip（BD-219）；
  *   ③ 设定卡页·卡片类型编辑器「删除字段」行（BD-219）；
- *   ④ 工作台·大纲树两步确认删除场景（BD-220）。
+ *   ④ 工作台·大纲树两步确认删除场景（BD-220）；
+ *   ⑤ 设定卡页·背景设定：删中间卡 → 下一张，删空 → 空态文案（BD-221）；
+ *   ⑥ 写作台·批注：删中间条 → 下一条，删空 → 空态文案（BD-221）。
  * 统一判据：activeElement 仍是同类删除钮，或退到组内指定退路
  * （「添加自定义阶段」输入框 / 「添加字段」钮）；章节表至少保留一行。
  *
@@ -70,12 +72,17 @@ const judged = [];
 const active = () =>
   page.evaluate(() => {
     const el = document.activeElement;
-    if (!el || el === document.body || el === document.documentElement) return { tag: "body", name: "", title: "", text: "" };
+    if (!el || el === document.body || el === document.documentElement) return { tag: "body", name: "", title: "", text: "", cls: "" };
     return {
       tag: el.tagName.toLowerCase(),
       name: el.getAttribute("aria-label") ?? "",
       title: el.getAttribute("title") ?? "",
-      text: (el.textContent ?? "").trim().slice(0, 20)
+      text: (el.textContent ?? "").trim().slice(0, 20),
+      cls: typeof el.className === "string" ? el.className : "",
+      rowNote: (() => {
+        const row = el.closest ? el.closest(".writing-annotation") : null;
+        return row ? (row.querySelector(".writing-annotation-note")?.textContent ?? "").trim() : "";
+      })()
     };
   });
 
@@ -233,11 +240,139 @@ try {
   skipped.push(`大纲树删场景：${String(error && error.message).split("\n")[0].slice(0, 160)}`);
 }
 
+// ⑤ 设定卡页·背景设定：删中间卡 → 下一张卡；卡片删空 → 空态文案（BD-221）。
+try {
+  await page.evaluate(async () => {
+    const created = await window.api.creation.createProject({
+      title: "删除交接验收",
+      template: "blank",
+      weeklyUpdateDays: [],
+      chapterWorkflow: ["规划", "待写", "写作中", "初稿", "定稿"]
+    });
+    const projectId = created.project.id;
+    for (const title of ["黄沙镇", "灵气复苏", "蜀山盟"]) {
+      await window.api.creation.runStructure({ type: "card.create", projectId, kind: "location", title });
+    }
+    const navigation = await window.api.creation.readProjectNavigation(projectId);
+    const scene = navigation.chapters[0].scenes[0];
+    const body = await window.api.creation.readSceneBody(scene.id);
+    const text = "洛水之蔚站在河边，慕辰从对岸走过来。";
+    const saved = await window.api.creation.updateSceneBody({
+      sceneId: scene.id,
+      baseRevision: body?.revision ?? scene.revision,
+      body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] }
+    });
+    if (saved.ok !== true) throw new Error(saved.error?.message ?? "正文写入失败");
+    for (const offset of [0, 7, 12]) {
+      await window.api.creation.annotationCreate({
+        type: "annotation.create",
+        projectId,
+        sceneId: scene.id,
+        anchor: { blockIndex: 0, textOffset: offset, textLength: 4, text: text.slice(offset, offset + 4) },
+        note: `交接批注${offset}`
+      });
+    }
+  });
+
+  // 项目列表是挂载时取的一次快照，API 建的项目要重载窗口才会出现在列表里。
+  await page.reload();
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForSelector(".desktop-canvas", { timeout: 30000 });
+  await page.waitForTimeout(800);
+
+  await goto("项目");
+  // 工作台里侧边栏「项目」直接回到当前项目视图，项目列表要走壳层的「项目列表」钮。
+  const backToList = page.locator(".project-nav-back").first();
+  if (await backToList.isVisible().catch(() => false)) {
+    await backToList.click();
+    await page.waitForTimeout(500);
+  }
+  await page.waitForSelector(".project-home-list", { timeout: 15000 });
+  await page.getByRole("button", { name: "打开项目：删除交接验收" }).click();
+  await page.waitForSelector(".project-nav", { timeout: 20000 });
+  await page.locator(".project-nav button", { hasText: "设定卡" }).first().click();
+  await page.waitForSelector(".cards-page", { timeout: 15000 });
+  await page.getByRole("button", { name: /背景设定/ }).first().click();
+  await page.waitForSelector(".background-page", { timeout: 15000 });
+  await page.waitForTimeout(600);
+
+  const cards = page.locator(".background-card");
+  const cardCount = await cards.count();
+  if (cardCount < 3) throw new Error(`背景设定只有 ${cardCount} 张卡，无法验证交接`);
+  await cards.nth(1).click();
+  await page.waitForTimeout(300);
+  const cardDelete = page.locator(".background-detail").getByRole("button", { name: "删除", exact: true });
+  await cardDelete.focus();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(200);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(800);
+  await expectHandoff("背景设定·删中间卡", (el) => el.cls.includes("background-card"));
+
+  for (let guard = 0; guard < 6; guard += 1) {
+    const rest = page.locator(".background-card");
+    if ((await rest.count()) === 0) break;
+    await rest.first().click();
+    await page.waitForTimeout(250);
+    const del = page.locator(".background-detail").getByRole("button", { name: "删除", exact: true });
+    await del.focus();
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(150);
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(600);
+  }
+  await expectHandoff("背景设定·卡片删空", (el) => el.cls.includes("cards-relations-empty"));
+} catch (error) {
+  skipped.push(`背景设定删卡：${String(error && error.message).split("\n")[0].slice(0, 160)}`);
+}
+
+// ⑥ 写作台·批注：删中间条 → 下一条的删除钮；批注删空 → 空态文案（BD-221）。
+try {
+  await page.locator(".project-nav button", { hasText: "写作" }).first().click();
+  await page.waitForTimeout(900);
+  const margin = page.locator(".writing-margin");
+  if (!(await margin.isVisible().catch(() => false))) {
+    const expand = page.getByRole("button", { name: "展开检查器" }).first();
+    if (await expand.isVisible().catch(() => false)) {
+      await expand.click();
+      await page.waitForTimeout(400);
+    }
+  }
+  await margin.waitFor({ state: "visible", timeout: 15000 });
+  await page.getByRole("button", { name: "批注与引用" }).first().click();
+  await page.waitForTimeout(700);
+
+  const rows = page.locator("li.writing-annotation");
+  const rowCount = await rows.count();
+  if (rowCount < 2) throw new Error(`写作台批注只有 ${rowCount} 条，无法验证交接`);
+  await rows.nth(1).locator("button").last().focus();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(200);
+  await page.locator("li.writing-annotation").nth(1).locator("button").last().focus();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(900);
+  await expectHandoff("写作台·删中间批注", (el) => el.tag === "button" && el.rowNote !== "");
+
+  for (let guard = 0; guard < 5; guard += 1) {
+    const rest = page.locator("li.writing-annotation");
+    if ((await rest.count()) === 0) break;
+    await rest.first().locator("button").last().focus();
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(150);
+    await page.locator("li.writing-annotation").first().locator("button").last().focus();
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(600);
+  }
+  await expectHandoff("写作台·批注删空", (el) => el.cls.includes("writing-annotation-empty"));
+} catch (error) {
+  skipped.push(`写作台删批注：${String(error && error.message).split("\n")[0].slice(0, 160)}`);
+}
+
 await app.close();
 
 for (const item of skipped) console.log(`跳过 ${item}`);
-if (judged.length < 3) {
-  console.log(`REMOVALFOCUS_RED：只判定到 ${judged.length} 条流程（要求 ≥3），覆盖不足无法证明。`);
+if (judged.length < 5) {
+  console.log(`REMOVALFOCUS_RED：只判定到 ${judged.length} 条流程（要求 ≥5），覆盖不足无法证明。`);
   process.exit(1);
 }
 if (reds.length > 0) {

@@ -140,6 +140,13 @@ export function WritingDeskMargin({
   const [annotationDraft, setAnnotationDraft] = useState("");
   const [annotationCardId, setAnnotationCardId] = useState("");
   const [confirmingAnnotation, setConfirmingAnnotation] = useState<string | null>(null);
+  // BD-221（BD-219/220 同族）：确认删除批注后整行卸载，握着焦点的「删除批注」钮
+  // 消失、焦点跌回 body（WCAG 2.4.3）。删除前记下标与行序，刷新后交给原位置下
+  // 一条（末尾退前一条）；批注删空退空态文案。条目没走（失败/未刷新）不动焦点。
+  const annotationDeleteRefs = useRef(new Map<string, HTMLButtonElement>());
+  const pendingAnnotationFocusRef = useRef<{ id: string; order: string[] } | null>(null);
+  const annotationEmptyRef = useRef<HTMLParagraphElement>(null);
+  const annotationListRef = useRef<HTMLUListElement>(null);
   const [reanchorCandidate, setReanchorCandidate] = useState<ReanchorCandidate | null>(null);
   const [reanchorBusy, setReanchorBusy] = useState(false);
   const [reanchorError, setReanchorError] = useState<string | null>(null);
@@ -218,6 +225,19 @@ export function WritingDeskMargin({
   useEffect(() => {
     void refreshAnnotations();
   }, [refreshAnnotations, projectNavigation]);
+
+  // 批注列表刷新后交接焦点；条目没走（失败/未刷新）就不动。
+  useEffect(() => {
+    const pending = pendingAnnotationFocusRef.current;
+    if (!pending) return;
+    const current = annotations.map((item) => item.id);
+    if (current.includes(pending.id)) return;
+    pendingAnnotationFocusRef.current = null;
+    const idx = pending.order.indexOf(pending.id);
+    const survivor = current[idx] ?? current[current.length - 1];
+    const target = survivor ? annotationDeleteRefs.current.get(survivor) : undefined;
+    (target ?? annotationEmptyRef.current ?? annotationListRef.current)?.focus({ preventScroll: true });
+  }, [annotations]);
 
   useEffect(() => {
     void loadCards({ projectId: project.id });
@@ -543,11 +563,11 @@ export function WritingDeskMargin({
           <div className="writing-annotations">
             <p className="desktop-card-label">批注与引用</p>
             {annotations.length === 0 && (
-              <p className="writing-annotation-empty">
+              <p className="writing-annotation-empty" ref={annotationEmptyRef} tabIndex={-1}>
                 暂无批注。可关联卡片标记引用，正文编辑后失效的锚点会显示「待重新定位」。
               </p>
             )}
-            <ul>
+            <ul ref={annotationListRef} tabIndex={-1}>
               {annotations.map((annotation) => (
                 <li
                   key={annotation.id}
@@ -585,10 +605,18 @@ export function WritingDeskMargin({
                     </Button>
                     <Button
                       size="sm"
+                      ref={(node) => {
+                        if (node) annotationDeleteRefs.current.set(annotation.id, node);
+                        else annotationDeleteRefs.current.delete(annotation.id);
+                      }}
                       variant={confirmingAnnotation === annotation.id ? "danger-outline" : "outline"}
                       onClick={() => {
                         if (confirmingAnnotation === annotation.id) {
-                          void deleteAnnotation({ annotationId: annotation.id }).then(() => refreshAnnotations());
+                          pendingAnnotationFocusRef.current = { id: annotation.id, order: annotations.map((item) => item.id) };
+                          void deleteAnnotation({ annotationId: annotation.id }).then((ok) => {
+                            if (!ok) pendingAnnotationFocusRef.current = null;
+                            return refreshAnnotations();
+                          });
                           setConfirmingAnnotation(null);
                         } else {
                           setConfirmingAnnotation(annotation.id);

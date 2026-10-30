@@ -31,6 +31,14 @@ export function BackgroundPage({ projectId }: BackgroundPageProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const loadedProjectRef = useRef<string | null>(null);
 
+  // BD-221（BD-219/220 同族）：确认删除背景卡后，详情面板与卡片一起换血，握着
+  // 焦点的「确认删除」钮卸载、焦点跌回 body（WCAG 2.4.3）。删除前按网格顺序记
+  // 下卡片按钮，列表刷新后交给原位置下一张（末尾退前一张）；删空退空态文案。
+  const cardButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const pendingCardFocusRef = useRef<{ id: string; order: string[] } | null>(null);
+  const emptyRef = useRef<HTMLParagraphElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (loadedProjectRef.current !== projectId) {
       loadedProjectRef.current = projectId;
@@ -57,14 +65,35 @@ export function BackgroundPage({ projectId }: BackgroundPageProps) {
       setConfirmDelete(false);
       return;
     }
+    pendingCardFocusRef.current = { id: selected.id, order: backgroundCards.map((card) => card.id) };
     const ok = await runStructure({ type: "card.delete", cardId: selected.id });
     if (ok) {
       showToast({ tone: "success", title: "背景卡片已删除", body: `「${selected.title}」已进入回收站。` });
       selectCard(undefined);
       void loadCards({ projectId });
+    } else {
+      pendingCardFocusRef.current = null;
     }
     setConfirmDelete(false);
   };
+
+  // 卡片列表换血后交接焦点；条目没走（删除失败/未刷新）就不动。
+  useEffect(() => {
+    const pending = pendingCardFocusRef.current;
+    if (!pending) return;
+    const current = cards
+      .filter((card) => card.projectId === projectId && isBackgroundCard(card))
+      .filter((card) =>
+        search.trim() ? card.title.includes(search.trim()) || card.aliases.some((alias) => alias.includes(search.trim())) : true
+      )
+      .map((card) => card.id);
+    if (current.includes(pending.id)) return;
+    pendingCardFocusRef.current = null;
+    const idx = pending.order.indexOf(pending.id);
+    const survivor = current[idx] ?? current[current.length - 1];
+    const target = survivor ? cardButtonRefs.current.get(survivor) : undefined;
+    (target ?? (current.length === 0 ? emptyRef.current : undefined) ?? gridRef.current)?.focus({ preventScroll: true });
+  }, [cards, projectId, search]);
 
   const backgroundCards = cards.filter(
     (card) =>
@@ -98,9 +127,9 @@ export function BackgroundPage({ projectId }: BackgroundPageProps) {
           : ""}
       </span>
 
-      <div className="background-grid">
+      <div className="background-grid" ref={gridRef} tabIndex={-1}>
         {backgroundCards.length === 0 ? (
-          <p className="cards-relations-empty">还没有背景设定卡。到「卡片」页创建地点、世界规则、组织或资料卡，这里会自动汇总。</p>
+          <p className="cards-relations-empty" ref={emptyRef} tabIndex={-1}>还没有背景设定卡。到「卡片」页创建地点、世界规则、组织或资料卡，这里会自动汇总。</p>
         ) : (
           backgroundCards.map((card) => {
             const meta = BACKGROUND_KIND_LABELS.find((item) => item.kind === card.kind);
@@ -111,6 +140,10 @@ export function BackgroundPage({ projectId }: BackgroundPageProps) {
                 type="button"
                 className={`background-card ${card.id === selectedCardId ? "active" : ""}`}
                 aria-pressed={card.id === selectedCardId}
+                ref={(node) => {
+                  if (node) cardButtonRefs.current.set(card.id, node);
+                  else cardButtonRefs.current.delete(card.id);
+                }}
                 onClick={() => selectCard(card.id)}
               >
                 <span className="background-card-kind"><Icon size={13} /> {meta?.label ?? card.kind}</span>
