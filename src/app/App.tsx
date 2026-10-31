@@ -216,15 +216,23 @@ export default function App() {
       {recoveryInfo && recoveryInfo.recoveredSessionsCount > 0 && (
         <RecoveryPrompt info={recoveryInfo} onOpenLibrary={openRecoveredLibrary} onDismiss={closeRecoveryPrompt} />
       )}
+      {/* BD-223：两条挂法有意不同。阅读器离开就丢开书上下文，所以不给 returnScreen——
+          chunk 失败时只提供整应用重载，不假装能把用户放回这一屏。桌面壳这一条把当前屏
+          交给兜底卡，主出路因此可以是「重新载入并回到这一屏」；换屏退路也不再伪装成
+          「重试当前页面」（旧 onReset 的毛病正是名字说重试、行为是跳屏，2.4.6）。 */}
       {screen === "reader" ? (
-        <ErrorBoundary onReset={() => setScreen("library")}>
+        <ErrorBoundary escapeLabel="退出阅读并返回书库" onEscape={() => setScreen("library")}>
           <PageTransition screenKey={screen}>
             <Suspense fallback={<ScreenFallback />}>{screenContent.reader}</Suspense>
           </PageTransition>
         </ErrorBoundary>
       ) : (
         <DesktopFrame>
-          <ErrorBoundary onReset={() => setScreen("projects")}>
+          <ErrorBoundary
+            returnScreen={screen}
+            escapeLabel={screen === "projects" ? undefined : "先回项目书架"}
+            onEscape={() => setScreen("projects")}
+          >
             <PageTransition screenKey={screen}>
               <Suspense fallback={<ScreenFallback />}>{screenContent[screen]}</Suspense>
             </PageTransition>

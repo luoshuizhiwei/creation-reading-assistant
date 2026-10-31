@@ -1,11 +1,20 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { AlertTriangle, RefreshCw, RotateCcw } from "lucide-react";
+import { AlertTriangle, RefreshCw, RotateCcw, LogOut } from "lucide-react";
 import { Button } from "@/components/ui";
+import { isChunkLoadFailure, rememberReturnScreen, reloadDocument } from "@/app/lazy-recovery";
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
-  onReset?: () => void;
+  /**
+   * BD-223：这一屏的名字。懒加载 chunk 失败时，同文档内重试无效（模块图把失败记仇，实测见
+   * src/app/lazy-recovery.ts 顶部），唯一的出路是带着「回到这一屏」的意图重新载入文档。
+   * 不传（例如阅读器那种离开就丢上下文的屏）就只给整应用重载。
+   */
+  returnScreen?: string;
+  /** BD-223：退路做成有名字的导航——旧实现把 setScreen 藏在「重试当前页面」里，名字与行为不符。 */
+  escapeLabel?: string;
+  onEscape?: () => void;
 }
 
 interface State {
@@ -30,9 +39,24 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
   }
 
+  /** BD-223：就地重试就只是重挂子树——对渲染异常有效，对 chunk 失败无效（那条走重载）。 */
   public handleReset = () => {
     this.setState({ hasError: false, error: undefined });
-    this.props.onReset?.();
+  };
+
+  public handleEscape = () => {
+    this.setState({ hasError: false, error: undefined });
+    this.props.onEscape?.();
+  };
+
+  /** BD-223：主出路——记下这一屏再重载文档，启动序列会把用户放回原屏（App/main 那条读回逻辑）。 */
+  public handleReloadHere = () => {
+    if (this.props.returnScreen) rememberReturnScreen(this.props.returnScreen);
+    reloadDocument();
+  };
+
+  public handleReloadApp = () => {
+    reloadDocument();
   };
 
   public render() {
@@ -40,6 +64,8 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) {
         return this.props.fallback;
       }
+
+      const chunkFailure = isChunkLoadFailure(this.state.error);
 
       return (
         // 批次 C：这块兜底页整体用 Tailwind 默认调色板的 red-100/200/500/600/700，
@@ -49,7 +75,13 @@ export class ErrorBoundary extends Component<Props, State> {
         // 改走校样红令牌族：--proof-mark 压 --proof-tint 晨 4.85 / 夜 5.11。
         // 边框不能写 border-[color:var(--proof-mark)]/30（Tailwind 无法给 var() 套 alpha
         // 修饰符，整条声明会被静默丢弃），所以用 color-mix 混进 --separator。
-        <div className="grid h-full place-items-center p-6 text-center paper-shell">
+        // BD-223（同一批的另一半）：外壳原来写的是 `grid h-full place-items-center`，
+        // 200% 实测（680×430 CSS px 视口）卡片 337px 高、居中后底边落在 469——越过 430 的视口底，
+        // 而祖先链（.desktop-content / .desktop-root / h-screen overflow-hidden）全是 overflow:hidden
+        // 且 scrollHeight==clientHeight，等于这张卡既裁不下也滚不动：兜底卡自己的出路按钮
+        // （第二行的「重新加载应用」）在放大档根本够不着。改成 flex + 卡片 m-auto：
+        // 有净空时 margin:auto 依旧居中，没净空时 auto 边按 0 算，内容贴顶、外壳可滚。
+        <div className="flex h-full justify-center overflow-y-auto p-6 text-center paper-shell">
           {/* 批次 BD-19（阴影分级；守卫把这一笔的裁定权交给本批，SHADOW_BUDGET 注释里
            * 记着原话「要收它得先决定故障卡的红边由谁承担」）：红边由 border 自己承担——
            * 它走校样红令牌族，是「出错了」这层语义的唯一载体，不能撤；
@@ -61,33 +93,63 @@ export class ErrorBoundary extends Component<Props, State> {
            * 2 档（0 4px 12px）是给菜单那种小控件的，48px 见方的卡用它只会看起来贴在地上。
            * ⚠ 必须用属性形式：方括号工具类 shadow-[var(...)] 只产 --tw-shadow-color、
            * 画不出阴影（批次 K 的幻影判据硬红它），写它等于假装还债。 */}
-          <div className="max-w-md rounded-md border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-paper-panel p-6 [box-shadow:var(--shadow-3)]">
+          <div className="m-auto max-w-md rounded-md border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-paper-panel p-6 [box-shadow:var(--shadow-3)]">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--proof-tint)] text-[color:var(--proof-mark)]">
               <AlertTriangle size={24} />
             </div>
-            <h2 className="paper-title text-base font-semibold text-paper-ink">页面发生意外错误</h2>
+            <h2 className="paper-title text-base font-semibold text-paper-ink">
+              {chunkFailure ? "这一屏没能载入" : "页面发生意外错误"}
+            </h2>
             <p className="mt-2 text-xs leading-[var(--leading-12)] text-paper-muted">
-              组件渲染时发生异常，已自动拦截以保护你的写作与阅读数据。
+              {chunkFailure
+                ? "这一屏的组件包这次没读到。浏览器把这次失败记在当前文档上，就地重试不会再发一次请求——需要重新载入才能回到这里。"
+                : "组件渲染时发生异常，已自动拦截以保护你的写作与阅读数据。"}
             </p>
             {this.state.error?.message && (
               <div className="mt-3 rounded-md border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-[color:var(--proof-tint)] p-2.5 text-left font-mono text-xs text-[color:var(--proof-mark)] break-all">
                 {redactPaths(this.state.error.message)}
               </div>
             )}
-            <div className="mt-5 flex justify-center gap-2">
-              <Button variant="secondary" onClick={this.handleReset}>
-                <RefreshCw size={14} />
-                重试当前页面
-              </Button>
-              <Button
-                onClick={() => {
-                  this.handleReset();
-                  window.location.reload();
-                }}
-              >
-                <RotateCcw size={14} />
-                重新加载应用
-              </Button>
+            {/* BD-223（WCAG 1.4.4 / 2.4.6）：按钮顺序就是出路的优先级，名字必须说清它做什么。
+                chunk 失败：主出路「重新载入并回到这一屏」；渲染异常：主出路才是在地重试。
+                退路（换屏）单独成一颗，不再伪装成「重试当前页面」。 */}
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              {chunkFailure ? (
+                this.props.returnScreen ? (
+                  <Button onClick={this.handleReloadHere}>
+                    <RefreshCw size={14} />
+                    重新载入并回到这一屏
+                  </Button>
+                ) : (
+                  <Button onClick={this.handleReloadApp}>
+                    <RotateCcw size={14} />
+                    重新加载应用
+                  </Button>
+                )
+              ) : (
+                <Button onClick={this.handleReset}>
+                  <RefreshCw size={14} />
+                  重试当前页面
+                </Button>
+              )}
+              {this.props.escapeLabel && (
+                <Button variant="secondary" onClick={this.handleEscape}>
+                  <LogOut size={14} />
+                  {this.props.escapeLabel}
+                </Button>
+              )}
+              {chunkFailure && this.props.returnScreen && (
+                <Button variant="secondary" onClick={this.handleReloadApp}>
+                  <RotateCcw size={14} />
+                  重新加载应用
+                </Button>
+              )}
+              {!chunkFailure && (
+                <Button variant="secondary" onClick={this.handleReloadApp}>
+                  <RotateCcw size={14} />
+                  重新加载应用
+                </Button>
+              )}
             </div>
           </div>
         </div>

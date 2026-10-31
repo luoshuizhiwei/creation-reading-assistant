@@ -106,7 +106,8 @@
     "audit:sensory-instructions": "node scripts/audit-sensory-instructions.mjs",
     "audit:text-zoom": "node scripts/audit-text-zoom.mjs",
     "audit:removal-focus": "node scripts/audit-removal-focus.mjs",
-    "audit:reflow": "node scripts/audit-reflow.mjs"
+    "audit:reflow": "node scripts/audit-reflow.mjs",
+    "audit:lazy-recovery": "node scripts/audit-lazy-recovery.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",
