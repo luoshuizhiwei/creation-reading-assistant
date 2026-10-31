@@ -15,6 +15,11 @@
  *      scrollWidth/scrollHeight 超过 client 的元素——有字被盒边切掉就是内容丢失。
  *
  * 红判据：任一按键核对失败或任一视图出现硬裁切 → ZOOM_RED，exit 1。
+ *
+ * BD-222 补记：本普查在沙箱里发现「路由 chunk 的 file:// 请求偶发 net::ERR_FAILED，整页落到
+ * 错误边界」（200% 档尤甚）。那是懒加载容错的缺陷，另开批次处理；普查这边按用户可用的
+ * 「重试当前页面」重试一次，重试后强制把缩放按回 200%（整页重载会把 zoomFactor 打回 1.0），
+ * 两次都不成才记为「跳过」，并由判定数下限（≥8）兜住覆盖，结论文案也只报实际判定数。
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync } from "node:fs";
@@ -181,17 +186,40 @@ const scopes = [
 
 let judged = 0;
 let clipped = 0;
+let skipped = 0;
+// BD-222 现场：200% 档里路由 chunk 的 file:// 请求会偶发 net::ERR_FAILED，整页落到错误边界。
+// 这是懒加载容错的问题（另开批次修），不该由 1.4.4 普查代偿，但也不该让它冒充「视图没问题」：
+// 出现错误边界时按真人可用的「重试当前页面」走一次，重试后必须把缩放重新按回 200%
+// （边界若走整页重载会把 zoomFactor 打回 1.0，那时判定的就不是 200% 了）；两次都不成才算跳过，
+// 跳过由下面的覆盖下限兜住。
+const ensureZoom = async () => {
+  for (let i = 0; i < 14 && (await factor()) < 1.999; i += 1) await tap("=");
+  const f = await factor();
+  if (Math.abs(f - 2) > 0.001) throw new Error(`重试后缩放为 ${f}，不在 200%，本视图不判定`);
+};
 for (const [label, prep] of scopes) {
-  try {
-    await prep();
-    await page.waitForTimeout(250);
-    const hits = await page.evaluate(scan);
-    judged += 1;
-    clipped += hits.length;
-    for (const hit of hits) reds.push(`${label} 200%：${hit}`);
-  } catch (error) {
-    console.log(`跳过「${label}」：${String((error && error.message) || error).split("\n")[0].slice(0, 110)}`);
+  let ok = false;
+  let hits = [];
+  for (let attempt = 1; attempt <= 2 && !ok; attempt += 1) {
+    try {
+      if (attempt > 1) {
+        const retry = page.getByRole("button", { name: "重试当前页面" }).first();
+        if (await retry.isVisible().catch(() => false)) await retry.click().catch(() => {});
+        await page.waitForTimeout(1500);
+        await ensureZoom();
+      }
+      await prep();
+      await page.waitForTimeout(250);
+      hits = await page.evaluate(scan);
+      ok = true;
+    } catch (error) {
+      if (attempt === 2) console.log(`跳过「${label}」：${String((error && error.message) || error).split("\n")[0].slice(0, 110)}`);
+    }
   }
+  if (!ok) { skipped += 1; continue; }
+  judged += 1;
+  clipped += hits.length;
+  for (const hit of hits) reds.push(`${label} 200%：${hit}`);
 }
 
 await tap("0");
@@ -209,6 +237,6 @@ if (reds.length) {
   await app.close();
   process.exit(1);
 }
-console.log("ZOOM_OK：Ctrl/Cmd + = / - / 0 可达 50%–200%，200% 下 10 个视图无文字硬裁切。");
+console.log(`ZOOM_OK：Ctrl/Cmd + = / - / 0 可达 50%–200%，200% 下判定 ${judged} 个视图无文字硬裁切${skipped ? `（另有 ${skipped} 个视图因路由 chunk 加载失败未判定，见上面的跳过行）` : ""}。`);
 await app.close();
 process.exit(0);

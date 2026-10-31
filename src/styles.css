@@ -88,13 +88,33 @@ body,
 
 body {
   margin: 0;
-  min-width: 800px;
-  min-height: 680px;
+  /* BD-222（WCAG 1.4.10 回流）：800×680 的硬地板在「最小窗口 1080 + 页面缩放 200%」
+     这一档把版心顶到视口之外（实测 documentElement.scrollWidth 恒为 800 > 视口 540，
+     13 个视图全要横向滚动），而 body 的 overflow:hidden 会按 CSS 溢出传播规则传给视口，
+     用户连二维滚动都拿不到。这里不再用无条件地板：窄档里让视口自己收缩（下面的媒体档
+     只在视口装得下时才挂上 800×680 下限），各面板自己的溢出由本文件与
+     editorial-studio.css 的窄视口档逐处修。
+     注：曾试过写成 min(800px, 100%)，功能上等价，但 200% 缩放档里路由 chunk 的 file://
+     请求会 net::ERR_FAILED 落到错误边界（1.4.4  census 6/6 红，去掉这一写法 2/2 绿），
+     故改成下面的媒体查询写法——不引百分比、不参与根元素的循环尺寸求解。 */
   overflow: hidden;
   background: var(--bg-app);
   color: var(--paper-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* BD-222：视口宽/高够装下设计下限时才恢复它，窄档（含 200% 缩放）不硬撑。 */
+@media (min-width: 800px) {
+  body {
+    min-width: 800px;
+  }
+}
+
+@media (min-height: 680px) {
+  body {
+    min-height: 680px;
+  }
 }
 
 :root[data-app-theme="dark"] body {
@@ -853,7 +873,15 @@ button:disabled {
 }
 
 .desktop-library-panel {
-  overflow: hidden;
+  /* BD-222（WCAG 1.4.10 回流）：原来整条 overflow:hidden。书库是一张六列记录表
+     （styles.css:864 的 grid-template-columns 轨宽合计 780 + 5 道 gap 12 + 行内衬 24
+     = 864 最小占位），面板宽 ≈ 视口 − 276，于是 1140 CSS px 以下就开始裁列——
+     连「最小窗口 1080、100% 缩放」这一档都裁掉「最近阅读」和「操作」两列，
+     而「操作」列里是行内唯一的键盘可达控件（打开资料／移除书籍）。
+     表格属 1.4.10 允许二维布局的那类内容，但**控件不许被裁到摸不到**：
+     改成横向 auto、纵向仍 hidden（圆角裁切不变）。装得下时不出现滚动条，宽档零变化。 */
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .desktop-library-grid-head,
@@ -1510,6 +1538,11 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  /* BD-222（WCAG 1.4.10 回流）：实测在 540 CSS px 视口（最小窗口 1080 + 页面缩放 200%）
+     里这一行横排不换行，右边缘顶到 734px（标题 + 模式岛 + 操作组），而宿主
+     .project-workbench-main 是 overflow:hidden——不是二维滚动，是多出来的部分直接切掉、
+     摸不到。加 flex-wrap 让它按视口堆叠；宽窗里内容排得下，这条不产生任何视觉变化。 */
+  flex-wrap: wrap;
   /* BD-34 摘死声明：padding: 15px 28px 13px 从未渲染——「.writing-manuscript-head」被 src/styles/editorial-studio.css:1204 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-34 摘死声明：border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent) 从未渲染——「.writing-manuscript-head」被 src/styles/editorial-studio.css:1205 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-panel) 94%, transparent) 从未渲染——「.writing-manuscript-head」 在产物里被 editorial-studio.css:1206 同键更晚的一条整条压住 */
@@ -2624,6 +2657,11 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 10px;
+  /* BD-222（WCAG 1.4.10 回流）：外壳 .cards-toolbar 早已在 editorial-studio.css:2567
+     有 flex-wrap:wrap，但两个子组自己不换行——实测 540 CSS px 视口里 header 右边缘
+     926px、.cards-toolbar-right 越界，父级 wrap 救不了子级溢出，筛选框和搜索框被切在
+     视口外。补上 wrap，宽窗排得下时零变化。 */
+  flex-wrap: wrap;
 }
 
 .cards-kind-filter {
@@ -4463,6 +4501,10 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  /* BD-222（WCAG 1.4.10 回流）：布脊右上的操作组在 540 CSS px 视口里右边缘顶到 714px，
+     连同模式岛一起被 .project-workbench-main 的 overflow:hidden 切掉。这里换行后，
+     父行 .writing-manuscript-head 的 wrap 才有可用的子级宽度；宽窗排得下时零变化。 */
+  flex-wrap: wrap;
 }
 
 /* ---------------------------------------------------------------------------

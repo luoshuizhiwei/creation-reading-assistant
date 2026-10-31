@@ -3372,6 +3372,25 @@ input[type="text"],
   }
 }
 
+/* BD-222（WCAG 1.4.10 回流）：收件箱是「想法列表 ＋ 详情」主从两栏。上面 @media ≤1024
+ * 那档把两栏收到 minmax(280px) ＋ minmax(400px) = 680px 最小占位，而 .inbox-editor-grid
+ * 自己带 overflow:hidden——实测 540 CSS px 视口（最小窗口 1080 ÷ 页面缩放上限 2）里容器
+ * 只有 472px，详情栏整块被裁掉 206px，选中一条想法后正文一个字都看不见。
+ * 这不是二维滚动而是丢内容，违 1.4.10。760 = 680 地板 ＋ 本档实测左右占位 68
+ * （540 视口里 section.inbox-page 宽 476），也就是「两栏真塞不下」那条线；线以下改上下
+ * 堆叠，两栏各自 overflow:auto 自己滚；线与 1024 之间仍走上面那条两栏档，宽档零改动。 */
+@media (max-width: 760px) {
+  .inbox-editor-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1.4fr);
+  }
+
+  .inbox-list {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -3673,6 +3692,19 @@ input[type="text"],
 /* 检查器折叠态：右栏退场，正文吃满剩余宽度。 */
 .writing-desk--no-margin {
   grid-template-columns: 192px minmax(470px, 1fr);
+}
+
+/* BD-222（WCAG 1.4.10 回流）：右栏折叠态这一档给正文列钉了 470px 的硬地板，加上 192px
+ * 目录列 = 662px 最小占位；而本文件 3312 那条 @media ≤1024 只改了「.writing-desk」，
+ * 折叠态选择器更具体、发射更晚，把那条整条压住——实测 540 CSS px 视口（最小窗口 1080 +
+ * 页面缩放 200%）里 .project-workbench-main 只有 468px 可用，正文列仍算成 470px、
+ * 右缘顶到 734px，宿主是 overflow:hidden：不是二维滚动，是切掉摸不到。
+ * 这条窄档 override 与 @media ≤1024 的「166px minmax(0, 1fr)」同值同族——宽窗里 1fr
+ * 本来就吃满，两条算出来的列宽一致，只有地板真咬人的窄档才有差别。 */
+@media (max-width: 1024px) {
+  .writing-desk--no-margin {
+    grid-template-columns: 166px minmax(0, 1fr);
+  }
 }
 
 .writing-desk--no-margin .writing-margin {
