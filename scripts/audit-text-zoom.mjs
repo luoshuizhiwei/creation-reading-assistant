@@ -18,8 +18,14 @@
  *
  * BD-222 补记：本普查在沙箱里发现「路由 chunk 的 file:// 请求偶发 net::ERR_FAILED，整页落到
  * 错误边界」（200% 档尤甚）。那是懒加载容错的缺陷，另开批次处理；普查这边按用户可用的
- * 「重试当前页面」重试一次，重试后强制把缩放按回 200%（整页重载会把 zoomFactor 打回 1.0），
+ * 出路重试一次（chunk 失败＝「重新载入并回到这一屏」，渲染异常＝「重试当前页面」，
+ * BD-224 补上前者——只认后者的话重试对 chunk 失败空转，红会伪装成「200% 下有屏打不开」），
+ * 重试后强制把缩放按回 200%（整页重载会把 zoomFactor 打回 1.0），
  * 两次都不成才记为「跳过」，并由判定数下限（≥8）兜住覆盖，结论文案也只报实际判定数。
+ *
+ * BD-224 补记二：沙箱的 /dev/shm 只有 64MB，200% 整页光栅会把它打满并就地打死渲染进程，
+ * 症状是「Page crashed」+ 一片选择器超时，看着像产品缺陷。启动加 --disable-dev-shm-usage
+ * 绕开这块共享内存（判据不变，量的还是 200% 下的同一批视图），并在重试里认全边界的两条出路。
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync } from "node:fs";
@@ -35,7 +41,13 @@ const electronPath = path.join(root, "node_modules", "electron", "dist", platfor
 const mainJs = path.join(root, "out", "main", "index.js");
 
 const launch = async () => {
-  const app = await electron.launch({ executablePath: electronPath, args: [mainJs], cwd: root, env: { ...process.env, CREATION_READER_CAPTURE_PROFILE: profileDir } });
+  // BD-224 现场：本普查在沙箱里连红三轮，症状一会儿「Page crashed」一会儿整片选择器超时，
+  // 看着都像产品缺陷。逐视图打现场 + 采样 /dev/shm 才看清：沙箱的 /dev/shm 只有 64MB，
+  // 200% 档整页光栅把共享内存顶到 63.68MB（采样峰值，见 /tmp/shm-samples.log），渲染进程
+  // 被就地打死——崩的是沙箱，不是产品。同一台机器上把 --disable-dev-shm-usage 加上，
+  // 连跑两轮都是 10/10 视图判满、零崩溃（对照：不加的那轮 5 个视图后全线 Page crashed）。
+  // 只在本普查加：其余普查不整页放大，共享内存用不满，不去动它们的启动条件。
+  const app = await electron.launch({ executablePath: electronPath, args: [mainJs, "--disable-dev-shm-usage"], cwd: root, env: { ...process.env, CREATION_READER_CAPTURE_PROFILE: profileDir } });
   const page = await app.firstWindow();
   await page.waitForLoadState("domcontentloaded");
   await page.waitForSelector(".desktop-canvas", { timeout: 30000 });
@@ -189,7 +201,7 @@ let clipped = 0;
 let skipped = 0;
 // BD-222 现场：200% 档里路由 chunk 的 file:// 请求会偶发 net::ERR_FAILED，整页落到错误边界。
 // 这是懒加载容错的问题（另开批次修），不该由 1.4.4 普查代偿，但也不该让它冒充「视图没问题」：
-// 出现错误边界时按真人可用的「重试当前页面」走一次，重试后必须把缩放重新按回 200%
+// 出现错误边界时按真人可用的出路走一次，重试后必须把缩放重新按回 200%
 // （边界若走整页重载会把 zoomFactor 打回 1.0，那时判定的就不是 200% 了）；两次都不成才算跳过，
 // 跳过由下面的覆盖下限兜住。
 const ensureZoom = async () => {
@@ -203,7 +215,12 @@ for (const [label, prep] of scopes) {
   for (let attempt = 1; attempt <= 2 && !ok; attempt += 1) {
     try {
       if (attempt > 1) {
-        const retry = page.getByRole("button", { name: "重试当前页面" }).first();
+        // BD-224 现场：本普查连红两轮，报的都是「只判定到 7 个视图（要求 ≥8）」，逐视图打现场才看清
+        // 边界文案是「这一屏没能载入 … 重新载入并回到这一屏」——BD-223 把 chunk 失败的主出路从
+        // 「重试当前页面」改名（那颗按钮当时名不符实，2.4.6），本普查的按钮名没跟着改，于是重试
+        // 对 chunk 失败这一类彻底空转：两次尝试点的是同一颗不存在的按钮，红得像是「200% 下有屏打不开」。
+        // 两条出路都要认：整页重载（chunk 失败）与就地重试（渲染异常）。
+        const retry = page.getByRole("button", { name: /^(重新载入并回到这一屏|重试当前页面)$/ }).first();
         if (await retry.isVisible().catch(() => false)) await retry.click().catch(() => {});
         await page.waitForTimeout(1500);
         await ensureZoom();

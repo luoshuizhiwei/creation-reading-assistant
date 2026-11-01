@@ -13,7 +13,13 @@
  * 200%，1.4.4 的「可放大到 200%」根本不成立。修复：主进程接整页缩放（px/rem 一起
  * 放大），并把 200% 下会被切掉的写作台页头说明与书库书名改成自然折行。
  *
- * 路径账（__tests__/ 起算）：../../../ = 仓库根；../../features = src/features/。
+ * 路径账（__tests__/ 起算）：../../../ = 仓库根；../../features = src/features/；
+ * ../ErrorBoundary.tsx = 同层组件目录里那颗边界。
+ *
+ * BD-224 补一笔：本普查连红两轮，报的都是「只判定到 7 个视图（要求 ≥8）」。逐视图打现场才看清
+ * 边界早就改成「重新载入并回到这一屏」（BD-223 给 chunk 失败换的名），而普查还只认
+ * 「重试当前页面」——空转的重试把红伪装成「200% 下有屏打不开」。下面那颗锁就是防这一手：
+ * 边界按钮改名，普查没跟上，这里当场红。
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -26,6 +32,7 @@ const main = read("../../../electron/main/index.ts");
 const helper = read("../../../electron/main/zoom-shortcuts.ts");
 const heroCss = read("../../../src/styles/editorial-studio.css");
 const libraryPage = read("../../features/library/LibraryPage.tsx");
+const boundary = read("../ErrorBoundary.tsx");
 
 const heroRule = heroCss.slice(heroCss.indexOf(".creation-writing-hero-desc {"), heroCss.indexOf(".creation-writing-hero-desc {") + 600);
 
@@ -60,5 +67,20 @@ describe("BD-218 普查判据：1.4.4 文本缩放", () => {
     expect(libraryPage).not.toContain("paper-title truncate");
     expect(libraryPage).toContain("mt-1 break-words text-xs");
     expect(libraryPage).not.toContain("mt-1 truncate text-xs");
+  });
+
+  it("重试出路两颗锁：边界有这颗按钮，普查就认这颗（BD-224 的红是这里松的）", () => {
+    for (const label of ["重新载入并回到这一屏", "重试当前页面"]) {
+      expect(boundary, `错误边界的出路按钮改名了：${label} 不在边界里——普查那颗锁该跟着改`).toContain(label);
+      expect(census, `普查的重试没认这颗出路：${label}（空转的重试会把红伪装成「200% 下有屏打不开」）`).toContain(label);
+    }
+    expect(census).toContain('name: /^(重新载入并回到这一屏|重试当前页面)$/');
+  });
+
+  it("200% 普查的启动条件：绕开沙箱 64MB 的 /dev/shm（BD-224 的三轮红是它打的）", () => {
+    expect(census, "启动参数里没有 --disable-dev-shm-usage：200% 整页光栅会打满沙箱那 64MB 共享内存，"
+      + "渲染进程当场死，红会伪装成产品缺陷（实测采样峰值 63.68MB，加与不加 2/2 对 5 视图后崩）")
+      .toContain('"--disable-dev-shm-usage"');
+    expect(census, "为什么加这颗开关的实测数不能丢").toContain("64MB");
   });
 });

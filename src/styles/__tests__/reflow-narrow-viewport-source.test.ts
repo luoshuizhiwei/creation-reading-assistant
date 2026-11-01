@@ -117,9 +117,11 @@ describe("BD-222 记档：1.4.4 普查遇到路由 chunk 加载失败时的容�
   const zoom = read("../../../scripts/audit-text-zoom.mjs");
   it("⑥重试后必须把缩放按回 200%，判定数下限与实报数都不许放松", () => {
     // 沙箱现场：200% 档里 file:// 的懒加载 chunk 请求偶发 net::ERR_FAILED，整页落到错误边界。
-    // 普查允许用用户自己的「重试当前页面」再走一次，但重试后必须重新按回 200%——否则判定的
+    // 普查允许用用户自己的出路再走一次，但重试后必须重新按回 200%——否则判定的
     // 就不是 200% 那一档；两次都不成才算跳过，跳过仍由 judged < 8 这条覆盖下限判红。
-    expect(zoom).toContain('name: "重试当前页面"');
+    // BD-224 补：chunk 失败那颗出路在 BD-223 改名叫「重新载入并回到这一屏」，本普查当时没跟上，
+    // 重试空转、红报成「只判定到 7 个视图」。两颗出路都要认（跨文件锁在 text-zoom-1-4-4.test.tsx）。
+    expect(zoom).toContain('name: /^(重新载入并回到这一屏|重试当前页面)$/');
     expect(zoom).toContain("重试后缩放为");
     expect(zoom).toContain("if (judged < 8)");
     expect(zoom).toContain("200% 下判定 ${judged} 个视图");

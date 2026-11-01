@@ -3799,13 +3799,39 @@ input[type="text"],
   border-bottom: 1px solid var(--separator-subtle);
 }
 
-/* 统计：一排核心数据条（去独立卡片，列间分隔线）。 */
+/* 统计：一排核心数据条（去独立卡片，列间分隔线）。
+ * BD-224（WCAG 1.4.12 文本间距·窄档）：本条的 overflow:hidden 把这一格的「自动最小
+ * 尺寸」一并清成了 0——按 CSS sizing 规则，min-height:auto 只在 overflow 为 visible 的
+ * 项上才等于内容最小高。于是外层 .stats-page（display:grid、min-height:0、overflow:auto）
+ * 在 .project-workbench-main（flex column、overflow:hidden）给定的高度里，可以把这一行
+ * 压到内容之下：压实拍（/tmp/stats-probe3.log，540 档写作统计屏，两态都量了现状与改法）：
+ *   基线 页 689 高、本行 460、行内内容 610 → 已被吃掉 152px；
+ *   加距（行距 1.5×字号 / 字距 0.12em / 词距 0.16em / 段后 2em）后页 648 高、本行反而
+ *   缩到 356，而行内三张卡要 720 → 最后一行「场景状态」卡的 h3 越出盒底 155px，
+ *   盒自己不带滚动条（scrollHeight 720 / clientHeight 354，父页 scrollHeight 又恒等于
+ *   clientHeight 648：越界被吃在这一格里，用户压根没地方滚）→ 普查判红。
+ * 改法在下面那条 .stats-page 的行最小尺寸上：grid-auto-rows 从隐式 auto 收到
+ * minmax(min-content, auto)——底线是内容高（不受 overflow 影响），上限仍是 auto，
+ * 所以空间够时照旧拉伸、宽档一字不变（实测 1360 两态 rows 恒 226.375/93.19/93.19，
+ * 与现状逐位相同），空间不够时把溢出交还给本就是滚动宿主的 .stats-page
+ * （540 加距实测：rows 356→770、页 scrollHeight 1062 > clientHeight 648、格内越界 0px）。
+ * ⚠ 试过把 min-height:min-content 直接挂在本条上：那一格会按 770 画出来、行轨却仍是 356，
+ * 于是这一格压到后面两张整幅卡上——普查改报「p.stats-note × p.stats-note 压字 175×12px」，
+ * 裁字变压字，不是修好。行轨的底线要修行轨，不是修格子。 */
 .stats-page .stats-grid {
   gap: 0;
   border: 1px solid var(--separator-subtle);
   border-radius: var(--radius-panel);
   background: var(--surface-1);
   overflow: hidden;
+}
+
+/* BD-224 的落点：行轨的最小尺寸钉在内容高上，上限仍是 auto（空间够照旧拉伸）。
+ * 隐式 auto 轨的底线走的是「项的自动最小尺寸」，而 .stats-page .stats-grid 带着
+ * overflow:hidden、自动最小尺寸是 0——所以高度不够时这一行会被压到内容之下、
+ * 越界无处可滚。显式 minmax(min-content, auto) 把底线换成内容高，与 overflow 无关。 */
+.stats-page {
+  grid-auto-rows: minmax(min-content, auto);
 }
 
 .stats-page .stats-grid > * {
@@ -4184,14 +4210,42 @@ input[type="text"],
   margin: 0 !important;
 }
 
-/* 顶部紧凑项目条：高度46px，项目名 + 视图说明 + 操作按钮 */
+/* 顶部紧凑项目条：底高 46px，项目名 + 视图说明 + 操作按钮。
+ * BD-224（WCAG 1.4.12 文本间距）：这里原本 height/min/max 三条全钉死 46px。普查在
+ * 1360 窗下实测：把行距设到字号的 1.5 倍、字距 0.12em、词距 0.16em、段后距 2 倍
+ * （这正是 1.4.12 给用户的四档设置，宽高一律不动），标题行盒 18→24px、说明折到三行
+ * 54px，title-group 从 41px 长到 82px，而这一行仍是 46px 且 align-items:center——
+ * 多出的 36px 上下各分 18px，标题行盒顶边跑到 y=24，而 .desktop-page-scroll 是
+ * overflow:hidden 的页框、顶边在 y=40：项目名被裁到窗口标题条底下，滚不到也够不着
+ * （「创作阅读助手」那截窗口标题的墨迹和它的交叠 26×2px 就是这么来的），六个工作台
+ * 视图同一颗钉子，全部判红。
+ * 改法：46px 降级成「底高」，长多少由内容说了算。flex-shrink:0 保留，列向余量由
+ * 下方 min-height:0 的内容区吸收，写作台主体不受这一行的生长影响。
+ * ⚠ 只放高度会在窄档炸出第二个洞，故本条同时加 flex-wrap:wrap（诊断实拍
+ * /tmp/probe-hero-540-collapse.log，540×900 概览页）：这一行是「标题组 + 操作按钮」两颗 flex
+ * 子项，操作组在窄档被媒体查询压成 nowrap 后实测 404px，而 hero 内宽只有 468px——
+ * 标题组带 min-width:0，剩下的 20px 全给它，于是标题与说明被挤成「一字一行」的竖排，
+ * title-group 从 46px 长到 938px，hero 跟着 939px 高；下面的 .project-workbench 被压到
+ * 0 高，导航条整体跑到 y=1028，而它上面的页框 .desktop-page-scroll 是 860px 高的
+ * overflow:hidden 壳（computed hidden/hidden 实测）——导航条看不见也点不着，回流普查
+ * 六次点 .project-nav button 全部 30s 超时。wrap 之后装不下就换行：窄档第一行给标题组
+ * 整幅（内宽 436，说明按 380 上限自然折行），第二行放操作组（margin-left:auto 保持右靠），
+ * hero 高度回到内容本身。
+ * ⚠ 代价要写清楚：wrap 是「按自然宽决定换不换」，不会先试挤压，所以默认窗口也换了行
+ * （逐档量自然宽与可用宽：/tmp/hero-wide-probe.log，实拍 /tmp/hero-1360-base.png）。
+ * 1360 窗内宽 1256，而两颗子项的自然宽是 455 + 820 加 12 间距 = 1287——差 31px 放不下，
+ * 基线顶栏于是从 46px 变两行 82px（十颗操作按钮整排落在第二行右端），到 ≥1440（内宽 1336）
+ * 才回到单行 46px。这一笔是拿默认档 36px 的纵向空间换「任何宽度都不靠压字保命」，
+ * 比留一条靠窗口宽度刚好的断点稳：断点会在按钮多一颗或字号一档上浮时当场失效，而 wrap
+ * 不需要知道答案。窄档 A/B 的 24 个状态（六档宽 × 两变体 × 间距开关）逐条记在
+ * /tmp/hero-ab-probe.log：nowrap 变体在 540 两态与 1080 加距态都是 nav inFrame=N。 */
 .creation-writing-page--active .creation-writing-hero {
   display: flex !important;
+  flex-wrap: wrap !important;
   align-items: center !important;
   justify-content: space-between !important;
-  height: 46px !important;
+  height: auto !important;
   min-height: 46px !important;
-  max-height: 46px !important;
   padding: 0 16px !important;
   border: 0 !important;
   border-bottom: 1px solid var(--border-subtle) !important;
@@ -4229,6 +4283,9 @@ input[type="text"],
 
 .creation-writing-page--active .creation-writing-hero .desktop-page-actions {
   flex-wrap: nowrap !important;
+  /* BD-224：hero 换 wrap 后窄档这一颗会落到第二行，margin-left:auto 让它仍贴右缘，
+   * 与宽档 space-between 给出的位置一致（不让按钮孤零零跑到左边）。 */
+  margin-left: auto !important;
   gap: 6px !important;
   align-items: center !important;
 }

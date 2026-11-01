@@ -107,7 +107,8 @@
     "audit:text-zoom": "node scripts/audit-text-zoom.mjs",
     "audit:removal-focus": "node scripts/audit-removal-focus.mjs",
     "audit:reflow": "node scripts/audit-reflow.mjs",
-    "audit:lazy-recovery": "node scripts/audit-lazy-recovery.mjs"
+    "audit:lazy-recovery": "node scripts/audit-lazy-recovery.mjs",
+    "audit:text-spacing": "node scripts/audit-text-spacing.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",
