@@ -344,7 +344,9 @@ describe("CardsPage 输入框可访问名（BD-138）", () => {
 
     render(<CardsPage project={p1} />);
     const search = await screen.findByRole("textbox", { name: "搜索卡片名称或别名" });
-    expect(search.getAttribute("placeholder")).toBe("搜索名称或别名");
+    // BD-231（WCAG 2.5.3 输入框腿）：这颗框的可见标签只有 placeholder，旧写法「搜索名称或别名」
+    // 比名字少了「卡片」二字（插字型分叉），可见字已与名字取齐。
+    expect(search.getAttribute("placeholder")).toBe("搜索卡片名称或别名");
   });
 });
 

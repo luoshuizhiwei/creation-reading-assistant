@@ -69,7 +69,13 @@ export function ProjectCardLinkDialog({ projectId, linkedCardIds, cardTypes, onC
     <Dialog open title="关联全局卡片" ariaLabel="关联全局卡片" onClose={onClose} width="max-w-2xl">
       <p className="project-card-link-note">选择卡片后会关联到当前项目；不会复制或删除卡片库中的原件。</p>
       <div className="project-card-link-filters">
-        <label className="cards-search"><Search size={14} /><input ref={searchRef} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索名称、别名或字段" aria-label="搜索全局卡片" /></label>
+        {/* BD-231（WCAG 2.5.3 输入框腿）：与写作速查那颗同形——<label> 里只有图标，可见标签落在
+            placeholder 上；旧可见「搜索名称、别名或字段」对名字「搜索全局卡片」，同义改写念不中。
+            先按速查那族改成「名字：范围」两段式，实测（普查 /tmp/bd231-adjudicate-after.log，
+            1360 窗弹层·关联卡片）文字 195px > 可用内宽 180px ⇒ 占位字被裁，视觉上像断了句；
+            这颗框比速查那颗窄 78px，塞不下范围说明，于是可见字收短到与名字逐字相同
+            （范围说明在同族的卡片库检索框「搜索卡片名称、别名或字段」里照旧写着）。 */}
+        <label className="cards-search"><Search size={14} /><input ref={searchRef} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索全局卡片" aria-label="搜索全局卡片" /></label>
         <Select value={kind} onChange={(event) => setKind(event.target.value)} aria-label="按类型筛选全局卡片">
           <option value="">全部类型</option>
           {cardTypes.map((type) => <option key={type.id} value={type.kind}>{type.name}</option>)}

@@ -114,10 +114,15 @@ export function CommandPalette({ commands, onClose }: CommandPaletteProps) {
       <div className="creation-search-shell creation-palette-shell" role="search">
         <div className="creation-search-head">
           <Command size={16} className="creation-search-head-icon" />
+          {/* BD-231（WCAG 2.5.3 输入框腿）：面板里没有另配的可见 <label>，屏幕上要被念出来的
+              字全在 placeholder 上；旧写法主干是「输入命令或搜索项目 / 场景」，名字却是同义词
+              「筛选命令」——语音操控照屏念必然点不中。改成「名字：提示语」两段式，冒号前的主干
+              与名字逐字一致，提示语一字不少。宽度实测（/tmp/bd231-adjudicate.log，1360 窗）：
+              旧 181.62px、新约 256px，可用内宽 462px ⇒ 不截断。 */}
           <input
             ref={inputRef}
             className="creation-search-input"
-            placeholder="输入命令或搜索项目 / 场景…"
+            placeholder="筛选命令：输入命令或搜索项目 / 场景…"
             aria-label="筛选命令"
             role="combobox"
             aria-expanded="true"

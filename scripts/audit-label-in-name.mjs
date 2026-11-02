@@ -13,8 +13,23 @@
  * 剔除后没有标签文字的控件（纯图标按钮、sr-only 名字）不参与判定——它们走 4.1.2 的名字，
  * 不在 2.5.3 的范围里。
  *
- * 范围与 audit-landmarks.mjs 对齐：14 个页面级视图，含设定卡「列表」布局。
+ * 范围与 audit-landmarks.mjs 对齐：14 个页面级视图，含设定卡「列表」布局，
+ * 外加四个浮层/弹层范围（命令面板、写作速查全局搜索、关联卡片弹层、卡片类型弹层）——输入框密集区。
  * 红判据：任一控件「可见标签不是可访问名的子串」即 LABEL_RED，exit 1。
+ *
+ * BD-231 补上的第二条腿（输入框）：上面那套「逐个文本节点」的取法对 <input>/<textarea>/<select>
+ * 永远量不到——它们的屏上文字不在子节点里，而在 placeholder 属性里；老的 INTERACTIVE 虽然列了
+ * 这三种标签，labelText 返回空串就 continue，等于静默跳过。于是出现过一整族真缺陷：
+ * 收件箱速记框可见「记下灵感碎片，回车速记…」而名字叫「灵感速记」、书库筛选框可见「筛选书名、
+ * 作者或导入标签…」而名字叫「筛选书籍」（同义改写），命令面板、写作速查、卡片库检索、关联卡片
+ * 弹层同形。取「可见标签」的顺序：
+ *  ① 控件自己裹在 <label> 里、或与它同父直接相邻的 <label> 的可见文字（同样剔除补充信息，
+ *     并跳过控件自身的文本）；
+ *  ② 没有可见 label 文字时才退回 placeholder——取它的「主干」：切到第一个 ，。；：（( … ...
+ *     或「 (」为止。WCAG 把 placeholder 本身定性为 hint，冒号/逗号之后的「例如：…」「（可选）」
+ *     「回车确认」「Ctrl+K」是提示语，不是要念的标签；
+ *  ③ 两者都没有 → 不参与（纯图标框、由 placeholder 自己当名字的框走 3.3.2 的账）。
+ * <select> 屏上显示的是**当前值**，值不是标签（Understanding 2.5.3 明确豁免），所以只按 ① 量。
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync } from "node:fs";
@@ -50,6 +65,8 @@ if (seed.status !== 0) throw new Error(`seed failed: ${seed.stderr}`);
 const { app, page } = await launch();
 
 const goto = async (label) => {
+  // 浮层范围会把遮罩留在屏上，先 Esc 关掉再走侧栏（Esc 在页面级视图里是无害的）。
+  await page.keyboard.press("Escape").catch(() => {});
   await page.locator(".desktop-sidebar button", { hasText: label }).first().click();
   await page.waitForTimeout(400);
 };
@@ -76,6 +93,7 @@ const inWorkbench = async () => {
 };
 const workbenchView = async (navLabel, selector) => {
   await inWorkbench();
+  await page.keyboard.press("Escape").catch(() => {});
   await page.locator(".project-nav button", { hasText: navLabel }).first().click();
   await page.waitForSelector(selector, { timeout: 15000 });
   await page.waitForTimeout(400);
@@ -85,11 +103,12 @@ const collectScript = () => {
   const INTERACTIVE = 'button, a[href], input, select, textarea, [role="button"], [role="link"], [role="tab"], [role="checkbox"], [role="switch"], [role="menuitem"], [role="option"], [role="radio"]';
   const SUPPLEMENTARY = 'svg, small, em, .desktop-brand-mark, .project-home-meta, .project-home-progress, .inbox-item-meta, .inbox-item-body, [role="progressbar"], [aria-hidden="true"]';
   const hasWord = (t) => /[\p{L}\p{N}]/u.test(t);
-  const labelText = (node) => {
+  const labelText = (node, skip) => {
     const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
     let out = "";
     let n;
     while ((n = walker.nextNode())) {
+      if (skip && skip.contains(n)) continue;
       const t = (n.textContent || "").trim();
       if (!t || !hasWord(t)) continue;
       if (n.parentElement && n.parentElement.closest(SUPPLEMENTARY)) continue;
@@ -111,6 +130,7 @@ const collectScript = () => {
     return (byRef || el.getAttribute("aria-label") || "").trim();
   };
   const norm = (s) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  const stem = (s) => ((s || "").split(/(?:\.\.\.|…|[，。；：（(]| \()/)[0] || "").trim();
   const rows = [];
   let judged = 0;
   for (const el of document.querySelectorAll(INTERACTIVE)) {
@@ -128,7 +148,28 @@ const collectScript = () => {
       name
     });
   }
-  return { judged, rows };
+  /* 第二条腿（BD-231）：输入控件的可见标签在 <label> 或 placeholder 上，不在子节点里。 */
+  let sourceJudged = 0;
+  for (const el of document.querySelectorAll("input, textarea, select")) {
+    if (!exposed(el)) continue;
+    const name = nameOf(el);
+    if (!name) continue;
+    const lab = el.closest("label") || (el.parentElement ? el.parentElement.querySelector(":scope > label") : null);
+    const labText = lab ? labelText(lab, el) : "";
+    const ph = (el.getAttribute("placeholder") || "").trim();
+    const source = labText || stem(ph);
+    if (!source) continue;
+    sourceJudged += 1;
+    if (norm(name).includes(norm(source))) continue;
+    rows.push({
+      tag: el.tagName.toLowerCase(),
+      cls: (el.getAttribute("class") || "").split(/\s+/).slice(0, 2).join("."),
+      visible: source,
+      name,
+      from: labText ? "label" : "placeholder"
+    });
+  }
+  return { judged, sourceJudged, rows };
 };
 
 const scopes = [
@@ -150,25 +191,58 @@ const scopes = [
   ["卡片库", async () => { await goto("卡片库"); await page.waitForSelector(".global-card-library", { timeout: 10000 }).catch(() => {}); }],
   ["收件箱", async () => { await goto("收件箱"); await page.waitForSelector(".inbox-list", { timeout: 10000 }).catch(() => {}); }],
   ["资料阅读", async () => { await goto("资料阅读"); await page.waitForTimeout(500); }],
-  ["设置", async () => { await goto("设置"); await page.waitForSelector(".desktop-page-stack", { timeout: 10000 }).catch(() => {}); }]
+  ["设置", async () => { await goto("设置"); await page.waitForSelector(".desktop-page-stack", { timeout: 10000 }).catch(() => {}); }],
+  // BD-231：输入框密集的三个浮层/弹层。放在最后，收尾的 Esc 不会挡住后面的导航。
+  ["浮层·命令面板", async () => {
+    await goto("项目");
+    const back = page.locator(".project-nav-back").first();
+    if (await back.isVisible().catch(() => false)) await back.click();
+    await page.waitForSelector(".project-home", { timeout: 10000 });
+    await page.keyboard.press("Control+p");
+    await page.waitForSelector(".creation-search-input", { timeout: 10000 });
+    await page.waitForTimeout(400);
+  }],
+  ["浮层·写作速查全局搜索", async () => {
+    await workbenchView("写作", ".writing-desk");
+    await page.keyboard.press("Control+Shift+k");
+    await page.waitForSelector(".writing-quick-tabs", { timeout: 10000 });
+    await page.locator(".writing-quick-tabs button", { hasText: "全局搜索" }).first().click();
+    await page.waitForTimeout(400);
+  }],
+  ["弹层·关联卡片", async () => {
+    await workbenchView("设定卡", ".cards-page");
+    await page.locator('button:has-text("关联卡片")').first().click();
+    await page.waitForSelector("[role=dialog]", { timeout: 10000 });
+    await page.waitForTimeout(400);
+  }],
+  // ① 分支（可见 <label> 文字）唯一的活体宿主：卡片类型编辑器里一屏「label + example placeholder」
+  // 的标准形状。没有这一档，输入腿的 ① 分支就只存在于注释里。
+  ["弹层·卡片类型", async () => {
+    await workbenchView("设定卡", ".cards-page");
+    await page.locator('button:has-text("卡片类型")').first().click();
+    await page.waitForSelector("[role=dialog]", { timeout: 10000 });
+    await page.waitForTimeout(400);
+  }]
 ];
 
 await createProject();
 const rows = [];
 let judged = 0;
+let sourceJudged = 0;
 for (const [label, prep] of scopes) {
   try { await prep(); } catch (e) { console.log(`跳过「${label}」：${String(e && e.message || e).split("\n")[0].slice(0, 100)}`); continue; }
   const r = await page.evaluate(collectScript).catch(() => null);
   if (!r) { console.log(`跳过「${label}」`); continue; }
   judged += r.judged;
+  sourceJudged += r.sourceJudged;
   // 同一颗壳层按钮会在多个范围重复出现，按「类名 + 可见 + 名字」去重后再记红。
   for (const row of r.rows) {
     if (!rows.some((x) => x.cls === row.cls && x.visible === row.visible && x.name === row.name)) rows.push({ scope: label, ...row });
   }
 }
 
-console.log(`标签范围 ${scopes.length} 个、判定控件 ${judged} 个；可见标签不是可访问名子串的：${rows.length} 处`);
-for (const r of rows) console.log(`  - [${r.scope}] ${r.tag}.${r.cls}  可见「${r.visible.slice(0, 40)}」  名「${r.name.slice(0, 40)}」`);
+console.log(`标签范围 ${scopes.length} 个、判定控件 ${judged} 个（按钮腿）+ ${sourceJudged} 个（输入腿 BD-231）；可见标签不是可访问名子串的：${rows.length} 处`);
+for (const r of rows) console.log(`  - [${r.scope}] ${r.tag}.${r.cls}${r.from ? `（可见标签取自 ${r.from}）` : ""}  可见「${r.visible.slice(0, 40)}」  名「${r.name.slice(0, 40)}」`);
 if (rows.length) {
   console.log(`LABEL_RED：${rows.length} 处控件的可见标签没有进入可访问名（语音操控念不出来）。`);
   await app.close();

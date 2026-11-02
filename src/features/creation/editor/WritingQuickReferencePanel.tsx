@@ -359,8 +359,12 @@ export function WritingQuickReferencePanel({
 
       {scope === "global" && (
         <label className="writing-quick-search">
+          {/* BD-231（WCAG 2.5.3 输入框腿）：<label> 里只有图标，可见标签就落在 placeholder 上；
+              旧写法可见「搜索名称、别名或字段」而名字只写了「搜索卡片」——语音操控照屏念落空。
+              改成「名字：范围」两段式，冒号前与名字逐字一致。宽度实测（/tmp/bd231-adjudicate.log，
+              1360 窗）：旧 160px、新约 208px，可用内宽 258px ⇒ 不截断。 */}
           <Search size={14} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索名称、别名或字段" aria-label="搜索卡片" autoFocus />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索卡片：名称、别名或字段" aria-label="搜索卡片" autoFocus />
         </label>
       )}
 

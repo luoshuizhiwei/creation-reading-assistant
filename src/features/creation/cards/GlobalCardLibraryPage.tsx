@@ -294,13 +294,20 @@ export function GlobalCardLibraryPage() {
             <option value="">全部类型</option>
             {cardTypes.map((type) => <option key={type.id} value={type.kind}>{type.name}</option>)}
           </Select>
+          {/* BD-231（WCAG 2.5.3 输入框腿）：这里的 <label> 只裹了一颗 Search 图标，label 自己
+              没有可见文字，于是屏上要被念出来的仍是 placeholder；旧主干少了名字里的「卡片」，
+              属于插字型分叉。名字本身已经把搜索范围写全（名称、别名、字段），可见字直接与它
+              取齐最省字。宽度实测（/tmp/bd231-adjudicate.log，1360 窗）：旧 130px、新约 156px，
+              可用内宽 180px ⇒ 不截断。
+              ⚠ 注释写在 label 开标签「之前」：BD-214 的账本从那颗开标签起截 400 字找这颗 input
+              的 aria-label，注释插进标签里面会把它的检索窗口撑爆。 */}
           <label className="cards-search">
             <Search size={14} />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               aria-label="搜索卡片名称、别名或字段"
-              placeholder="搜索名称、别名或字段"
+              placeholder="搜索卡片名称、别名或字段"
             />
           </label>
           <Button className="shrink-0 whitespace-nowrap" onClick={() => setDraft(newGlobalCard(filterKind || cardTypes[0]?.kind || "character"))}>

@@ -113,7 +113,9 @@ describe("GlobalCardLibraryPage", () => {
     expect(screen.getByText("长夜航线")).toBeTruthy();
     expect(screen.getByText("雾港手记")).toBeTruthy();
 
-    fireEvent.change(screen.getByPlaceholderText("搜索名称、别名或字段"), { target: { value: "调查员" } });
+    // BD-231（WCAG 2.5.3 输入框腿）：可见占位字与名字「搜索卡片名称、别名或字段」取齐后，
+    // 这里按新字面量找框。
+    fireEvent.change(screen.getByPlaceholderText("搜索卡片名称、别名或字段"), { target: { value: "调查员" } });
     await waitFor(() => expect(loadCards).toHaveBeenLastCalledWith({ cardKind: undefined, search: "调查员" }));
   });
 

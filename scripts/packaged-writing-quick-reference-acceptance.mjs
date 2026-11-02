@@ -134,7 +134,7 @@ async function main() {
     check("字段失焦 800ms 后经真实 IPC 自动保存且状态可见", savedCard?.title === "场景内角色（速查修订）", savedCard?.title ?? "missing");
 
     await page.getByRole("button", { name: "全局搜索" }).click();
-    await page.getByPlaceholder("搜索名称、别名或字段").fill("全局候选");
+    await page.getByPlaceholder("搜索卡片：名称、别名或字段").fill("全局候选");
     await page.getByRole("button", { name: /全局候选角色/ }).waitFor({ state: "visible", timeout: 5_000 });
     await page.getByRole("button", { name: /全局候选角色/ }).click();
     await page.getByRole("button", { name: "关联到项目" }).click();

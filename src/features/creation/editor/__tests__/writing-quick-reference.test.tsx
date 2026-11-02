@@ -122,7 +122,8 @@ describe("WritingQuickReferencePanel", () => {
     const onRestoreEditorFocus = vi.fn();
     render(<Harness onPlanningSaved={onPlanningSaved} onRestoreEditorFocus={onRestoreEditorFocus} />);
     fireEvent.click(screen.getByRole("button", { name: "全局搜索" }));
-    fireEvent.change(screen.getByPlaceholderText("搜索名称、别名或字段"), { target: { value: "顾淮" } });
+    // BD-231（WCAG 2.5.3 输入框腿）：占位字改成「名字：范围」两段式后按新字面量找框。
+    fireEvent.change(screen.getByPlaceholderText("搜索卡片：名称、别名或字段"), { target: { value: "顾淮" } });
     await waitFor(() => expect(cardsList).toHaveBeenCalledWith({ kind: "cards.list", search: "顾淮" }));
     fireEvent.click(await screen.findByRole("button", { name: /顾淮/ }));
     fireEvent.click(await screen.findByRole("button", { name: "关联到项目" }));

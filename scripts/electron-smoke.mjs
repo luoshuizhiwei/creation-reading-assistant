@@ -114,7 +114,7 @@ async function main() {
   // ---------- 3. 全局卡片库（应用级入口 + 字段检索 + 使用项目账册） ----------
   await page.getByRole("button", { name: "卡片库" }).click();
   await page.getByRole("region", { name: "全局卡片库" }).waitFor({ state: "visible", timeout: 15000 });
-  const globalSearch = page.getByPlaceholder("搜索名称、别名或字段");
+  const globalSearch = page.getByPlaceholder("搜索卡片名称、别名或字段");
   await globalSearch.fill("项目B独特角色卡");
   await page.waitForTimeout(450);
   const globalCard = page.locator(".cards-list-item", { hasText: "项目B独特角色卡" }).first();
@@ -128,7 +128,7 @@ async function main() {
         visible: Boolean(library),
         title,
         usage,
-        searchValue: document.querySelector('input[placeholder="搜索名称、别名或字段"]')?.value ?? ""
+        searchValue: document.querySelector('input[placeholder="搜索卡片名称、别名或字段"]')?.value ?? ""
       };
     });
     const ok = probe.visible && probe.title === "项目B独特角色卡" && probe.usage.includes("测试项目B") && probe.searchValue === "项目B独特角色卡";

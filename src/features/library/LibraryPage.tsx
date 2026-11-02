@@ -234,11 +234,16 @@ export function LibraryPage() {
                   36——那正是本批要清的离刻度值。32 的缝 5 与 40 的缝 13 相对族值 8–9
                   各自都偏 3–5px，缝这一项分不出高下，裁决落在票上：取 32（三票）。
                   也没有顺手挪图标（left-3→left-2.5 是另一件事，不在本批范围）。 */}
+              {/* BD-231（WCAG 2.5.3 输入框腿）：这行筛选框没有配可见 <label>，屏上要念的字只有
+                  placeholder；旧写法主干「筛选书名、作者或导入标签」与名字「筛选书籍」是同义
+                  改写，念哪一段都落不到控件上。改成「名字：范围说明」两段式，冒号前与名字逐字
+                  一致。宽度实测（/tmp/bd231-adjudicate.log，1360 窗）：旧 182px、新约 230px，
+                  可用内宽 1014px ⇒ 余量充足。 */}
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="筛选书名、作者或导入标签…"
+                placeholder="筛选书籍：书名、作者或导入标签…"
                 aria-label="筛选书籍"
                 className="paper-input w-full pl-8 pr-8 text-sm"
               />

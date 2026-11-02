@@ -70,6 +70,12 @@ export function InboxQuickInput({
               图标上（shots pr48 实拍）；收 64 只是把空隙再拉 8px，不多换一分可读性。
               刻度上限 48 本身够不着 57.02 这个功能净空，没有既能上刻度又不压钮的取值，
               故记档。窄窗 1024 同一处生效（computed 仍 pr 56、盒 314.28×32）。 */}
+          {/* BD-231（WCAG 2.5.3）：这颗输入框没有可见 <label>，屏幕上唯一被当成标签念出来的
+              就是 placeholder——旧写法「记下灵感碎片，回车速记…」主干是「记下灵感碎片」，
+              可无障碍名字却叫「灵感速记」，语音操控念哪个都对不上。把名字用的词挪到主干位，
+              提示语留在冒号后面：可见主干 == 名字「灵感速记」，两条要求同时成立。
+              宽度实测（/tmp/bd231-adjudicate.log，1360 窗收件箱）：原 12 字 144px，新 17 字
+              ≈ 204px，可用内宽 244px（已扣 pr-14 让位槽）⇒ 不截断。 */}
           <input
             type="text"
             className="paper-input h-8 w-full pr-14 text-xs placeholder:text-paper-muted"
@@ -77,7 +83,7 @@ export function InboxQuickInput({
             value={quickTitle}
             onChange={(e) => setQuickTitle(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="记下灵感碎片，回车速记…"
+            placeholder="灵感速记：记下灵感碎片，回车速记…"
             disabled={submitting}
           />
           {quickTitle.trim() && (

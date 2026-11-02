@@ -553,12 +553,17 @@ export function CardsPage({ project }: CardsPageProps) {
         {mode === "cards" && (
           <div className="cards-toolbar-right">
             <span className="cards-search">
+              {/* BD-231（WCAG 2.5.3 输入框腿）：外层 .cards-search 里没有可见 label 文字（只有一颗
+                  Search 图标），屏上要念的字只有 placeholder；旧主干「搜索名称或别名」比名字
+                  「搜索卡片名称或别名」少了「卡片」二字——中间插字同样算分叉。把可见字补齐成与
+                  名字一致。宽度实测（/tmp/bd231-adjudicate.log，1360 窗）：旧 91px、新约 117px，
+                  可用内宽 180px ⇒ 不截断。 */}
               <Search size={14} />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 aria-label="搜索卡片名称或别名"
-                placeholder="搜索名称或别名"
+                placeholder="搜索卡片名称或别名"
               />
             </span>
             <Button className="shrink-0 whitespace-nowrap" variant="outline" onClick={() => setShowCardTypeEditor(true)}>
