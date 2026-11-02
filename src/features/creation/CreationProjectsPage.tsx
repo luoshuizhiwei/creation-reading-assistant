@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useWindowTitle } from "@/app/window-title";
 import { createDemoProject } from "@/features/creation/demo/create-demo-project";
 import {
   ArchiveRestore,
@@ -185,6 +186,12 @@ export function CreationProjectsPage() {
   }, [loadNavigation, navigations, selectedId]);
 
   const selected = projects.find((project) => project.id === selectedId);
+  // BD-227（WCAG 2.4.2）：进到某个项目之后，「创作项目」这四个字不再说明这个窗口在干什么——
+  // 同一条侧栏入口下面有七个视图、无数个项目，任务栏/读屏器窗口清单里全叫同一个名字。
+  // 这里在壳那份主题之上细化一层，顺序照工作台页头那行 h1（「项目名 · 视图」）来，
+  // 视图名仍取那排导航（PROJECT_NAV_ITEMS）的正身叫法，不新造第三种写法。
+  // 没选中项目时发布 null，壳那份「创作项目」自动回来。
+  useWindowTitle("workbench", selected ? `${selected.title} · ${PROJECT_NAV_ITEMS.find((item) => item.view === view)?.label ?? "工作台"}` : null);
   const navigation = selectedId ? navigations[selectedId] : undefined;
   const selectedSceneId = useCreationStore((state) => state.selectedSceneId);
   const selectedScene = navigation?.chapters.flatMap((chapter) => chapter.scenes).find(

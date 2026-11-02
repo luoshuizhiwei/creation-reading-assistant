@@ -110,7 +110,8 @@
     "audit:lazy-recovery": "node scripts/audit-lazy-recovery.mjs",
     "audit:text-spacing": "node scripts/audit-text-spacing.mjs",
     "audit:text-language": "node scripts/audit-text-language.mjs",
-    "audit:identification": "node scripts/audit-consistent-identification.mjs"
+    "audit:identification": "node scripts/audit-consistent-identification.mjs",
+    "audit:page-title": "node scripts/audit-page-title.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { BookMarked, BookOpen, Copy, Inbox as InboxIcon, Layers3, Minus, Search, Settings, Square, X } from "lucide-react";
 import { RingButton } from "@/components/interaction";
+import { useWindowTitle } from "@/app/window-title";
 import { useAppStore, type AppScreen } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
 import { useLibraryStore } from "@/stores/library-store";
@@ -90,6 +91,9 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
   const workbenchActive = useCreationStore((state) => state.selectedId != null);
   const creationLeaveGuard = useCreationStore((state) => state.leaveGuard);
   const title = screenTitles[screen];
+  // BD-227（WCAG 2.4.2）：窗口标题抄这一页的正身叫法（就是下面 <h1> 渲染的那份），
+  // 不再另立一套文案——页头与窗口标题两套名字迟早漂移。工作台在壳之上再细化一层。
+  useWindowTitle("screen", title.title);
   // §4.1 第 2 条的落地：页头标题下那行「这一页的规矩」由注册表的 tip 供给。
   const tip = screenTip(screen);
   const navigate = async (target: AppScreen) => {
