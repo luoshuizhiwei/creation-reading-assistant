@@ -80,7 +80,10 @@ export function DesktopDock() {
   return (
     <section className="desktop-dock" aria-label="常驻工具坞">
       <div className="desktop-dock-row">
-        <span className="desktop-dock-label" title="主题（§4.1：主题切换不进设置页）">
+        {/* BD-233（文案口吻普查）：这条提示原先在括号里写的是设计文档的段落编号，
+            用户看得见却看不懂——摸底时它在项目页之外的一切屏都常驻命中（收件箱/卡片库/
+            设置/书库四屏实测同一条）。改成只说清「这三颗色点各是什么」。 */}
+        <span className="desktop-dock-label" title="主题：在浅色、深色、跟随系统之间切换">
           <Palette size={12} aria-hidden="true" />
           主题
         </span>
@@ -120,7 +123,10 @@ export function DesktopDock() {
       </div>
 
       <div className="desktop-dock-row">
-        <span className="desktop-dock-label" title="正文保存状态（§4.1：与编辑器行内那条同一个信号）">
+        {/* BD-233：同上一条——原先这条的括号里也是设计文档段落编号＋「与编辑器行内那条
+            同一个信号」这种内部口径；摸底实测四屏常驻命中。改成对用户有用的话：告诉他
+            这盏灯和编辑器里那条状态是同一件事，不必再对照。 */}
+        <span className="desktop-dock-label" title="正文保存状态：与编辑器行内那条状态一致">
           <Save size={12} aria-hidden="true" />
           保存
         </span>

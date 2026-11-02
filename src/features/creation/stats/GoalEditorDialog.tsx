@@ -192,7 +192,11 @@ export function GoalEditorDialog({ open, initial, onClose, onSave, busy, error, 
                   className={`creation-chip ${draft.mainMetric === metric ? "selected" : ""}`}
                   aria-pressed={draft.mainMetric === metric}
                   disabled={metricLocked}
-                  title={metricLocked ? "主指标写入接口待集成（SEAM REQUEST）" : WORD_METRIC_LABELS[metric]}
+                  // BD-233（文案口吻普查）：锁住时这条提示原先写的是「要等某个写入依赖接上」
+                  // 的工程口径（还带着内部代号）。用户要的是结论：现在能不能改。
+                  // 另记一笔：Chromium 对 disabled 控件不弹原生 title，所以这句话实际只有
+                  // 下面那条 stats-note 能到达用户——两条都得是人话。
+                  title={metricLocked ? "当前版本还不能修改主指标" : WORD_METRIC_LABELS[metric]}
                   onClick={() => setDraft((current) => ({ ...current, mainMetric: metric }))}
                 >
                   {WORD_METRIC_LABELS[metric]}
@@ -200,7 +204,9 @@ export function GoalEditorDialog({ open, initial, onClose, onSave, busy, error, 
               ))}
             </div>
             {metricLocked ? (
-              <p className="stats-note">主指标选择为本地预览，保存到项目需等待目标更新接口接入。</p>
+              /* BD-233：这一条是**屏上正文**，也是上面那颗锁住的页签唯一真的能被读到的说明，
+                 原先同样写着「需等待某依赖接入」。实测在写作统计→编辑目标命中。 */
+              <p className="stats-note">当前版本还不能修改主指标：这里的选择只影响本页预览，不会写入项目。</p>
             ) : null}
           </div>
 

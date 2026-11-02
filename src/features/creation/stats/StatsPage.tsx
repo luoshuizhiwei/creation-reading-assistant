@@ -112,7 +112,10 @@ function GoalProgressCard({
             type="button"
             className={metric === item ? "active" : ""}
             aria-pressed={metric === item}
-            title="指标预览（保存为项目主指标需目标更新接口）"
+            // BD-233（文案口吻普查）：这排页签的提示原先在括号里向用户交代「这条写入还缺
+            // 后端依赖」——写作统计屏实测命中：用户既看不懂，也做不了什么。改成说清这里的
+            // 作用域：切它只换本页预览的口径，要改项目主指标得进「编辑目标」。
+            title="只切换本页预览的字数口径；要改项目主指标请进「编辑目标」"
             onClick={() => setMetric(item)}
           >
             {WORD_METRIC_LABELS[item]}

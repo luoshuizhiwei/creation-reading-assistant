@@ -87,7 +87,9 @@ describe("GoalEditorDialog 目标编辑", () => {
     renderDialog({ metricLocked: true });
     expect((screen.getByRole("button", { name: "汉字" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByLabelText(/总字数/) as HTMLInputElement).disabled).toBe(false);
-    expect(screen.getByText(/主指标选择为本地预览/)).toBeDefined();
+    // BD-233（文案口吻普查）：这条原先钉的是「…需等待目标更新接口接入」那句工程口径。
+    // 判的内容不变——锁住时必须有一条用户读得到的说明——只是锚跟着文案换到新人话上。
+    expect(screen.getByText(/当前版本还不能修改主指标/)).toBeDefined();
   });
 
   it("主指标可切换并进入 patch", async () => {
