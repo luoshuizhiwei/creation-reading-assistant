@@ -216,21 +216,29 @@
 }
 
 .overview-recent-item {
+  /* BD-234（结构与关系 1.3.1）：条目与可点击行分层——这一行原先是 `li[role=button]`，
+   * li 挂上 role=button 后 listitem 语义被覆盖，ul 在无障碍树里成了空列表；现在 li 只当
+   * 条目，下面这条行的外观整条下沉给行内真按钮（声明一字未改，只换选择器）。 */
+}
+
+.overview-recent-item > button {
   display: grid;
   grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: 12px;
+  width: 100%;
   padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid transparent;
   background: var(--paper-soft, rgba(250, 245, 235, 0.45));
   cursor: pointer;
   outline: none;
+  text-align: left;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.overview-recent-item:hover,
-.overview-recent-item:focus-visible {
+.overview-recent-item > button:hover,
+.overview-recent-item > button:focus-visible {
   background: var(--paper-panel, rgba(250, 245, 235, 0.85));
   border-color: var(--copper-soft, rgba(138, 90, 43, 0.35));
 }
@@ -259,7 +267,7 @@
   .overview-status-list li {
     grid-template-columns: 64px 1fr 28px;
   }
-  .overview-recent-item {
+  .overview-recent-item > button {
     grid-template-columns: 1fr auto;
   }
   .overview-recent-chapter {

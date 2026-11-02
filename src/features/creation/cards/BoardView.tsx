@@ -39,10 +39,18 @@ export function BoardView({
       <span className="sr-only" role="status">{announcement}</span>
       {cardTypes.map((type) => {
         const columnCards = cards.filter((card) => card.kind === type.kind);
+        // BD-234（结构与关系 1.3.1）：列头「人物/场景/…＋数量」和列内卡片原先没有任何程序化
+        // 关系——`<section>` 没有可访问名时是泛型容器，读屏器走到卡片上时不知道自己在哪一列，
+        // 「这张卡在哪个类型下」只能靠眼睛看。这里把列头已有的标题节点接成 aria-labelledby
+        // （不动版式、不加 DOM 深度；卡片是 role=button 的交互项，不能改挂 li——
+        // editorial-studio.css:2881 那族 `.cards-board-card:nth-child(n)` 入场动画依赖它的子位置）。
+        const titleId = `cards-board-column-title-${type.kind}`;
         return (
           <section
             key={type.id}
             className="cards-board-column"
+            role="group"
+            aria-labelledby={titleId}
             onDragOver={(event) => event.preventDefault()}
             onDrop={() => {
               if (draggingId) onMoveKind(draggingId, type.kind);
@@ -50,7 +58,7 @@ export function BoardView({
             }}
           >
             <header className="cards-board-column-head">
-              <span className="cards-board-column-title">{type.name}</span>
+              <span className="cards-board-column-title" id={titleId}>{type.name}</span>
               <em>{columnCards.length}</em>
               <button
                 type="button"

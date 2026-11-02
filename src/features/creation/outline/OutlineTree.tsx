@@ -585,8 +585,13 @@ export function OutlineTree({
       </span>
     ) : null;
 
+  // BD-234（结构与关系 1.3.1）：卷→章→场这三级层级原先只靠 `.outline-chapter-list` /
+  // `.outline-scene-list` 的 padding-left:12px 画出来（styles.css:2275 那条注释自己也写着
+  // 「真正承载层级的是缩进」），DOM 里既不是 ul/ol 也没有任何 role——读屏器听到的是一条平铺
+  // 序列，「这个场景属于哪一章」这类从属关系整个丢了。这里只把容器换成 ul、条目换成 li，
+  // 类名、DOM 深度、交互一律不动（实测几何底账见 scripts/audit-list-structure.mjs 的账本头）。
   const renderScene = (chapter: CreationOutlineChapter, scene: CreationOutlineScene) => (
-    <div
+    <li
       key={scene.id}
       className={`outline-scene ${scene.id === selectedSceneId ? "active" : ""}`}
     >
@@ -607,13 +612,13 @@ export function OutlineTree({
       </button>
       {renderTitle({ kind: "scene", id: scene.id, title: scene.title })}
       {sceneButtons(chapter, scene)}
-    </div>
+    </li>
   );
 
   const renderChapter = (volume: CreationOutlineVolume, chapter: CreationOutlineChapter) => {
     const expanded = expandedChapters.has(chapter.id);
     return (
-      <div key={chapter.id} className="outline-chapter">
+      <li key={chapter.id} className="outline-chapter">
         <div className="outline-chapter-row">
           <button
             type="button"
@@ -640,19 +645,19 @@ export function OutlineTree({
           {chapterButtons(volume, chapter)}
         </div>
         {expanded && (
-          <div className="outline-scene-list">
+          <ul className="outline-scene-list">
             {chapter.scenes.map((scene) => renderScene(chapter, scene))}
-            {chapter.scenes.length === 0 && <span className="outline-empty-hint">暂无场景</span>}
-          </div>
+            {chapter.scenes.length === 0 && <li className="outline-empty-hint">暂无场景</li>}
+          </ul>
         )}
-      </div>
+      </li>
     );
   };
 
   const renderVolume = (volume: CreationOutlineVolume) => {
     const expanded = expandedVolumes.has(volume.id);
     return (
-      <div key={volume.id} className="outline-volume">
+      <li key={volume.id} className="outline-volume">
         <div className="outline-volume-row">
           <button
             type="button"
@@ -670,12 +675,12 @@ export function OutlineTree({
           {volumeButtons(volume)}
         </div>
         {expanded && (
-          <div className="outline-chapter-list">
+          <ul className="outline-chapter-list">
             {volume.chapters.map((chapter) => renderChapter(volume, chapter))}
-            {volume.chapters.length === 0 && <span className="outline-empty-hint">暂无章节</span>}
-          </div>
+            {volume.chapters.length === 0 && <li className="outline-empty-hint">暂无章节</li>}
+          </ul>
         )}
-      </div>
+      </li>
     );
   };
 
@@ -759,20 +764,20 @@ export function OutlineTree({
           <Plus size={12} /> 新建卷
         </Button>
       </div>
-      <div className="outline-tree-scroll">
+      <ul className="outline-tree-scroll">
         {outline.volumes.map(renderVolume)}
         {outline.looseChapters.length > 0 && (
-          <div className="outline-volume">
+          <li className="outline-volume">
             <div className="outline-volume-row"><span className="outline-volume-title">未分卷</span></div>
-            <div className="outline-chapter-list">
+            <ul className="outline-chapter-list">
               {outline.looseChapters.map((chapter) => renderChapter(
                 { id: "loose", projectId: outline.project.id, title: "未分卷", sortOrder: 0, createdAt: "", updatedAt: "", revision: 1, chapters: outline.looseChapters },
                 chapter
               ))}
-            </div>
-          </div>
+            </ul>
+          </li>
         )}
-      </div>
+      </ul>
       {prompt && <PromptDialog prompt={prompt} onCancel={() => setPrompt(undefined)} />}
       {pendingOp && renderPendingImpact()}
     </div>

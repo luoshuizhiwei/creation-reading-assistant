@@ -219,23 +219,20 @@ export function OverviewPage({ projectId, onContinueWriting, onOpenInbox }: Over
         ) : (
           <ul className="overview-recent-list">
             {recentScenes.map((scene) => (
-              <li
-                key={scene.sceneId}
-                className="overview-recent-item"
-                tabIndex={0}
-                role="button"
-                onClick={() => handleJumpScene(scene.sceneId)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    handleJumpScene(scene.sceneId);
-                  }
-                }}
-                title={`跳到场景「${scene.sceneTitle}」并进入写作`}
-              >
-                <span className="overview-recent-scene">{scene.sceneTitle}</span>
-                <span className="overview-recent-chapter">{scene.chapterTitle}</span>
-                <span className="overview-recent-when">{relativeTime(scene.updatedAt)}</span>
+              // BD-234（结构与关系 1.3.1）：这行原先是 `<li role="button" tabindex=0>` ——
+              // li 一旦挂上 role=button，listitem 语义就被覆盖，`ul` 在无障碍树里成了空列表，
+              // 「最近编辑有几条」这条程序化关系整个丢了（实测见 scripts/audit-list-structure.mjs
+              // 的账本头）。改成 li 只当条目、行内再放真按钮，可点区域与外观不变。
+              <li key={scene.sceneId} className="overview-recent-item">
+                <button
+                  type="button"
+                  onClick={() => handleJumpScene(scene.sceneId)}
+                  title={`跳到场景「${scene.sceneTitle}」并进入写作`}
+                >
+                  <span className="overview-recent-scene">{scene.sceneTitle}</span>
+                  <span className="overview-recent-chapter">{scene.chapterTitle}</span>
+                  <span className="overview-recent-when">{relativeTime(scene.updatedAt)}</span>
+                </button>
               </li>
             ))}
           </ul>
