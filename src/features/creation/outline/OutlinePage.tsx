@@ -360,7 +360,12 @@ export function OutlinePage({ project }: OutlinePageProps) {
         <aside className="outline-page-side" aria-label="场景任务卡">
           {/* BD-225 装饰眉标：与紧邻的中文标题同义复述，标 lang=en 且不进读屏树 */}
           <p className="desktop-card-label" lang="en" aria-hidden="true">Scene card</p>
-          <h3>场景任务卡</h3>
+          {/* BD-230（WCAG 1.3.1 跳级）：工作台这几屏的页级标题是 BD-207 那条 sr-only <h1>
+              「项目名 · 大纲」，侧栏面板头用 <h3> 就是 1→3 跳级。改标签同时把
+              styles.css 的 `.outline-page-side h3` 扩出 `.outline-page-side > h2` 一条——
+              注意这里用**直接子级**：卡片头与 .stats-card 那族同一个角色，而侧栏里的表单
+              以后若挂出别的 h2，不该被这条面板头声明凭空上色。 */}
+          <h2>场景任务卡</h2>
           <ScenePlanningForm
             projectId={project.id}
             scene={selectedScene ? {

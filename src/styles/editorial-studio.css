@@ -942,6 +942,9 @@ select:focus-visible,
   background: var(--bg-surface) !important;
 }
 
+/* 批次 BD-230（WCAG 1.3.1 跳级）：卡片头族里跳级那三处标签降到 h2，本条跟着扩出 `.stats-card > h2`。
+ * 与 styles.css 同批同形状（直接子级、h2 支写在前面），原因写在那边。 */
+.stats-card > h2,
 .stats-card h3,
 .background-page-title {
   color: var(--text-main);
@@ -962,6 +965,7 @@ select:focus-visible,
   letter-spacing: 0.01em;
 }
 
+.stats-card > h2 svg,
 .stats-card h3 svg {
   color: var(--text-meta);
 }
@@ -995,7 +999,10 @@ select:focus-visible,
   padding: 16px 6px 8px !important;
 }
 
-.project-home > .stats-card > h3 {
+/* 批次 BD-230（WCAG 1.3.1 跳级）：选择器随标签同步改名（原 `.project-home > .stats-card > h3`）——
+ * 这条的宿主自古只有「最近项目」一个，它降到 h2 之后若还留着 h3，就是一条零宿主幻影，
+ * 所以这里是改名而不是并联。 */
+.project-home > .stats-card > h2 {
   margin: 0;
   /* 批次 BD-55（padding 14px 左右档族·面板头角色）：左右槽 14→16。
    * 这个 h3 的宿主同时是 .stats-card——那条基础档的左右槽本来就是 16

@@ -80,7 +80,16 @@ function GoalProgressCard({
 
   return (
     <div className="stats-card stats-goal-card">
-      <h3>
+      {/* BD-230（WCAG 1.3.1 跳级）：写作统计这一屏的页级标题是 BD-207 那条 sr-only
+          <h1>「项目名 · 写作统计」，卡片头再挂 <h3> 就是 1→3 跳级；本页七张卡片头
+          （目标进度／写作时长／连续写作／修订与结构／场景状态／最近 30 天／写作会话）
+          同批改成 <h2>。CSS 侧同步把 `.stats-card h3` 那族扩出 `.stats-card > h2`——
+          用直接子级而不是 `.stats-card h2`：收件箱详情 .stats-card.inbox-detail 里
+          已经有两个 h2（「条目正文」20px/680、「AI 候选版本」16px/600），它们是卡片
+          内容不是卡片头，写成后代选择器就会给它们凭空上色（实测 /tmp/bd230-probe-before.log
+          末屏计数 statsCardH2=2、直接子级=n）。概览页那六张卡上面还有 <h2>项目概览</h2>，
+          嵌套合法，保持 h3 不动。 */}
+      <h2>
         <Target size={15} /> 目标进度
         {setup ? (
           <Button
@@ -95,7 +104,7 @@ function GoalProgressCard({
             <Edit3 size={13} /> 编辑目标
           </Button>
         ) : null}
-      </h3>
+      </h2>
       <div className="stats-metric-switch" role="group" aria-label="字数指标预览">
         {(Object.keys(WORD_METRIC_LABELS) as WordMetric[]).map((item) => (
           <button
@@ -276,7 +285,7 @@ export function StatsPage({ projectId }: StatsPageProps) {
       <div className="stats-grid">
         <GoalProgressCard setup={setup} stats={stats} projectId={projectId} onUpdateGoal={handleUpdateGoal} />
         <div className="stats-card">
-          <h3><Clock3 size={15} /> 写作时长</h3>
+          <h2><Clock3 size={15} /> 写作时长</h2>
           <dl className="stats-words">
             <div><dt>今日</dt><dd>{formatMinutes(sessionMinutes.today)}</dd></div>
             <div><dt>本周</dt><dd>{formatMinutes(sessionMinutes.week)}</dd></div>
@@ -284,12 +293,12 @@ export function StatsPage({ projectId }: StatsPageProps) {
           </dl>
         </div>
         <div className="stats-card">
-          <h3><Flame size={15} /> 连续写作</h3>
+          <h2><Flame size={15} /> 连续写作</h2>
           <p className="stats-streak">{streakDays} 天</p>
           <p className="stats-note">按有写作会话的连续天数计算（含今天）。</p>
         </div>
         <div className="stats-card">
-          <h3><Library size={15} /> 修订与结构</h3>
+          <h2><Library size={15} /> 修订与结构</h2>
           <dl className="stats-words">
             <div><dt>正文修订</dt><dd>{revisionCount.toLocaleString("zh-CN")} 次</dd></div>
             <div><dt>命名快照</dt><dd>{snapshotCount.toLocaleString("zh-CN")} 个</dd></div>
@@ -298,7 +307,7 @@ export function StatsPage({ projectId }: StatsPageProps) {
           <p className="stats-note">章节状态是章节在项目工作流中的位置，与下面的场景状态是两种口径。</p>
         </div>
         <div className="stats-card stats-scene-status-card">
-          <h3><Layers size={15} /> 场景状态</h3>
+          <h2><Layers size={15} /> 场景状态</h2>
           {sceneStatusTotal > 0 ? (
             <dl className="stats-words">
               {sceneStatusRows.map((row) => (
@@ -317,7 +326,7 @@ export function StatsPage({ projectId }: StatsPageProps) {
       </div>
 
       <div className="stats-card stats-daily-card">
-        <h3>最近 30 天净增字数与写作时长</h3>
+        <h2>最近 30 天净增字数与写作时长</h2>
         {daily.every((item) => item.netChars === 0) ? (
           <p className="stats-note">最近 30 天还没有净增字数。在写作台输入或调整结构后，这里会按天记录变化。</p>
         ) : (
@@ -336,7 +345,7 @@ export function StatsPage({ projectId }: StatsPageProps) {
       </div>
 
       <div className="stats-card stats-sessions-card" ref={sessionsCardRef} tabIndex={-1}>
-        <h3><PencilLine size={15} /> 写作会话（可修正）</h3>
+        <h2><PencilLine size={15} /> 写作会话（可修正）</h2>
         {sessions.length === 0 ? (
           <p className="stats-note">在写作台输入、选择或结构操作时才会计时；空闲超过 5 分钟自动暂停，不记录具体按键内容。</p>
         ) : (

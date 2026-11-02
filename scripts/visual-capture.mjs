@@ -165,10 +165,13 @@ async function auditLayout(page) {
 
     // 批次 BD-100：.project-home-hero / .project-home-hero-copy 随版式改版消失，
     // 项目首页的标题现在是 .stats-card h3，正文走 .project-home-meta / .project-home-chars。
+    // ⚠ 批次 BD-230（WCAG 1.3.1 跳级）：那个卡片头由 h3 改成 h2（壳侧 <h1>「创作项目」下面
+    // 直接挂 h3 是跳级），CSS 侧同批把 `.stats-card h3` 那族扩出 `.stats-card > h2`。取样选择器
+    // 跟着并联两支——写成两条 sample 会各取一个宿主、把对比度账算重。
     const inkSamples = [
       sample(".desktop-commandbar h1", commandbarBg),
       sample(".project-home-item-main strong", itemBg),
-      sample(".stats-card h3", heroBg)
+      sample(".stats-card > h2, .stats-card h3", heroBg)
     ].filter(Boolean);
     const mutedSamples = [
       sample(".desktop-commandbar span", commandbarBg),

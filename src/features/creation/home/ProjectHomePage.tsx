@@ -85,7 +85,12 @@ export function ProjectHomePage({
         </div>
 
         <section className="stats-card">
-          <h3>最近项目</h3>
+          {/* BD-230（WCAG 1.3.1 跳级）：这一屏的骨架是壳侧 .desktop-commandbar 的 <h1>「创作项目」
+              （BD-229 定的那一个），下面直接挂 <h3> 等于读屏从 1 跳到 3。卡片头这个角色在统计页
+              与本页是同一个（.stats-card > h2），改标签的同时 CSS 侧把选择器扩成
+              `.stats-card > h2, .stats-card h3`——概览页那六张卡仍走 h3（它们上面有
+              <h2>项目概览</h2> 作父级，嵌套合法）。逐像素对账见 /tmp/bd230-probe-{before,after}.log。 */}
+          <h2>最近项目</h2>
           {!loaded ? (
             <p className="stats-note">加载中…</p>
           ) : entries.length === 0 ? (

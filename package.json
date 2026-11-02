@@ -112,7 +112,8 @@
     "audit:text-language": "node scripts/audit-text-language.mjs",
     "audit:identification": "node scripts/audit-consistent-identification.mjs",
     "audit:page-title": "node scripts/audit-page-title.mjs",
-    "audit:headings": "node scripts/audit-heading-one-h1.mjs"
+    "audit:headings": "node scripts/audit-heading-one-h1.mjs",
+    "audit:heading-order": "node scripts/audit-heading-order.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",

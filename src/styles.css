@@ -3465,6 +3465,12 @@ button:disabled {
   padding: 16px;
 }
 
+/* 批次 BD-230（WCAG 1.3.1 跳级）：卡片头这个角色改挂 <h2>（统计页七张 + 项目首页「最近项目」），
+ * 于是这条选择器扩出 `.stats-card > h2` 一支。⚠ 刻意用**直接子级**而不是 `.stats-card h2`：
+ * 收件箱详情 .stats-card.inbox-detail 里已经有两个 h2（「条目正文」「AI 候选版本」）是卡片**内容**
+ * 不是卡片头，写成后代就会给它们凭空上色（实测 /tmp/bd230-probe-before.log 末屏 statsCardH2=2、
+ * 直接子级=n）。概览页六张卡的 h3 合法嵌在 <h2>项目概览</h2> 之下，留在 h3 那一支。 */
+.stats-card > h2,
 .stats-card h3 {
   display: inline-flex;
   align-items: center;
@@ -3483,6 +3489,7 @@ button:disabled {
   padding-inline: 6px;
 }
 
+.stats-card > h2 svg,
 .stats-card h3 svg {
   /* BD-29 摘死色：color: var(--copper) 从未渲染——「.stats-card h3 svg」 在产物里被 editorial-studio.css:794 同键更晚的一条整条压住 */
 }
@@ -4837,6 +4844,13 @@ button:disabled {
   top: 0;
 }
 
+/* 批次 BD-230（WCAG 1.3.1 跳级）：大纲侧栏面板头「场景任务卡」由 h3 改 h2（这屏的页级标题是
+ * BD-207 那条 sr-only <h1>「项目名 · 大纲」，1→3 是跳级）。同样取直接子级，理由见上面那条
+ * .stats-card 的说明。⚠ 下一行那条 h3 选择器（带左花括号的那一行）正是注入电池 BD-30 反向④
+ * 那颗牙的锚（scripts/inject-test-design-tokens.mjs:761），所以 h2 支写在**前面**、让它原样
+ * 留在规则末尾——换序、或者把这条注释写成同样的字面量，都会把那颗牙变成哑牙或被锚点审计判成
+ * 「非唯一」。 */
+.outline-page-side > h2,
 .outline-page-side h3 {
   margin: 2px 0 10px;
   font-size: 16px;
