@@ -201,7 +201,11 @@ export function ReadingStatsPage() {
             {/* Period selector + nav */}
             <div className="desktop-panel-card flex items-end justify-between gap-4 p-4">
               <div>
-                <h1 className="paper-title text-2xl font-semibold">阅读与沉淀节律</h1>
+                {/* BD-229（WCAG 1.3.1 / G130）：同书库那一处——壳的命令条已经发了页级 h1
+                    「阅读统计」（这一屏的窗口标题正身就是它），这里不能再自立一个 h1，
+                    否则一屏两个页级标题、而且两套名字。这个编辑名留给 h2 档：
+                    它管的是「这一版讲的是什么节律」，不是这一屏是什么。 */}
+                <h2 className="paper-title text-2xl font-semibold">阅读与沉淀节律</h2>
                 <p className="mt-1 text-sm text-paper-muted">统计只计算有效阅读会话，后台挂起和空闲时间不会膨胀数据。</p>
               </div>
               <div className="flex items-center gap-3">

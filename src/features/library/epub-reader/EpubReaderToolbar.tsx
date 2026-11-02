@@ -36,7 +36,11 @@ export function EpubReaderToolbar({
     <header className="paper-topbar flex items-center gap-3 px-5">
       <BookOpen size={18} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold text-paper-ink">{title}</div>
+        {/* BD-229（WCAG 1.3.1 / G130）：这一屏此前一个标题元素都没有（实测 /tmp/bd229-epub-before.log
+            h1count=0）——正文在 epub.js 的 iframe 里，外层读屏大纲整屏是空的。工具条上这句书名
+            就是这一屏的正身（BD-228 的窗口标题也抄的它），给它标题语义。档口照旧：
+            text-sm/600 写在类上，preflight 把标题档重置过，改 tag 零像素漂移。 */}
+        <h1 className="truncate text-sm font-semibold text-paper-ink">{title}</h1>
         <div className="text-xs text-paper-muted">
           EPUB 阅读进度：{progressPercent}% · 本书累计 {formatDuration(totalReadingTimeMs)}
         </div>

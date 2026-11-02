@@ -142,7 +142,11 @@ export function LibraryPage() {
             {/* Top bar: heading + controls */}
             <div className="desktop-panel-card flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h1 className="paper-title text-2xl font-semibold">书库</h1>
+                {/* BD-229（WCAG 1.3.1 / G130）：一屏只留一个 h1。命令条那层已经由壳发过
+                    「书库」这个页级标题（BD-212 立的主地标、BD-227 拿它当窗口标题的正身），
+                    这里再摆一个同名 h1，读屏大纲里就出现两个平级的「书库」，第二个还把
+                    下面那句说明带进大纲。降成 h2：文案、paper-title 档（24px/32）一字不动。 */}
+                <h2 className="paper-title text-2xl font-semibold">书库</h2>
                 <p className="mt-1 text-sm text-paper-muted">共 {filteredAndSorted.length} / {books.length} 本，进度和有效阅读时长保存在本地。</p>
                 {/* BD-175：筛选后本数变化只写在屏幕上的这句里，读屏器听不到。常驻不可见区域播报。 */}
                 <span className="sr-only" role="status">
