@@ -181,7 +181,8 @@ export function ReadingStatsPage() {
       <div className="desktop-page-stack">
         <section className="desktop-page-hero motion-panel">
           <div>
-            <div className="desktop-card-label">Reading rhythm</div>
+            {/* BD-225 装饰眉标：与紧邻的中文标题同义复述，标 lang=en 且不进读屏树 */}
+            <div className="desktop-card-label" lang="en" aria-hidden="true">Reading rhythm</div>
             <h2>阅读统计仪表板</h2>
             <p>基于有效阅读会话聚合，不按单纯打开时长计算；桌面端用于复盘节奏、书籍推进和素材沉淀。</p>
           </div>

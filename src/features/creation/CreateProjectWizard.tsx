@@ -109,7 +109,8 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
       open={open}
       title={
         <div className="min-w-0">
-          <p className="desktop-card-label">New project</p>
+          {/* BD-225 装饰眉标：与紧邻的中文标题同义复述，标 lang=en 且不进读屏树 */}
+          <p className="desktop-card-label" lang="en" aria-hidden="true">New project</p>
           <span id="creation-wizard-title">新建作品</span>
         </div>
       }

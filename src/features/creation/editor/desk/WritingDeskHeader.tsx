@@ -37,7 +37,8 @@ export function WritingDeskHeader({
   return (
     <header className="writing-manuscript-head">
       <div>
-        <p className="desktop-card-label">Manuscript</p>
+        {/* BD-225 装饰眉标：与紧邻的中文标题同义复述，标 lang=en 且不进读屏树 */}
+        <p className="desktop-card-label" lang="en" aria-hidden="true">Manuscript</p>
         <h2>{title}</h2>
         <span>{subtitle}</span>
       </div>

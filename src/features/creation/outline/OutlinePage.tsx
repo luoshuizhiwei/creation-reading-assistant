@@ -358,7 +358,8 @@ export function OutlinePage({ project }: OutlinePageProps) {
           )}
         </div>
         <aside className="outline-page-side" aria-label="场景任务卡">
-          <p className="desktop-card-label">Scene card</p>
+          {/* BD-225 装饰眉标：与紧邻的中文标题同义复述，标 lang=en 且不进读屏树 */}
+          <p className="desktop-card-label" lang="en" aria-hidden="true">Scene card</p>
           <h3>场景任务卡</h3>
           <ScenePlanningForm
             projectId={project.id}

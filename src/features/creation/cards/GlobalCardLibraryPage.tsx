@@ -285,7 +285,8 @@ export function GlobalCardLibraryPage() {
     <section className="cards-page global-card-library" aria-label="全局卡片库">
       <header className="cards-toolbar global-card-library-toolbar">
         <div className="global-card-library-heading">
-          <span className="desktop-card-label">World bible</span>
+          {/* BD-225 装饰眉标：与紧邻的中文标题同义复述，标 lang=en 且不进读屏树 */}
+          <span className="desktop-card-label" lang="en" aria-hidden="true">World bible</span>
           <p><Layers3 size={15} /> {cards.length} 张全局卡片 · 改动会反映到所有关联作品</p>
         </div>
         <div className="cards-toolbar-right">

@@ -339,7 +339,8 @@ export function WritingQuickReferencePanel({
       />
       <header className="writing-quick-reference-head">
         <div>
-          <p className="desktop-card-label">Index drawer</p>
+          {/* BD-225 装饰眉标：与紧邻的中文标题同义复述，标 lang=en 且不进读屏树 */}
+          <p className="desktop-card-label" lang="en" aria-hidden="true">Index drawer</p>
           <h3>写作速查</h3>
         </div>
         <button type="button" onClick={() => void closePanel()} aria-label="关闭写作速查" title="关闭（Ctrl+Shift+K）"><PanelRightClose size={16} /></button>

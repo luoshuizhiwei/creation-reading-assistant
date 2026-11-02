@@ -28,7 +28,8 @@ export function SceneAiReport({ actionLabel, content, model, onClose }: SceneAiR
   return (
     <div className="writing-reanchor-backdrop" role="presentation">
       <section ref={dialogRef} onKeyDown={handleModalKeyDown} className="writing-reanchor-dialog scene-candidate-dialog" role="dialog" aria-modal="true" aria-label={`AI ${actionLabel}报告`} data-testid="scene-ai-report">
-        <p className="desktop-card-label">AI Report</p>
+        {/* BD-225 装饰眉标：与紧邻的中文标题同义复述，标 lang=en 且不进读屏树 */}
+        <p className="desktop-card-label" lang="en" aria-hidden="true">AI Report</p>
         <h4>
           <FileSearch size={14} /> {actionLabel}报告
         </h4>

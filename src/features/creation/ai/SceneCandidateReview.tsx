@@ -57,7 +57,8 @@ export function SceneCandidateReview({ candidate, currentBodyText, busy, onAccep
   return (
     <div className="writing-reanchor-backdrop" role="presentation">
       <section ref={dialogRef} onKeyDown={handleModalKeyDown} className="writing-reanchor-dialog scene-candidate-dialog" role="dialog" aria-modal="true" aria-label="AI 候选评审" data-testid="scene-candidate-review">
-        <p className="desktop-card-label">AI Candidate</p>
+        {/* BD-225 装饰眉标：与紧邻的中文标题同义复述，标 lang=en 且不进读屏树 */}
+        <p className="desktop-card-label" lang="en" aria-hidden="true">AI Candidate</p>
         <h4>
           <Sparkles size={14} /> AI 候选 · {sceneAiActionLabel(candidate.action)}
         </h4>

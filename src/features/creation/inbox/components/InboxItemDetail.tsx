@@ -54,7 +54,8 @@ export function InboxItemDetail({
     <div className="stats-card inbox-detail">
       <div className="inbox-detail-head">
         <div>
-          <div className="desktop-card-label">Editor</div>
+          {/* BD-225 装饰眉标：与紧邻的中文标题同义复述，标 lang=en 且不进读屏树 */}
+          <div className="desktop-card-label" lang="en" aria-hidden="true">Editor</div>
           <h2 className="paper-title mt-1 text-xl font-semibold">条目正文</h2>
         </div>
         <div className="flex items-center gap-2">
@@ -179,7 +180,8 @@ export function InboxItemDetail({
       )}
 
       <div className="mt-4 rounded-[var(--radius-2)] border border-paper-line bg-paper-panel">
-        <div className="desktop-card-label">AI polish</div>
+        {/* BD-225 装饰眉标：与紧邻的中文标题同义复述，标 lang=en 且不进读屏树 */}
+        <div className="desktop-card-label" lang="en" aria-hidden="true">AI polish</div>
         <h2 className="paper-title mt-1 text-base font-semibold">AI 候选版本</h2>
         {!aiAvailable ? (
           <div className="mt-2 rounded-md border border-paper-line bg-paper-soft/40 p-3 text-xs leading-[var(--leading-12)] text-paper-muted">

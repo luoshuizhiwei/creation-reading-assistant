@@ -106,7 +106,8 @@ export function BackgroundPage({ projectId }: BackgroundPageProps) {
     <section className="cards-page background-page" aria-label="背景设定">
       <header className="cards-toolbar">
         <div className="cards-toolbar-left">
-          <span className="desktop-card-label">World building</span>
+          {/* BD-225 装饰眉标：与紧邻的中文标题同义复述，标 lang=en 且不进读屏树 */}
+          <span className="desktop-card-label" lang="en" aria-hidden="true">World building</span>
           <h2 className="background-page-title">创作背景设定</h2>
           <input
             className="cards-input cards-search"
