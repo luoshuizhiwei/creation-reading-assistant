@@ -24,6 +24,7 @@ import { getConverter } from "@/utils/text-conversion";
 
 import { HIGHLIGHT_COLOR_FILL } from "@/features/library/reader/annotation-constants";
 import { Spinner } from "@/components/ui";
+import { useWindowTitle } from "@/app/window-title";
 import {
   applyReaderTheme,
   displayWithTimeout,
@@ -39,6 +40,10 @@ export function EpubReaderPage() {
   const activeBook = useLibraryStore((state) => state.activeBook);
   const epubUrl = useLibraryStore((state) => state.activeEpubUrl);
   const targetHref = useLibraryStore((state) => state.activeEpubTargetHref);
+  /* BD-228：同 TXT/Markdown 那一侧重——这一屏也不在 <DesktopFrame> 里，壳发不到它。
+     正身抄工具条上那份书名（title={activeBook.title}）；EPUB 的正文在 epub.js 的 iframe 里，
+     外层一个标题元素都没有，所以普查这一屏只能按「标题里要有这份书名」判，见 census 记档。*/
+  useWindowTitle("reader", activeBook ? `${activeBook.title} · 资料阅读` : "资料阅读");
   const progress = useLibraryStore((state) => (state.activeBook ? state.progress[state.activeBook.id] : undefined));
   const settings = useLibraryStore((state) => state.readerSettings);
   const setProgress = useLibraryStore((state) => state.setProgress);

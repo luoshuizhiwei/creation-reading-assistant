@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button, EmptyState, ShellPanel, TextInput } from "@/components/ui";
+import { useWindowTitle } from "@/app/window-title";
 import { ReaderTopNav } from "./components/ReaderTopNav";
 import { ReaderBottomBar } from "./components/ReaderBottomBar";
 import { ReaderSearchOverlay } from "./components/ReaderSearchOverlay";
@@ -73,6 +74,11 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
 
   const content = props?.content !== undefined ? props.content : storeContent;
   const progress = useLibraryStore((state) => (activeBook ? state.progress[activeBook.id] : undefined));
+  /* BD-228：阅读器这一屏挂在 App.tsx 单独一条分支上，不经过 <DesktopFrame>（BD-223 就是为这个
+     写的），所以壳那一层「资料阅读」压根没挂上来——实测开书后网页标题和系统窗口标题都只剩
+     「创作阅读助手」（/tmp/bd228-survey.log）。正身照这一屏 <h1> 渲染的那份 activeBook.title 抄，
+     后面接屏名，尾巴仍由 window-title.ts 拼应用名。*/
+  useWindowTitle("reader", activeBook ? `${activeBook.title} · 资料阅读` : "资料阅读");
   const settings = useLibraryStore((state) => state.readerSettings);
   const setReaderSettings = useLibraryStore((state) => state.setReaderSettings);
   const setScreen = useAppStore((state) => state.setScreen);
