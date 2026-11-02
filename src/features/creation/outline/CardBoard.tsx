@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { ArrowDown, ArrowUp, FileText } from "lucide-react";
 import { Button, Tabs } from "@/components/ui";
 import type {
   CreationOutlineChapter,
@@ -178,13 +178,16 @@ export function CardBoard({
       <span className="card-board-card-actions">
         {/* BD-171（续 BD-169）：卡板上每张卡都有一组同名的「上移」「下移」「移章」，
             读屏器列表里分不清动的是哪一场；aria-label 带上场景名，title 保留原样。 */}
+            {/* BD-226：卡板的重排钮原本是第二套画法（ChevronUp/ChevronDown），
+                与大纲树、卡片类型编辑器各不相同，且这两个尖括号跟「收起」的展开尖括号是同一份美术。
+                统一为 ArrowUp/ArrowDown：重排=箭头，展开/收起=尖括号，全应用一套。 */}
         {onSceneReorder && (
           <span className="card-board-reorder">
             <button type="button" title="上移" aria-label={`上移场景「${sceneTitle}」`} disabled={!upTarget.canMove || busy} onClick={() => void runEdit(() => onSceneReorder(sceneId, upBefore))}>
-              <ChevronUp size={12} />
+              <ArrowUp size={12} />
             </button>
             <button type="button" title="下移" aria-label={`下移场景「${sceneTitle}」`} disabled={!downTarget.canMove || busy} onClick={() => void runEdit(() => onSceneReorder(sceneId, downBefore))}>
-              <ChevronDown size={12} />
+              <ArrowDown size={12} />
             </button>
           </span>
         )}

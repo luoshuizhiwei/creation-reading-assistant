@@ -1,5 +1,7 @@
 import  { useEffect, useRef, useState } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronDown,
   ChevronRight,
   FileText,
@@ -436,9 +438,20 @@ export function OutlineTree({
       {/* BD-169：这些行内钮原本只有图标 + 通用 title，每卷/章/场景各一组，
           读屏器的按钮列表里会出现一长串同名「上移」「下移」「改名」，
           分不清动的是哪一条。aria-label 带上对象名，title 保留原名。 */}
+          {/* BD-226（WCAG 3.2.4 一致地识别）：这排重排钮原本画的是「旋转 270° 的右尖括号 + 下尖括号」，
+              而下尖括号在同一个视图里还是「收起卷 / 收起章节」那颗展开钮（.outline-volume-toggle、
+              .outline-chapter-toggle 两颗，展开态画的都是同一个下尖括号）——
+              同一个图案在一个界面里表示两种动作，低视力与认知障碍用户学到「▼ = 收起」后，
+              看到「▼ = 下移」就会点错。运行时普查量到「下移」与「收起」共用同一份图标美术
+              （含朝向的几何签名相同：下移 12 个实例 / 4 屏，收起 8 个实例 / 4 屏，
+              见 /tmp/sc324-survey3.log）。
+              改法：重排一律用 ArrowUp/ArrowDown，尖括号在整个应用里只表示展开/收起。
+              这不是新造约定——卡片类型编辑器（CardTypeEditor.tsx:385）本来就用上下箭头；
+              本仓的重排钮此前有三套画法（大纲树用旋转尖括号、卡板用 ChevronUp/Down、
+              类型编辑器用 ArrowUp/Down），这次统一到第三套。 */}
       <button type="button" title="新建章节" aria-label={`在卷「${volume.title}」新建章节`} onClick={() => void addChapter(volume)}><Plus size={12} /></button>
-      <button type="button" title="上移" aria-label={`上移卷「${volume.title}」`} disabled={!up.canMove} onClick={() => void moveVolume(volume, "up")}><ChevronRight size={12} className="rotate-270" /></button>
-      <button type="button" title="下移" aria-label={`下移卷「${volume.title}」`} disabled={!down.canMove} onClick={() => void moveVolume(volume, "down")}><ChevronDown size={12} /></button>
+      <button type="button" title="上移" aria-label={`上移卷「${volume.title}」`} disabled={!up.canMove} onClick={() => void moveVolume(volume, "up")}><ArrowUp size={12} /></button>
+      <button type="button" title="下移" aria-label={`下移卷「${volume.title}」`} disabled={!down.canMove} onClick={() => void moveVolume(volume, "down")}><ArrowDown size={12} /></button>
       <button type="button" title="改名" aria-label={`改名卷「${volume.title}」`} onClick={() => startEdit({ kind: "volume", id: volume.id, title: volume.title })}><Pencil size={12} /></button>
       {/* BD-172：删除是两步点击（第一次只进确认态），但确认态此前只有 .confirming
           的红边。图标钮没有文字可变，读屏器按第二次前完全不知道已经在确认；
@@ -466,8 +479,8 @@ export function OutlineTree({
     <span className="outline-node-actions">
       {/* BD-169：与卷行同理，章节行的同名操作钮也带上章节名。 */}
       <button type="button" title="新建场景" aria-label={`在章节「${chapter.title}」新建场景`} onClick={() => void addScene(chapter)}><Plus size={12} /></button>
-      <button type="button" title="上移" aria-label={`上移章节「${chapter.title}」`} disabled={!up.canMove} onClick={() => void moveChapter(volume, chapter, "up")}><ChevronRight size={12} className="rotate-270" /></button>
-      <button type="button" title="下移" aria-label={`下移章节「${chapter.title}」`} disabled={!down.canMove} onClick={() => void moveChapter(volume, chapter, "down")}><ChevronDown size={12} /></button>
+      <button type="button" title="上移" aria-label={`上移章节「${chapter.title}」`} disabled={!up.canMove} onClick={() => void moveChapter(volume, chapter, "up")}><ArrowUp size={12} /></button>
+      <button type="button" title="下移" aria-label={`下移章节「${chapter.title}」`} disabled={!down.canMove} onClick={() => void moveChapter(volume, chapter, "down")}><ArrowDown size={12} /></button>
       {outline.volumes.length > 1 && (
         <select
           className="outline-move-select"
@@ -520,8 +533,8 @@ export function OutlineTree({
     return (
     <span className="outline-node-actions">
       {/* BD-169：场景行同理。 */}
-      <button type="button" title="上移" aria-label={`上移场景「${scene.title}」`} disabled={!up.canMove} onClick={() => void moveScene(chapter, scene, "up")}><ChevronRight size={12} className="rotate-270" /></button>
-      <button type="button" title="下移" aria-label={`下移场景「${scene.title}」`} disabled={!down.canMove} onClick={() => void moveScene(chapter, scene, "down")}><ChevronDown size={12} /></button>
+      <button type="button" title="上移" aria-label={`上移场景「${scene.title}」`} disabled={!up.canMove} onClick={() => void moveScene(chapter, scene, "up")}><ArrowUp size={12} /></button>
+      <button type="button" title="下移" aria-label={`下移场景「${scene.title}」`} disabled={!down.canMove} onClick={() => void moveScene(chapter, scene, "down")}><ArrowDown size={12} /></button>
       {chapter.scenes.length > 0 && (
         <select
           className="outline-move-select"

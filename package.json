@@ -109,7 +109,8 @@
     "audit:reflow": "node scripts/audit-reflow.mjs",
     "audit:lazy-recovery": "node scripts/audit-lazy-recovery.mjs",
     "audit:text-spacing": "node scripts/audit-text-spacing.mjs",
-    "audit:text-language": "node scripts/audit-text-language.mjs"
+    "audit:text-language": "node scripts/audit-text-language.mjs",
+    "audit:identification": "node scripts/audit-consistent-identification.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",

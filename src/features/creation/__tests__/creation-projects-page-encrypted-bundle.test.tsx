@@ -182,7 +182,8 @@ describe("CreationProjectsPage 加密项目包入口", () => {
     fireEvent.change(screen.getByTestId("pe-confirm"), { target: { value: "passphrase1" } });
     fireEvent.click(screen.getByTestId("pe-ack"));
     fireEvent.click(screen.getByTestId("pe-submit"));
-    await waitFor(() => expect((screen.getByRole("button", { name: "导入包" }) as HTMLButtonElement).disabled).toBe(true));
+    // BD-226（WCAG 3.2.4）：头部那颗的名字从「导入包」改成与项目·首页一致的「导入项目包」
+    await waitFor(() => expect((screen.getByRole("button", { name: "导入项目包" }) as HTMLButtonElement).disabled).toBe(true));
     expect((screen.getByRole("button", { name: "加密导入" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

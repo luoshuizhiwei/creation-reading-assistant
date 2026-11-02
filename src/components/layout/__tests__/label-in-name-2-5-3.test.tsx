@@ -12,6 +12,10 @@
  *    「导出项目包 / 导出加密项目包 / 导入项目包 / 导入加密项目包」——中间插字，念不对；
  *  · 顶栏搜索：可见「搜索项目、收件箱、资料 Ctrl K」，名字只有「打开全局搜索（Ctrl K）」。
  *
+ * BD-226（WCAG 3.2.4 一致识别）后来改了其中一颗的写法：头部的「导入包」可见字与名字都换成
+ * 全称「导入项目包」，因为项目·首页那颗同名动作一直叫全称——3.2.4 要求同功能同名字，
+ * 而 2.5.3 只要求可见字进名字，换成全称后依然成立。本账本里那两行锁已随之改写。
+ *
  * 路径账（__tests__/ 起算）：../../../../ = 仓库根；../ = layout/；../../../features = src/features/。
  */
 import React from "react";
@@ -74,14 +78,18 @@ describe("BD-213 产品锚：可见字进了名字", () => {
     expect(search.getAttribute("aria-label")).toContain(visible);
   });
 
-  it("四个包操作的名字与可见文字逐字对齐，全称留在 title 里", () => {
-    for (const [visible, full] of [["导出包", "导出项目包"], ["加密导出", "导出加密项目包"], ["导入包", "导入项目包"], ["加密导入", "导入加密项目包"]]) {
+  it("包操作的名字与可见文字逐字对齐，全称留在 title 里", () => {
+    for (const [visible, full] of [["导出包", "导出项目包"], ["加密导出", "导出加密项目包"], ["加密导入", "导入加密项目包"]]) {
       expect(projectsPage).toContain(`aria-label="${visible}" title="${full}"`);
     }
     expect(projectsPage).not.toContain('aria-label="导出项目包"');
-    expect(projectsPage).not.toContain('aria-label="导入项目包"');
     expect(projectsPage).not.toContain('aria-label="导出加密项目包"');
     expect(projectsPage).not.toContain('aria-label="导入加密项目包"');
+    // BD-226（WCAG 3.2.4）：导入这颗换了写法——同一个动作不许在项目·首页叫「导入项目包」、
+    // 在头部叫「导入包」。短名退场后 2.5.3 仍然成立：可见字「导入项目包」就是可访问名本身。
+    expect(projectsPage).toContain('aria-label="导入项目包" title="导入项目包"');
+    expect(projectsPage).not.toContain('aria-label="导入包"');
+    expect(projectsPage).not.toContain("<span>导入包</span>");
   });
 
   it("副标题/角标不进可见标签口径（否则导航与项目卡会被误判）", () => {

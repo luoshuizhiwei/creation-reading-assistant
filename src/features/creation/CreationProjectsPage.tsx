@@ -503,9 +503,13 @@ export function CreationProjectsPage() {
                 <Lock size={16} />
                 <span>加密导出</span>
               </Button>
-              <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导入包" title="导入项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleImportBundle()}>
+              {/* BD-226（WCAG 3.2.4）：同一个「导入项目包」动作在项目·首页叫「导入项目包」、在头部叫「导入包」，
+                同一份图标美术挂出两个可及名——同一功能的识别必须同一个名字。头部这排实测有富余
+                （1360 窗这一组 820→844px，单行不换行、页级横滚 0；540 窗本就只有图标 36px，
+                量法见 /tmp/bd226-width-probe.log），于是统一到长名。 */}
+              <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导入项目包" title="导入项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleImportBundle()}>
                 <FolderInput size={16} />
-                <span>导入包</span>
+                <span>导入项目包</span>
               </Button>
               <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="加密导入" title="导入加密项目包" variant="secondary" disabled={operation.isActive || bundleEncryptFlow !== null} onClick={() => void requestEncryptedBundleImport()}>
                 <Unlock size={16} />
