@@ -155,6 +155,15 @@ export function SearchPanel() {
 
   useEffect(() => {
     if (!open) return;
+    // BD-245（WCAG 2.1.2 / 2.4.3）：开层有三条入口——侧栏那颗「打开全局搜索」钮、
+    // Ctrl/⌘+K 快捷键、别处的 setSearchOpen。原先只有快捷键那条在 149 行记下 opener，
+    // 从按钮进来的（哪怕之后全程用键盘）关层时无处可还：普查实测
+    // 「Esc 后焦点落回 body，没交还给『打开全局搜索…』」——键盘用户下一次 Tab 得从
+    // 窗口控制钮重走一整页。改成在「层刚开、焦点还没被输入框抢走」的这一刻统一补记，
+    // 三条入口都覆盖；快捷键那条已经记过的就不覆盖（它记的是按键前的落点，更准）。
+    if (!restoreFocusRef.current && document.activeElement instanceof HTMLElement) {
+      restoreFocusRef.current = document.activeElement;
+    }
     const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
   }, [open]);

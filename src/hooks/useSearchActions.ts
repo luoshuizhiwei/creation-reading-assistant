@@ -227,6 +227,18 @@ export function useSearchActions() {
         // blocked 保持打开 + 保留结果；invalid 也保持打开让用户选其它结果
         if (result === "navigated") {
           setOpen(false);
+          // BD-245（WCAG 2.1.1 / 2.4.3）：层一关，刚才被聚焦的那条结果按钮整棵卸载，
+          // 焦点直接跌回 body。实测（/tmp/bd245-probe8.log）：回车选中「落点项目」后
+          // 「焦点=·body·」，紧接着按 Tab 落的是「最小化窗口」——键盘用户每选一条结果
+          // 都得从窗口控制钮重新 Tab 一整屏，鼠标用户完全没有这个问题（他不需要焦点）。
+          // 交给本仓既有的 2.4.3 落点：PageTransition 的 .motion-page（interaction.tsx:271-278，
+          // tabIndex={-1}、脚本 focus 不画环、读屏落在其上即读新页正文）。它只在 screen
+          // 换 key 时接焦，而「项目首页 → 工作台某视图」这类**屏内**跳转不换 key，
+          // 正是那条网漏掉的一段——这里补的正是那一短段。
+          window.requestAnimationFrame(() => {
+            const landing = document.querySelector<HTMLElement>(".motion-page[tabindex='-1']");
+            landing?.focus({ preventScroll: true });
+          });
         }
         return result;
       } catch (error) {
