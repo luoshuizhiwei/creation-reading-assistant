@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-03T16:44:09.071Z",
+  "generatedAt": "2026-09-10T23:49:21.517Z",
   "allPass": true,
   "items": [
     {
@@ -18,9 +18,14 @@
       "detail": "首页显示项目 B"
     },
     {
+      "name": "全局卡片库检索与使用项目账册",
+      "ok": true,
+      "detail": "{\"visible\":true,\"title\":\"项目B独特角色卡\",\"usage\":\" 使用项目1测试项目B\",\"searchValue\":\"项目B独特角色卡\"}"
+    },
+    {
       "name": "IPC 准备项目 B 独特章节名",
       "ok": true,
-      "detail": "{\"chapterId\":\"chapter-a71596ac-7d11-498a-a3a9-b910acf1e1f5\",\"chapterTitle\":\"项目B独特章节\",\"firstSceneId\":\"scene-9b15b0db-7a61-4b75-995d-7f7843f3ab10\",\"firstSceneTitle\":\"默认场景\"}"
+      "detail": "{\"chapterId\":\"chapter-a3940574-8e6a-4bcf-a420-a52ebaf7e99d\",\"chapterTitle\":\"项目B独特章节\",\"firstSceneId\":\"scene-2d0f4b7c-78a1-40e3-a281-34ac89942e3a\",\"firstSceneTitle\":\"默认场景\"}"
     },
     {
       "name": "未预载项目章节跳转（真实 chapter 结果）",
@@ -35,7 +40,7 @@
     {
       "name": "跨项目卡片跳转（A→B）",
       "ok": true,
-      "detail": "{\"overlayOpen\":false,\"heroH2\":\"测试项目B\",\"heroP\":\"管理角色、地点、组织等创作卡片与它们之间的关系；背景设定作为卡片页的二级入口。\",\"hasCardsDesc\":true,\"hasCardTitle\":true,\"activeCardTitle\":\"项目B独特角色卡\",\"detailTitle\":\"项目B独特角色卡\",\"cardContext\":\" 概览 写作 大纲 卡片 统计 版本历史Cards 看板 列表 背景设定 卡片类型 关系类型 导入 导出 新建卡片角色1项目B独特角色卡地点0暂无卡片组织0暂无卡片物品0暂无卡片世界规则0暂无卡片情节\"}"
+      "detail": "{\"overlayOpen\":false,\"heroH2\":\"测试项目B\",\"heroP\":\"管理角色、地点、组织等创作卡片与它们之间的关系；背景设定作为卡片页的二级入口。\",\"hasCardsDesc\":true,\"hasCardTitle\":true,\"activeCardTitle\":\"项目B独特角色卡\",\"detailTitle\":\"项目B独特角色卡\",\"cardContext\":\" 写作 大纲 设定卡 写作统计 版本历史Cards 看板 列表 背景设定 卡片类型 关系类型 导入 导出 新建卡片角色1项目B独特角色卡地点0暂无卡片组织0暂无卡片物品0暂无卡片世界规则0暂无卡片情节\"}"
     },
     {
       "name": "第 1050 条收件箱搜索",
@@ -50,12 +55,12 @@
     {
       "name": "摘录 IPC 持久化（收件箱 inbox.create）",
       "ok": true,
-      "detail": "itemId=inbox-fc9c3152-aaa2-4e5d-943a-017555f6edc0"
+      "detail": "itemId=inbox-3d2c0c76-70db-4ed7-9829-a352fd7513ff"
     },
     {
       "name": "摘录 IPC 持久化（reference 资料卡 card.create）",
       "ok": true,
-      "detail": "entityId=card-6ff750c5-e0e9-4d19-98b8-56fb000316d0"
+      "detail": "entityId=card-42a8ea4f-5dd5-4076-abc7-9429b6ac33c4"
     },
     {
       "name": "smoke 截图",

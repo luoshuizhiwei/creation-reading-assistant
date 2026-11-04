@@ -1,0 +1,298 @@
+/* --------------------------------------------------------------------------
+ * 设置页 / 阅读抽屉共享控件样式（滑块、开关、数字步进、色卡、搜索高亮）
+ * 颜色一律使用 src/styles/tokens.css 语义令牌，不硬编码。
+ * ----------------------------------------------------------------------- */
+
+/* ---- PaperSlider ---- */
+
+.paper-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.paper-slider:focus-visible {
+  outline: none;
+}
+
+.paper-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--action-primary) 0%,
+    var(--action-primary) var(--slider-progress, 50%),
+    var(--separator-subtle) var(--slider-progress, 50%),
+    var(--separator-subtle) 100%
+  );
+}
+
+.paper-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--action-primary);
+  background: var(--surface-1);
+  box-shadow: 0 1px 4px rgba(15, 20, 28, 0.22);
+  transition: transform 120ms ease;
+}
+
+.paper-slider:hover::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+.paper-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px var(--action-tint);
+}
+
+.paper-slider-value {
+  font-family: var(--font-data);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  min-width: 40px;
+  padding: 2px 6px;
+  text-align: center;
+  border: 1px solid var(--separator-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.paper-slider-value--active {
+  color: var(--action-primary);
+  border-color: var(--action-primary);
+}
+
+.paper-slider-ticks {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 2px 0;
+}
+
+.paper-slider-ticks span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--separator);
+}
+
+/* ---- Switch ---- */
+
+.paper-switch-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.paper-switch-track {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--separator);
+  background: var(--surface-2);
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.paper-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  transition: transform 150ms ease, background 150ms ease;
+}
+
+.paper-switch-input:checked + .paper-switch-track {
+  background: var(--action-primary);
+  border-color: var(--action-primary);
+}
+
+.paper-switch-input:checked + .paper-switch-track::after {
+  transform: translateX(16px);
+  background: #fff;
+}
+
+.paper-switch-input:focus-visible + .paper-switch-track {
+  box-shadow: 0 0 0 3px var(--action-tint);
+}
+
+.paper-switch-input:disabled + .paper-switch-track {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---- NumberStepper ---- */
+
+.paper-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  height: 36px;
+  border: 1px solid var(--separator-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  overflow: hidden;
+}
+
+.paper-stepper:focus-within {
+  border-color: var(--action-primary);
+  box-shadow: 0 0 0 3px var(--action-tint);
+}
+
+.paper-stepper button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.paper-stepper button:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.paper-stepper button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.paper-stepper input {
+  width: 64px;
+  border: 0;
+  border-left: 1px solid var(--separator-subtle);
+  border-right: 1px solid var(--separator-subtle);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-data);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  outline: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.paper-stepper input::-webkit-outer-spin-button,
+.paper-stepper input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.paper-stepper-unit {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-left: 1px solid var(--separator-subtle);
+  color: var(--text-muted, var(--text-tertiary));
+  font-size: 12px;
+}
+
+/* ---- BackgroundPicker 色卡 ---- */
+
+.reader-bg-swatch {
+  display: grid;
+  grid-template-rows: 30px auto;
+  gap: 4px;
+  justify-items: center;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.reader-bg-swatch:hover {
+  background: var(--surface-2);
+}
+
+.reader-bg-swatch-chip {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-width: 44px;
+  height: 30px;
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.reader-bg-swatch-chip svg {
+  color: var(--action-primary);
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.85));
+}
+
+.reader-bg-swatch-name {
+  font-size: 10.5px;
+  line-height: 1;
+  color: var(--text-secondary);
+}
+
+.reader-bg-swatch[aria-checked="true"] {
+  border-color: var(--action-primary);
+  background: var(--action-tint);
+}
+
+.reader-bg-swatch[aria-checked="true"] .reader-bg-swatch-name {
+  color: var(--action-primary);
+  font-weight: 600;
+}
+
+.reader-bg-swatch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--action-tint);
+}
+
+/* ---- FontPicker ---- */
+
+.font-picker-option-sample {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.font-picker-option-meta {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+}
+
+/* ---- 设置搜索 ---- */
+
+.settings-search-hit {
+  animation: settings-search-flash 2s ease-out forwards;
+}
+
+@keyframes settings-search-flash {
+  0%,
+  55% {
+    box-shadow: 0 0 0 2px var(--action-primary);
+    background: var(--action-tint);
+  }
+  100% {
+    box-shadow: 0 0 0 2px transparent;
+    background: transparent;
+  }
+}
+
+.settings-search-result mark {
+  background: transparent;
+  color: var(--action-primary);
+  font-weight: 600;
+}

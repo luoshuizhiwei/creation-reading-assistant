@@ -1,4 +1,5 @@
 import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
+import "@/features/settings/settings-controls.css";
 
 export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "quiet" }>(function Button({
   children,
@@ -66,3 +67,7 @@ export * from "./ui/Dialog";
 export * from "./ui/Tabs";
 export * from "./ui/Select";
 export * from "./ui/Spinner";
+export * from "./ui/Slider";
+export * from "./ui/Switch";
+export * from "./ui/NumberStepper";
+export * from "./ui/FontPicker";

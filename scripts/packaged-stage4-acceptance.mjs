@@ -363,11 +363,19 @@ async function main() {
 
     console.log(`[packaged-stage4] ALL PASS — ${checks.length} checks`);
   } finally {
-    await app.close();
+    // NB16 维护（2026-11-04）：app.close() 在本环境可能挂起（NB15 曾 36min 无退出），
+    // 加 15s 超时竞争；进程退出由尾部兜底保证，失败 exitCode 不被掩盖。
+    await Promise.race([
+      app.close(),
+      new Promise((resolve) => setTimeout(resolve, 15_000)),
+    ]);
   }
 }
 
 main().catch((err) => {
   console.error("[packaged-stage4] FAILED:", err);
   process.exitCode = 1;
+}).finally(() => {
+  const t = setTimeout(() => process.exit(process.exitCode || 0), 3_000);
+  if (typeof t.unref === "function") t.unref();
 });

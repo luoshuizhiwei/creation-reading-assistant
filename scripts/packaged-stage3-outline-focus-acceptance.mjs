@@ -14,7 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const packagedDirectory = process.env.CREATION_PACKAGED_DIRECTORY
   ? path.resolve(process.env.CREATION_PACKAGED_DIRECTORY)
-  : path.join(root, "release-beta-stage3-final", "win-unpacked");
+  : path.join(root, "release-beta-stage3-final-v8", "win-unpacked");
 const sourceExecutablePath = path.join(packagedDirectory, "创作阅读助手.exe");
 const evidenceDirectory = path.join(root, "output", "playwright");
 const temporaryRoot = mkdtempSync(path.join(os.tmpdir(), "creation-packaged-stage3-"));
