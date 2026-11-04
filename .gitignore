@@ -75,3 +75,17 @@ Thumbs.db
 # 截图巡检产物：任务完成后即弃，不入库（capture 脚本可随时重新生成）
 scripts/visual-evidence-r4-pages/
 scripts/visual-evidence-r4/
+
+# 真机 QA 验收证据：截图与 logcat 日志体积大（约 900MB），不入库
+/docs/qa/evidence/
+
+# RD-20261104：会话工件与本地诊断产物（保护性防呆，文件留存本地不入库）
+/dump*.xml
+/window_dump.xml
+/product.patch
+/.opencode/
+/.scratch-shots/
+/.workbuddy-ai/
+/.zcode/
+/.zcodeignore
+/android/scripts/ui_now.xml

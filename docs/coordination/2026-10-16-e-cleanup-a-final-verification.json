@@ -1,0 +1,94 @@
+{
+  "schema": "cra-space-cleanup-final/1",
+  "status": "COMPLETED",
+  "authorized_target_count": 10,
+  "deleted_and_verified_count": 10,
+  "before_free_bytes": 65445888000,
+  "after_free_bytes": 100850503680,
+  "observed_net_free_increase_bytes": 35404615680,
+  "after_free_percent": 10.08317176565378,
+  "logical_proposal_bytes": 35442147441,
+  "targets": [
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v4\\_cache\\gradle-home\\caches",
+      "absent": true,
+      "parent_preserved": true,
+      "successful_deletion_receipt": true,
+      "sibling_check_passed": true
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v3\\_cache\\gradle-home\\caches",
+      "absent": true,
+      "parent_preserved": true,
+      "successful_deletion_receipt": true,
+      "sibling_check_passed": true
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v2\\_cache\\gradle-home\\caches",
+      "absent": true,
+      "parent_preserved": true,
+      "successful_deletion_receipt": true,
+      "sibling_check_passed": true
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v1\\_cache\\gradle-home\\caches",
+      "absent": true,
+      "parent_preserved": true,
+      "successful_deletion_receipt": true,
+      "sibling_check_passed": true
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-crossbook-temporary-seam-v3\\gradle-home\\caches",
+      "absent": true,
+      "parent_preserved": true,
+      "successful_deletion_receipt": true,
+      "sibling_check_passed": true
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-crossbook-temporary-entry-v1\\android\\gradle-home\\caches",
+      "absent": true,
+      "parent_preserved": true,
+      "successful_deletion_receipt": true,
+      "sibling_check_passed": true
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-fix-v2\\gradle-home\\caches",
+      "absent": true,
+      "parent_preserved": true,
+      "successful_deletion_receipt": true,
+      "sibling_check_passed": true
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-fix-v3\\gradle-home\\caches",
+      "absent": true,
+      "parent_preserved": true,
+      "successful_deletion_receipt": true,
+      "sibling_check_passed": true
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-fix-v4\\gradle-home\\caches",
+      "absent": true,
+      "parent_preserved": true,
+      "successful_deletion_receipt": true,
+      "sibling_check_passed": true
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-persist-fix-v1\\gradle-home\\caches",
+      "absent": true,
+      "parent_preserved": true,
+      "successful_deletion_receipt": true,
+      "sibling_check_passed": true
+    }
+  ],
+  "preserved_paths_present": {
+    "E:\\creation-reading-assistant\\txt-persist-codex-completion-20261006\\gradle-home\\caches": true,
+    "E:\\creation-reading-assistant\\task48-temporary-return-freeze-v4": true,
+    "E:\\creation-reading-assistant\\task49-inner-restore-cleanup-v4\\REPORT.md": true,
+    "E:\\creation-reading-assistant\\task50-remeasure-probe-repair-v3\\REPORT.md": true,
+    "E:\\creation-reading-assistant\\root-runtime-device-20261015\\evidence\\source-sha256.v9.json": true,
+    "E:\\creation-reading-assistant\\cra-db2": true,
+    "E:\\creation-reading-assistant-backups": true
+  },
+  "stopped_processes": [],
+  "note": "Only approved ten caches children; no batch B cleanup. Free-space delta is overall observed drive change while user task may run. Prior prechecks and conservative PID skips retained as original receipts; old daemon PIDs were reused by non-Java processes."
+}

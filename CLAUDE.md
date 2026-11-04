@@ -1,60 +1,27 @@
-# 项目目标与工作约定
+# 项目协作约定
 
-> 本文件每次打开项目都会自动加载。目录结构与构建命令见 [AGENTS.md](AGENTS.md)。
+更新：2026-10-30。工程规则以[AGENTS](AGENTS.md)及[当前交接](docs/handoff/current.md)为准；本文不另外授予提交、发布、设备或外部消息权限。
 
-## 产品目标与范围
+## 当前范围与启动
 
-仓库有两条活跃且运行时隔离的产品线，任务开始时先按路径确定归属，禁止顺手跨线修改：
+- 当前仅原生Android稳定阅读与轻量取材。`src/`、`electron/`桌面资产保留，当前不实施/构建/验收；`archives/frozen-mobile/`只读历史。
+- 先读[接手说明](docs/handoff/next-codex.md)、current及直接相关任务，不加载全历史；按产品路径确定归属，不跨线修改。
+- 实际构建候选在E盘，D仓库是源码/协调入口；具体输入、owner和构建锁只在current维护。
+- 保存、回源、已有数据安全优先。技术方案与既有许可证材料按实际用途审查，历史自用描述不是自动移除许可义务的授权。
 
-- `src/`、`electron/`：Electron 桌面创作工作台，主线是项目、正文写作、结构化创作资料与本地资料阅读。
-- `android/`：独立原生 Android 阅读端，主线是中文阅读体验、流畅度和本地创作辅助。
-- `archives/frozen-mobile/`：已删除 Capacitor 产品线的只读历史存档，不接受功能修改。
+## 行为与证据
 
-Android 任务的优先级仍是阅读体验与流畅度优先，再参考 `docs/research/legado-with-md3-analysis.md` 补齐能力。两端都坚持本地优先；不做登录、云服务或自建服务器。
+- 独立且有价值的任务可并行，公共源码/联合构建/同设备唯一owner；同问题实施、必要编译修复和验证同owner闭环。
+- 完成后核实际源码与原日志/rc，再报告范围；未变充分证据复用，不默认全suite或设备重试。
+- 不把“阶段完成”解释成自动Git提交或发布。无明确当前授权不暂存、提交、push、PR或发布，不清理既有资产。
+- 设备许可只见current；本恢复项目允许限定MuMu，不沿用旧“禁模拟器”规则，不将模拟器结果外推真机。
+- 读写其他应用私有记忆库需明确授权；仓库内链接不构成跨应用私库许可。
 
-详细目录边界、构建命令和设备约束以 [AGENTS.md](AGENTS.md) 为准。
+## 与用户协作
 
-## 不要逐段汇报
+结论先说，区分已完成/未完成/下一步；技术证据留文档。用户手动分发提示词、自动化暂停的决定有效，不代发或恢复。即使另获电脑操控授权，也只短暂单发确认后放手，不驻留查进度。
 
-做完一个阶段 → 提交 → 更新记忆 → **立刻开始下一个阶段**，不要停下来等确认。
-只在三种情况下打断用户：需要他拍板且会改变后续方向的决策、需要他动手的事、
-他必须知道的坏消息（数据风险、方向性错误）。
+## 环境参考
 
-## 用户是非技术人员
-
-- 结论先说，用大白话。技术细节写进项目文档，对话里只留用户需要知道的
-- 需要决策时，把选项翻译成后果，不要让用户在技术方案之间选
-- 完整协作约束见本仓库 `AGENTS.md` 与 `D:\Application\文档\Obsidian\Codex\AGENTS.md`
-
-## 环境陷阱
-
-**1. 项目路径含中文 → Gradle 跑不了单元测试。（2026-07-27 已根治）**
-项目已从 `创作阅读助手` 改名为 `creation-reading-assistant`，
-`./gradlew :app:testDebugUnitTest` 现在能正常跑 —— 直接用它，
-**不要**再走「复制编译产物到 ASCII 目录 + JUnitCore」那套绕行方案（历史文档里还有残留描述）。
-原故障是测试 worker 的类路径经参数文件传递时中文路径段编码错乱，导致全部测试类
-`ClassNotFoundException`，无法在配置层修复，只能换路径。
-
-**2. Kotlin 守护进程编码（已修，别改回去）。**
-`gradle.properties` 的 `kotlin.daemon.jvmargs` 必须带 `-Dfile.encoding=UTF-8`。
-守护进程是独立 JVM，不继承 `org.gradle.jvmargs`；缺了它会在中文 Windows 上按 GBK 读源码，
-**全项目中文字面量静默变乱码**，且是否发作取决于当时哪个守护进程在跑。改动后需 `./gradlew --stop`。
-
-## 已定的技术决策（勿反复推翻）
-
-**阅读器内核自研，不引第三方。** 当前架构见
-`docs/architecture/native-android-reader.md`；后续功能候选见
-`docs/plans/legado-feature-backlog.md`。
-
-- Readium：分页锁在 WebView 里，与纯原生冲突
-- `archives/frozen-mobile/legado-reader-core`：其 `ZhLayout` 在仓库里是死代码，接进来拿不到中文排版
-- **许可证不再是约束**：用户确认本应用仅自用、不外传，GPL 义务只在分发时触发。
-  因此可以直接参考并改写上游 legado 的算法，不必"只读规格从零重写"。
-  （若将来要分发，需补回来源说明与 GPL 材料。）
-
-## 验证方式
-
-用户已授权 adb 连接真实手机、安装 debug 包和截图。
-**UI 改动必须真机截图确认**，多次证明读代码看不出问题。禁止使用 MuMu
-模拟器；执行前用 `adb devices` 核对当前设备，并用 `adb -s <serial>` 明确指定。
-长测试若临时开启 `stay_on_while_plugged_in`，结束时必须恢复原值。
+使用current指定的既有E盘候选和依赖，不复制工程/缓存绕过构建问题。UTF-8等编码配置以实际现有构建配置为准，不为历史问题随意改全局环境或停止共享Gradle。
+架构参考见[Android阅读器架构](docs/architecture/native-android-reader.md)，功能候选见[backlog](docs/plans/legado-feature-backlog.md)，不把调研当当前任务。

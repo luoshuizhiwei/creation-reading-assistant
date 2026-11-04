@@ -1,0 +1,14 @@
+````text
+任务151-v1｜ZCode A：149页面退出测试宿主/collector接线（离线），等待150新APK固定pin｜2026-10-27 HK｜GLM-5.3-Flash当前档｜25分钟
+Root已核148-r3实际新tar、三根逐文件集合SHA和正常uninstall一次，限定恢复收尾接受；原148-r2单次滚动业务PASS但原整体false永留。Download .exmu-cfg1.data差异归因未知，不伪造补文件、不宣称完整全同。你本轮释放设备，不再ADB/VM/安装/设置/instrument；B150-v1独占Gradle构建新匹配APK，你实现下一页面测试设备批次必需的host接缝，真正并行不争资源。
+先读current页首及149/recheck-r2/ready，真实candidate测试路径app/src/androidTest/java/com/creationreadingassistant/ui/screen/reader/ReaderExitSaveDrainDeviceTest.kt SHA7dcfa26ae31d3205a5b1f6a976483597854cea811e59a390c563ab541100c061；已有compile已接受不重跑。类com.creationreadingassistant.ui.screen.reader.ReaderExitSaveDrainDeviceTest，四性质：pending页面存活/Back防重入、保存完成后pop一次、失败反馈+第二代重试成功、无pending正常退出。受控await接缝+生产ReaderScreen/NavHost组合，不是Room进度落盘/进程死亡全链。测试不生成t141b成果JSON，不得复用scroll结果字典造绿。
+唯一新输出E:/creation-reading-assistant/task151-exit-page-host-offline-v1/。只写新host/collector/必要inputs生成实现、最小patch、REPORT、raw/ready。旧host/父/adapter/inputs/summary和candidate冻结不改，不复制历史链/工程/APK。source/doc512KiB、raw+fake512KiB，mock大归档内存构造，必要原件最小保留。
+实现实际可用入口，优先引用冻结真实父/基座+148修复，不另造Dev API或StubParent：
+1 load_parent后scope先bind，再fresh instance；actualDev.sh(*args,timeout,stdin)不编造capture_stdout，runner=testpkg/CraIsolatedTestRunner，instrument -e class必须新测试类。runid/budget/attempt/summary/output/protection同scope，恢复reserve至少1200。
+2 新collector真实读取本次instrument独占raw输出/原rc（不是旧t141b files）：必须实际四个预期测试名字完整终态、0 failures/errors/skips/assumption/abort、唯一合法总终态，class与host当前参数绑定。先核真实runner输出格式及现有capture机制，不能只字符串contains OK(4 tests)或拿旧log。失败/缺测/重复终态/未知状态严格失败。业务boolean与父要求tuple适配按真实API；不为编译或mock绿降断言。
+3 保留父owner/user0/产品初始缺席/原test数据/setting/Download/protection/预算和单attempt门。四测试无t141b assets，不允许为“无assets”直接取消原产品保全。真实恢复hook必须接148-r3新tar源流与完整三根门，不再调用旧污染命令；恢复失败KEEP_PRODUCT、overall false且安全独立恢复，不将旧148结果改绿。对settings/数据持久化副作用据实际test确认边界，不凭“只读”声明省恢复。
+4 新inputs必须由本轮真实文件sizeSHA固定，包含新ReaderScreen源47183B SHA72324af1ef348c240237ae2b66d3d58e73a88c03d94ca911139ec770da73db4e、新test源、host/collector/修复恢复引用及原恢复件/readerfreeze角色。新APK只来自B150/ready可实核的产物路径fullSHA，不从旧144/None/运行后回填。B未交时完成其余实现和必要offline验证，记录WAITING_TASK150_APK不冒充可运行；B交付后只读其ready/原件关闭输入pin，别在任务里频繁忙等/全复审构建日志。不修改B输出，不跟B互发消息。
+必要离线定向红绿：真实新main+真实父run_attempt/collector/recover外部strictmock，正常四测试真体调用与summary正确、缺测/失败结果假、恢复归档异常保产品且整体假、同scope身份偏差拒变更；未知外部端点抛错，不StubParent或计划字典代链。不要重刷旧146全部suite；test输出样本必须来自实际runner协议，模拟范围显式SYNTHETIC_FAKE不能标设备。
+提交前你自行核实际新函数globals接线、输入pins、单scope、四test真正断言与结果协议、错误整体裁决、恢复proof持久化、所有前后SHA和预算。具体新增问题同owner修复补必要验证后再交，不留基础缺口等Root下一轮。若真实协议或SDK证据不足，准确标阻塞而非猜。
+无设备权限/无真实新runid预算attemptsummary/instrument；全部运行只fake scope，不能误发真实su tar或ADB，dispatcher未匹配先拒绝；你上批offline首跑误发设备只读tar的限制如实留记录，不再发生。不Gradle/build/新APK、不Git/发布云/私库自动记忆/删旧件，不current/自动化。ZCode额度未知不猜，明确耗尽报Root，不自行切换双写。最后单独末行：这是任务151-v1。
+````

@@ -88,7 +88,7 @@ P6（排版收尾 + `pagerEngineMode` 灰度默认开）。这条线本身就是
 - **工作量**：1–2 天。
 - **依赖模块**：ReaderScreen 根层绘制、`SettingsStore`。
 - **备料已就绪**：设计稿（含算好的色温系数表、Compose 实现、定时判定、验收标准）
-  见 `docs/plans/backlog-04-eye-care-filter-design.md`，实施时照单做。
+  见 `docs/plans/candidates/backlog-04-eye-care-filter-design.md`，实施时照单做。
 
 ### 5. 章节流式排版（第一页先出）
 
@@ -106,7 +106,10 @@ P6（排版收尾 + `pagerEngineMode` 灰度默认开）。这条线本身就是
 ### 6. 亮度直控 + 滑动调亮度手势
 
 - **是什么**：阅读菜单里的亮度条直接调系统窗口亮度（现在是 45–100 的压暗遮罩，
-  最低也不够暗）；可选做屏幕左缘上下滑调亮度。
+  最低也不够暗）；屏幕左/右缘上下滑调亮度。
+- **状态（2026-09-17）**：已落地。阅读期在正文左右边缘（各 18dp 窄条）纵向滑动即可调亮度，
+  无需先唤出菜单；上滑增亮、下滑减亮，全屏高 ≈ ±100%，调节时中央显示 HUD。
+  边缘轻触不会误触（位移阈值门控，见 `ReaderBrightnessGesture.kt`）。
 - **对阅读体验**：中。夜间最低亮度不够暗是真实痛点。
 - **工作量**：1–2 天（`window.attributes.screenBrightness` + 跟随系统开关；
   遮罩保留作为额外压暗）。
@@ -158,7 +161,7 @@ P6（排版收尾 + `pagerEngineMode` 灰度默认开）。这条线本身就是
 - **依赖模块**：`feature/reader/doc/TxtChapterDetector`、`doc/PlainTextDocument`、
   书籍详情 Sheet（入口）。
 - **备料已就绪**：规则集草案（8 条规则的正则与用例、交互流程、误报对策、
-  待验证清单）见 `docs/plans/backlog-09-txt-toc-rules-design.md`。
+  待验证清单）见 `docs/plans/candidates/backlog-09-txt-toc-rules-design.md`。
 
 ### 10. 阅读统计增强：日粒度 + 热力图 + 周期总览
 
@@ -222,7 +225,7 @@ P6（排版收尾 + `pagerEngineMode` 灰度默认开）。这条线本身就是
   （`BoundedReplaceProjector`，含 display↔source 偏移映射）已实现并有单测；
   **正文渲染未接线**（`effectiveReplace` 生产零消费，分页签名不含规则身份）。
   接线方案已核实并落档：
-  [`plans/replace-rules-render-integration-design.md`](replace-rules-render-integration-design.md)
+  [`plans/replace-rules-render-integration-design.md`](android/replace-rules-render-integration-design.md)
   （四片交付：装饰器 source → pager 控制器坐标翻译 → 宿主渲染翻译 → legacy/滚动路径；
   实施前须与 reader 引擎 WIP 协调文件所有权）。
 - **对阅读体验**：低中。本地书没有书源广告，需求比 legado 场景弱得多。

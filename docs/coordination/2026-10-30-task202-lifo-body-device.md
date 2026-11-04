@@ -1,0 +1,26 @@
+````text
+# 任务202-v1：正文语义修正后的单批MuMu LIFO验证与完整恢复
+2026-10-30，Antigravity当前Gemini3.8FlashHigh，同原201/200会话owner。唯一原instance1设备/runtime/driver owner，公共candidate/Gradle只读。Root明确授权本新批fresh完整预检后单main单instrument及合同内必要安装/设置/保全恢复/单user0stop/父正常卸载。不是重复199旧attempt，不变断言或现场修源码。当前无第二必要独立项，不凑并行。
+
+先读活动D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/handoff/current.md页首。本轮输入改变仅200真实正文容器祖先采样测试，before199测试全屏Text含章节chrome导致负断言红，产品根因尚未设备排除；必须真实验证T1/T2/回T1/普通S0全部强合同，不把源码编译绿当业务绿。
+
+Root有限接受200-r2：ready2570B5f5c1884120a71a07ebe626e49798f2c46312f6b9b3e31289df23de36fe640ca，10pins同，原锁内compileDebugAndroidTestKotlin+assembleDebugAndroidTest rc0/46.9s，signer05249 runner/target/class方法通过；candidate测试源码28296B SHA b6a5b7617b6746e791cd2b3a511a10a7387d79cefb389194b1baeb548405c393。
+固定candidate E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android只读：
+产品app/build/outputs/apk/debug/app-debug.apk 53899310B SHA277b83bfba6e712fc46f09a2e2cd12c4b102e58d283a56ebdde1dca07d07b8c8；
+测试app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk 10696544B SHA90a027d59f6f378d77fe091df1f51c6097f2496d96315e08fcaaad7748c5ae1c；fixture0aea2c5eed35d7f189df72590013fdea1bdf658045b5ae7373d16617d9265ce9不改。旧122APK必要独份已在200/recheck-r2/preserved保全，不再复制。
+
+Root有限关闭201恢复：ready5626B07da14cf7c26393f99c13ba8d1599791716771274f9daf85bfa26425b2c8c6cb，40pins同；真实父06-uninstall原rc0Success空stderr+after包缺席，12decisionUNINSTALLED collectnull，stoprc0calls1，四tarCE27DE4实际成员type/size/内容SHA匹配sourcebeforeafter；原test0d18/inventoryd6ac/八设置父原回执及完整consumer71/820diff0rc0/最终identity后置有限成立。scope E:/creation-reading-assistant/task201-recover199-only-v1/attempt-T166V1-20261030-131830。
+限制永久留：recover_201部分pre/末态命令仅stdout摘要没原rc，userState原回执未完整交，产品Absent仅空stdout判，ownership多为声明非完整窗口校验，P3bindingCheck写死true，restore覆盖run_recovery异常但前置异常未全包finally；不能称完整合规零缺口。report统计scope普通文本漏算，Root实task+scope4564715B/tar2846720B/保护capture1440250B/其余277745B（source与raw合计，不据此单独断言raw超限）；独立外部capture另列。新批用fresh真实证据，不倒推历史补造。199原业务Tests1Failures1/mainrc1/collectfalse、删除两脚本与重写索引、旧200假验证/193红/194有限关闭/197错误原样留。
+
+## 本批执行合同
+1. fresh179r3完整strictidentity/唯一owner/transport/boot、原产品pm/user0/CE-DE-external三根确实缺席、原testAPK/data/userState、实际八设置/焦点/无活动instrumentation、完整71private820externalDB保护基线与APK安装归属。原实例创建1777974446694936；历史serial127.0.0.1:16416/bootb70a67ef-5cc7-4000-95bc-9b201a13c5e2仅参考，不能硬写当前。实际argv/原rc/stdoutstderr严格判，查询失败不当空结果成功。managerflags原值保留，用完整resolver判断。若原VM离线允许官方启动原instance1及必要连接，在线不重启；跨boot新scope全部fresh绑定。基线漂移BLOCKED，不自动调整数据/换实例/删盘重建GPU。
+2. 正式runId按真实时刻T165V1-YYYYMMDD-HHMMSS，不复用旧scope/driver硬编码boot。复用198/199的实际26role机制，只在本任务新input-prep派生输入，更新真实test90a0/sourceb6a5及所有owner/preflight/runId/scope/serial/boot一致；host192.verify_inputs_192全核。真实生产入口E:/creation-reading-assistant/task192-reader-internal-lifo-host-offline-v1/host/entry_lifo_192.py，经184r2keepalive.bind(host192)作用真实parent；scope原TASK192合法根下新attempt-runId，不改冻结hostcollectorconsumerresolver或绕路径门。
+3. 完整预检后仅一次main、一次instrument：com.creationreadingassistant.acceptance.ReaderInternalTemporaryLifoTest#readerInternalLifo_twoSources_returnChain_preservesOrdinaryRow，expectedCount1，CraIsolatedTestRunner targetcom.creationreadingassistant。保留真实默认pagedon/S0权威保存排除seed/临时未动12列exact/真实移动合法保存/T1T2回T1精确正文正与对立负/最终普通marker恢复且两临时正文不在正文/返回按钮消失/普通重开S0等全部强合同。原argv/rawstdoutstderr/terminal/count/rc/DB证据完整持久，失败红KEEP，不重试、不换APK、不改断言timeoutfixture源码模式或collector。
+4. 真实冻结host166.run_recovery/sameHOST158/preserve166/RUNNER/父正常恢复体；184r2绑定实际HOST158.H.R3.load_parent及已返回b对象，正常异常finally还原。完整pre三根manifesttar成员type,size,内容SHA读回→必要单user0stop→post静止集合writer→父正常uninstall门；stop/uninstall至多合同次数，各原回执及时独立落盘不等后query/最后总写，不重复操作补证，不182手写简化卸载。恢复失败保全KEEP不循环不改门。
+5. 独立核原testAPK0d18d788a04e366271df3ad2ac18cc2ceeb95edc3c64c37cb995745aefbc9a9c、原inventoryd6ac3c5ff7845b4afc9b384fb11b7a2bf921b9f722d4706bb6fe10801d003e29/userState/八设置focus、完整consumer71private820externalDB及strictkeepalive原rc和实际DEV回执；最终完整identity在全部保护查询之后。安全恢复或真实工具中不因预算停止/继续打断。
+
+## 交付、预算、边界
+唯一任务根E:/creation-reading-assistant/task202-lifo-body-device-v1/，ready=根ready.json，REPORT同根，scope另列绝对路径。只新最少runtime/inputs/REPORT/原logrc/恢复原证；不复制工程/缓存/历史/APK对。先估算空间，source/runtime/report/ready<=256KiB，普通文字raw<=512KiB，task+scope合并互斥统计，完整保护capture/tar必要恢复资产单列实bytes，不排整个scope避预算，不删脚本或截断关键原证补绿。
+预计业务30min+恢复预留20min，45min评估原因，实际安全恢复不中断；报告真实时间不重置预算。完整pins无自引用、输入实际指纹、runId/scope/业务原rc/count/terminal及完整恢复证据。只有本轮单用例和全部必要恢复原证均过才称本轮MuMuLIFO批通过，非物理机或全产品。
+禁止Gradle/candidate源码APK/冻结hostcollectorconsumer修改、第二业务/旧失败自动重试、其他VM实体/GPU策略/重启杀其他owner、Git暂存提交push发布/删除移动证据/云正式库私库sessionDB/.codex/memories/自动记忆。权限登录/用户stopEsc/所有权冲突停对应操作不旁路；无合法接缝身份基线直接BLOCKED。最后独立一行：这是任务202-v1。
+````

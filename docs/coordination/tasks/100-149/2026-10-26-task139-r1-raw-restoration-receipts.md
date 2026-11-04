@@ -1,0 +1,9 @@
+````text
+任务139-r1｜2026-10-26香港11:19后｜同Claude桌面WorkBuddy global Flash原唯一owner｜5分钟补证，不重新设备业务
+Root已读139 REPORT/实际fresh清单与ps/postps、Success/rc/三根absence/pm精确缺席/MuMu/保护proof原件。核心恢复事实有支持，不重新卸载、不重复充分三根/保护或F1。存在两个具体交付缺口，只修这两项：
+1. ready声明post-pm-list.txt201B，实际138B（hash9eec7106一致）；REPORT读时发生变化（实际曾为5233/5255B），ready中的REPORT sizeSHA未必最终同。请停止原件继续编辑，以实际最终文件核精确清单；旧ready保留，不覆盖，订正放新recheck-r1/ready.json和REPORT.md，准确说明误填/写序，不伪造原时间。
+2. 原testAPK、694B inventory、完整userstate、11settings/nightno、boot/user/Download179等仅见REPORT/ready数值，现logs目录未见这些原始命令rc/stdout/stderr。三根absence的su rc0和post ps rc也仅报告，已有空stderr、stdout不足代rc原件。请优先从你本轮已经实际捕获的命令结果对象/当前会话工具输出保存准确原始回执（标ORIGINAL_COMMAND_RECEIPT_EXPORTED_LATER及原采集时点），不得通过私有会话DB/CLI或捏造历史rc。补本轮完整命令/rc/stdout/stderr/epoch、前置ps/pidof/users、后置pm/三根/ps及测试/设置等已执行原始引用，别用摘要转换成原输出。
+若某原始结果已不可取，明确HISTORICAL_RAW_NOT_PERSISTED，不能追认原过程；仅准现在fresh只读一次核原test installedAPK SHA、规范化inventory/完整userstate、11settings/nightno、boot/user/Download179/有效ps和pidof/精确包与三根absence父正对照（只缺原回执的项，不重复已充分原件），每条实际rc/stdout/stderr存新recheck-r1，标NEW_READ_ONLY_CONFIRMATION，与原历史门禁区分。fixedADB -s核实serial、同instance1/user0/e8e8；任何漂移即停，不推断。既有su只读stdin准许；不adb root/改权限。未持久化的卸载前条件不能由后置fresh倒填，准确作为证据限制披露。
+冻结保留：139原uninstall Success/rc0/epoch、fresh-inventory8508B/dacda825、post三根201B/415274ca、postpm-list实际138B/9eec7106、postps4148B/1ac832b8、保护原件OUT_BASE/task139-restoration-T139-20261026-111512-final不改。复用71/820原proof，不重新全采保护。138完整保全与137红summary/attempt永久保留。
+只写E:/creation-reading-assistant/task139-product-restoration-v1/recheck-r1/，输出REPORT.md/ready.json/必要raw，差量<=256KiB/raw<=256KiB。不得改原REPORT/ready或既有原件、额外卸载/rm/安装/force-stop/kill/设置/VM启停/源码build/hostmain/attempt/F1。Root不旁路设备；同owner只补实际缺口，不泛审，不私库自动记忆/Git/云/其它停自动化。用户自己来许可沿用不重问。最终单独一行这是任务139-r1。
+````

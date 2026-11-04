@@ -1,0 +1,64 @@
+# coordination / 编号任务 / 150-199
+
+分类整理：2026-10-30。这里按文档用途、任务编号段或月份归档；文档中的状态仅代表原轮次，不构成当前执行授权。实际队列见[当前交接](../../../handoff/current.md)。
+
+| 文档 | 原文件名日期 |
+|---|---|
+| [2026-10-27-task150-matched-exit-test-apk-zcode.md](2026-10-27-task150-matched-exit-test-apk-zcode.md) | 2026-10-27 |
+| [2026-10-27-task151-exit-test-host-offline-zcode.md](2026-10-27-task151-exit-test-host-offline-zcode.md) | 2026-10-27 |
+| [2026-10-27-task151-r1-real-mock-and-reader-pin.md](2026-10-27-task151-r1-real-mock-and-reader-pin.md) | 2026-10-27 |
+| [2026-10-27-task152-final-host-and-page-device-zcode.md](2026-10-27-task152-final-host-and-page-device-zcode.md) | 2026-10-27 |
+| [2026-10-27-task153-nested-entry-test-delta-zcode.md](2026-10-27-task153-nested-entry-test-delta-zcode.md) | 2026-10-27 |
+| [2026-10-27-task154-absent-external-recover-only-zcode.md](2026-10-27-task154-absent-external-recover-only-zcode.md) | 2026-10-27 |
+| [2026-10-27-task155-r1-preserve-failure-return-zcode.md](2026-10-27-task155-r1-preserve-failure-return-zcode.md) | 2026-10-27 |
+| [2026-10-27-task155-reader-exit-thread-fix-zcode.md](2026-10-27-task155-reader-exit-thread-fix-zcode.md) | 2026-10-27 |
+| [2026-10-27-task156-absent-proof-offline-zcode.md](2026-10-27-task156-absent-proof-offline-zcode.md) | 2026-10-27 |
+| [2026-10-27-task156-r1-antigravity-minimal-closeout.md](2026-10-27-task156-r1-antigravity-minimal-closeout.md) | 2026-10-27 |
+| [2026-10-27-task156-r2-antigravity-link-boundary.md](2026-10-27-task156-r2-antigravity-link-boundary.md) | 2026-10-27 |
+| [2026-10-27-task156-r2-claude-link-boundary.md](2026-10-27-task156-r2-claude-link-boundary.md) | 2026-10-27 |
+| [2026-10-27-task157-integrated-thread-nested-apk-zcode.md](2026-10-27-task157-integrated-thread-nested-apk-zcode.md) | 2026-10-27 |
+| [2026-10-27-task158-real-recovery-host-exit-device-claude.md](2026-10-27-task158-real-recovery-host-exit-device-claude.md) | 2026-10-27 |
+| [2026-10-27-task159-r1-tuple-scope-binding-claude.md](2026-10-27-task159-r1-tuple-scope-binding-claude.md) | 2026-10-27 |
+| [2026-10-27-task159-temporary-entry-collector-offline-claude.md](2026-10-27-task159-temporary-entry-collector-offline-claude.md) | 2026-10-27 |
+| [2026-10-27-task160-r1-original-instance-crossboot-recovery.md](2026-10-27-task160-r1-original-instance-crossboot-recovery.md) | 2026-10-27 |
+| [2026-10-27-task160-writer-revival-recover-only-claude.md](2026-10-27-task160-writer-revival-recover-only-claude.md) | 2026-10-27 |
+| [2026-10-27-task161-r1-real-instrument-contract-claude.md](2026-10-27-task161-r1-real-instrument-contract-claude.md) | 2026-10-27 |
+| [2026-10-27-task161-r2-fixture-absence-gate-claude.md](2026-10-27-task161-r2-fixture-absence-gate-claude.md) | 2026-10-27 |
+| [2026-10-27-task161-temporary-entry-real-host-offline-claude.md](2026-10-27-task161-temporary-entry-real-host-offline-claude.md) | 2026-10-27 |
+| [2026-10-27-task162-mumu-boot-failure-readonly.md](2026-10-27-task162-mumu-boot-failure-readonly.md) | 2026-10-27 |
+| [2026-10-27-task163-current-gpu-original-instance-recovery.md](2026-10-27-task163-current-gpu-original-instance-recovery.md) | 2026-10-27 |
+| [2026-10-27-task164-actual-instrument-argv-offline.md](2026-10-27-task164-actual-instrument-argv-offline.md) | 2026-10-27 |
+| [2026-10-27-task165-two-temporary-entry-single-device.md](2026-10-27-task165-two-temporary-entry-single-device.md) | 2026-10-27 |
+| [2026-10-27-task166-quiet-writer-recovery-only.md](2026-10-27-task166-quiet-writer-recovery-only.md) | 2026-10-27 |
+| [2026-10-27-task167-nested-entry-shelf-route-fix.md](2026-10-27-task167-nested-entry-shelf-route-fix.md) | 2026-10-27 |
+| [2026-10-27-task168-two-entry-new-apk-recovery-integration.md](2026-10-27-task168-two-entry-new-apk-recovery-integration.md) | 2026-10-27 |
+| [2026-10-27-task169-recover168-only.md](2026-10-27-task169-recover168-only.md) | 2026-10-27 |
+| [2026-10-27-task170-reader-probe-initial-position.md](2026-10-27-task170-reader-probe-initial-position.md) | 2026-10-27 |
+| [2026-10-27-task171-aligned-two-entry-device.md](2026-10-27-task171-aligned-two-entry-device.md) | 2026-10-27 |
+| [2026-10-27-task172-recover171-only.md](2026-10-27-task172-recover171-only.md) | 2026-10-27 |
+| [2026-10-27-task173-notes-entry-contract-readonly.md](2026-10-27-task173-notes-entry-contract-readonly.md) | 2026-10-27 |
+| [2026-10-27-task174-external-notes-contract-test.md](2026-10-27-task174-external-notes-contract-test.md) | 2026-10-27 |
+| [2026-10-28-task172-r1-focus-final-check.md](2026-10-28-task172-r1-focus-final-check.md) | 2026-10-28 |
+| [2026-10-28-task172-r1-night-restoration-followup.md](2026-10-28-task172-r1-night-restoration-followup.md) | 2026-10-28 |
+| [2026-10-29-task179-r1-real-shape-identity.md](2026-10-29-task179-r1-real-shape-identity.md) | 2026-10-29 |
+| [2026-10-29-task179-r2-production-entry.md](2026-10-29-task179-r2-production-entry.md) | 2026-10-29 |
+| [2026-10-29-task179-r3-return-receipts.md](2026-10-29-task179-r3-return-receipts.md) | 2026-10-29 |
+| [2026-10-29-task181-contract-b-device.md](2026-10-29-task181-contract-b-device.md) | 2026-10-29 |
+| [2026-10-29-task182-r1-readonly-closure.md](2026-10-29-task182-r1-readonly-closure.md) | 2026-10-29 |
+| [2026-10-29-task182-recover181-only.md](2026-10-29-task182-recover181-only.md) | 2026-10-29 |
+| [2026-10-29-task183-r1-integrate-build.md](2026-10-29-task183-r1-integrate-build.md) | 2026-10-29 |
+| [2026-10-29-task183-reader-exit-source.md](2026-10-29-task183-reader-exit-source.md) | 2026-10-29 |
+| [2026-10-29-task184-keepalive-entry-offline.md](2026-10-29-task184-keepalive-entry-offline.md) | 2026-10-29 |
+| [2026-10-29-task184-r1-receipt-scope-restore.md](2026-10-29-task184-r1-receipt-scope-restore.md) | 2026-10-29 |
+| [2026-10-29-task184-r2-standalone-import.md](2026-10-29-task184-r2-standalone-import.md) | 2026-10-29 |
+| [2026-10-29-task185-contract-b-device.md](2026-10-29-task185-contract-b-device.md) | 2026-10-29 |
+| [2026-10-29-task186-recover185-only.md](2026-10-29-task186-recover185-only.md) | 2026-10-29 |
+| [2026-10-29-task187-notes-entry-source.md](2026-10-29-task187-notes-entry-source.md) | 2026-10-29 |
+| [2026-10-29-task187-r1-integrate-build.md](2026-10-29-task187-r1-integrate-build.md) | 2026-10-29 |
+| [2026-10-29-task188-contract-b-device.md](2026-10-29-task188-contract-b-device.md) | 2026-10-29 |
+| [2026-10-30-task197-r2-exit-purpose.md](2026-10-30-task197-r2-exit-purpose.md) | 2026-10-30 |
+| [2026-10-30-task197-r3-predispatch-reason.md](2026-10-30-task197-r3-predispatch-reason.md) | 2026-10-30 |
+| [2026-10-30-task197-r4-kotlin-block-followup.md](2026-10-30-task197-r4-kotlin-block-followup.md) | 2026-10-30 |
+| [2026-10-30-task197-r4-real-green.md](2026-10-30-task197-r4-real-green.md) | 2026-10-30 |
+| [2026-10-30-task198-readonly-preflight.md](2026-10-30-task198-readonly-preflight.md) | 2026-10-30 |
+| [2026-10-30-task199-lifo-device.md](2026-10-30-task199-lifo-device.md) | 2026-10-30 |

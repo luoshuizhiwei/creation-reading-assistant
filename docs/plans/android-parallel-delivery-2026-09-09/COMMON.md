@@ -40,7 +40,15 @@ SEAM REQUEST
 
 - 独立真机验收由WorkBuddy负责；开发agent默认不安装、不操作手机。诊断需要设备时向Codex预约独占时段，不能和WorkBuddy抢手机。
 - 所有获授权的设备任务先运行adb devices确认真实serial，后续每条设备命令都加 `adb -s <serial>`；不用MuMu。
-- 安装主APK或androidTest APK先调用 `android/scripts/install_with_confirm.ps1 -Serial <serial> -Apk <absolute-apk>`。
+- 安装主APK：
+  `android/scripts/install_with_confirm.ps1 -Serial <serial> -Apk <absolute-apk>`
+  可省略 `-PackageName`，脚本使用默认主包名 `com.creationreadingassistant`。
+- 安装androidTest APK：必须同时显式传入测试包的真实包名，
+  `android/scripts/install_with_confirm.ps1 -Serial <serial> -Apk <absolute-apk> -TestApk -PackageName <实际测试包名>`
+  （如 `com.creationreadingassistant.test` 或带变体后缀的 `...r3gate.test`）。
+  脚本**不会**由主包名推断测试包名——构建变体可能带 applicationIdSuffix，
+  推断出来的包名可能并不存在；`-TestApk` 缺 `-PackageName` 时脚本在任何 ADB/设备操作前
+  以退出码 1 与 `RESULT: FAILED` 快速失败，以免用主包的 `pm path` 冒充测试包安装成功。
 - **用户明确允许回退**：脚本实际超时或MIUI阻止后，保留命令/退出码/日志，允许 `adb -s <serial> install -r <absolute-apk>`；test APK需要时使用 `install -r -t`。此回退允许继续验收，不代表安装脚本PASS。
 - 不要求用户手动确认MIUI，不修改安全设置，不卸载应用规避签名，不清应用数据。
 - 长时间测试记录并临时调整stay_on_while_plugged_in，结束恢复原值（原值null则删除键）。权限、规则、进度与临时资料按事先记录恢复；不能删除用户既有记录。

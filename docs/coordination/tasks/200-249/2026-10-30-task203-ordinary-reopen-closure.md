@@ -1,0 +1,22 @@
+````text
+# 任务203-v1：补齐LIFO返回后的真实普通退出重开合同并定向编译
+2026-10-30，Antigravity当前同owner Gemini3.8FlashHigh，预计25min。Root阶段复核V0五合同后选此真实缺口，不做通用盘点/全suite，不为凑并行加任务。你是唯一candidate LIFO测试单文件及Gradleowner；202设备/恢复已结束，Root读冻结202原证不再占用设备或读取可变候选。无第二必要独立项。
+
+先读活动D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/handoff/current.md最新页首、docs/coordination/2026-10-09-workflow-replan.md的V0-1/V0-2/V0-5合同。202原mainrc0/339.6s，真实instrument OK(1test)/5.256s/terminal-1；collecttrue父正常uninstallrc0Success，stoprc0calls1，产品pm/三根缺席、原test0d18/inventoryd6ac user0原行/八设置/consumer71/820diff0及最终identity后置成立，22pins/26role同，Root四tarCE27DE4type/size内容SHA逐项同。仅本轮MuMu单方法LIFO及恢复限定接受，不是实体机/全产品。202ready3783B SHA3c5d3e40ce54246fb632447b7a41a829479fde39e5470f25d2fb20f819b5657f。
+
+Root源码实读发现未覆盖的原合同：ReaderInternalTemporaryLifoTest.readerInternalLifo_twoSources_returnChain_preservesOrdinaryRow在awaitFinalOrdinaryLayer与awaitFinalOrdinaryRow/offset等式后直接结束。没有真实普通退出和书架重新打开，因此200/202提示词中要求“普通重开S0”不能因既有单方法绿称已覆盖。不要重写202原报告或假装旧方法已做这一步。V0日常阅读的真实移动保存亦不能靠LIFO临时层移动代替；本批先补确定缺失的普通退出重开，其他必要设备缺口单列不乱扩。
+
+## 唯一最小改动与强合同
+可写仅E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android/app/src/androidTest/java/com/creationreadingassistant/acceptance/ReaderInternalTemporaryLifoTest.kt，当前28296B SHA b6a5b7617b6746e791cd2b3a511a10a7387d79cefb389194b1baeb548405c393。产品源码、fixture0aea、其他测试/hostcollectorconsumer不改。先核实际before，不覆盖他人WIP。
+在现有同一单方法最终回普通S0后，按真实产品入口执行普通退出→确认顶层/书架→以实际book-tile身份重新打开原书→正文marker1屏显、返回阅读处按钮不存在、持久行合法locator/真实位置仍与进入临时前S0一致、非任一临时来源。必须先等待退出保存排空/真实UI顶层，不能直接重建Activity、直接调用VM或修改DB来伪造重开。用既有ReaderChromeExitSupport和真实openBookAOrdinarily等接口；保留“控件显示先藏再退出”等实际Back语义，不能堆固定Back次数/sleep绕过。不改默认pagedon，不切scroll。
+普通Back在未移动同有效锚时合法更新last_read_at/元数据；重开验证不要错误要求普通退出后完整12列与s0一字不变。临时T1/T2/回T1期间完整12列exact保护一项不减，最终普通位置必须一致；普通退出的时间/locator语义准确区分，不放宽为任意合法范围或只书名出现。原T1T2精确正文正/对立负、S0marker、真实权威保存排除seed、防重取消保护全部保持。若原UI退出/重开辅助接缝有真实问题同owner只修本文件最小必要部分，禁止改产品/fixture/断言阈值通过。
+
+## 编译与证据闭环
+同owner用既有唯一candidate/android、原JDK17/SDK/Gradlehome与tools/gradle_locked.py独占锁，只compileDebugAndroidTestKotlin+assembleDebugAndroidTest；不mainAPK重构建/全suite/JVM镜像测试。现有设备证据充分的原LIFO步骤复用，不在本任务执行ADB/VM/设备main/instrument。
+覆盖当前testAPK10696544B90a027d59f6f378d77fe091df1f51c6097f2496d96315e08fcaaad7748c5ae1c前按已知保全清单核唯一完整原APK是否已存在；仅缺必要独份才保全一次，不复制APK对/工程。产品53899310B277b83bfba6e712fc46f09a2e2cd12c4b102e58d283a56ebdde1dca07d07b8c8与fixture0aea保持，真实SHA核同。新test实际size/SHA、signercert05249/manifestCraIsolatedTestRunner targetcom.creationreadingassistant、单类单方法存在及原rc日志完整，不能填旧值。
+源码修复与必要编译错误同owner闭环；真实编译失败保留原红，不把编译绿当设备/行为绿。只在本任务单文件必要before/after/标准patch正反核同验证，不虚构source红绿，不写Python硬编码true。已有无变充分证据直接引用。
+
+唯一新根E:/creation-reading-assistant/task203-ordinary-reopen-closure-v1/，ready根ready.json，REPORT同根。交最终after与candidate同、最小标准patch、before路径SHA、完整pins无自引用、原build日志rc、新test真实核验及deviceNOT_RUN和剩余V0边界。预算source/runtime/report/ready<=128KiB，普通raw<=128KiB，必要唯一旧testAPK另列实字节；先估算，task+所有新增scope互斥计数，不复制工程cache/依赖，不删任何脚本证据。
+禁止产品/fixture/冻结hostcollectorconsumer修改、ADB/VM/设备/main/instrument/恢复安装卸载stop/launchrebootconnectkill、Git暂存提交pushPR发布/删除移动资产/云正式库私库sessionDB/.codex/memories/自动记忆。用户stopEsc/权限登录/所有权冲突/输入漂移停对应操作不旁路。199/193旧红、201恢复限制、200假验证、删除越界及202统计/元数据限制保留。后续设备必须Root验新APK后另派fresh身份/基线单批，不自动业务重跑。
+最后独立一行：这是任务203-v1。
+````

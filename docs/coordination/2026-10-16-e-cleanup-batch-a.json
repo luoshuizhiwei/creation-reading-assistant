@@ -1,0 +1,172 @@
+{
+  "schema": "cra-space-cleanup-proposal/1",
+  "status": "PROPOSED_NOT_EXECUTED",
+  "scope": "batch A only exact 10 paths, no parent directory deletion",
+  "bytes": 35442147441,
+  "size_basis": "logical bytes, not guaranteed reclaimed allocation",
+  "items": [
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v4\\_cache\\gradle-home\\caches",
+      "bytes": 5177224758,
+      "files": 42635,
+      "action": "proposed deletion after exact batch confirmation",
+      "kind": "generated Gradle cache only",
+      "preserve_siblings": [
+        "android",
+        "gradle.properties",
+        "wrapper",
+        "daemon",
+        "all other siblings"
+      ],
+      "consequence": "old builds must reuse retained shared Gradle home or regenerate/re-download dependencies; no product source or evidence deletion",
+      "recovery": "rebuild cache from retained dependencies or repositories; cache bytes not backed up"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v3\\_cache\\gradle-home\\caches",
+      "bytes": 3477800962,
+      "files": 28509,
+      "action": "proposed deletion after exact batch confirmation",
+      "kind": "generated Gradle cache only",
+      "preserve_siblings": [
+        "android",
+        "gradle.properties",
+        "wrapper",
+        "daemon",
+        "all other siblings"
+      ],
+      "consequence": "old builds must reuse retained shared Gradle home or regenerate/re-download dependencies; no product source or evidence deletion",
+      "recovery": "rebuild cache from retained dependencies or repositories; cache bytes not backed up"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v2\\_cache\\gradle-home\\caches",
+      "bytes": 3429557122,
+      "files": 27910,
+      "action": "proposed deletion after exact batch confirmation",
+      "kind": "generated Gradle cache only",
+      "preserve_siblings": [
+        "android",
+        "gradle.properties",
+        "wrapper",
+        "daemon",
+        "all other siblings"
+      ],
+      "consequence": "old builds must reuse retained shared Gradle home or regenerate/re-download dependencies; no product source or evidence deletion",
+      "recovery": "rebuild cache from retained dependencies or repositories; cache bytes not backed up"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v1\\_cache\\gradle-home\\caches",
+      "bytes": 3344115657,
+      "files": 26739,
+      "action": "proposed deletion after exact batch confirmation",
+      "kind": "generated Gradle cache only",
+      "preserve_siblings": [
+        "android",
+        "gradle.properties",
+        "wrapper",
+        "daemon",
+        "all other siblings"
+      ],
+      "consequence": "old builds must reuse retained shared Gradle home or regenerate/re-download dependencies; no product source or evidence deletion",
+      "recovery": "rebuild cache from retained dependencies or repositories; cache bytes not backed up"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-crossbook-temporary-seam-v3\\gradle-home\\caches",
+      "bytes": 3414079708,
+      "files": 26838,
+      "action": "proposed deletion after exact batch confirmation",
+      "kind": "generated Gradle cache only",
+      "preserve_siblings": [
+        "android",
+        "gradle.properties",
+        "wrapper",
+        "daemon",
+        "all other siblings"
+      ],
+      "consequence": "old builds must reuse retained shared Gradle home or regenerate/re-download dependencies; no product source or evidence deletion",
+      "recovery": "rebuild cache from retained dependencies or repositories; cache bytes not backed up"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-crossbook-temporary-entry-v1\\android\\gradle-home\\caches",
+      "bytes": 3384144978,
+      "files": 27868,
+      "action": "proposed deletion after exact batch confirmation",
+      "kind": "generated Gradle cache only",
+      "preserve_siblings": [
+        "android",
+        "gradle.properties",
+        "wrapper",
+        "daemon",
+        "all other siblings"
+      ],
+      "consequence": "old builds must reuse retained shared Gradle home or regenerate/re-download dependencies; no product source or evidence deletion",
+      "recovery": "rebuild cache from retained dependencies or repositories; cache bytes not backed up"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-fix-v2\\gradle-home\\caches",
+      "bytes": 3321477303,
+      "files": 25056,
+      "action": "proposed deletion after exact batch confirmation",
+      "kind": "generated Gradle cache only",
+      "preserve_siblings": [
+        "android",
+        "gradle.properties",
+        "wrapper",
+        "daemon",
+        "all other siblings"
+      ],
+      "consequence": "old builds must reuse retained shared Gradle home or regenerate/re-download dependencies; no product source or evidence deletion",
+      "recovery": "rebuild cache from retained dependencies or repositories; cache bytes not backed up"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-fix-v3\\gradle-home\\caches",
+      "bytes": 3315528302,
+      "files": 25052,
+      "action": "proposed deletion after exact batch confirmation",
+      "kind": "generated Gradle cache only",
+      "preserve_siblings": [
+        "android",
+        "gradle.properties",
+        "wrapper",
+        "daemon",
+        "all other siblings"
+      ],
+      "consequence": "old builds must reuse retained shared Gradle home or regenerate/re-download dependencies; no product source or evidence deletion",
+      "recovery": "rebuild cache from retained dependencies or repositories; cache bytes not backed up"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-fix-v4\\gradle-home\\caches",
+      "bytes": 3268783736,
+      "files": 25007,
+      "action": "proposed deletion after exact batch confirmation",
+      "kind": "generated Gradle cache only",
+      "preserve_siblings": [
+        "android",
+        "gradle.properties",
+        "wrapper",
+        "daemon",
+        "all other siblings"
+      ],
+      "consequence": "old builds must reuse retained shared Gradle home or regenerate/re-download dependencies; no product source or evidence deletion",
+      "recovery": "rebuild cache from retained dependencies or repositories; cache bytes not backed up"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-persist-fix-v1\\gradle-home\\caches",
+      "bytes": 3309434915,
+      "files": 25609,
+      "action": "proposed deletion after exact batch confirmation",
+      "kind": "generated Gradle cache only",
+      "preserve_siblings": [
+        "android",
+        "gradle.properties",
+        "wrapper",
+        "daemon",
+        "all other siblings"
+      ],
+      "consequence": "old builds must reuse retained shared Gradle home or regenerate/re-download dependencies; no product source or evidence deletion",
+      "recovery": "rebuild cache from retained dependencies or repositories; cache bytes not backed up"
+    }
+  ],
+  "preserve_shared_home": "E:\\creation-reading-assistant\\txt-persist-codex-completion-20261006\\gradle-home",
+  "errors": [],
+  "seconds": 41.64
+}

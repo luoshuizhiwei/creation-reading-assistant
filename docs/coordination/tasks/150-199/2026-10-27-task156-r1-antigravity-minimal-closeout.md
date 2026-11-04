@@ -1,0 +1,11 @@
+# 任务156-r1：Antigravity接续156离线缺席边界闭合
+
+用户明确路由ZCode优先，现ZCode界面已显示“体验套餐的UI额度已用完”，Root冻结旧写owner后将未完最小差量移交Antigravity。你为唯一新host离线owner；B157构建已完成，不重build/旧suite。旧ZCode156原件全部只读冻结，不在旧根写日志/pycache，不删移。
+
+只新E:/creation-reading-assistant/task156-absent-proof-offline-v1/recheck-r1-antigravity/交付，必要最小源码副本允许，禁止工程/缓存/APK复制。原156文档D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/coordination/tasks/150-199/2026-10-27-task156-absent-proof-offline-zcode.md3056B SHA f98b534abbb9ae7f7b1a17c66244a1d8b8d0720deab20f010ebb6485942640fe为具体合同，先核SHA再读；本批优先核旧156实际接缝/原log复用充分项，不重启同任务。原partial三件：absence156.py26603B SHA2d0e807c422a25a8c61d2434f08fed92aaf899bea27e6fb56bc65ce87fed4fe0，offline_validate_156.py23434B SHA1c17819d34fc8a7c2d873f25d2989f1dd9db7880165629a2d3e433d34706a935，offline-validate-result.json1197B SHAb42f8cc8e8f340015fad09bf763e17c8c39855b1ba18825bc10efa1aa546fd58，位于E:/creation-reading-assistant/task156-absent-proof-offline-v1/。
+
+旧result9/9 allPass只是待核声明，尚无REPORT/ready。要求检查实际新函数是否接生产保全global和原rc边界，父链可达/完整枚举与精确目标名缺席有完整rc/fullstderr，访问失败不能由test/echo/管道转成缺席。核旧mask权限错对照与新拒错是否真正调用实际函数，不复制谓词/内部重写包装器自证；静态证明不了的如实。对确有缺口最小修复并同owner必要定向红绿，输入范围未变证据充分不刷9suite/25书main。所有外部端点strictmock，未知命令抛，不真实ADB/VM/设备/main/attempt/安装卸载stop/settings/Gradle/Android源改动。
+
+历史154已卸载一次/hostexit0，原test0d18/11settings/protection有证；external旧探针缺父链可达回执故卸载前保全历史缺口不能补造，状态REPORTED_RECOVERY_WITH_EXTERNAL_PRESERVATION_EVIDENCE_GAP，不称完整安全恢复，也不无证据称数据丢失。Download.exmu历史差异未知、实例末态缺独立回执如实，不现在探测填历史。仅新assessment更正154summary错引148：实际152原红E:/creation-reading-assistant/task146-quiesce-recovery-offline-v1/task152-T141BV1-20261027-023205/evidence/device/summary.json；记录原错指文件及真文件SHA，旧summary不可改。152三失败真实主线程约束，不再重复complete或已证纯测试缺陷；154generatedAt03:20实际03:11就交付，为预写未来时间，不叫真实收尾。
+
+本批闭合输出最小patch/必要新源/前后完整SHA/准确REPORT及历史assessment/必要原log与ready.json；原实现复用时以只读路径SHA引用，不强复制。source128KiB raw+fake64KiB，复制前核free，计实际增量，不删旧原件/重分类隐藏超额。15分钟从Antigravity实际UI新消息工作开始明确新增接续容量，原15603:20起20分超时+quota中断保留，不重写旧起点。提交前一次具体自查实际globals/权限混淆/缺席与存在路径，发现实际缺口同owner最小闭环；不能口头绿/未来预写时间。B157新APK已编译JVM通过但设备未运行，下一设备待Root新host/inputs/APK闭合后另批，不本批执行。禁Git提交发布/云/正式库/其他VM实体/私库/自动记忆。最终总结末行：这是任务156-r1。

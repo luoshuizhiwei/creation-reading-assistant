@@ -1,6 +1,6 @@
 # Inspiration Reading Workbench Implementation Plan
 
-> Status: **Superseded for future desktop work.** The completed historical tasks remain recorded here, but the current desktop direction is defined by [`../../plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md`](../../plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md).
+> Status: **Superseded for future desktop work.** The completed historical tasks remain recorded here, but the current desktop direction is defined by [`../../plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md`](../../../plans/desktop-reference/2026-08-09-desktop-creation-workbench-phase-1-spec.md).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

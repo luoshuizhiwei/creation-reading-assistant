@@ -1,7 +1,7 @@
 # WorkBuddy 交付报告：应用内书籍目录、智能识别接线（第 1–2 组）
 
 日期：2026-09-12。执行目录：主仓库 `android/`。
-依据：[`docs/plans/2026-09-12-android-library-folder-smart-recognition-roadmap.md`](../../2026-09-12-android-library-folder-smart-recognition-roadmap.md)
+依据：[`docs/plans/android/2026-09-12-android-library-folder-smart-recognition-roadmap.md`](../../android/2026-09-12-android-library-folder-smart-recognition-roadmap.md)
 承接：Codex 已交付的 Module 层（`LibraryRootStore`、`LibrarySource`/`SafLibrarySource`、`SmartBookRecognizer`/`SafSmartBookRecognizer`）
 前置基线：`compileDebugKotlin` PASS（改动前实测，确认 Codex 交付可用）
 

@@ -2,7 +2,7 @@
 
 > **历史资料（停止作为当前验收依据）**：本文档混合了已删除的 Capacitor/WebView 产品线、
 > MuMu 模拟器和早期原生 Android 记录。当前独立原生 Android 的 UX 问题、修复状态与
-> 真机证据统一维护在 [`native-android-ux-ledger.md`](native-android-ux-ledger.md)。除追溯历史外，
+> 真机证据统一维护在 [`native-android-ux-ledger.md`](../../testing/native-android-ux-ledger.md)。除追溯历史外，
 > 不要从本矩阵推断当前实现状态。
 
 更新日期：2026-07-18

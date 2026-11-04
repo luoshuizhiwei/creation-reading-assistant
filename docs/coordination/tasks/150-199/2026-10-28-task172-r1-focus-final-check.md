@@ -1,0 +1,12 @@
+# 任务172-r1收尾：仅恢复约定桌面焦点并只读复核保护
+2026-10-28，同一ZCode原172-r1 owner/原会话继续，不另开任务或窗口。Root已核night-fix实际链：T172R1-20261028-003951，00:39:51–00:42:36，完整pre/单stop/post/writerproof通过，父正常uninstall一次Success且产品与三根缺席，night恢复no/原test0d18/settings/keepalive通过。CE1376256B SHA6fb01fb0c2a5d56da95862678992a3afbd654a8ebeee296aa00f96daedae091e、DE2560B SHA66e41cc41d0b2c664998146965d5f96427ad6c05835dd8b1227c24bc35c93c53，pre/post各份tar内容与完整manifest均Root实际本地读回一致，external精确缺席。不能再跑恢复/stop/uninstall/install。
+
+唯一红项：final-protection-result.json diffs=[{focus:com.hypergryph.arknights/com.u8.sdk.U8UnityContext}]。71private/820external均比较、captured_counts正确、db_groups_match=true，无文件内容差异；consumer整体ok=false。实际冻结consumer device_protection.py468-469比较基线focus_component，原基线 E:/creation-reading-assistant/root-runtime-device-20261015/device/protected-original-baseline-v2.json 为 app.lawnchair/app.lawnchair.LawnchairLauncher。既有恢复合同含正常返回桌面（原device_protection模块说明“恢复系统设置night=no,home键”）；Root明确本次仅收口此既定焦点恢复，不把检查改绿、不修改consumer/baseline/旧回执。
+
+执行范围：当前已运行原instance1，先fresh核持久身份/serial/bootCompleted/boot/user0、无活动instrument及原产品仍缺席（精确pm与三根已有缺席证明引用加必要fresh只读）。历史当前boot a6d79e4c-e483-4b2d-9e31-8f9a3e2d4fd5仅参考，本轮实际记录。不得启动/重启/关闭VM，不进入产品或业务UI，不停止/关闭/卸载/清数据任何应用，不购买换号，不改变后台策略。不因前台是另一应用而进行force-stop/点击其UI或触碰其数据；只允许原serial上一次标准Android Home正常返回桌面（不是Windows键/Windows UI，不杀进程），并保存实际命令rc/前后focus。用户stop/Esc或工具检测正在输入/安全权限/login锁屏立即停，不绕过。
+
+Home后只读fresh核focus是否等于原桌面，再运行现有冻结protection_check.py final的真实生产CLI/consumer，使用全新runId/合法新out-dir，复用现有serial/ADB绑定与严格输出目录规则，不猜参数、不复制谓词/测试override/改原diffs。必须完整比较71private/820external/DB组/隔离包末态与focus，不能只比较focus就声称保护通过。普通Home一次后focus若仍不符或又变化，立即保存新FAILED，不循环Home/不主动操作其他应用；原night-fix overallFAILED永久留，新增结果独立，不回写旧ready/报告。
+
+只新写 E:/creation-reading-assistant/task172-recover171-only-v1/recheck-r1/focus-final/ 内最小必要driver或命令记录/REPORT/ready；真实保护captured JSON按实占另列，沿用已有protection-root-r1允许的新scope目录不覆盖旧输出。source/doc≤64KiB、文字raw≤128KiB，必要新完整保护快照实占单列；不复制旧log/tar/APK/工程cache，不读取174可变candidate/buildoutput/全inputs，不修改Android源码或Gradle。一次正常Home与只读复核为本次唯一新设备动作；无instrument/launch/recovery体/stop/uninstall/install/设置重写，无业务复跑。原test/settings/产品缺席/keepalive只核已有充分证据与必要fresh末态，不为交接刷旧suite。
+
+追加15分钟从实际UI新消息计，原所有期限保留；系统忙原框按用户每5分钟规则只发“继续”，不Retry+消息双发。唯一新ready E:/creation-reading-assistant/task172-recover171-only-v1/recheck-r1/focus-final/ready.json。报告独立区分旧恢复链已完成、旧保护焦点红、新Home与全保护复核结果；全部通过才可有限接受本轮收尾，不能补造历史全恢复或无证据丢失。无Git暂存提交pushPR发布/云/正式库/私库sessionDB/.codex/memories/自动记忆/其他VM实体/kill共享ADB。最终独立末行“这是任务172-r1。”

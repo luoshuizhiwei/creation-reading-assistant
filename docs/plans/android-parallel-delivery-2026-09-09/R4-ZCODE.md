@@ -1,6 +1,6 @@
 # 发给 zcode：应用内书籍目录与智能识别 —— 第 3 组（来源索引与增量更新）接手包
 
-> 本文替代 WorkBuddy 在该路线上的工作。前序：[`../../2026-09-12-android-library-folder-smart-recognition-roadmap.md`](../../2026-09-12-android-library-folder-smart-recognition-roadmap.md)（需求与路线）、
+> 本文替代 WorkBuddy 在该路线上的工作。前序：[`../../2026-09-12-android-library-folder-smart-recognition-roadmap.md`](../android/2026-09-12-android-library-folder-smart-recognition-roadmap.md)（需求与路线）、
 > [`reports/workbuddy-r4-library-folder.md`](reports/workbuddy-r4-library-folder.md)（第 1–2 组实施报告）。
 > 工作目录：`D:/develop/Code/Codex/creation-reading-assistant`（主仓库，Android 主线在 `android/`）。
 > 本文是任务包，不是「已完成」的证明；所有结论都要用你自己的实测覆盖。
@@ -134,7 +134,7 @@ GRADLE_USER_HOME=D:/develop/env/gradle JAVA_HOME=D:/develop/Java/jdk-17.0.14 \
   逐条判断是否为「你引入的」；沿用既有 4 条作为对照。
 
 **真机（只在用户给出设备时段后做）**：方案 §11.2。完整执行手册、逐条判定表、安装回退与现场保护要求见
-[`../../2026-09-12-android-library-folder-device-acceptance.md`](../../2026-09-12-android-library-folder-device-acceptance.md)——
+[`../2026-09-12-android-library-folder-device-acceptance.md`](../android/2026-09-12-android-library-folder-device-acceptance.md)——
 **直接沿用该表，不要另造一套判定口径**。要点：`adb devices` 先核对 serial，所有命令 `adb -s <serial>`；
 不用 MuMu；长测前记录 `stay_on_while_plugged_in` 原值并在结束时恢复；报告不得记录真实书名。
 

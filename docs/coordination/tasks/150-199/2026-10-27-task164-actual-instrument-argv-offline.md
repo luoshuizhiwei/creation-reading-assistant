@@ -1,0 +1,12 @@
+# 任务164-v1：仪器实际argv回执接线
+编号164-v1；2026-10-27 HK15:20；推荐保持WorkBuddy global:deepseek-v4.1-flash 1M。与163原VM恢复真正独立。20分钟从实际UI发送起。仅新 E:/creation-reading-assistant/task164-actual-instrument-argv-offline-v1/ 内最小host/collector适配、inputs/patch/REPORT/ready和必要定向证据；候选、APK、Gradle、设备、VM及163全部只读，绝不发真实ADB/设备命令。不改旧161-r2/collector/父源。
+
+基线161-r2 ready现11512B SHA97f04e85f1a148626d7a0e6a7781478de6626833a62f65c4bcfed4083e4e3936。host161_r2.py17000B SHA4c96fef93a5a16589803df0ef2579d1d6f2dad7c057f3894d07dd6345e6fa940；inputs8441B SHA53bd9aa0d6065a7ccabdd7ae47fd7c2f05ca1cbb2050094df7f296d16802f775；collector161_r1.py20398B SHA0267792e0c63e6fef4589bc6cc65e8b1b16bc263658951f57840226756cfd3a2。它们真实main/parentrun_attempt、strict158fixture门、exactowner、host捕获stdout/stderr/rc已经离线充分，18pins/旧8case/旧9case及157编译/JVM充分不重刷。
+
+具体剩余证据缺口：capture.instrumentArgv目前由instrument_argv_161按父合同重建，只能称expected；没有实际调用参数独立回执。本批最小生产适配在父真正调用外部instrument边界记录实际argv（含adb -s本serial、完整class/craRunId/runner）、rc/stdout/stderr及scope/runId，并原子/独占落本run receipt。collector从实际回执取argv，核精确位置和值与fresh绑定匹配，不能只检验字符串出现在列表或再填预期。expected与actual必须分开；缺receipt/argv错class或runId不得借expected回填为通过。
+
+保证原parent.run_attempt、cmd安全体、158fixture门/恢复finally和主错误总裁决仍实际执行；允许新生产适配，不测试内override/cmdlambda0/StubParent/复制谓词/手改summary。只外部subprocess/RUN_FN strictmock，未知调用throw。最少新case正常实际argv一致、捕获回执缺失或错runId/class至少两种拒错；验证默认main挂接与collect/tuple两出口保持exactowner。必要红绿留原log；不为证明新点重刷8+9全suite。记录仪器raw文本是父捕获解码后文本，不能把utf8重新编码称设备原生byte-for-byte。
+
+父j1_isolated_fixtures不存在仍REJECT，属于未来实际父状态门，本批不放松、不mkdir、不宣称device ready。输入roles按实际盘pins，引用既有APK不复制，生产新源码selfpin完整。新增源码+doc≤128KiB、所有raw+synthetic生成证据合计≤128KiB含offline-run，不单列排除。只清自己本轮新临时scope需保证紧凑原始证据先留，不删移任何旧资产。空间检查/实际总bytes同REPORT。禁设备/Gradle/重build/安装/系统设置/其他VM/Git暂存提交push发布/云/正式库/私库/sessionDB/.codex/memories/自动记忆。
+
+ready.json唯一本批根ready，REPORT写实际调用接缝、来源标签、旧新pins/测试原rc/范围限制；末行“这是任务164-v1。”用户stop/Esc即停，额度/服务错误如实报告不换账号provider，原会话草稿保留。

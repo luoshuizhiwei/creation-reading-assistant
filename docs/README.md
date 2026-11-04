@@ -1,57 +1,60 @@
 # 文档索引
 
-更新日期：2026-09-13
+更新：2026-10-31。当前执行范围仅原生Android；桌面和Capacitor材料用于历史/结构参考，不是派发入口。文档不构成Git、设备或发布授权。
 
-本仓库包含桌面端、独立原生 Android（当前移动端主线 `android/`）。旧 Capacitor `mobile/` 产品线已于 2026-07-30 删除，其许可证与上游存档见 `archives/frozen-mobile/`；历史文档里提到的 `mobile/` 是指该已删除产品线，不能当作当前 `android/` 的实现依据。
+## 实际目录结构
 
-## 当前执行依据
+```text
+handoff/          当前状态、接手说明
+coordination/     任务编号段、复核、调查、执行结果、设计、决策、派发、运维
+plans/            Android规划、功能候选、历史集成、桌面参考
+qa/               按月的验收报告及原evidence
+code-review/      按月的代码审查
+architecture/     架构参考
+research/         上游调研
+design/           设计资料
+testing/          测试规范与台账
+archive/          历史交接、旧目录和退役产品资料
+```
 
-| 文档 | 作用 |
+旧路径查[迁移映射CSV](document-map.csv)，少量稳定旧路径见[兼容清单](compatibility-paths.md)。
+
+## 接手只读这几份
+
+1. [仓库规则](../AGENTS.md)与用户级全局规则。
+2. [唯一当前交接](handoff/current.md)：候选、实际验收、所有权、设备与权限。
+3. [下一位agent接手说明](handoff/next-codex.md)：当前权限与最短接手步骤。
+4. [Android交付规划](coordination/2026-10-09-workflow-replan.md)：V0五合同及A/B线退出标准。
+5. [后续任务与执行手册](handoff/continuation-playbook.md)：208及其后成功/失败/恢复/首版退出的条件任务卡，内含可复制接手提示词。
+6. [单任务执行单模板](handoff/next-agent-start-template.md)：以后每项任务开工前填写。
+7. [任务派发模板](coordination/android-task-dispatch-template.md)：完整提示词、存储预算、输入与验证边界。
+
+当前：207-r3/r4源码/编译与匹配APK对限定接受，Android行为仍NOT_RUN，205原业务红保留，206有限恢复已关闭。208完整新设备合同已准备、尚未授权/派发。用户已暂停自动化，后续由用户手动交其他agent按文档接任；不从旧任务或文档编写请求推导执行许可。
+
+## 按工作类型查阅
+
+| 目录/入口 | 使用方式 |
 |---|---|
-| [`../AGENTS.md`](../AGENTS.md) | 产品线边界、构建命令和真机验证约束 |
-| [`handoff/current.md`](handoff/current.md) | 当前 Agent 单一交接入口：活动主线、工作区边界、下一步、验证命令与 desktop 停放项 |
-| [`plans/2026-09-12-android-library-folder-smart-recognition-roadmap.md`](plans/2026-09-12-android-library-folder-smart-recognition-roadmap.md) | android/native 应用内书籍目录路线（第 1–3 组已接线并真机验收 PASS；第 4 组阅读器优化未启动）；含 R3 产品决定与拒绝项清单 |
-| [`plans/2026-09-13-android-wip-integration-plan.md`](plans/2026-09-13-android-wip-integration-plan.md) | Android/native 当前未提交 WIP 的分组、共享 seam、集成顺序和提交前证据要求；切片 1 已审阅待拆分提交、切片 3/4 已收口待审、切片 5 调用图已审计 |
-| [`plans/2026-09-13-android-r3-slice1-integration-manifest.md`](plans/2026-09-13-android-r3-slice1-integration-manifest.md) | Android/native 切片 1（R3 来源目录与索引）的文件边界、共享 Room migration 约束、审阅结论和定向验证记录 |
-| [`plans/2026-09-13-android-r3-slice1-review.md`](plans/2026-09-13-android-r3-slice1-review.md) | 切片 1（R3）完整只读 diff 审阅：候选/排除文件清单、混合文件 hunk 级归属、migration 依赖顺序（12→13→14）、seam 调用链、定向测试与风险（含 `library_source_refs` 备份导出缺口待决议） |
-| [`plans/2026-09-13-android-shared-seams-audit.md`](plans/2026-09-13-android-shared-seams-audit.md) | 共享设置/搜索/同步/安全的只读调用图审计：`data.settings` 主体归属 Reader，切片 5 须按新拆片设计执行，仍禁止直接提交 |
-| [`plans/2026-09-10-desktop-global-card-library-requirements.md`](plans/2026-09-10-desktop-global-card-library-requirements.md) | desktop 创作助手 v2.0 当前需求：全局世界观卡片库、写作速查、v9→v10 迁移、后续写作/AI/校对切片与待决策项 |
-| [`plans/2026-09-10-desktop-global-card-library-migration-preflight.md`](plans/2026-09-10-desktop-global-card-library-migration-preflight.md) | desktop v9→v10 全局卡片库的 M0.4 技术预检：已锁定基线与备份证据、迁移 Module seam 和必须确认的四项产品输入 |
-| [`plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md`](plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md) | desktop 创作工作台第一阶段的正式功能规格、迁移要求、验收矩阵和实施切片 |
-| [`architecture/desktop-creation-current.md`](architecture/desktop-creation-current.md) | desktop 当前模块边界、SQLite/IPC 调用链、关键一致性规则与验证入口 |
-| [`architecture/desktop-creation-migration-audit-contract.md`](architecture/desktop-creation-migration-audit-contract.md) | desktop 旧数据只读审计、隐私边界与迁移分级 |
-| [`architecture/desktop-creation-adapter-decision.md`](architecture/desktop-creation-adapter-decision.md) | desktop 创作适配层的边界与技术决策 |
-| [`architecture/native-android-reader.md`](architecture/native-android-reader.md) | 当前独立原生 Android 阅读器架构与已知边界 |
-| [`architecture/android-code-quality-and-evolution-guide.md`](architecture/android-code-quality-and-evolution-guide.md) | 原生 Android 代码质量、架构解耦、Compose 性能与演进规范指南 |
-| [`testing/native-android-gap-audit-2026-07-29.md`](testing/native-android-gap-audit-2026-07-29.md) | 可直接分派给其他 agent 的缺口与验收标准；P0 已全部收口（2026-08-16），剩余为真机复核、EPUB 语料/基线、桌面门禁与同步冒烟 |
-| [`plans/legado-feature-backlog.md`](plans/legado-feature-backlog.md) | 阅读体验增强候选；不是已承诺路线图 |
-| [`plans/2026-08-16-android-followup-roadmap.md`](plans/2026-08-16-android-followup-roadmap.md) | 现行后续计划：收口与真机验证 → 首次发版 → 质量门禁 → 功能深化 |
-| [`qa/android-structure-cleanup-2026-09-08.md`](qa/android-structure-cleanup-2026-09-08.md) | 当前 Android 死代码清理证据、删除测试方法与剩余结构/API 债 |
-| [`plans/2026-08-16-reading-goal-streak-design.md`](plans/2026-08-16-reading-goal-streak-design.md) | P3.2 阅读目标 + 连续阅读 + 提醒设计（片 0–1 会话写入与统计口径统一已完成；片 2–3 待决策/实施） |
-| [`plans/2026-08-16-toc-read-mark-manual-sort-design.md`](plans/2026-08-16-toc-read-mark-manual-sort-design.md) | P3.3 目录已读标记 + 分类/标签/书单手动排序（已完成并真机验收） |
-| [`plans/replace-rules-render-integration-design.md`](plans/replace-rules-render-integration-design.md) | 替换净化规则接入正文渲染：小型 TXT + 新分页引擎及不支持路径能力边界已接线，流式/旧渲染及其他格式仍待实施与带书真机验收 |
-| [`plans/2026-09-03-desktop-toc-upgrade-design.md`](plans/2026-09-03-desktop-toc-upgrade-design.md) | desktop 阅读目录升级：目录/设置分离 + 共享 ReaderSidePanel（折叠/搜索/高亮跟随/已读标记）+ TXT/MD 识别对齐 + 进度按章锚定 + TXT 目录手动修正——P0/P1 均已实施（§9/§10） |
-| [`WorkBuddy/theme_visual_plan.md`](WorkBuddy/theme_visual_plan.md) | 已冻结并真机验收的主题视觉规范 |
-| [`GITHUB_RELEASE_PROCESS.md`](GITHUB_RELEASE_PROCESS.md) | 现有桌面端发布流程；旧 Capacitor APK 发布已在 P0-A2 退役，原生 Android 发布（P0-A3）见 [`release/ANDROID_RELEASE.md`](release/ANDROID_RELEASE.md)（2026-08-16 已收口，`android-v*` tag 流） |
-| [`release/ANDROID_RELEASE.md`](release/ANDROID_RELEASE.md) | 原生 Android 发布操作指南：签名、版本注入、GPL 源码包、检查更新 |
+| [coordination/](coordination/README.md) | 日期任务文档是该轮合同/决策快照；仅current点名的版本可作为当前行动依据 |
+| [plans/](plans/README.md) | 现行Android范围与历史计划分开；旧WIP提交、桌面和发版顺序不再是当前排期 |
+| [Android阅读器架构](architecture/native-android-reader.md) | 模块结构参考；实现细节和schema以当前候选源码为准，不据旧文档声称验收通过 |
+| [Android代码质量指南](architecture/android-code-quality-and-evolution-guide.md) | 通用工程参考，不自动扩展为重构任务 |
+| [testing/](testing) / [qa/](qa) | 原始验收、缺口和runbook；结果受日期、源码/APK指纹、设备及恢复边界约束 |
+| [research/](research) / [design/](design) | 调研、提案与设计；不是已授权路线，也不是当前实现证明 |
+| [code-review/](code-review/README.md)及[archive/](archive/README.md) | 历史资料保留追溯，不执行其中命令或旧“下一步” |
+| [历史交接](archive/handoff/2026-10-30-current-history.md) | 整理前原字节快照；只按任务检索，不默认整份加载 |
+| [CHANGELOG](../CHANGELOG.md) | 发布/变更历史，不等于当前候选或发布授权 |
 
-## 历史或参考资料
+## 退役与范围外
 
-以下内容保留用于追溯设计与故障，不代表当前代码状态。**2026-09-14 起，历史存档类文档已集中移动到 [`archive/`](archive/README.md)**（按来源分四个子目录：`desktop-reports/` 根目录一次性交付报告与接力交接、`mobile-legacy/` 已删除 Capacitor 产品线的审查与回归快照、`theme-process/` 主题方案形成过程稿、`superpowers/` 2026-06 阶段计划），每类归档原因见 [`archive/README.md`](archive/README.md)。仍留在原位的历史资料：
+- Electron的`src/`、`electron/`及desktop规格保留为独立产品历史/参考，当前不调查、实现、构建或验收。
+- Capacitor旧`mobile/`已退役，不可套用于原生`android/`；来源及许可证见[冻结说明](../archives/frozen-mobile/FROZEN.md)。
+- [产品总规划](plans/2026-10-01-product-roadmap-realignment.md)是2026-10-01两端规划快照，已由Android范围覆盖；不再承担当前任务清单。
+- [发布过程](GITHUB_RELEASE_PROCESS.md)含旧流程，只作参考。原生正式签名/升级/R8/分发仍需另行验收与许可；缺失的`release/ANDROID_RELEASE.md`不补造。
+- 旧全量分类目录已保留为[历史目录](archive/indexes/2026-10-30-document-index.md)，其中“当前”“待提交”“下一步”只代表原日期。
 
-- `plans/2026-07-26-native-android-stabilization-plan.md`、`plans/p4-epub-pager.md`：已完成的 Android 稳定化/EPUB 翻页阶段计划与实施记录，被后续阅读内核实现替代。
-- `plans/backlog-04-eye-care-filter-design.md`、`plans/backlog-09-txt-toc-rules-design.md`：已实施功能的备料设计稿（护眼色温滤镜、TXT 目录内置规则），对应 `legado-feature-backlog.md` 第 4/9 项。
-- `architecture/reader-engine-v2.md`：2026-07-16 的 Capacitor/epub.js V2 方案。
-- `architecture/desktop-creation-workspace-contract.md`、`architecture/desktop-creation-structure-contract.md`：desktop 切片 2/6 的历史契约快照；当前完整能力面以 `desktop-creation-current.md` 为准。
-- `architecture/legado-reader-adoption.md`：2026-07-19 的 Capacitor + `archives/frozen-mobile/legado-reader-core` 方案（上游来源见该存档）。
-- `code-review/2026-07-21-native-reader-review.md`：旧 `mobile/` 产品线的审查快照。
-- `research/novalist-desktop-adoption-2026-08-21.md`、`research/legado-with-md3-analysis.md`：desktop 取舍与上游调研资料，不是本项目实现说明，也不是已承诺路线图。
-- `perf/reader-fluency-baseline-2026-09-06.md`：阅读流畅度基线存档。
-- `research/novalist-desktop-adoption-2026-08-21.md`：desktop 创作雷达与 AI 上下文候选的取舍记录；不是当前 Android 任务，也不是已承诺路线图。
+## 维护纪律
 
-## 维护规则
-
-- 新文档标题或开头必须写清产品线：`desktop`、`android/native`（`mobile/Capacitor` 仅用于历史文档标注，该产品线已删除，不指向当前实现）。
-- 阶段计划完成后补“完成/被替代”状态；不要继续作为下一位 agent 的入口。
-- 当前路径、命令和验收口径只在 `AGENTS.md`、本索引和当前架构文档维护，避免复制出多个真源。
-- 测试记录使用“测试 EPUB”“测试 TXT”等中性名称，不记录真实测试书名。
+current只保存现态与必要历史指针，不再叠加整段流水账；新结果替换对应状态。旧失败与证据不可删除来制造通过。
+改动/失效引用按真实目标修复；找不到的原件记录缺失，不伪造空文档。历史任务没有后续授权不应重执行；无人引用不等于无效。
+本次结构扫描、清理判定、残余错链及验证范围见[文档整理报告](coordination/operations/2026-10/2026-10-30-document-maintenance.md)。没有逐项重新验证所有历史API或设备结论。

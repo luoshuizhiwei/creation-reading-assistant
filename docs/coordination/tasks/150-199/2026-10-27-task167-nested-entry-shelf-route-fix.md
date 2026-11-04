@@ -1,0 +1,12 @@
+# 任务167-v1：两入口测试真实书架导航与单owner定向构建
+编号167-v1，推荐当前WorkBuddy global:deepseek-v4.1-flash1M。与166recover-only真正独立，设备绝不触碰。25分钟从实际UI发送起。只负责candidate Android NestedTemporaryReaderEntryTest.kt该测试文件最小hunk、必要定向AndroidTest编译/现有workspace测试APK构建与同批报告，不改产品源/公共Gradle/其他测试。唯一Gradleowner，先核独占锁/工作区，不另复制工程。Root已要求另设备owner只恢复不Gradle。
+
+基线：E:/creation-reading-assistant/task165-two-temporary-entry-single-device-v1/ready.json与raw/device-run-T165V1-20261027-161500.log9171B SHAbad111404e1815373e7904f889b2fa971c6fa4e3eb16bdf8fad2c1269599108f，真实两方法均在NestedTemporaryReaderEntryTest.openBookAOrdinarily147找不到book-tile-cra153-<runid>-book-a。主红永留不重设备。当前测试源14224B SHAb54c506769b4de253a0478448da37c401abc8fd5c4e169774de305171da8ddfb，路径E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android/app/src/androidTest/java/com/creationreadingassistant/acceptance/NestedTemporaryReaderEntryTest.kt。
+
+先核精确根因：165实际hierarchy/截图/原instrument日志与AppNavigation起点、ShelfScreen对应tag/既有J1RealReaderJourneyTest真实UI导航。已知报告称MainActivity启动Home，book-tile只在Shelf；不要盲加sleep或删除assert/放宽wait。若证实入口缺少书架导航，仅在正确生产UI入口显式去书架，等同一run同一book精确tag可见再点击，保留普通S0位置/临时身份/返回位置/源偏移全部原断言；如证据另因，报告事实后最小修复，不扩产品功能。中性测试书名不碰正式库。不发明reader任意深度嵌套UI。
+
+当前唯一构建工作区就是该candidate/android；JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk，GradleHome D:/develop/env/gradle，lock E:/creation-reading-assistant/locks/android-gradle-exclusive.lock。其他既有WIP不回滚。先实算源/产品/测试APK pins并检查输入未变。旧157 pair为165唯一真实输入，构建覆盖前仅当没有已冻结同SHA独份时，在本任务preserved/各保一份旧pair（必要唯一证据而非默认版本复制），记录必要体积约65.7MB/空间；仅检查已知task157/preserved和本目录，不泛扫E盘。旧product54969452B SHA4d302624d603c06b12b1a30480dd1a9d5b7ce5e44cb24efafecd81d4d6c62577；test10682844B SHAf23dfc0e806ae251eda392b159377f27714c1f88a5fb5333d92087458fc54af5。不删旧产物，不改旧165inputs/报告；新inputs引用冻结旧路径供历史对照。
+
+实施后只必要:app:compileDebugAndroidTestKotlin，再:app:assembleDebugAndroidTest（修编译同owner闭环），无产品改变则不跑JVM/全Lint/scroll/退出四测试。依赖复用现有，不新工程/Gradlecache。构建匹配新testAPK/当前productAPK actualsizeSHA/signer/runner目标与Nested源前后SHA，产品若无改动应核旧productSHA保持，若变化必须如实解释不假定。释放锁/进程退出。不得ADB/安装/卸载/启动VM/真实仪器/系统修改，设备验证由后续Root新批决定，不把compile当设备PASS。
+
+差量交付E:/creation-reading-assistant/task167-nested-entry-shelf-fix-v1/：最小patch、改后测试源码、before/afterSHA、REPORT、必要原编译红绿与构建rc日志/新testAPK原buildoutput路径，不重复复制新APK。源码doc≤128KiB，raw≤128KiB，必要旧pair独份保全另明列实占/复制前空间。报告列修复证据具体UI导航/原断言保留/构建匹配/未运行设备/资源退出，唯一ready根ready.json；旧165red和恢复失败/tuple布局缺陷不在本批修。禁止Git暂存提交push发布/云/正式库/其他VM/私库sessionDB/.codex/memories/自动记忆/删移旧件。用户stopEsc停。最终末行“这是任务167-v1。”

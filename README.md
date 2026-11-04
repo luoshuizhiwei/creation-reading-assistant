@@ -2,11 +2,13 @@
 
 创作阅读助手是一套本地优先的创作与阅读应用。仓库包含 Electron 桌面创作工作台和独立原生 Android 阅读端；两条产品线源码隔离，不共享运行时代码。
 
+> 当前恢复项目执行范围（2026-10-30）：只推进原生Android稳定阅读与轻量取材；桌面资产保留但不在当前开发/构建/验收范围。接手先读[当前交接](docs/handoff/current.md)与[接手说明](docs/handoff/next-codex.md)。
+
 ## 产品线
 
 | 产品线 | 目录 | 当前定位 |
 |---|---|---|
-| Electron 桌面端 | `src/`、`electron/` | **当前桌面主线**：项目、正文写作、大纲、卡片、版本历史与资料阅读 |
+| Electron 桌面端 | `src/`、`electron/` | 独立桌面资产；当前Android恢复任务排除桌面实施/构建/验收 |
 | 独立原生 Android | `android/` | **当前移动端主线**，Kotlin + Jetpack Compose + Room |
 | Capacitor 历史存档 | `archives/frozen-mobile/` | 已删除产品线的许可证、上游归属与冻结说明；不可构建 |
 
@@ -39,15 +41,15 @@ Set-Location android
 .\gradlew.bat :app:assembleDebug
 ```
 
-需要 UI 或设备行为验证时，只使用已连接的真实 Android 手机；先用 `adb devices` 确认设备，再用 `adb -s <serial>` 明确指定目标。不要使用 MuMu 模拟器。长时间测试临时修改常亮设置后，必须恢复设备原值。
+设备类型和权限以 [当前交接](docs/handoff/current.md) 为准。本恢复项目已获准在无实体手机时使用隔离 MuMu；结果标注模拟器证据，不外推实体手机/MIUI。先用 `adb devices` 确认设备，再用 `adb -s <serial>` 明确目标；保存并恢复本轮数据、原 APK 对及系统设置。
 
-Capacitor 历史实现已删除，不再作为可构建或可发布的产品。如需追踪许可证和上游来源，见 [`archives/frozen-mobile/FROZEN.md`](archives/frozen-mobile/FROZEN.md)。原生 Android Release 的正式发布迁移属于后续 P0-A3，完成前 Release 工作流只构建桌面端。
+Capacitor 历史实现已删除，不再作为可构建或可发布的产品。如需追踪许可证和上游来源，见 [`archives/frozen-mobile/FROZEN.md`](archives/frozen-mobile/FROZEN.md)。[现存 Release 工作流](.github/workflows/release.yml) 已包含原生 Android 分支；流水线存在不代表签名、升级或实际分发已验收。
 
 ## 当前交付状态
 
 - 原生 Android 的 JVM 单元测试、Lint 和 Debug APK 已有构建入口。
-- Room 迁移测试位于 `android/app/src/androidTest/`，需要在真实设备上执行。
-- `.github/workflows/release.yml` 已在 P0-A2 退役旧 `mobile/android` APK 的构建与上传，当前只构建桌面端（Windows 安装版 + 免安装版）。原生 `android/` Release 迁移属于后续 P0-A3，完成前不发布 Android APK。
+- Room 迁移测试位于 `android/app/src/androidTest/`；设备环境与当前验收范围见交接入口。
+- 旧 `mobile/android` 发布已退役；原生 Android 正式签名/升级及F发布仍为独立验收范围。当前目标、优先级与退出条件见 [Android交付规划](docs/coordination/2026-10-09-workflow-replan.md)；[产品总规划](docs/plans/2026-10-01-product-roadmap-realignment.md)保留历史两端目标，不能将A–E恢复100%视为全产品完成。
 
 ## 安全与数据
 

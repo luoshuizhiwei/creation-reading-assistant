@@ -1,0 +1,14 @@
+# 任务170-v1：初始阅读位与正文探针精确对齐
+编号170-v1；2026-10-27；推荐保持用户当前Claude桌面WorkBuddy Flash配置不改provider帐号。与169recover-only独立，唯一candidate测试源/Gradleowner，无设备/ADB/VM。原168owner退出后派，25分钟从实际UI消息起。只修改NestedTemporaryReaderEntryTest.kt必要hunk及同批差量/定向compile/testAPK，不产品源/其他test/公共Gradle。
+
+基线：当前candidate源15397B SHA29eae6d5aba8c40d97cf9b88911078a284115a33a6be5c8a49f727b0ac5a252d，167Home→Shelf导航已真实168走过，保持该修复。168ready E:/creation-reading-assistant/task168-two-entry-integration-device-v1/ready.json与同scope instrument原失败：两方法在NestedTemporaryReaderEntryTest.kt167等待bodyProbe15秒超时，不复跑此批。Root源码事实J1RealReaderFixtures.kt419-429 seed ReadingProgressEntity到contentA.offset1/current_location_json initialLocA；helper165-170却期待contentA.bodyText.substring(0,8)。PagedTxtReaderHost.kt400存在正文text语义，不能仅从未命中断言“正文不渲染/分页产品错误”。先核精确initialLocA/offset1、实际生产恢复位/页面accessibleText及既有J1读取语义方式，区分事实与推断；168logcat约设备07:51:36~07:52:09为本run，post-batch截图不是失败瞬间，不拿它补造failure tree。
+
+成功标准是普通阅读已在同run/book的实际初始S0位置准备好，之后原ordinary行全列/临时身份隔离/返回S0/第二次来源代次断言都保留。若源码与原日志证实预期探针错位，最小对齐initialLocA对应可见正文的精确fixture marker/片段（核同书/同初始位置），不能改fixture进度到0迎合、等待任意文字/标题代正文、删原断言或盲延长timeout/sleep。必要时复用现有J1严谨semantics helper。若现有证据不足以确定正确可见片段，不猜产品修复；最小增加失败时当前合并/未合并semantics文本的有界runId日志捕获（复用已有真实stdout/logcat路径）并保留原assertion后报告待下一真实批定位。不要引入新的虚构设备results目录或私有接口。
+
+当前唯一工作区E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android，JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk，GradleHome D:/develop/env/gradle，精确lock E:/creation-reading-assistant/locks/android-gradle-exclusive.lock。只该lock及已知workspace，不grep全E/task。既有WIP不可回滚。新源码前后SHA/最小patch/原断言保持证据同REPORT。定向:app:compileDebugAndroidTestKotlin再:app:assembleDebugAndroidTest，编译修复同owner闭环；无产品改变不跑JVM/Lint/scroll/退出四tests/设备业务。
+
+覆盖前唯一必要保全当前testAPK10683246B SHA1980693aac0441f8b3fd2191d16bec93bbb1964d91069dfe7b0a9103f8ccf653一份（本task preserved，新input将引用）；若已有已知冻结同SHA独份则引用不复制，不泛扫。product54969452B SHA4d302624d603c06b12b1a30480dd1a9d5b7ce5e44cb24efafecd81d4d6c62577已有task167/preserved/app-debug-4d302624.apk，不再复制。旧157test f23dfc0e仍引用167/preserved，不改旧168inputs/report。169仅恢复无需读取mutabletest源/新APK，与本批互不写。
+
+交付 E:/creation-reading-assistant/task170-reader-probe-alignment-v1/：必要测试源码/patch/REPORT/原编译rc日志/新testAPK原buildoutput引用和完整sizeSHA signer runner pairing/product不变核，release锁/资源退出，无新APK复制或工程cache。sourceDoc≤128KiB/raw≤128KiB，必要10.7MB旧test独份保全另列实际空间。不得删移旧源/raw/唯一证据，166最早red误cp覆盖是永久教训，任何输出既有文件冲突先停不覆盖。
+
+只完整证明的前提修复才称fix，编译过不称设备PASS；若仅加入诊断明确DIAGNOSTIC_ONLY。不改产品功能/断言来强绿，不声明任意深reader嵌套（真实只来源单层返回再重入）。唯一ready根ready.json，原168两个主红及预算/storage/历史恢复限制永留。禁止Git暂存提交pushPR发布/云/正式库/私库sessionDB/.codex/memories/自动记忆/设备系统设置，用户stopEsc停。最终末行“这是任务170-v1。”

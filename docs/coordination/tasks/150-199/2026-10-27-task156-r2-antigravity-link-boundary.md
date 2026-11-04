@@ -1,0 +1,15 @@
+# 任务156-r2：Antigravity接续——祖先与目标链接边界最小修正
+
+用户明确ZCode额度耗尽改Antigravity继续，Root已确认旧ZCode写owner退出。156-v1已于HK08:00补最终交付，不再派过时156-r1。你为唯一新host离线owner；候选Android/Gradle/APK/设备只读。只新E:/creation-reading-assistant/task156-absent-proof-offline-v1/recheck-r2-antigravity/，旧所有source/raw/summary/report/ready不改不删移，不产生旧根pycache。
+
+固定基线E:/creation-reading-assistant/task156-absent-proof-offline-v1/absence156.py26603B SHA2d0e807c422a25a8c61d2434f08fed92aaf899bea27e6fb56bc65ce87fed4fe0；offline_validate_156.py23434B SHA1c17819d34fc8a7c2d873f25d2989f1dd9db7880165629a2d3e433d34706a935；9case result1197B SHAb42f8cc8e8f340015fad09bf763e17c8c39855b1ba18825bc10efa1aa546fd58；ready2992B SHA0dd43b2d9579d6ed9c537b718f04eae8b62de68ba3d242d6524b18134b964220；REPORT4767B SHA8cbaafea71caabe36b0fdf1145ac80a4fcb518f895b20d53520b6952cdfab2e6。先核指纹，只读必要原实现与原log，充分项复用不刷9suite。
+
+已接受有限事实：main_156加载真实冻结父和scope身份，再直调本模块preserve_156/archive_roots_156/probe_absent_156，实际globals接线成立；父枚举rc/fullstderr失败拒错，无旧test+echo掩蔽；154历史assessment及错指148/正确152两个真实SHA核同。尚未设备运行。原rawfake368375B超64KiB已披露不删；generatedAt04:05非真实完成时钟（ready实际HK08:00:58/REPORT08:01:19）如实。
+
+唯一当前缺口：probe_absent_156只stat chain[-1]直接父目录，不逐分量核祖先，也不核已枚举存在的target自身；ls可穿中间symlink。X3仅直接父symlink mock，不能证明祖先或target链接拒绝。先最小实际调用证实或证伪，不制造红；然后修正祖先/目标类型检查。精确root路径不能穿任何链接；父链每一分量实际stat类型与原始rc/stdout/fullstderr，缺失/权限错/命令错/链接/非目录拒；目标在父完整枚举中存在时核其真实类型，必须目录方可走现有归档。缺席只在完整父链可遍历和精确目标名缺席且身份前后同的条件成立，不能把检查失败当缺席或伪造空tar。不引入通用框架/扫描整盘，不修改冻结父adapter。
+
+必要定向验证只新缺口：中间祖先symlink拒、target symlink拒、可遍历普通目录真缺席通过、实际存在普通目录仍走旧完整归档门。调用实际新恢复函数及接线，不复制谓词/测试内另写hook；未知外部命令抛，所有外部strictmock，不能真实ADB/VM/设备/main/attempt/安装卸载stop/settings/Gradle。保存真正原红和绿/原始IO；未证旧放行则如实，不编造。无必要不重刷原G1完整25书fake。一次具体自查实际globals/链接/权限混淆，发现具体错同owner闭环后交。
+
+154已经卸载，external卸载前缺父链可达证据的历史缺口无法补造；仍REPORTED_RECOVERY_WITH_EXTERNAL_PRESERVATION_EVIDENCE_GAP，不称全恢复或无证据数据丢失；Download.exmu差异未知与实例末态缺独立回执永留。不现在探设备补历史。152原设备1PASS3FAIL主线程约束，原红不改。157已实际定向compile/JVM/新匹配APK通过，设备未运行，不能重build。
+
+新交付REPORT/最小新源patch/前后完整SHA/必要原log/ready.json，只新目录source128KiB，raw+fake64KiB（fake算实际空间）；复制前核free，超额须如实列偏差，不删旧资产。15分钟从实际收到本任务运行计，原156超时和quota中断不重置。提交前自查实际出口和必要定向结果，不能口头绿。Root验后另闭新host/input/APK并安排设备，不自行放行。禁Git暂存提交push发布/云/正式库/其他VM实体/私库/自动记忆。最终总结末行：这是任务156-r2。

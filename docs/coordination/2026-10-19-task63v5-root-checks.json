@@ -1,0 +1,148 @@
+{
+  "run": "CRA63_DE_JOINT_20261019_V5",
+  "protected": {
+    "protected_files": {
+      "count": 71,
+      "path_size_sha_equal": true
+    },
+    "external_files": {
+      "count": 820,
+      "path_size_sha_equal": true
+    }
+  },
+  "tmp_archive": {
+    "count": 115,
+    "set_size_sha_equal": true,
+    "tar_sha_equal": true
+  },
+  "saf_tar": [
+    {
+      "member": "sdcard/Android/data/com.creationreadingassistant.qahostj1persistv2/files/task35_evidence/CRA63_DE_JOINT_20261019_V5/notesExport_realSystemSafCreateDocumentAndSave.json",
+      "size": 5418,
+      "sha256": "2b2151bf6d4964e0f27ea2fd137c7d54b089762293772b404f276aeb48de4980"
+    },
+    {
+      "member": "sdcard/Android/data/com.creationreadingassistant.qahostj1persistv2/files/task35_evidence/CRA63_DE_JOINT_20261019_V5/saf-CRA63_DE_JOINT_20261019_V5-pre-grants.json",
+      "size": 96,
+      "sha256": "ae0674b867ab1f47e2a38d063595bff19aeef8aaaa689586e062d648b33ecd01"
+    },
+    {
+      "member": "sdcard/Android/data/com.creationreadingassistant.qahostj1persistv2/files/task35_evidence/CRA63_DE_JOINT_20261019_V5/notesShare_realSystemChooserObservedThenCancel.json",
+      "size": 6812,
+      "sha256": "77516244227886241b073f69ecb58adb4fd7f80487129d47ca2205f0cca88090"
+    },
+    {
+      "member": "sdcard/Android/data/com.creationreadingassistant.qahostj1persistv2/files/task35_evidence/CRA63_DE_JOINT_20261019_V5/task35_process_end.json",
+      "size": 1556,
+      "sha256": "aa24cc8a477556c67781505a86cde18fec59f92e1cedc8cefd97a2be43d80246"
+    },
+    {
+      "member": "sdcard/Android/data/com.creationreadingassistant.qahostj1persistv2/files/task35_evidence/CRA63_DE_JOINT_20261019_V5/task35-ledger-CRA63_DE_JOINT_20261019_V5.json",
+      "size": 1579,
+      "sha256": "cb44e7626fd0cb47689b8c72d54c384f27758546e0f4693719a260d4a341f770"
+    },
+    {
+      "member": "sdcard/Android/data/com.creationreadingassistant.qahostj1persistv2/files/task35_evidence/CRA63_DE_JOINT_20261019_V5/notesExport_realSystemSafColdReadContent.json",
+      "size": 3830,
+      "sha256": "f150fc091b9049c5f4c19798a77d2f6877cc9b2e118af4dbfa3d6c21708a7238"
+    },
+    {
+      "member": "sdcard/Android/data/com.creationreadingassistant.qahostj1persistv2/files/task35_evidence/CRA63_DE_JOINT_20261019_V5/task35-restoration-CRA63_DE_JOINT_20261019_V5.json",
+      "size": 380,
+      "sha256": "f744cb970c4355f612c036f97fa1331a88d386ad3ab4ed807d0a36f409e35bc0"
+    },
+    {
+      "member": "sdcard/Android/data/com.creationreadingassistant.qahostj1persistv2/files/task35_evidence/binding.json",
+      "size": 313,
+      "sha256": "99478c99c77ecd3b94f18a95d13705edb3551c963e6bff11dc0709464451b2cd"
+    }
+  ],
+  "export_readback": [
+    {
+      "size": 5418,
+      "sha256": "2b2151bf6d4964e0f27ea2fd137c7d54b089762293772b404f276aeb48de4980",
+      "matches_tar": true
+    }
+  ],
+  "final_pull": [
+    {
+      "argv": [
+        "D:\\develop\\Android\\Sdk\\platform-tools\\adb.exe",
+        "-s",
+        "127.0.0.1:16416",
+        "pull",
+        "/sdcard/Android/data/com.creationreadingassistant.qahostj1persistv2/files/task35_evidence/CRA63_DE_JOINT_20261019_V5",
+        "E:\\creation-reading-assistant\\task63-common-device-entry-v1\\attempts\\attempt_v5_20261019_100715\\evidence\\task35_evidence\\_raw_CRA63_DE_JOINT_20261019_V5"
+      ],
+      "rc": 1,
+      "stderr": "adb: error: failed to copy '/sdcard/Android/data/com.creationreadingassistant.qahostj1persistv2/files/task35_evidence/CRA63_DE_JOINT_20261019_V5/notesExport_realSystemSafCreateDocumentAndSave.json' to 'E:\\creation-reading-assistant\\task63-common-device-entry-v1\\attempts\\attempt_v5_20261019_100715\\evidence\\task35_evidence\\_raw_CRA63_DE_JOINT_20261019_V5\\notesExport_realSystemSafCreateDocumentAndSave.json': remote open failed: Permission denied\r\npull: building file list...\r\n"
+    }
+  ],
+  "abc": {
+    "task34_epubNormalReadingPositionIsStableAndSavesOnActiveNavigation": "PASS",
+    "task34_temporaryEpubInspectionKeepsNormalReadingRowFrozen": "PASS",
+    "task34_unreadableSourceWithPreviewShowsRealErrorAndKeepsProgress": "PASS",
+    "task34_chapterReadSameKeyKeepsNewerReadAt": "PASS",
+    "task34_olderBackupImportKeepsLocallyAddedRelations": "PASS",
+    "task34_sameKeyShelfPositionNotRegressedAndMissingRelationAdded": "PASS",
+    "D/E": "NOT_RUN"
+  },
+  "saf_steps": {
+    "preflight": {
+      "ok": true,
+      "detail": "run 目录不存在，可开工"
+    },
+    "binding": {
+      "ok": true,
+      "detail": "runId+freezeSha256 已绑定上设备"
+    },
+    "notesExport_realSystemSafCreateDocumentAndSave": {
+      "ok": true,
+      "detail": "instrument rc=0"
+    },
+    "processEnd": {
+      "ok": true,
+      "detail": "previousPid=5411 pidAbsent=True"
+    },
+    "notesExport_realSystemSafColdReadContent": {
+      "ok": true,
+      "detail": "instrument rc=0"
+    },
+    "notesShare_realSystemChooserObservedThenCancel": {
+      "ok": true,
+      "detail": "instrument rc=0"
+    },
+    "notesExport_realSystemSafCleanupAndRestore": {
+      "ok": true,
+      "detail": "instrument rc=0"
+    }
+  },
+  "state": "FAIL",
+  "snapshot_inputs": {
+    "task63_root_runner.py": "ef424628414f75ce8e96ec4b38f41363c247cfdcdd23581a42b346dab35b0431",
+    "task63_v4_saf_delivery.py": "9b574bc791b90135fdf8d66039aa8d28c3e4aaca3139f35808393fe386bafe5c",
+    "tool-bind.task63.root-v4-r1.json": "65b8cf8ff71a4b721d42b2c3b63d191849402324d2cc55a42a5085ed8728bc88"
+  },
+  "saf_instruments": [
+    {
+      "selector": "com.creationreadingassistant.acceptance.RealSystemUiAcceptTest#notesExport_realSystemSafCreateDocumentAndSave",
+      "rc": 0,
+      "ok_1_test": true
+    },
+    {
+      "selector": "com.creationreadingassistant.acceptance.RealSystemUiAcceptTest#notesExport_realSystemSafColdReadContent",
+      "rc": 0,
+      "ok_1_test": true
+    },
+    {
+      "selector": "com.creationreadingassistant.acceptance.RealSystemUiAcceptTest#notesShare_realSystemChooserObservedThenCancel",
+      "rc": 0,
+      "ok_1_test": true
+    },
+    {
+      "selector": "com.creationreadingassistant.acceptance.RealSystemUiAcceptTest#notesExport_realSystemSafCleanupAndRestore",
+      "rc": 0,
+      "ok_1_test": true
+    }
+  ]
+}

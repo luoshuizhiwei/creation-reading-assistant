@@ -1,6 +1,6 @@
 # 灵感与阅读工作台重定位设计
 
-> 状态：**已被取代**。2026-08-09 起，desktop 的当前执行依据为 [`../../plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md`](../../plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md)。本文仅保留为历史决策快照。
+> 状态：**已被取代**。2026-08-09 起，desktop 的当前执行依据为 [`../../plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md`](../../../plans/desktop-reference/2026-08-09-desktop-creation-workbench-phase-1-spec.md)。本文仅保留为历史决策快照。
 
 ## 背景
 

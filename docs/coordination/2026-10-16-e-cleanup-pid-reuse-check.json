@@ -1,0 +1,37 @@
+[
+  {
+    "Log": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v3\\_cache\\gradle-home\\daemon\\8.9\\daemon-34408.out.log",
+    "LogLastWrite": "2026-10-07T14:41:47.5128517+08:00",
+    "PID": 34408,
+    "CurrentProcessName": "node_repl.exe",
+    "CurrentProcessStarted": "2026-10-15T22:50:37.631188+08:00"
+  },
+  {
+    "Log": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v3\\_cache\\gradle-home\\daemon\\8.9\\daemon-39740.out.log",
+    "LogLastWrite": "2026-10-07T14:38:23.7583295+08:00",
+    "PID": 39740,
+    "CurrentProcessName": "conhost.exe",
+    "CurrentProcessStarted": "2026-10-16T00:18:26.503009+08:00"
+  },
+  {
+    "Log": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v2\\_cache\\gradle-home\\daemon\\8.9\\daemon-34408.out.log",
+    "LogLastWrite": "2026-10-07T14:41:47.5128517+08:00",
+    "PID": 34408,
+    "CurrentProcessName": "node_repl.exe",
+    "CurrentProcessStarted": "2026-10-15T22:50:37.631188+08:00"
+  },
+  {
+    "Log": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v2\\_cache\\gradle-home\\daemon\\8.9\\daemon-39740.out.log",
+    "LogLastWrite": "2026-10-07T14:38:23.7583295+08:00",
+    "PID": 39740,
+    "CurrentProcessName": "conhost.exe",
+    "CurrentProcessStarted": "2026-10-16T00:18:26.503009+08:00"
+  },
+  {
+    "Log": "E:\\creation-reading-assistant\\j1-crossbook-temporary-entry-v1\\android\\gradle-home\\daemon\\8.9\\daemon-29068.out.log",
+    "LogLastWrite": "2026-10-07T10:45:27.4576004+08:00",
+    "PID": 29068,
+    "CurrentProcessName": "FlClash.exe",
+    "CurrentProcessStarted": "2026-10-14T11:12:44.623929+08:00"
+  }
+]

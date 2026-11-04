@@ -1,10 +1,16 @@
+web_search = "live"
+sandbox_mode = "workspace-write"
+model_verbosity = "medium"
 [agents]
 enabled = true
 max_concurrent_threads_per_session = 4
-default_subagent_model = "gpt-5.6-terra"
+default_subagent_model = "gpt-6-luna"
 default_subagent_reasoning_effort = "medium"
 interrupt_message = true
 
 [features]
 multi_agent = true
 multi_agent_v2 = true
+
+[sandbox_workspace_write]
+network_access = true

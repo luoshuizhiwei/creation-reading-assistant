@@ -1,0 +1,48 @@
+{
+  "task": "63-v3-device-1 Root review",
+  "run_id": "CRA63_DE_JOINT_20261018_232820",
+  "private": {
+    "before": 71,
+    "after": 71,
+    "path_size_sha_equal": true
+  },
+  "external": {
+    "before": 820,
+    "after": 820,
+    "path_size_sha_equal": true
+  },
+  "tmp": {
+    "before": 616,
+    "after": 616,
+    "path_size_sha_equal": true
+  },
+  "settings_values_equal": true,
+  "abc_journeys": {
+    "task34_epubNormalReadingPositionIsStableAndSavesOnActiveNavigation": "PASS",
+    "task34_temporaryEpubInspectionKeepsNormalReadingRowFrozen": "PASS",
+    "task34_unreadableSourceWithPreviewShowsRealErrorAndKeepsProgress": "PASS",
+    "task34_chapterReadSameKeyKeepsNewerReadAt": "PASS",
+    "task34_olderBackupImportKeepsLocallyAddedRelations": "PASS",
+    "task34_sameKeyShelfPositionNotRegressedAndMissingRelationAdded": "PASS",
+    "D/E": "NOT_RUN"
+  },
+  "abc_consumer_items": {
+    "A.task34_epubNormalReadingPositionIsStableAndSavesOnActiveNavigation": true,
+    "A.task34_temporaryEpubInspectionKeepsNormalReadingRowFrozen": true,
+    "B.task34_olderBackupImportKeepsLocallyAddedRelations": true,
+    "B.task34_sameKeyShelfPositionNotRegressedAndMissingRelationAdded": true,
+    "B.task34_chapterReadSameKeyKeepsNewerReadAt": true,
+    "C.task34_unreadableSourceWithPreviewShowsRealErrorAndKeepsProgress": true,
+    "DE.strict": false
+  },
+  "clamp_results": {
+    "j1_clamp_00_seedFixture": "PASS",
+    "j1_clamp_10_recordSaved": "PASS",
+    "j1_clamp_20_reentrySettled": "PASS",
+    "j1_clamp_30_newPositionSaved": "PASS",
+    "j1_clamp_35_exitPositionSaved": "PASS",
+    "j1_clamp_40_coldReentryVerify": "PASS"
+  },
+  "recovery_evidence_gap": "Manual rm -rf log has empty rc; no owned-tmp tar or complete removed-file set/size/SHA to retained-evidence mapping found in delivered attempt and completion corpus. Final protected-byte equality does not prove removed new evidence archived.",
+  "note": "Read-only; no device commands or full tests."
+}

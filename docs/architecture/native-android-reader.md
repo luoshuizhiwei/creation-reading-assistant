@@ -1,8 +1,8 @@
 # 独立原生 Android 阅读器架构
 
-> 2026-09-14 状态更正：本文件混有早期架构快照，能力声明不能代替设备验收。~~安全滚动 TXT 替换复验 FAIL~~——该 2026-09-09 结论已被 2026-09-11 R1 闭环推翻：根因（小文件滚动 `chapterIndex` 恒 0 致整书坍缩、>256K 降级原文）修复后真机 8 步复验全过，见 `../handoff/current.md` §31.1。EPUB 分页替换已有后续历史验收。活动任务见 `../plans/android-parallel-delivery-2026-09-09/README.md`。
+> 状态校正（2026-10-30）：本文是2026-09架构与实现快照，保留技术参考，不承担当前任务/设备结果。当前候选、保存/退出接缝及权限见[当前交接](../handoff/current.md)。旧任务状态和schema版本须核实际源码，不从本页重新派发旧工作。
 
-状态：当前执行依据  
+状态：架构参考（当前执行入口为current）  
 更新日期：2026-09-14 会话（Room schema 现状对齐 v12–v14；补记 R3 应用内书籍目录与来源索引模块。注：v13/v14 及 R3、ReaderCorrection、词典、每书设置等均在工作区**未提交**，归属与拆分见 `../plans/2026-09-13-android-r3-slice1-review.md` 与 `../plans/2026-09-13-android-wip-integration-plan.md`）  
 范围：`android/`（Kotlin + Jetpack Compose + Room）
 

@@ -1,0 +1,18 @@
+# 任务165-v1：两临时入口单批真实MuMu验收与完整恢复
+编号165-v1；2026-10-27；推荐保持WorkBuddy global:deepseek-v4.1-flash1M。只在Root确认163恢复原回执成立、原owner已Idle/资源退出后实际发送。单owner负责新host最小接缝、必要离线验证、单批设备、恢复及报告，不拆反复小批。无另一个独立有价值实现，164已闭离线证据缺口，不造泛审填并行。预算：离线15分钟固化评估，通过后本轮直接设备最多60分钟（业务1800s、恢复1200s、启动600s），从真实UI发送计；安全恢复不中断，不无限等。仅原instance1已运行guest，不能新launch/重启/新建/其他设备。
+
+真实当前基线按163 ready与原回执核（不是仅summary绿）：E:/creation-reading-assistant/task163-current-gpu-original-recovery-v1/ready.json，newboot a20ce1c6-01a5-4f4d-bbc8-217830eb70c3/旧持久created_timestamp1777974446694936；产品已正常卸载，原test SHA0d18d788a04e366271df3ad2ac18cc2ceeb95edc3c64c37cb995745aefbc9a9c及settings/protection/keepalive需本轮fresh再核。旧163doc路径错/bytesSHA空的报告限制保留，不回写旧ready。设备serial本轮fresh，不因历史16416直接假定。
+
+离线基线164目录 E:/creation-reading-assistant/task164-actual-instrument-argv-offline-v1/：host164.py15298B SHAe61bf8690308234aa359e912e55a5d59f9f5d0c989601e1006b319caf619b53d；collector164.py21913B SHA707170545a4e876ba698108f0cb97f2fc33cf9e195aafb7d44001e4c22c84156；inputs-164.json8952B SHA42e54c776aacf5fc9278be559fdf83a8fae9d4c0113c46f28bbc36b5cd9799a8。实际argv边界与两出口exactowner/strict158门/7case、旧161r2八case/157build/JVM充分，直接复用不刷套件。
+
+唯一必要新离线接缝：干净新装包的j1_isolated_fixtures父可能不存在。保持严格root可达/枚举规则：先用已pin host158.probe_absent_158检查 /data/user/0/<pkg>/files/j1_isolated_fixtures；NAME_ABSENT且上级files祖先可达/完整枚举证明精确父名缺席，则其runId子路径必缺席，保存推导与原回执，不mkdir。若父EXISTS且stat普通directory，再用同严格probe查runId；父symlink/非目录/权限/枚举错误拒绝。不能放宽为testfalse echoABSENT，不能用任意stat失败当不存在。仅新增干净父缺席正常通过、父链接/权限拒绝必要case，真实默认main/parent/原cmd安全体、外部strictmock，无StubParent/validatoroverride/cmdlambda0/手改summary。新增inputs引用新host selfpin及所有依赖实际盘fullSHA，新scope且不修改旧164/161/158源。
+
+离线通过本轮直接单批：freeze输入role sizeSHA、fresh原实例/boot/user0/安装归属/无其他instrument/锁及空间门；保存本轮original product/test/settings/protection/keepalive和Download基线。只用157原buildoutput匹配pair，不复制/重build：product54969452B SHA4d302624d603c06b12b1a30480dd1a9d5b7ce5e44cb24efafecd81d4d6c62577；test10682844B SHAf23dfc0e806ae251eda392b159377f27714c1f88a5fb5333d92087458fc54af5。父安全预装/独占attempt/raw真实actualargv回执与collector执行，runId沿已验证合同不为任务号破坏regex。
+
+唯一instrument class com.creationreadingassistant.acceptance.NestedTemporaryReaderEntryTest，精确两方法：normalThenSingleTemporaryEntry_isolatesOrdinaryRow_andReturnsToOrdinarySpot；secondSourceEntry_sameBookDifferentTarget_reentersTemporarilyWithoutCarriedState。两方法唯一终态PASS、OK2tests、rc与INSTRUMENTATION_CODE按冻结评估器、hostcaptured decodedtext来源标签/runIdscopeactualargvrawhash闭合。可达语义为Notes单层临时入口/返回后再进入，不宣称reader内任意深度嵌套。单次instrument，任何失败留原红，不能重复业务/退出四测试/充分scroll；必要UI校准仅依据当前同scope原截图，不能编造结果或放松断言。
+
+无论业务成败，真实guardedrecover finally：fresh identity/仪器停止门，live先完整prelive三根原字节/精确缺席/manifest sizeSHA readbackproof落盘空间门→身份再核→精确user0产品stop最多一次→静止同identity/post完整三根清单tar目录sizeSHA集合/writerproof→父正常uninstall最多一次。任何缺口KEEP_PRODUCT/整体false，原test/settings/protection独立恢复，writer复活不能循环stop或改后台策略。保存总summary主失败和恢复失败，不helper绿/手改decision掩错。原产品若本轮初始确无，结束精确包/三根缺席证明及原test/settings/protection基线一致。163和154旧历史缺证不补造，Download历史.exmu差异未知留实。
+
+所有权只新 E:/creation-reading-assistant/task165-two-temporary-entry-single-device-v1/ host/input/patch/REPORT/raw/必要保全/ready；candidate/APK/Gradle/旧任务源只读。必要安装仅上述测试pair由父安全门，恢复原test不算新业务APK；禁止系统VM/GPU/renderer/后台策略修改、kill共享ADB、其他实例、正式库、云、私库/sessionDB/.codex/memories/自动记忆、Git暂存提交pushPR发布、删移旧件。空间预算source/doc≤192KiB，离线所有rawsynthetic≤128KiB；设备raw文字≤512KiB，必要真实三根保全按实占和空间另明列，不复制旧APK/整项目/缓存/镜像。复制前核空间，REPORT同一处分类收尾。
+
+ready唯一 E:/creation-reading-assistant/task165-two-temporary-entry-single-device-v1/ready.json，含新inputs/pins、离线必要rc、真实单批runIdscope/原instrumentraw与实际argvreceipt、两个方法结果、完整恢复每门/原始回执、资源退出/最终实例状态（只正常保持本轮运行状态，不擅自关VM）、实际总bytes/时间/限制。用户stop/Esc立即停新业务，已进入安全恢复不丢收尾；权限/login/锁屏停不绕。最终末行“这是任务165-v1。”

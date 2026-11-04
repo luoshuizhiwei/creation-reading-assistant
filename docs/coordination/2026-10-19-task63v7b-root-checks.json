@@ -1,0 +1,20 @@
+{
+  "task": "63-v7-B Root review",
+  "inputs_checked": 17,
+  "input_problems": [],
+  "de_ok": true,
+  "de_items": 53,
+  "de_all_accepted": true,
+  "overall": "PASS",
+  "overall_items": 7,
+  "all_items_ok": true,
+  "original_attempt_unchanged_outputs": {
+    "derived_bundle_absent": true,
+    "de_result_absent": true,
+    "overall_result_absent": true
+  },
+  "A_report_at_expected_path_exists": false,
+  "A_ready_at_expected_path_exists": false,
+  "device_actions": 0,
+  "scope": "offline diagnostic only; no device-chain PASS"
+}

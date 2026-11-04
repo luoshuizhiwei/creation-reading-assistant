@@ -1,0 +1,22 @@
+# 任务171-v1：初始正文探针对齐后的两入口模拟器单批
+2026-10-27；保持当前实际 WorkBuddy/cn:deepseek-v4.1-flash 1M，不主动切模型/provider/帐号。Root验收169/170并由Luna fresh核双方finished/Idle、无写作/设备命令/不兼容新用户指令后才实际投递。仅一个host/device集成owner；恢复和测试构建两独立工作已结束，当前同一instrument依赖联合输入，无独立有价值任务不凑泛审。15分钟输入固化评估，通过后本轮直接60分钟单批设备与完整恢复；预算从实际UI发送计，安全恢复不中断，不重置历史期限。
+
+目标是验证两条真实Notes单层来源返回/返回后重新进入，不称reader任意深度嵌套。168真实两方法已过Home→Shelf但旧正文offset0探针超时，原红永久保留。170仅将就绪探针对齐fixture初始offset1处的contentA.marker1，并assertIsDisplayed，原全部普通位置/临时身份隔离/返回位置/再进入断言保留。J1已有同语义先例，不能仅凭4014字符距离宣称页容量决定必不共页，更不证明产品正文坏。170编译8.3秒/assemble5.8秒rc0已充分，设备未跑；不再build/旧suite/JVM/Lint/scroll/退出四方法。
+
+只读基线：E:/creation-reading-assistant/task168-two-entry-integration-device-v1/host/host168.py 9919B SHA2efb8744f8b64e2e41a1a6dad68e91901b71cb589b35ea81b0422f61614b2c62；真实默认main/parent.run_attempt/严格fixture父推导/164实际argv独占receipt和双出口exactowner已验证。恢复 E:/creation-reading-assistant/task166-quiet-writer-recovery-v1/host/host166.py 11530B SHA3b7bdee142541354c0cd89c2c088c1e4e82c19d7e5cf526b33ae173f9c9af944，必须preserve_166绑定同一实际HOST158实例。旧源/APK/报告不改。
+
+新唯一可写范围 E:/creation-reading-assistant/task171-aligned-two-entry-device-v1/ 内最小组合入口/inputs/raw/REPORT/ready/必要保全。允许新生产组合入口按168现有参数化scope根/输入角色绑定本批，保留真实父main/cmd体/实际argv与恢复finally；不得测试override/StubParent/cmdlambda0/伪造writer或installed列表/复制谓词/手改summary。只改任务根/新pins的组合不重刷168已充分2例；若确有新行为，最多一个针对该新接缝的外部strictmock，所有synthetic计预算。生产validator不放宽，fixedscope拒绝永留。
+
+candidate根 E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android。实际逐盘核全部roles，不None回填：NestedTemporaryReaderEntryTest.kt16232B SHA2645c3ec1229f64f88ffdd89a2a194aea77a96f599e1e1e233a30fc62fc4c8f0；product app/build/outputs/apk/debug/app-debug.apk54969452B SHA4d302624d603c06b12b1a30480dd1a9d5b7ce5e44cb24efafecd81d4d6c62577；test app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk10683079B SHAec19dba1efb44f27be7029053910e5bbbd1a71db17a2abbbad61be7a88fb181b。J1fixture55008B SHA0aea2c5eed35d7f189df72590013fdea1bdf658045b5ae7373d16617d9265ce9不变。signer05249d786e3d3d117bb5bd7b1f83512a0c9b8f1ee4e502112c4b2d9ccbd7b9a1；runner com.creationreadingassistant.testing.CraIsolatedTestRunner；testPackage com.creationreadingassistant.test/target com.creationreadingassistant。旧pair只引用task167/preserved及task170/preserved，不复制APK/工程/cache。
+
+169真实恢复168残留后产品缺席、原test0d18/settings/protection/keepalive有限恢复，只有Root核证后才可作为交接；本批仍fresh保存基线。仅原已运行MuMu instance1，persistent created_timestamp1777974446694936、旧boot a20ce1c6-01a5-4f4d-bbc8-217830eb70c3仅参考，fresh核原配置/磁盘对应、serial/bootCompleted/boot/user0/无instrument/独占锁与空间。managerAndroidfalse与ADBattached旧矛盾不能据此launch或重启。设备不可用即具体BLOCKED，禁launch/reboot/其他VM/实体设备/驱动renderer/systemVM修改/背景pausekill/kill共享ADB。
+
+runId使用当前真实时钟生成并记外部时间，不未来定时值；沿冻结生产正则可用T165V1新当前值，不随意改regex。实际scope必须本批根下 attempt-<完整runId>，同时owner原字节/serial/class/runner/scope/runId严格绑定。保存全部输入sizeSHA含恢复源selfpin/新组合入口；父安全预装上面匹配pair，先保存本轮原testAPK/data、settings/protection71/820、keepalive/Download基线。
+
+本轮只一次真实instrument：com.creationreadingassistant.acceptance.NestedTemporaryReaderEntryTest，精确两个方法 normalThenSingleTemporaryEntry_isolatesOrdinaryRow_andReturnsToOrdinarySpot、secondSourceEntry_sameBookDifferentTarget_reentersTemporarilyWithoutCarriedState。终态两方法/OK2tests/rc、实际外部argv/result receipt、两出口class/runId/serial/scopehash闭合才业务通过；父decoded text UTF8重编码不能称设备原生bytes。失败保留原raw和同run必要诊断，不重跑业务/不改断言/不延时sleep。若已有失败时刻semantics诊断就引用；只有postbatch截图就诚实标末态，不能冒充失败帧。日志只针对当前run/必要时间段且有界，不全量logcat/冗大preflight排除出预算。
+
+无论业务成败真实166恢复finally：完整pre三根原字节或严格逐祖先stat/父完整枚举精确缺席proof/空间门→fresh同identity→精确user0产品stop最多一次（无pid也包quiesce）→post静止完整三根manifest/tar目录/sizeSHA/readback集合/writerproof→正常父uninstall最多一次。父collectfalse仍KEEP即如实整体false，不冒充卸载；原test0d18/settings/protection/keepalive独立恢复且核实。缺任何门KEEP_PRODUCT，不循环stop/jobcancel/disable/后台策略修改。不得为了主结果绿绕父恢复门；安全恢复不中断。
+
+source/doc≤192KiB，offline所有rawsynthetic≤128KiB，device全部文字raw合计≤512KiB（含logcat/preflight，不能另列排除），真实必要保全实占另列，不复制旧日志/镜像。超预算原样报告不删移唯一证据补通过。168原2FAIL、165原2FAIL与恢复STABLE_FAILED/tuple拒/474650B超限、166超时/最早run1误覆盖、154external历史缺证/Download.exmu未知差异/实例末态缺回执、152红永留，不称历史全恢复或无证据丢失。不得Git暂存提交pushPR发布/云/正式库/私库sessionDB/.codex/memories/自动记忆/购买换号。用户stopEsc停新动作，锁屏/login/安全权限停不绕，保草稿。
+
+唯一ready E:/creation-reading-assistant/task171-aligned-two-entry-device-v1/ready.json。REPORT含actual时间/全角色pins、输入固化门、一次instrument两方法与实际argv/双出口、恢复每门原回执/实际产品末态/原test/settings/protection、空间全分类/锁及owner退出。无全产品分母不称完成。同owner必要修正和交接闭环；最终独立末行“这是任务171-v1。”

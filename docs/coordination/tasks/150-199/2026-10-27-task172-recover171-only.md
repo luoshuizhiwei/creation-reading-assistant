@@ -1,0 +1,16 @@
+# 任务172-r1：修正启动权限后的原实例恢复收尾
+2026-10-27，用户23点后最新授权使用ZCode模型自动接续；使用实际UI核实可用的ZCode模型和现有帐号额度，不购买/换号，不API/CLI旁路。旧Claude/WorkBuddy路由已由本次用户指令替代。Root验收171必要原证据且Luna fresh确认171 owner finished/Idle、无写作/设备任务，或原应用已关闭且Root精确核无旧任务本地执行进程/交付未继续写入，并无不兼容新用户输入后才实际派发；与174测试单文件/Gradle工作真正独立。新增25分钟从本修订实际新UI消息起，原v1超时与BLOCKED交付永久保留，安全恢复不中断。唯一device owner，只写 E:/creation-reading-assistant/task172-recover171-only-v1/recheck-r1/ 最小driver/REPORT/raw/ready。
+
+171 run T165V1-20261027-203737，实际20:37:37–20:42:02；两个方法已到openReadingNotesList第184行找不到“我的”，原业务红永久保留。166生产恢复pre→单stop→post POST_OK，但父collectOk=false KEEP/uninstall0；不能称产品已卸载。本轮仅RECOVER_ONLY，不业务main/run_attempt/instrument/Gradle/Android源修改/新产品或新测试APK安装/系统策略；明确允许下文限定的官方原instance1必要一次正常启动，已运行则不重启。
+
+只复用 E:/creation-reading-assistant/task166-quiet-writer-recovery-v1/host/host166.py11530B SHA3b7bdee142541354c0cd89c2c088c1e4e82c19d7e5cf526b33ae173f9c9af944 已验真实run_recovery及preserve_166/同HOST158模块绑定。参考169实际driver归属/恢复方法，不能沿169或166硬编码安装窗口：归属来自171本轮原install回执、设备时区、起始产品缺席基线和已装产品/data。本轮设备已装product期望54969452B SHA4d302624d603c06b12b1a30480dd1a9d5b7ce5e44cb24efafecd81d4d6c62577。只冻结实际恢复依赖/originaltest资产，不加载candidate/buildoutput旧全inputs，不改旧inputs吞漂移。174正在改测试/新testAPK，本批不得读取这些可变candidate/buildoutput作为恢复全inputs；只核冻结恢复依赖和设备已装product常量SHA，独立保持恢复闭包。
+
+用户纠正：原文档禁止启动是Root加上的限制，不是用户要求；本修订取消这一限制。先只读证明仍是原MuMu instance1持久created_timestamp1777974446694936及原配置/磁盘对应（不能只凭名字/serial/序号自证）。身份闭合且实例关闭时，允许使用官方管理器对原instance1正常启动最多一次；实例已运行就直接核验，不重启。官方CLI参数若不确定只查help，不猜命令。启动后最多600秒有界等boot，保存真实启动rc/时间/manager/adb回执；启动失败或超时记录BLOCKED，不循环启动/重启/新建替代实例，不修改GPU/renderer/系统VM配置或背景进程。随后fresh核serial/bootCompleted/boot/user0、无instrument/锁/空间和安装归属。旧boot a20ce1c6-01a5-4f4d-bbc8-217830eb70c3仅历史参考；新boot只绑定本修订新scope并标CROSS_BOOT_RECOVERY，绝不改旧expected/旧证据。其他VM/实体设备不在本批范围。归属缺证即BLOCKED零stop/uninstall。产品已经缺席只记严格祖先stat/父完整枚举精确缺席与独立test/settings/protection，不安装产品。
+
+仍在则完整新pre三根原字节或严格精确缺席proof/manifest/tar目录sizeSHA/readback及空间门→freshidentity再核→精确user0产品force-stop最多一次（无pid也先pre再包quiesce）→post静止完整三根清单/tar集合sizeSHA/readback与归档后writerproof→真实父正常uninstall最多一次。pre/post之间CE可能写入，分别保留各自原字节及内部稳定集合，不能强称相同也不能无证解释差异原因。任一失败KEEP_PRODUCT整体false；原test0d18d788a04e366271df3ad2ac18cc2ceeb95edc3c64c37cb995745aefbc9a9c、settings/protection71/820/keepalive独立恢复。collect/download无业务保持null/NOT_RUN，不手改171summary/installed列表或恢复决策。recoveryRaised若沿用169命名仅errorisNone，phase/独立命令回执与末态才是验收证。
+
+不循环stop/jobcancel/disable/改后台策略，不伪造writer，不重刷166五case/旧充分suite。新runId当前真实时钟，记实际开始结束不靠后缀推算。source/doc≤128KiB、全部文字raw≤256KiB（必要真实保全实占另列并说明），不复制APK/工程/cache/镜像/旧日志，不覆盖删移唯一证据。报告记录所有实际门、命令计数/rc、产品与三根末态、原test/settings/protection/keepalive/Download、空间/时间/owner资源退出，唯一ready E:/creation-reading-assistant/task172-recover171-only-v1/recheck-r1/ready.json。
+
+171/168/165业务原红、166最早run1误覆盖与晚交、154external历史缺证/Download.exmu未知差异/实例末态缺回执/152红均永留，不称历史全恢复或无证据丢失。禁Git暂存提交pushPR发布/云/正式库/私库sessionDB/.codex/memories/自动记忆/购买换号/其他VM设备/kill共享ADB；userstopEsc停新动作，锁屏/login安全权限停不绕，已进安全恢复不丢收尾。最终独立末行“这是任务172-r1。”
+
+修订交付规则：保留v1 driver/两attempt/REPORT/ready原字节不覆盖；旧派发文档已单份保留task根dispatch-172-v1.md。只在recheck-r1制作必要最小生产适配（原driver TASK/元数据doc实际SHA/selfpin/当前boot作用域/正常单次启动），继续复用真实host166恢复体及父cmd，禁止假installed/writer/手改summary。不得沿旧driver硬编码旧docSHA或往v1根写新ready。原已验静态依赖可复用；新启动守卫先核身份再控制，实际每条命令计数。原test/settings/protection独立恢复照旧，安全恢复不中断。系统繁忙时按用户授权原会话单条继续，不复开同问题、不Retry加消息双发，记录新增续作时间不重置v1超时。

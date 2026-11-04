@@ -1,0 +1,1020 @@
+{
+  "status": "REVIEW_REQUIRED_NOT_EXECUTED",
+  "note": "Whole build directories contain test-results and APKs; not deletion authorization; preserve evidence before any precise batch",
+  "items": [
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-joint-20261001\\android\\app\\build",
+      "bytes": 1391034590,
+      "files": 53553,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-final-v2-20260930\\android\\app\\build",
+      "bytes": 993956513,
+      "files": 41079,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-final-joint-20260930\\joint\\android\\app\\build",
+      "bytes": 969180937,
+      "files": 39559,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-reader-preserved-20260930\\android\\app\\build",
+      "bytes": 968026832,
+      "files": 39117,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\joint-31-closure-task14-v1\\candidate\\android\\app\\build",
+      "bytes": 749297910,
+      "files": 38794,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\reader-guard-bound-accept-task16-v3\\candidate\\android\\app\\build",
+      "bytes": 748038770,
+      "files": 38629,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-n2\\android\\app\\build",
+      "bytes": 742375189,
+      "files": 12267,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\v0-joint-mumu-task24-v1\\candidate\\android\\app\\build",
+      "bytes": 738535585,
+      "files": 39372,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-d2-j1-joint-freeze-prep-v1\\candidate\\android\\app\\build",
+      "bytes": 727583139,
+      "files": 37802,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\joint-j1-closure-task3-v9\\candidate\\android\\app\\build",
+      "bytes": 721265212,
+      "files": 37858,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task25-epub-temporary-progress-fix-v1\\candidate\\android\\app\\build",
+      "bytes": 720448040,
+      "files": 38308,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\joint-31-closure-task12-v2\\candidate\\android\\app\\build",
+      "bytes": 715932713,
+      "files": 38193,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\joint-31-closure-task12-v1\\candidate\\android\\app\\build",
+      "bytes": 714364760,
+      "files": 37812,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-j3-n1-fix-accept-v2\\android\\app\\build",
+      "bytes": 709862515,
+      "files": 34298,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-verification-fix-20260930\\android\\app\\build",
+      "bytes": 675015877,
+      "files": 34287,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g6-behavior-preserved-20260930\\android\\app\\build",
+      "bytes": 663058557,
+      "files": 32658,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task32-fixed-joint-freeze-mumu-accept-v1\\candidate\\android\\app\\build",
+      "bytes": 602551182,
+      "files": 26057,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-s06-boot-isolated-20260929\\android\\app\\build",
+      "bytes": 592963482,
+      "files": 30667,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g0-u-g2-runner-20260929\\baseline\\android\\app\\build",
+      "bytes": 584783240,
+      "files": 24175,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g2-isolated-20260929\\baseline\\android\\app\\build",
+      "bytes": 583531863,
+      "files": 24092,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g2-scratch-20260929\\android\\app\\build",
+      "bytes": 583531863,
+      "files": 24092,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g2-runner-boundary-20260929\\android\\app\\build",
+      "bytes": 583267556,
+      "files": 24070,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-md-paged-chapter-fix-v1\\android\\app\\build",
+      "bytes": 582542449,
+      "files": 24244,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-joint-final-v3\\android\\app\\build",
+      "bytes": 580806749,
+      "files": 24208,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-md-true-chapter-accept-v1\\device\\android\\app\\build",
+      "bytes": 578608560,
+      "files": 23603,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-s14-isolated-20260930\\android\\app\\build",
+      "bytes": 545955095,
+      "files": 26556,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-n1\\android\\app\\build",
+      "bytes": 534601394,
+      "files": 22734,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-u-isolated-20260929\\repo\\android\\app\\build",
+      "bytes": 516502471,
+      "files": 21063,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-final-mumu-accept-v1\\android\\app\\build",
+      "bytes": 506342908,
+      "files": 19431,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-cold-reentry-control-v1\\android\\app\\build",
+      "bytes": 506341176,
+      "files": 19383,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\restore-real-interruption-accept-v1\\android\\app\\build",
+      "bytes": 506134476,
+      "files": 19416,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-failure-evidence-repair-v1\\android\\app\\build",
+      "bytes": 505931811,
+      "files": 19379,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-row-lifecycle-probe-v1\\android\\app\\build",
+      "bytes": 505923404,
+      "files": 19379,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task36-joint-runtime-bind-freeze-v1\\candidate\\android\\app\\build",
+      "bytes": 504086576,
+      "files": 19795,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task45-android-joint-candidate-freeze-v1\\candidate\\android\\app\\build",
+      "bytes": 501789244,
+      "files": 19744,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\joint-31-closure-task10-v2\\candidate\\android\\app\\build",
+      "bytes": 500068950,
+      "files": 19491,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\reader-guard-bound-accept-task16-v2\\candidate\\android\\app\\build",
+      "bytes": 499573219,
+      "files": 19548,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\reader-guard-bound-accept-task16-v1\\candidate\\android\\app\\build",
+      "bytes": 499374865,
+      "files": 19536,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\joint-j1-return-task3-v8\\candidate\\android\\app\\build",
+      "bytes": 498717073,
+      "files": 19482,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\joint-j1-mainnav-task3-v7\\candidate\\android\\app\\build",
+      "bytes": 498630561,
+      "files": 19453,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-persist-merge-mumu-accept-v1\\android\\app\\build",
+      "bytes": 495324651,
+      "files": 19227,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-integration-mumu-accept-v1\\android\\app\\build",
+      "bytes": 491857339,
+      "files": 18194,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-integration-build-accept-v2\\device\\android\\app\\build",
+      "bytes": 491725392,
+      "files": 18188,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-read-note-journey-accept-v1\\android\\app\\build",
+      "bytes": 491708717,
+      "files": 18167,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-read-note-journey-accept-v2\\android\\app\\build",
+      "bytes": 491458332,
+      "files": 18164,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-md-annotation-return-fix-v1\\device\\android\\app\\build",
+      "bytes": 491351341,
+      "files": 18179,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-integration-mumu-accept-v2\\android\\app\\build",
+      "bytes": 491268773,
+      "files": 18161,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-n1-ui-accept-v1\\android\\app\\build",
+      "bytes": 489707893,
+      "files": 17947,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-j3-n1-sandbox-build-v1\\android\\app\\build",
+      "bytes": 489620028,
+      "files": 17944,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-g1-library-build-v1\\android\\app\\build",
+      "bytes": 488250773,
+      "files": 17837,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-joint-j1-v2\\android\\app\\build",
+      "bytes": 487606686,
+      "files": 17790,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-b1-b2-library-device-20260929\\android\\app\\build",
+      "bytes": 446868754,
+      "files": 17225,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-ug2-mumu-20260929\\repo\\android\\app\\build",
+      "bytes": 445026884,
+      "files": 17109,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g0g2-mumu-20260929\\android\\app\\build",
+      "bytes": 444860408,
+      "files": 17076,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-w2-webdav-ui-build\\android\\app\\build",
+      "bytes": 391868039,
+      "files": 16422,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-reader-complete-20260930\\android\\app\\build",
+      "bytes": 329050012,
+      "files": 22633,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task48-temporary-return-freeze-v1\\android\\app\\build",
+      "bytes": 251505047,
+      "files": 19570,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task48-temporary-return-freeze-v3\\android\\app\\build",
+      "bytes": 250565373,
+      "files": 19398,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task48-temporary-return-freeze-v2\\android\\app\\build",
+      "bytes": 250399661,
+      "files": 19386,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task50-remeasure-probe-repair-v1\\candidate\\android\\app\\build",
+      "bytes": 247972747,
+      "files": 20051,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\parallel-search-task4-v2\\candidate\\android\\app\\build",
+      "bytes": 246506134,
+      "files": 18907,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v4\\android\\app\\build",
+      "bytes": 244880099,
+      "files": 18670,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v3\\android\\app\\build",
+      "bytes": 244693915,
+      "files": 18621,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\parallel-tts-task5-v1\\candidate\\android\\app\\build",
+      "bytes": 244690649,
+      "files": 18641,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v2\\android\\app\\build",
+      "bytes": 244618886,
+      "files": 18600,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-crossbook-temporary-entry-v1\\android\\app\\build",
+      "bytes": 243607330,
+      "files": 18458,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task50-remeasure-probe-repair-v3\\candidate\\android\\app\\build",
+      "bytes": 240919579,
+      "files": 20040,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task50-remeasure-probe-repair-v2\\candidate\\android\\app\\build",
+      "bytes": 240786924,
+      "files": 20022,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task33-material-joined-data-chain-jvm-v2\\candidate\\android\\app\\build",
+      "bytes": 234518170,
+      "files": 19184,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task33-material-joined-data-chain-jvm-v1\\candidate\\android\\app\\build",
+      "bytes": 234432295,
+      "files": 19186,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\second-look-fixed-root-v1-20261013\\candidate\\android\\app\\build",
+      "bytes": 234142266,
+      "files": 19149,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task26-backup-relation-preservation-fix-v2\\candidate\\android\\app\\build",
+      "bytes": 233425122,
+      "files": 19067,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task27-search-rebuild-cancel-epoch-fix-v1\\candidate\\android\\app\\build",
+      "bytes": 233392191,
+      "files": 19097,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task26-backup-relation-preservation-fix-v1\\candidate\\android\\app\\build",
+      "bytes": 233384970,
+      "files": 19058,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task28-txt-open-failure-preview-fix-v1\\candidate\\android\\app\\build",
+      "bytes": 233230000,
+      "files": 19053,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\reader-session-risk-task16-v4\\candidate\\android\\app\\build",
+      "bytes": 232839113,
+      "files": 19053,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task29-material-nested-merge-source-fix-v1\\candidate\\android\\app\\build",
+      "bytes": 232602799,
+      "files": 18932,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\reader-dispatch-order-task16-v6\\candidate\\android\\app\\build",
+      "bytes": 232549425,
+      "files": 18936,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\sync-push-contract-tests-task20-v1\\candidate\\android\\app\\build",
+      "bytes": 232298317,
+      "files": 18933,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\inspiration-source-export-task23-v2\\candidate\\android\\app\\build",
+      "bytes": 232109385,
+      "files": 18870,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\inspiration-source-export-task23-v1\\candidate\\android\\app\\build",
+      "bytes": 232101223,
+      "files": 18874,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\accepted-webdav-sync-join-task21-v1\\candidate\\android\\app\\build",
+      "bytes": 232023208,
+      "files": 18869,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\webdav-contract-align-task19-v1\\candidate\\android\\app\\build",
+      "bytes": 231815025,
+      "files": 18848,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\parallel-search-task4-root-feedback-v4-20261009\\android\\app\\build",
+      "bytes": 230822197,
+      "files": 18776,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\parallel-search-task4-v3\\candidate\\android\\app\\build",
+      "bytes": 230497140,
+      "files": 18740,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\reader-save-order-task16-v5\\candidate\\android\\app\\build",
+      "bytes": 230487381,
+      "files": 19557,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\joined-jvm-task8-v1\\candidate\\android\\app\\build",
+      "bytes": 230423942,
+      "files": 18664,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\parallel-search-task4-v3\\red-baseline\\android\\app\\build",
+      "bytes": 230243065,
+      "files": 18582,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\parallel-search-task4-v4\\candidate\\android\\app\\build",
+      "bytes": 230207652,
+      "files": 18641,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\parallel-search-task4-v4\\v3-base\\android\\app\\build",
+      "bytes": 230168693,
+      "files": 18626,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\parallel-search-task4-v3\\v2-check\\android\\app\\build",
+      "bytes": 229379143,
+      "files": 18520,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\parallel-search-task4-v1\\candidate\\android\\app\\build",
+      "bytes": 229119363,
+      "files": 18507,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-crossbook-temporary-seam-v2\\android\\app\\build",
+      "bytes": 228680640,
+      "files": 18277,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-persist-codex-completion-20261006\\a\\android\\app\\build",
+      "bytes": 228536110,
+      "files": 18235,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-persist-fix-v1\\android\\app\\build",
+      "bytes": 228181817,
+      "files": 18181,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-crossbook-temporary-seam-v4\\android\\app\\build",
+      "bytes": 227349459,
+      "files": 18254,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-crossbook-temporary-seam-v3\\android\\app\\build",
+      "bytes": 227319265,
+      "files": 18252,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-rollback-wip-reconcile-v2\\android\\app\\build",
+      "bytes": 226502861,
+      "files": 17221,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-reselect-rollback-fix-v3\\android\\app\\build",
+      "bytes": 223196339,
+      "files": 16713,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-reselect-rollback-fix-v2\\android\\app\\build",
+      "bytes": 223055487,
+      "files": 16708,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-sync-md-join-v1\\android\\app\\build",
+      "bytes": 222954886,
+      "files": 16684,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-integration-build-accept-v2\\android\\app\\build",
+      "bytes": 222701543,
+      "files": 16669,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\joint-31-closure-task10-v3\\candidate\\android\\app\\build",
+      "bytes": 222453462,
+      "files": 18429,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-md-annotation-return-fix-v1\\android\\app\\build",
+      "bytes": 221833745,
+      "files": 16519,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-integration-ready-v1\\android\\app\\build",
+      "bytes": 221770399,
+      "files": 16505,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-n1-repair-v5\\android\\app\\build",
+      "bytes": 220720802,
+      "files": 16385,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-n1-repair-v4\\android\\app\\build",
+      "bytes": 220637737,
+      "files": 16367,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-n1-repair-v3\\android\\app\\build",
+      "bytes": 220098848,
+      "files": 16343,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-n1-test-hardening-v7\\_negative-v5-control\\android\\app\\build",
+      "bytes": 220085059,
+      "files": 16341,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-n1-test-hardening-v7\\android\\app\\build",
+      "bytes": 220070925,
+      "files": 16341,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-n1-repair-v2\\android\\app\\build",
+      "bytes": 220028972,
+      "files": 16315,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-r1\\android\\app\\build",
+      "bytes": 218541229,
+      "files": 16219,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-r2\\android\\app\\build",
+      "bytes": 217977708,
+      "files": 16127,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task30-inspiration-sync-wire-fix-v1\\candidate\\android\\app\\build",
+      "bytes": 217518042,
+      "files": 18658,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\reader-session-progress-guard-task15-v1\\candidate\\android\\app\\build",
+      "bytes": 217055477,
+      "files": 18734,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g0-isolated-20260929\\android\\app\\build",
+      "bytes": 217001149,
+      "files": 15893,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-s05-preserved-20260930\\android\\app\\build",
+      "bytes": 212786706,
+      "files": 15623,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-rollback-wip-reconcile-v4\\android\\app\\build",
+      "bytes": 211981795,
+      "files": 16888,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-mbug03-isolated-20260929\\B-joint-baseline\\android\\app\\build",
+      "bytes": 209498588,
+      "files": 15327,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-mbug03-isolated-20260929\\C-joint-plus-b1-coordinator\\android\\app\\build",
+      "bytes": 209493684,
+      "files": 15307,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-b1-b2-library-combined-20260929\\android\\app\\build",
+      "bytes": 208246912,
+      "files": 15166,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-b1-isolated-20260929\\android\\app\\build",
+      "bytes": 207732685,
+      "files": 15159,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-reselect-rollback-fix-v1\\android\\app\\build",
+      "bytes": 207470242,
+      "files": 16313,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-mbug03-isolated-20260929\\A-head-baseline\\android\\app\\build",
+      "bytes": 205883368,
+      "files": 14867,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-b2-cache-isolated-20260929\\android\\app\\build",
+      "bytes": 205790630,
+      "files": 14886,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g6-integrated-20260930\\android\\app\\build",
+      "bytes": 205750487,
+      "files": 14827,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g6-stats-20260930\\android\\app\\build",
+      "bytes": 205703203,
+      "files": 14821,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g6-settings-20260930\\android\\app\\build",
+      "bytes": 205667865,
+      "files": 14813,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g6-consumers3-20260930\\android\\app\\build",
+      "bytes": 205650143,
+      "files": 14813,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g6-consumers2-20260930\\android\\app\\build",
+      "bytes": 205636375,
+      "files": 14813,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g6-consumers1-20260930\\android\\app\\build",
+      "bytes": 205593928,
+      "files": 14813,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g6-core-20260930\\android\\app\\build",
+      "bytes": 205547369,
+      "files": 14810,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-n1-repair-v6\\android\\app\\build",
+      "bytes": 205518910,
+      "files": 16068,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-n1-v6-independent-review-v1\\probe\\android\\app\\build",
+      "bytes": 205506852,
+      "files": 16070,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-library-selection-isolated-20260929\\android\\app\\build",
+      "bytes": 204820874,
+      "files": 14746,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-n1-repair-v1\\android\\app\\build",
+      "bytes": 204313089,
+      "files": 15975,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v1\\android\\app\\build",
+      "bytes": 185337024,
+      "files": 11858,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-g1-fix-accept-v3\\android\\app\\build",
+      "bytes": 184747845,
+      "files": 7520,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\joint-j1-position-search-task3-v5\\candidate\\android\\app\\build",
+      "bytes": 182774272,
+      "files": 8208,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\joint-j1-query-firstfailure-task3-v6\\candidate\\android\\app\\build",
+      "bytes": 182664156,
+      "files": 8211,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\joint-j1-back-contract-task3-v4\\candidate\\android\\app\\build",
+      "bytes": 182343907,
+      "files": 8205,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-g1-library-build-v2\\android\\app\\build",
+      "bytes": 180477632,
+      "files": 7469,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-accept-chain-repair-v2\\android\\app\\build",
+      "bytes": 179905575,
+      "files": 8043,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-joint-j1-v3\\android\\app\\build",
+      "bytes": 179833108,
+      "files": 7428,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-persist-accept-hardening-v2\\compile-copy\\android\\app\\build",
+      "bytes": 122141287,
+      "files": 7303,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-persist-final-accept-prep-v1\\compile-copy\\android\\app\\build",
+      "bytes": 119546429,
+      "files": 7205,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-joint-acceptance-tests-v1\\android\\app\\build",
+      "bytes": 115396515,
+      "files": 6906,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\next-round-joint-acceptance-tests-v2\\android\\app\\build",
+      "bytes": 115391160,
+      "files": 6905,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task42-saf-run-cleanup-v3\\candidate\\android\\app\\build",
+      "bytes": 113086666,
+      "files": 7267,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task42-saf-run-cleanup-v2\\candidate\\android\\app\\build",
+      "bytes": 113064353,
+      "files": 7267,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task42-saf-run-cleanup-v1\\candidate\\android\\app\\build",
+      "bytes": 113042514,
+      "files": 7266,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\second-look-fixed-root-v2-20261013\\candidate\\android\\app\\build",
+      "bytes": 112977713,
+      "files": 7259,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task34-abc-device-contract-prep-v2\\candidate\\android\\app\\build",
+      "bytes": 112865746,
+      "files": 7250,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task34-abc-device-contract-prep-v1\\candidate\\android\\app\\build",
+      "bytes": 112828508,
+      "files": 7246,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task35-clamp-saf-evidence-prep-v2\\candidate\\android\\app\\build",
+      "bytes": 112786112,
+      "files": 7234,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task35-clamp-saf-evidence-prep-v1\\candidate\\android\\app\\build",
+      "bytes": 112729287,
+      "files": 7234,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\task32-fixed-joint-freeze-mumu-accept-v2\\candidate\\android\\app\\build",
+      "bytes": 112670837,
+      "files": 7225,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\abc-v4-codex-finalization-20261008\\A\\android\\app\\build",
+      "bytes": 111481320,
+      "files": 7137,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-device-artifacts-v4\\android\\app\\build",
+      "bytes": 111435098,
+      "files": 7135,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-real-reader-artifacts-v6\\candidate_build\\android\\app\\build",
+      "bytes": 111375574,
+      "files": 7134,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-real-reader-artifacts-v5\\candidate_build\\android\\app\\build",
+      "bytes": 111362757,
+      "files": 7133,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-real-reader-artifacts-v4\\candidate_build\\android\\app\\build",
+      "bytes": 111343816,
+      "files": 7131,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-device-artifacts-v3\\android\\app\\build",
+      "bytes": 111312357,
+      "files": 7131,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-v6-codex-finalization-20261008\\android\\app\\build",
+      "bytes": 111305403,
+      "files": 7134,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-v5-codex-finalization-20261008\\android\\app\\build",
+      "bytes": 111291072,
+      "files": 7133,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-persist-codex-completion-20261006\\b\\compile-copy\\android\\app\\build",
+      "bytes": 110854944,
+      "files": 7086,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-accept-chain-repair-v3\\android\\app\\build",
+      "bytes": 110795291,
+      "files": 7086,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\stage-e-g0u-boundary-20260929\\android\\app\\build",
+      "bytes": 108945454,
+      "files": 6513,
+      "kind": "build"
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-restore-timing-evidence-v2\\android\\app\\build",
+      "bytes": 15832104,
+      "files": 591,
+      "kind": "build"
+    }
+  ]
+}

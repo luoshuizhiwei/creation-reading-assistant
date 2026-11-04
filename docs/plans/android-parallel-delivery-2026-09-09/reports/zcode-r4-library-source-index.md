@@ -1,7 +1,7 @@
 # zcode 交付报告：来源索引与增量更新（目录路线第 3 组）
 
 日期：2026-09-13（构建完成）。执行目录：主仓库 `android/`。
-依据：[`docs/plans/2026-09-12-android-library-folder-smart-recognition-roadmap.md`](../../2026-09-12-android-library-folder-smart-recognition-roadmap.md)（需求与方案 §4.5/§5.6/§7.5/§10 第 3 组）、
+依据：[`docs/plans/android/2026-09-12-android-library-folder-smart-recognition-roadmap.md`](../../android/2026-09-12-android-library-folder-smart-recognition-roadmap.md)（需求与方案 §4.5/§5.6/§7.5/§10 第 3 组）、
 接手包 [`docs/plans/android-parallel-delivery-2026-09-09/R4-ZCODE.md`](../R4-ZCODE.md)、
 前序报告 [`reports/workbuddy-r4-library-folder.md`](workbuddy-r4-library-folder.md)（第 1–2 组）。
 

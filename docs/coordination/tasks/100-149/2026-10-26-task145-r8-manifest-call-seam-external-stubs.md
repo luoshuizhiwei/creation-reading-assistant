@@ -1,0 +1,15 @@
+# 任务145-r8：清单实际调用接缝及外部stub边界（仅离线）
+
+2026-10-26香港19:40，同原Claude global Flash owner，15分钟，差量256KiB/raw512KiB。
+
+````text
+Root已读r7完整host/验证脚本/REPORT/原log与三独立summary，实核host12186B SHA569f67975117518b03abd0f80e7627a60268cb05b60c09917bfa2a08d84b2917、test18163B SHA0c3d90d797432b900c55c249eece176c27189c2f0b200733f9b2e1192e0d8616、inputs5325B SHA7b564b2d12c56e883bcf62a5626fcfd4a6fb17c8026550b7510efb9f07a06449核同。r7成功summary真、拒绝/TimeoutError summary假及rc1/保产品test恢复已接受，不重刷这些充分性质。原r6错绿永久留。仍有以下精确接缝未闭，只新recheck-r8交付，不泛审。
+
+1. host145_r7.py别名 preserve_three_roots = R6.preserve_three_roots，该函数global source_manifest仍在R6模块，生产hook调用不到r7新版source_manifest。单独Dev5测试H.source_manifest返回rc6不等真实保全用新脚本；成功链仍旧管道。将新清单真正接到保全调用（最小明确接缝，不新增框架）；新增必要离线场景经真main/生产hook/真实父执行find外部失败，断言新脚本实际发出、清单错误入recovery/summary假/exit非0、产品卸载0、独立恢复仍执行。通过外部端点记录实际stdin/argv证明，不替换source_manifest/preserve/hook体来造调用。旧R6不写改；可新host内部有明确绑定或最小新保全函数，不复制工程。
+
+2. r7测试run_scenario把base.cmd_baseline/cmd_protection/cmd_verify_instrumentation/cmd_restore_settings/cmd_keepalive全替lambda0，还替capture_logcat体；这些是产品host内部实际流程，不是外部进程出口，尤其保护/设置恢复被跳过仍称完整。复用未变r7主体与真父，只把b.run/Dev.sh的进程端点、独立subprocess以及身份提供者mock；保留上述cmd_*真实函数体，实际保护subprocess在严格fake端点返回正确原API形状且输出仅SYNTHETIC_FAKE，不真正执行adapter/ADB。真main成功链summary业务collect恢复真绿/真实protection初终和settings/keepalive回执、产品精确卸载1；find失败链整体假/保产品但上述安全独立恢复有真实函数落盘/命令记录。未匹配端点必须抛，不能cmd函数lambda0跳过。若无法闭合准确BLOCKED，不改父/adapter或降低断言。
+
+3. r7 load_and_verify_inputs把_r7_check.json写到inputs同目录，随后unlink，会覆盖已有同名文件且验证旧inputs时写旧资产目录。输入校验应只读并复用固定pins逐项校验，最小共享已有校验逻辑或本host读dict校验，不写/删旁路临时文件。只为解决已证外部文件覆盖风险，不重构其他版本。原v1-r7/inputs/raw/SYNTHETIC冻结，不rmtree旧证据；新测试如果路径已存在就用新的明确fake场景名并拒覆盖，不擦旧结果。
+
+输出仅E:/creation-reading-assistant/task145-scroll-host-binding-v1/recheck-r8/新host/必要inputs/最小相对r7patch/REPORT/必要定向原log/独立summary引用/ready.json，报告前后sizeSHA与实际新增分类体积。原父1369457a4c5/basec806ce36/adapter16c93794只读；15role固定pins/readerfreeze/144新APK539f44c5与f2d2982b冻结复用。仪器T141BV1/craRunId/t141b真实25本13key/无phasepackageassets/精确scrollBack合同不改；旧充分JVM/compile/设备证据不重跑。当前任何设备或Gradle未授权：禁ADB/VM探测启停/安装卸载force-stop设置/真实hostmain/runid预算attemptsummary/F1/实体/构建编译；main批准参数仅全外部mock假scope不是真实许可。保护仅actual OUT_BASE/task145子根，但fake不向真实保护root写。Root读实际剩余delta后裁，不自动设备。不Git/云/正式库/私库/自动记忆/删移旧资产/kill共享进程。最终总结末行：这是任务145-r8。
+````

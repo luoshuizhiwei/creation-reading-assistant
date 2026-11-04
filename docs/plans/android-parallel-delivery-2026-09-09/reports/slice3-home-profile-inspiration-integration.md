@@ -1,7 +1,7 @@
 # 切片 3：首页 / Profile / 灵感页 纵向切片收口报告
 
 > 日期：2026-09-13
-> 切片：`docs/plans/2026-09-13-android-wip-integration-plan.md` §3 表格第 3 行「首页、档案页、灵感页的组件拆分与交互」
+> 切片：`docs/plans/historical-integration/2026-09-13-android-wip-integration-plan.md` §3 表格第 3 行「首页、档案页、灵感页的组件拆分与交互」
 > 基线：`main` / `6cd29670e54c3fc2915d876896ecbaae8d000aa4`（未提交共享脏工作区，~200+ 项他人 WIP 共存）
 > 本轮**未** stage / commit / push / reset / checkout / clean / stash；**未**触碰 AppNavigation、Room、Reader、Shelf、Search、Sync、Security、Settings、Electron。
 

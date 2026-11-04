@@ -1,0 +1,24 @@
+# 任务115-v1 Root核验
+
+## 任务编号/版本、输入指纹
+115-v1，唯一run T112V1-T115V1-20261024-171253。实际仪器34280a27858d8a99d4c6bdb74a6378abf86853a79528d997abb8f67aaaff5f73，38494B（报告35,5xx不准确，以实物为准）。host85aa34736af35249fcefce50f1f3542a3af96bc8aef3c06e05774ac00698e96b/19123B。实际test6bacb0e4b4221e2d8bb46c4c609f76f11a3cdf056ac0e1e3f7de92e33ba6457b/10609120B，Root单份实核。
+
+## 所有权与改动、环境
+官方Start Plan GLM-5.3，ZCode唯一E仪器hostbuilddevice owner；Root D。仅精确pill-delete配对及多root采集，产品6a不改。MuMu1模拟器非实体手机。115最小patch15bf07a6eebc664d1ae0e73d4d4ad2bfc3db7b88d945add21bca0d4ccfd815ba/11868B，Root读hunk与实际源码。补114 baseline1fc0747b/27714B和366c2f32/33825B原字节SHA核同，补114patch717126c94002f46d7fdece9e670210ec20e82e5ee6b4e8016242ffff219a8e0f/10986B，冻结114未修改。
+
+## 执行与结果、原始证据
+原stdout1test1failure/9.288s，host142.9877s，一次attempt耗尽。03compile15s/04assemble8s原exit0，01编译失败保留。原件E:/creation-reading-assistant/task115-saved-view-delete-target-fix-v1。
+Root直接核71共享parent415 children顺序：control447→delete449→target523→delete525，双方唯一且不同，实际点击525。71/72多root树存在，rootCount2；treeChars16416与Python字符计数16418为UTF16/Unicode计数差，不是截断证据。73/74仍无tree（includeTree默认false），不能宣称四阶段完整树均已交；其余观测与四段Store均存在。
+71 Store515B SHAfbf23aac0ddf57f4c1813a67aeb0bd09debe5186b67138724e74525f80857cec；72/73/74均253B SHA366f3ce2da0e99d17eebc8a690cb1a256bdef648a163d4826d469a738d03a853。70原件目标pill false/对照true，Store目标false/对照true，全部70原断言通过，精确删除子链接受。
+80 pressBack后标题缺席等待通过，但:321 shelf-filter-summary节点0失败。未保存pressBack后完整树/Activity生命周期；只能确认入口丢失，报告“Activity已退出/标准行为”是未确证推断，不宣称产品back正常或有缺陷。Root核ShelfRoute:506-509实际onApplySaved调用apply后showFilterPanel=false，提供确定真实UI关闭路径。116可套用现已相同的control组合关闭后重开，必须记录这一路径，不冒充系统Back验收。
+REPORT ea620ac3b80dd2a7a80041c0395a605b738c356c9cc602e76e4bc3aa354b60ff/7910B；ready6e0c64f9cac30afde56ff95e8f21c135bcc6306378e212a14c7da44d9548f54e/6179B。实际目录14364954B/test10609120B/其余3755834B，报告差14089B收尾时点不复跑。build增量未测。
+
+## 未覆盖项
+80重开及90实体关系不变未执行，整run FAIL保留；系统Back关闭问题根因未明。本次不扩成Back产品审计，不因选择其他关闭路径宣称Back修复。107Store/111素材充分证据复用。未覆盖全产品/实体手机/MIUI。
+
+## 恢复与副作用
+Root核原test verified/restored apkSHA/inventory/userState逐字段同。initial/final rc0/oktrue，71私有820外部/diffs[]/db_groups_matchtrue。summaryrecoveryErrors=[]/collect21/Download179新增0/产品UNINSTALLED/blocked[]/test恢复。nightno，VMpid66432/ADBattached/boot存在；manager is_android_started=false与pid/ADB并存，不能据此断言关闭，也不改写true。恢复接受。
+
+## 交付状态与下一步
+精确删除子链+恢复接受，全L1尚未闭合。116同仪器极小导航修正，真实套用已相同的control组合关闭，关闭后先确认Shelf与toolbar存在再重开，保留原80/90；所有71-74取完整树。失败先保存真实状态再assert，防止再只留0节点。生产不改，单新attempt，完整恢复。
+方向自审：剩余目标只有本窄旅程重开与实体关系；设备前置需复走同run，不新增删除确认run/107/111重复。两个相邻仪器hunk共用testAPKbuilddevice，唯一owner串行，无独立有价值第二实现。116核后再按阶段队列推进实际未闭合需求，不能凭单批结束停项目。

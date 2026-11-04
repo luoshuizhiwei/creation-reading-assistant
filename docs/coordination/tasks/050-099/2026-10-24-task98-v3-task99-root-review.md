@@ -1,0 +1,13 @@
+# 98-v3审查与99-v1差量接收
+
+任务编号/版本98-v3、99-v1，2026-10-24。所有权与改动：Root D协调，Claude E宿主修复/唯一集成；99 worker已结束，只交E差量。环境仍唯一task59/原Gradle/JDK17/SDK。
+
+输入指纹与原始证据：98 v3 host before/after/patch及REPORT SHA核同，原离线日志9样本通过；after442fab03d4b2ed4c4aae7741b841164b3a6bb9bbf3e27682b40f3c5cf99b7fc3。真正host在run_attempt调用evaluate_instrument_result绑定class/count8，接线存在，未假造平行policy。
+
+执行与结果：Root只用Python AST提取实际函数、注入其re依赖，不import带设备初始化的模块，不执行ADB。原v2stdout结果True；将最终INSTRUMENTATION_CODE:-1改0仍True；将首个终态改-2再追加同名0仍True。原因：只检查final code字段存在；last字典覆盖先失败。故98-v3尚不接受闭环，交同owner补实际函数与两反例，不重跑任何设备。
+
+99六artifact大小SHA匹配，34549B；workspace VM before d6df0281ced9e0ea63e40c42d255811d54b0df5a03ae6bf73ad920677339407a核同，after0842cc744ab7e697fea5fab5663d79e0fca31acbedef428d75b55a91a098e9bf；新DictionaryViewModelTest after82db3af96363dc9fa9d26a1d7c9cfc5b138cb99503ea5f8bd3b0686f4588db3a，patch62da739b8ce810611e1312947b92b66513bbd9c3111c5c7dc09706394dd1cf2b。Job取消/generation/ensureActive及CancellationException重抛，真实Exception提示保持，未碰词库管理/Repository/ReaderSheetHost。6真实VM门闩测试尚未编译运行，不称绿。关闭sheet后台生命周期本批不扩，当前修复目标仅旧结果不覆盖与取消不误报。
+
+恢复与副作用：本轮Root纯离线读取，无设备/构建/私库；98-v2历史summary FAIL/raw/REPORT保留。98-v3报告91370B；99最小差量34549B，无APK/工程/缓存复制。未覆盖项：真实词典UI/设备、真实音频不变。
+
+交付状态与下一步/方向复核：宿主只做反例所需最小修复，不抽框架；99同块接续集成/定向DictionaryViewModelTest+DictionaryEmptyNoticeTest/main编译及必要一次产品构建。二者独立E脚本与VM，Claude可在一连续块完成，不把Host工作扩为项目方向。复用98/97/96充分证据，禁止设备确认式重跑；源码/编译具体失败同owner修正到闭环。D产品回灌/Git发布/存量清理不授权。

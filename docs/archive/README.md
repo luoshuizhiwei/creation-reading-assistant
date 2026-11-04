@@ -1,5 +1,7 @@
 # 历史存档（archive）
 
+> 2026-10-30新增分类：[历史交接](handoff/README.md)、[历史文档目录](indexes/README.md)。原字节在E盘维护/迁移前快照中保留；这里的导航副本只整理空行和链接，不是当前执行依据。
+
 > 归档日期：2026-09-14。本目录存放**已完成、被替代或描述已删除产品线**的历史文档；
 > 它们保留用于追溯设计与故障，不代表当前代码状态，不要作为任何新任务的实现依据。
 > 活动文档索引见 [`../README.md`](../README.md)。
@@ -13,7 +15,7 @@
 | `theme-process/` | `theme_visual_audit.md`、`PRD_add_four_visual_themes.md`、`system_design.md`、`UI美化设计方案.md`、`visual-audit-report.md`、`theme_decision_log.md`（2026-08-02 纸墨主题决策记录） | 主题方案形成过程稿；最终视觉规范以 [`../WorkBuddy/theme_visual_plan.md`](../WorkBuddy/theme_visual_plan.md) 为准 |
 | `superpowers/` | 2026-06 阶段的 plans 与 specs | 已执行或被替代（如 2026-06-29 工作台重定位已被 desktop 创作工作台规格取代） |
 
-另：`legado-with-md3-analysis.md` 属上游调研资料而非执行记录，已移入 [`../research/`](../research/)。
+另：`legado-with-md3-analysis.md` 属上游调研资料而非执行记录，已移入 [`../research/`](../research)。
 
 已知保留的旧引用：冻结存档 `../../archives/frozen-mobile/FROZEN.md` 内有一处指向本文档归档前旧路径
 （`docs/superpowers/plans/2026-06-30-mobile-lan-sync.md`）的历史说明。按冻结归档只读纪律未就地修改，

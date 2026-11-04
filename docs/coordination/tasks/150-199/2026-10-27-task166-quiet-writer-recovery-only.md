@@ -1,0 +1,15 @@
+# 任务166-v1：165残留产品保全恢复与静止分支闭环
+编号166-v1，推荐当前WorkBuddy global:deepseek-v4.1-flash1M。唯一host/device恢复owner，与167测试源码/定向构建独立。仅原165owner结束/Idle后派，不双写。25分钟从实际UI发送起，安全恢复不中断。只新E:/creation-reading-assistant/task166-quiet-writer-recovery-v1/内host最小patch/定向offline/raw/REPORT/ready。原实例已运行，禁launch/reboot/其他VM/设备；禁仪器/业务main/run_attempt/新APK安装/Gradle/Android源/系统后台策略修改。
+
+基线165 ready E:/creation-reading-assistant/task165-two-temporary-entry-single-device-v1/ready.json：业务两方法tile147失败永留，singleinstrument已用不可重跑；恢复STABLE_FAILED归档后pid24621复活，summary KEEP与12decisions NOT_INSTALLED冲突，postcheck产品仍装，不把它当卸载成功。旧158同类红/154历史缺证永留。只读复用163真实runner和158安全体，不能手改旧summary或传假installed来屏蔽产品。
+
+Root定位host158.py pinned30578B SHA22ce70f8c547466a79ca74a833b0fb9ed1650f99452fbf898f6e4fa4c1d22ded：ident.quiescent分支直接stable归档不做包force-stop；prelive后needsApprovedQuiesce=false又提前BECAME_QUIESCENT。这允许当前无pid但可被job唤起的产品在archive后复活。新生产恢复策略须明确本批允许package quiesce，保留真实观测不得伪造pid或needsApprovedQuiesce。采用正常授权包force-stop一次，不是修改系统后台策略。
+
+先新本地恢复适配/最小patch：产品已确认属于本批且获quiesce时，无论开始是否有pid，都先完整pre三根原字节/精确缺席proof+manifest/tar目录sizeSHA/readback/空间门，fresh同serialbootuser身份再核，然后精确user0产品force-stop至多一次，post静止与稳定三根集合/writerproof通过才真实父正常uninstall至多一次。没有quiesce授权仍拒，不用空pid冒充包stopped；不可跳pre或任何归档失败后stop/uninstall。不得循环stop/restart/jobcancel/disable/改后台配置。所有错误KEEP_PRODUCT整体false但原test/settings/protection独立恢复。
+
+必要离线只外部strictmock真默认恢复入口/真实parentcmd：quiet但待job场景必须pre→单stop→post→uninstall；权限/归档失败零stop/uninstall；后writer复活KEEP。复用已充分祖先/枚举/原测试恢复日志，不刷旧suite。不能StubParent/cmdlambda0/复制谓词/测试override/手改decision。ready必须真实写parent决定与最终productAction一致；若原父因withheld product写NOT_INSTALLED，新的外层最终裁决要明确为何有意withheld及实际KEEP，保留原parent原回执不冒称已卸载。
+
+离线过后本轮直接recover-only：fresh原instance持久身份/serial/boot/user0、157产品APK54969452B SHA4d302624d603c06b12b1a30480dd1a9d5b7ce5e44cb24efafecd81d4d6c62577/165安装时间与数据归属/无instrument运行。产品已不在则只记精确缺席及原test/settings/protection，不安装它；仍在按上述预保全→单stop→post→父uninstall执行。原test已恢复0d18...需实际末态核，设置/保护/keepalive依据165本轮基线独立核。不进正式库。业务红不改，不称历史全恢复/无证据数据丢失。
+
+源码doc≤192KiB，offline全部rawsynthetic≤128KiB，文字raw≤256KiB，真实必要三根保全按实占另列/先核空间，不复制APK整树缓存/镜像，不删移旧件。唯一ready本批根ready.json；REPORT实际cmd/rc先后、phase/真假总裁决、来源pins、单stop/uninstall计数、原testsettingsprotection、资源退出与最终guest保持状态。禁止Git暂存提交pushPR发布/云/其他VM/私库sessionDB/.codex/memories/自动记忆。用户stopEsc停止新动作，安全恢复不丢收尾。最终末行“这是任务166-v1。”
+并行接缝：167会修改candidate测试源并覆盖新test buildoutput，本批recover-only不得重新验证指向这些可变路径的旧全套inputs而与167竞争；只核本批实际依赖的冻结恢复host/original-test资产pin及设备已装产品SHA/时间/数据归属。已装产品的期望SHA用上文常量，必要本地比对引用167保全的旧pair独份或既有冻结文件，不从新buildoutput误认安装归属。禁止为了复用runner而重写旧inputs忽略漂移；最小真实恢复入口只绑定实际必要冻结依赖。

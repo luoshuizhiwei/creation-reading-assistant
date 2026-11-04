@@ -1,0 +1,13 @@
+````text
+任务151-r1｜ZCode A同owner闭环原test数据mock和ReaderViewModel pin｜2026-10-27 HK｜GLM-5.3-Flash当前档｜12分钟
+用户授权自动接续/多任务并行；ZCode只有明确额度耗尽才Antigravity，不因mock错误/上下文长度切换，不重新泛审。
+Root经Luna实读实际151-v1 main/collector/inputs/validator/原结果：host10226B SHAa95fa52244c34dddd3f46be150bdaa36652d8e9dadea9ba94b1ddf8166f2ec2e；collector4226B SHA3d3912dae55a22dd64b2c8004ffc3731bf9f0dfcddfd0d610d50d305397d1852；inputs4452B SHAdd4997a9ba8daef98fe55d035390f5cf426d24d738880c200d68297db315824d；validator16605B SHA184da6bd93c8326de6ab2f83ee9bb55bdf7088c86ee4d65030134bcf86d49f4d，原件冻结。
+offline-validate-result.json1227B SHA941e05894caaa2a589c571e10c224e63c547b29a57f1f6ab7030ae083c7d3492实际allPass=false；G1 businessOk=false，R1/R2无05-collect.json，三summary真父先拒test data changed since preservation，collectOk=null。不能把这称已闭合的mock gap或collector三绿；原FAIL永久留。已真接scope-first/main/真实parent/collector/修复保全的结构事实复用，R3保全异常KEEP_PRODUCT和R4身份拒错已有绿不泛刷。
+唯一新输出E:/creation-reading-assistant/task151-exit-page-host-offline-v1/recheck-r1/；旧v1所有源inputs/raw/fake冻结，不删除/覆盖其scope。只修：
+1 strict dispatcher按冻结original-test-data.tar真实成员路径/模式uidgid/内容sizeSHA及实际父verify所需表示回放find+sha256sum，机械读取归档生成响应，不猜清单，不将verify_original_test恒true/None，不修改父/原恢复件/断言。未知外部调用先拒，任何函数导入/默认参数/别名都不许落真实ADB/su tar（上批误发限制不能再发生）。
+2 新inputs独立required role=readerViewModel，锁实际ReaderExitBoundary源ReaderViewModel.kt55808B SHA f8762da6326972c3c4582c6a38aa142656dbbeedd6a5fd04b73265edd5c2e3e3；按实际直接reader依赖核freeze，不拿ReaderScreen重复两角色叫完整readerfreeze。校验必须要求精确必需角色/不重复，不只是遍历“给了哪些就验证哪些”；缺该role/指纹错写前拒绝。新host/collector/inputs引用新差量路径如有变更固定fullSHA，不None/运行后回填pin。其他角色及B150新APK716a76e2/7c3e2b31保持已验原值，不重新复制/重build。
+3 用真实新main+真实父run_attempt+collector+recover只外部mock重做G1、R1缺测、R2单测失败-2。必须actual collector原件存在并核：G1四个真实test名字终态0/唯一最终-1/business+恢复summary整体真；负例分别确实到达collector且business false，不用更上游拒绝冒充负例通过。缺role拒错另最小case。不复刻判断谓词、不StubParent，不误用旧t141bJSON，不刷146大suite。若collector对skip/duplicate状态有具体新增缺口，同owner定点修正补相关小例，不扩大泛审。
+原test/SHA安全门必须保持；不得为了绿改模式/清单断言。若机械回放修好仍有下一个真实API接缝，同owner在范围内修复并保红后再交，不停在“建议Root再派”。无设备/Gradle/真实runid预算attemptsummary/instrument，只SYNTHETIC_FAKE独立新scope。source/doc/patch256KiB、raw+fake256KiB，大原件只引用不复制，未知cmd不真实fallback。
+提交前自行按实际交付检查所有必需role、三用例到达collector证据、实际summary/错误数组/tuple API/源流hook、完整SHA及统计和无真实端点。编造“通过”不可接受。可运行仅指离线闭包，仍不设备。最终REPORT区分原失败/新红绿/尚未验证，ready真实状态。旧148summary false/原测试归档/父链/adapter/candidate/B产物全冻结不改，不current/Git云私库自动记忆/删移资产，不发其他会话消息。
+最终单独末行：这是任务151-r1。
+````

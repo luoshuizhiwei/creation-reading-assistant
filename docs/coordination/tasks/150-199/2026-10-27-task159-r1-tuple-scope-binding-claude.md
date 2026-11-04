@@ -1,0 +1,11 @@
+# 任务159-r1：collector公共tuple接缝所有权最小闭环
+
+同159原Code会话/owner，只新E:/creation-reading-assistant/task159-temporary-entry-collector-offline-v1/recheck-r1/，旧v1源inputs/raw/fake/ready冻结。与A158host/设备独立，candidate/APK/Gradle/device/A输入全部只读，禁止触碰A执行范围。10分钟从实际UI发送起，source64KiB raw+fake16KiB，复制前核free、实际计fake，不删移旧资产。
+
+Root已核原159主体14case离线性质通过，完整class+两method唯一成功终态、冻host136实际evaluator、collect签名tuple、expectedrun/scope约束充分复用，不重刷14case。collector159.py9092B SHA407c27e431864481358fac71c21b6db2400f7e0627a725b8cd6d26a2701f9a08，offline_validate13790B4831b7fb1ff1b1edc55c52394029003b4c527d4a855fef701ccc49b295818e1a。
+
+唯一实际缺口：evaluate_f1_evidence(local,business_ok,run_id)仅核格式/文件存在，不绑定有效run_id与local路径/所有权文件；assert_ownership在RUN_ID_FILE缺席时默认不拒。不能让跨run但合法格式的raw通过公共tuple，也不能以缺ownerfile静默降级。保持真实父3参tuple接口；根据实际local/scope布局定义唯一可审计所有权文件绑定并明确下一host必须写的文件位置，文件缺失/不一致/跨run都拒；不得从当前文件内容回填expected而自证。保持正常collect接口并明确expected_run_id必须实际传入（不要以默认None当部署安全通过）。不引入泛框架/全盘扫描/发明测试JSON合同。
+
+仅必要实际新function定向：正常对应local+runid通过，合法格式但跨run local拒，缺所有权文件拒，collect真实正常绑定不回归；保真实原红→修复绿与stdoutstderr rc，不能复制谓词/替换真实collector包装器自证。输入未变14case全部直接复用。自查tuple与collect两出口确实引用新门，接口与真实151/136接缝相符。若真实父不生成所需file，如实提供下一host写入接缝，不改冻结父/A158，不假装已部署。
+
+交付最小新collector/patch/完整前后SHA/REPORT/必要原log/ready.json，明确离线NOT_DEVICE/未真实instrument，不重build或设备。禁Git提交发布/云/私库/自动记忆。最终总结末行：这是任务159-r1。

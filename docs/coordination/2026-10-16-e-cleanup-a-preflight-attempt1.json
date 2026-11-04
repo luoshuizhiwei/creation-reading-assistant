@@ -1,0 +1,66 @@
+{
+  "schema": "cra-space-cleanup-execution/1",
+  "authorization": "2026-10-16 user requested cleanup after the exact batch A proposal; only these ten caches subdirectories",
+  "proposal_sha256": "22121269be6410fed603f3b321c0e5840f846b117a481c44cde2900b01b45854",
+  "started_utc": "2026-10-15T17:02:26.7014969Z",
+  "before_free_bytes": 65445888000,
+  "before_used_bytes": 934740422656,
+  "results": [
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v4\\_cache\\gradle-home\\caches",
+      "status": "SKIPPED_PRECHECK",
+      "error": "Parameter set cannot be resolved using the specified named parameters. One or more parameters issued cannot be used together or an insufficient number of parameters were provided."
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v3\\_cache\\gradle-home\\caches",
+      "status": "SKIPPED_PRECHECK",
+      "error": "Parameter set cannot be resolved using the specified named parameters. One or more parameters issued cannot be used together or an insufficient number of parameters were provided."
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v2\\_cache\\gradle-home\\caches",
+      "status": "SKIPPED_PRECHECK",
+      "error": "Parameter set cannot be resolved using the specified named parameters. One or more parameters issued cannot be used together or an insufficient number of parameters were provided."
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\d2-relink-identity-fix-v1\\_cache\\gradle-home\\caches",
+      "status": "SKIPPED_PRECHECK",
+      "error": "Parameter set cannot be resolved using the specified named parameters. One or more parameters issued cannot be used together or an insufficient number of parameters were provided."
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-crossbook-temporary-seam-v3\\gradle-home\\caches",
+      "status": "SKIPPED_PRECHECK",
+      "error": "Parameter set cannot be resolved using the specified named parameters. One or more parameters issued cannot be used together or an insufficient number of parameters were provided."
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\j1-crossbook-temporary-entry-v1\\android\\gradle-home\\caches",
+      "status": "SKIPPED_PRECHECK",
+      "error": "Parameter set cannot be resolved using the specified named parameters. One or more parameters issued cannot be used together or an insufficient number of parameters were provided."
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-fix-v2\\gradle-home\\caches",
+      "status": "SKIPPED_PRECHECK",
+      "error": "Parameter set cannot be resolved using the specified named parameters. One or more parameters issued cannot be used together or an insufficient number of parameters were provided."
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-fix-v3\\gradle-home\\caches",
+      "status": "SKIPPED_PRECHECK",
+      "error": "Parameter set cannot be resolved using the specified named parameters. One or more parameters issued cannot be used together or an insufficient number of parameters were provided."
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-fix-v4\\gradle-home\\caches",
+      "status": "SKIPPED_PRECHECK",
+      "error": "Parameter set cannot be resolved using the specified named parameters. One or more parameters issued cannot be used together or an insufficient number of parameters were provided."
+    },
+    {
+      "path": "E:\\creation-reading-assistant\\txt-reentry-persist-fix-v1\\gradle-home\\caches",
+      "status": "SKIPPED_PRECHECK",
+      "error": "Parameter set cannot be resolved using the specified named parameters. One or more parameters issued cannot be used together or an insufficient number of parameters were provided."
+    }
+  ],
+  "stopped_processes": [],
+  "status": "COMPLETED_WITH_SKIPS_OR_FAILURES",
+  "after_free_bytes": 65445888000,
+  "after_used_bytes": 934740422656,
+  "observed_free_increase_bytes": 0,
+  "finished_utc": "2026-10-15T17:02:26.8724596Z"
+}

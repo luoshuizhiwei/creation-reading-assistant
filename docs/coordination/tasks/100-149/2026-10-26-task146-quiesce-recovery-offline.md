@@ -1,0 +1,21 @@
+# 任务146-v1：产品存活时的保全与停写恢复接缝（仅离线）
+
+2026-10-26香港19:56；推荐原WorkBuddy global Flash，同owner唯一host/recovery所有者。20分钟，差量256KiB/raw512KiB，无新增大目录/工程/APK/cache。当前没有设备授权，本任务全部端点mock。
+
+````text
+阶段复核：Root实核145-r8-r1最小83行fake patch/REPORT/原log与两独立summary，3定向通过；产品角色由inputs绝对APK路径精确识别，原假设由actual install argv支持。r8host14162B SHAb70406c011f79862a0fa2f896125ebc6a0c6a4f83db6ff7443956caa36dfdd31与inputs5325B SHA1bb6a23315e0b6bf060921d4726e74969b58f592026fa881ad8a578cb833cada未变。r1测试18859B SHAb8349cc9918265db881e45296d9b2fec3ce73b8e13f24847fd808e66c41e0a10/patch4240B SHA18ecb2c950cb61d90f1c6299fd869b87b75ba776861f2f8f33935992a6cc2beb核同。接受限定离线host闭环，不设备/全产品。已充分142八目标/143compile/144APK不重跑，旧145原红永久留。
+
+剩余具体依赖：instrument正常Back返回搜索页不代表产品进程退出。当前preserve_three_roots见进程存活直接NEEDS_APPROVED_QUIESCE，正常设备批可能只能保产品而无法完整恢复。138有真实“停写前归档→精确产品force-stop一次→停写后完整保全”历史，引用其已证命令与原字节口径，不把历史许可当本轮设备许可。本146仅写未来可明确批准的接缝与离线验证，绝不实际ADB/VM/stop；后续Root独立设备合同才可启用。
+
+所有权仅E:/creation-reading-assistant/task146-quiesce-recovery-offline-v1/新host最小delta/REPORT/raw/ready.json。旧145-v1至r8r1所有host/inputs/raw/SYNTHETIC不改不删不rmtree。加载pin已审r8host，输入闭包原路径只读引用；不要复制一套145链、APK、工程。其他owner无并行任务，这一接缝与未来同设备恢复共享唯一owner，不造泛审。
+
+实现只补“检测真实本批产品仍活”的恢复路径：默认没有单独quiesce许可则沿现有NEEDS_APPROVED_QUIESCE/KEEP_PRODUCT，不能暗中停写。未来明确许可分支先核serial/boot/user/本批install所有权与instrument已停止或正常终态（父stop_ok门必须保留）；先把本批product CE=/data/user/0/com.creationreadingassistant、DE=/data/user_de/0/com.creationreadingassistant、external=/storage/emulated/0/Android/data/com.creationreadingassistant整根原始tar字节、原rc/stdoutstderr与源清单/proof落盘。正在写的pre归档只能准确PRE_LIVE_UNSTABLE，不能冒充一致快照；若三根pre原始归档/清单失败或空间不足，产品保留且不执行stop，不卸载、不删资产。
+
+pre成功之后，未来批准分支只能对本批fresh user0的com.creationreadingassistant精确一次am force-stop --user 0（不杀test/VM/sharedADB/其他进程、不循环、不换serial）。保存原rc/stdoutstderr，核pidof/有效ps/pkg及pkg:前缀均静止与同bootuser，然后复用已审稳定三根post保全（逐文件sizeSHA和目录集合双向/源前后清单完全同/原始tar/writer身份/回执）。pre和post目录不同且拒覆盖，不重复复制APK或历史资产。只有post真实通过才交父原recover正常精确uninstall；pre失败/stop失败/identity变动/post失败一律保产品，recoveryErrors有原因、summary假/exit非0，其他原test/settings/protection依父安全门独立恢复，不跳过，也不能以metadata pull rc0替代原字节。无许可路径继续保产品并准确报告，不算完整恢复成功。
+
+只必要离线测试：真实新入口/已安装生产hook/原父run_attempt+collect+recover/cmd_*体，外部严格mock。成功live场景断言pre三根原字节落盘早于唯一精确stop，post一致证明晚于stop且先于uninstall1、原test/settings/protection恢复、整体真；pre任一根失败断言stop0/uninstall0/保产品且整体假/独立恢复；stop失败或post失败至少一条明确负例，cause留存。未许可live分支stop0/uninstall0准确NEEDS_APPROVED_QUIESCE。不要测试local另写hook或lambda0替cmd体。复用145实际独立fake shape/固定APK路径角色，不刷旧5/11项。所有外部命令未匹配必须抛，全部fake输出在新SYNTHETIC_FAKE，测试不能触真实OUT_BASE或设备。
+
+这批不创建真实run-id/budget/attempt/summary，不执行main批准分支到真实端点；可定义未来run packet参数，但不能把参数当许可。存储预算只源码报告delta256KiB/raw512KiB，fake原件归档小字节，不真实asset复制。交付最小patch/新host前后SHA/REPORT/必要原红绿raw与fake调用顺序/summary引用/ready.json，REPORT列实际新增分类体积及未证范围。超scope准确BLOCKED，必要自己的mock/API小修同owner闭环并保全部红。
+
+Android源APKGradle/公共配置/父136/base/adapter冻结，只引用新144匹配APK539f44c5/f2d2982b和15rolepins/readerfreeze。禁止真实ADB/VM探测启停/安装卸载force-stop设置/真实hostmain/runid预算attemptsummary/F1/实体/buildcompile；Root不旁路build/ADB。本146不自动继续设备，新设备批Root读实际接缝后另派。不Git暂存commitpushPR发布/云SSH SFTP/D产品回灌/正式库HOLD/购买换号切供应商/旧存量删移压迁/kill共享进程/ClaudeCoworkDSH私库/.codex/memories/自动记忆。139恢复接受与卸载前旧rc缺失历史限制/138保全/137仅MuMu非实体红证据保持。最终总结末行：这是任务146-v1。
+````

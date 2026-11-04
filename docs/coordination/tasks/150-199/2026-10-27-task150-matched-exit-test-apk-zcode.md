@@ -1,0 +1,11 @@
+````text
+任务150-v1｜ZCode B：149新页面测试匹配APK构建与冻结｜2026-10-27 HK｜当前GLM-5.3-Flash｜20分钟
+用户授权自动接续、多任务并行、ZCode额度明确耗尽才Antigravity。本批唯一Gradle/build owner；A旧产品recover-only收尾，不能占设备。Root已接受149-r2集成+compile原红1/最终绿9秒0，不重跑JVM/旧suite，不再次泛审测试。先读current页首及task149/recheck-r2/ready，核已有真实编译结果。
+唯一candidate E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android。固定新源码ReaderScreen47183B SHA72324af1ef348c240237ae2b66d3d58e73a88c03d94ca911139ec770da73db4e；新ReaderExitSaveDrainDeviceTest SHA7dcfa26ae31d3205a5b1f6a976483597854cea811e59a390c563ab541100c061（实际candidate同文件）。其他既有冻结reader/Search源码保持。若漂移先核具体原因不覆盖WIP。
+任务只构建匹配新产品/新test APK，不设备、instrument、settings、安装卸载、不修host。已有compile证据充分直接reuse，持唯一Gradle锁按仓库实际约定串行一次assembleDebug+assembleDebugAndroidTest；JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk，GRADLE_USER_HOME D:/develop/env/gradle。锁忙不kill/抢占，不复制工程和cache。
+重要资产：现buildoutput中的旧144产品53896765B SHA539f44c583874e43de866744939f18a28b2e98494cc343fed41fc435de0d149b和test10677879B SHAf2d2982bba57cb53cc72e96258fede386da9574fbe92cc269ac8d67d02d72bbe尚是该版本唯一原件。覆盖前查本任务preserved目录有无同SHA原件；如无，精确单份复制到E:/creation-reading-assistant/task150-exit-page-matched-apk-v1/preserved/，先核sizeSHA和free，不复制旧task144 preserved中的更旧74d106/281731。只允许本批这两个独有APK保全，不删移旧件，不作工程/缓存迁移。新APK保留原buildoutput，不再默认复制一对。
+存储预算：task150目录只含旧两APK约64.6MB、必要log/REPORT/metadata/少量DEX验证；总80MiB，原buildoutput新产物属于现构建workspace统计新增说明，实际build临时占用另列，不当旧资产删除。raw日志上限2MiB，若真正失败保原红不截断掩盖，停止扩展并说明偏差。
+构建成功后核实真实产物：产品包/版本/minSDK/targetSDK/签名；test target package及CraIsolatedTestRunner；两APK签名匹配；新test DEX确有ReaderExitSaveDrainDeviceTest及四个测试方法，新产品包含SettingsViewModel注入seam对应字节码/ReaderScreen更新；旧SearchListScrollRetentionTest仍在，不因新test覆盖旧类。使用现有aapt/apksigner/DEX工具，无需另装依赖。新源码清单size/fullSHA、前后APK fullsizeSHA、真正构建日志rc、runtime NOT_RUN必须分开。
+交付E:/creation-reading-assistant/task150-exit-page-matched-apk-v1/REPORT.md、ready.json、必要raw/metadata，旧两APK只有preserved单份，全部真实路径+SHA。不回改task145旧inputs、task148原summary或历史compile证据。后续新设备host需新inputs绑定新APK及源码，由Root另分配，本轮不编造None/实测回填pin。
+提交前自行核对实际交付要求与原件：APK对应本批源码、旧件保全完整、匹配runner/签名、未设备执行、预算和锁归还；新增构建错误同owner在本批必要范围闭环，不能降断言或默默换旧APK报告成功。不Git/发布云/私库自动记忆/删移旧资产，不current，不自动化。额度若明确耗尽先保留现场/日志/锁状态，不能转供应商双写；Root负责移交。最后单独末行：这是任务150-v1。
+````

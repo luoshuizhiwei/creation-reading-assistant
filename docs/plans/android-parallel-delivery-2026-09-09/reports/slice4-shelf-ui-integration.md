@@ -4,7 +4,7 @@
 > 范围：`ui/screen/shelf/` 内 11 个所有权文件（BookDetail 系列 5、导入系列 4、FilterSheet、ShelfSharedComponents）
 > 基线：`main` / `6cd29670e54c3fc2915d876896ecbaae8d000aa4`（共享脏工作区，多 agent 并行）
 > 本轮**未** stage / commit / push / reset / checkout / clean / stash；**未**触碰任何禁改文件（见 §6 取证）。
-> 依赖阅读：`AGENTS.md`、`docs/handoff/current.md`、`docs/plans/2026-09-13-android-r3-slice1-integration-manifest.md`、`reports/codex-r4.md`（ReaderCorrection R4 报告）。
+> 依赖阅读：`AGENTS.md`、`docs/handoff/current.md`、`docs/plans/historical-integration/2026-09-13-android-r3-slice1-integration-manifest.md`、`reports/codex-r4.md`（ReaderCorrection R4 报告）。
 
 ---
 

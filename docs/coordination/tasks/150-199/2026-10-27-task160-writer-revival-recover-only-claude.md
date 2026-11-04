@@ -1,0 +1,15 @@
+# 任务160-v1：158原批recover-only——WorkManager复活后稳定保全收尾
+
+承接158原执行会话唯一host/设备恢复owner，B161只新离线host不改A输入/candidate/APK/设备。Root限定接受158真实四测试全通过和原test/settings/protection独立恢复，但整体false产品KEEP，原件冻结不改绿。禁止二次instrument/attempt/main/测试重跑/Gradle/Android源修改/APK构建安装；不要为恢复再完整跑host158.main。本批直接recover-only闭环。
+
+原scope E:/creation-reading-assistant/task146-quiesce-recovery-offline-v1/task158-T158V1-20261027-103843，原host E:/creation-reading-assistant/task158-reader-exit-real-host-device-v1/host158.py30578B SHA22ce70f8c547466a79ca74a833b0fb9ed1650f99452fbf898f6e4fa4c1d22ded；真实run_attempt/collect/四方法证据充分不重刷。真实summary businessOktrue/overallfalse/threeRootOkfalse/KEPT_BLOCKED，归档前quiescenttrue、后WorkManager SystemJobService拉起PID3067；源前后CE25/DE3及external NAME_ABSENT局部记录不等稳定保全闭合。12-recovery-decisions单写NOT_INSTALLED与最终KEEP冲突，不能当卸载证据，新assessment解释原wrapper/时序来由（查实际原因不猜），旧件不改。
+
+唯一新交付根E:/creation-reading-assistant/task160-writer-revival-recover-only-v1/。复用真实install_guarded_recover_158(parent,*,base,dest_root,fresh_serial,fresh_boot_id,quiesce_approved=True,disk_usage_fn=None)和真实parent.recover_after_run接缝、原cmd_*体/stop安全门/固定parents不改，不另造跳过恢复wrapper。不重新复制工程/APK/cache/原基线，仅引用158真实baseline与原test数据归档/11settings/protection receipts，写新独立scope原raw/proof。需要适配独立recover-only调用时最小新脚本持久化before-afterSHA与实际函数调用，不能把计划字典或调用计数当恢复通过。
+
+本批fresh设备身份核同158原serial127.0.0.1:16416/boot50306042-2dcc-4deb-a5c0-3809d202a317/user0，实际读回所有原rc/stdout/fullstderr，身份变化拒错停止依赖操作而不回填expected自证。设备产品APK内容SHA4d302624d603c06b12b1a30480dd1a9d5b7ce5e44cb24efafecd81d4d6c62577与本批158安装归属核同，不凭报告包名/大小。不探其他VM实体、不循环launch/重启/kill共享ADB/修改后台任务或系统策略。
+
+用户本批明确允许合法live产品保全后精确user0停写一次：先instrument已结束/本批安装归属/同fresh身份；live先CE/DE/external三根pre-live原tar/清单/精确缺席proof完整落盘且可读、估源size/free足，准确PRE_LIVE_UNSTABLE不称一致，任何失败不stop不卸载。pre后stop前再次身份核同→am force-stop --user 0精确产品一次，原rc/fullstdoutstderr回执持久化→pidof/ps有效rc与同bootuser核静止→稳定post三根：祖先/target非链接、父枚举可达、缺席精确回执、存在根源前后全目录/文件清单SHA及tar逐项sizeSHA/集合双向核同、归档后writer身份再核。后proof可读落盘后才父正常uninstall一次。若入场已经静止可按真实门直接稳定保全，不为凑流程stop。若post仍WorkManager复活/身份变化/任何proof失败，KEEP_PRODUCT/整体false，保原cause不循环stop/不换服务策略，不自动下一批。不得把instrument结束系统force-stop当本批已精确stop或事后倒填pre。
+
+原testAPK0d18数据/settings/保护在158已恢复有证，先按真实状态核同复用充分部分，必要实际漂移才最小恢复；独立安全恢复不可因product保全失败全部跳过。protect只actual OUT_BASE新run子根，不覆盖158initial/final；原test-data恢复归档、11settings、Download、keepalive完整原回执。Download历史.exmu差异未知永留，本批基线与旧已知差异分开，不造文件/不说179全同。154历史external卸载前缺证永久，不借本批补证；158overallfalse和12decision冲突原件留。结束实际product package/三根缺席、原test/数据/设置/protection核同且原始rc支持，才能本批recover成功，设备owner退出可核，不用metadata字符串代字节。
+
+改动涉及新recover-only调用，只必要strict外部mock证明无instrument/安装/attempt、live成功顺序和pre失败零stop/卸载；实际原函数引用不复制谓词/内部skip重写。不重刷1589case/四方法/旧suite。离线必要门过后本轮直接recover-only，25分钟从实际UI发送计，安全恢复不中断，不重置158原预算。source128KiB raw+fake128KiB，device64MiB，先估新增/free，真实计fake不删旧资产。交付REPORT/最小新源patch/完整SHA/必要原logproof/独立恢复summary/原158引用新assessment/ready.json。禁Git暂存提交push发布/云/正式库/其他VM实体/私库/自动记忆/旧件删移。最终总结末行：这是任务160-v1。

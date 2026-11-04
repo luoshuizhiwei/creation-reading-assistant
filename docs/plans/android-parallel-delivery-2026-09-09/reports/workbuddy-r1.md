@@ -69,7 +69,7 @@
 ## 验收 4：滚动 TXT 替换渲染修补复验
 
 - **本轮相关 WIP**：`ReaderContentHostPlainTextBranch.kt`、`ReaderContentHost.kt`、`ScrollingTxtChapterSourceTest`、
-  `ReaderReplacementCapabilityTest`、`docs/plans/replace-rules-render-integration-design.md`。
+  `ReaderReplacementCapabilityTest`、`docs/plans/android/replace-rules-render-integration-design.md`。
 - **门禁**：定向测试 EXIT=0（27s），`ReaderReplacementCapabilityTest` **16/0** + `ScrollingTxtChapterSourceTest` **3/0** = 19/0；
   `assembleDebug` EXIT=0（42s），APK 51,968,353 B，md5 `339a676d6b905250a25be42c7ba8959f`（≠ 上轮 `015eb08f`，确认含修补）。
 - **安装**：`install_with_confirm.ps1` 再次 EXIT=1（MIUI 弹窗超时，日志 `rrv-install.log`）→ 回退 `adb install -r` Success（17:27:12）。

@@ -1,0 +1,81 @@
+{
+  "run": "CRA63_DE_JOINT_20261019_V6",
+  "protected": {
+    "protected_files": {
+      "count": 71,
+      "path_size_sha_equal": true
+    },
+    "external_files": {
+      "count": 820,
+      "path_size_sha_equal": true
+    }
+  },
+  "tmp_archive": {
+    "count": 115,
+    "set_size_sha_equal": true,
+    "tar_sha_equal": true
+  },
+  "SAF": {
+    "allOk": true,
+    "raw_files": 7,
+    "raw_receipt_mismatches": [],
+    "source_consumer_byte_equal": {
+      "notesExport_realSystemSafCreateDocumentAndSave.json": true,
+      "notesExport_realSystemSafColdReadContent.json": true,
+      "notesShare_realSystemChooserObservedThenCancel.json": true,
+      "__ledger.json": true,
+      "__restoration.json": true
+    }
+  },
+  "Room": {
+    "ok_4_tests": true,
+    "stdout_marker_count": 0,
+    "forensic_members": 12,
+    "distinct_roots": [
+      "task60-accept-task60_highlight_inspiration_2af9e7534d774b43b1eb5fcf36824357",
+      "task60-accept-task60_highlight_inspiration_918e9e02a8534ef8b277cfd7606505a6",
+      "task60-accept-task60_highlight_inspiration_a1e8b6f9c34d455e95a774f6a7853362",
+      "task60-accept-task60_highlight_inspiration_ef5a1689e2f04a01a125cba269ca9b26"
+    ],
+    "all_related_members": 16,
+    "archive_files": [
+      {
+        "path": "data/data/com.creationreadingassistant.qahostj1persistv2/cache/task60-accept-task60_highlight_inspiration_a1e8b6f9c34d455e95a774f6a7853362/databases/task60_highlight_inspiration_a1e8b6f9c34d455e95a774f6a7853362",
+        "size": 380928
+      },
+      {
+        "path": "data/data/com.creationreadingassistant.qahostj1persistv2/cache/task60_highlight_inspiration_a1e8b6f9c34d455e95a774f6a7853362.lck",
+        "size": 0
+      },
+      {
+        "path": "data/data/com.creationreadingassistant.qahostj1persistv2/cache/task60-accept-task60_highlight_inspiration_ef5a1689e2f04a01a125cba269ca9b26/databases/task60_highlight_inspiration_ef5a1689e2f04a01a125cba269ca9b26",
+        "size": 380928
+      },
+      {
+        "path": "data/data/com.creationreadingassistant.qahostj1persistv2/cache/task60_highlight_inspiration_2af9e7534d774b43b1eb5fcf36824357.lck",
+        "size": 0
+      },
+      {
+        "path": "data/data/com.creationreadingassistant.qahostj1persistv2/cache/task60-accept-task60_highlight_inspiration_918e9e02a8534ef8b277cfd7606505a6/databases/task60_highlight_inspiration_918e9e02a8534ef8b277cfd7606505a6",
+        "size": 380928
+      },
+      {
+        "path": "data/data/com.creationreadingassistant.qahostj1persistv2/cache/task60_highlight_inspiration_918e9e02a8534ef8b277cfd7606505a6.lck",
+        "size": 0
+      },
+      {
+        "path": "data/data/com.creationreadingassistant.qahostj1persistv2/cache/task60-accept-task60_highlight_inspiration_2af9e7534d774b43b1eb5fcf36824357/databases/task60_highlight_inspiration_2af9e7534d774b43b1eb5fcf36824357",
+        "size": 380928
+      },
+      {
+        "path": "data/data/com.creationreadingassistant.qahostj1persistv2/cache/task60_highlight_inspiration_ef5a1689e2f04a01a125cba269ca9b26.lck",
+        "size": 0
+      }
+    ]
+  },
+  "fingerprints": {
+    "v6/task63_v6_runner.py": "2807507195bdce049bf6164617c0f2cf26b12f4e99e281acbab9176f32a5a0b0",
+    "v6/saf-fix/task63_v6_saf_delivery.py": "f177503e6504aac2ddae22b4fd8fc2e0b29caf74185c1a5b8420083e5449fd96",
+    "v6/tool-bind.task63.v6.json": "44f90060430a438a985b708cc6d078417d5445798d5a0e4983fb8098d0b49c0e"
+  }
+}

@@ -1,0 +1,11 @@
+# 阶段 E 三份增量回读（2026-09-30）
+
+本轮只读取原始证据/源码，未运行构建或设备验收。HEAD仍513891d6，暂存区空。
+
+- 验证修正候选：最新JVM XML实算2467 tests、0 failures/errors；报告修正透明占位语义并扩充为8条设备测试，设备未跑。BootMirror根因进一步定位为StateFlow初值命中与上游镜像副作用未完成，并非此前简单推测的目录污染；测试采用确定性等待和运行目录隔离。两次全量结果为报告范围，设备语义结论未验，不能称已实听TalkBack。
+- S05候选补丁SHA `3b5d41e6de159c0d0780744faf7904c572f22a40ebd97006704cb78a3ae5e15d`；报告定向97/97与G6相关48项，日志成功。补丁基线是原71文件联合树，不是HEAD。设备未验。
+- Reader候选30份XML实算224 tests、0 failures/errors，仅10个生产文件改动；新增修复专项测试（EpubBlockSourceRange/PersistentHighlight、ScrollSelectionVisibility、ReadingUnitSelectionOwnership、LegadoImport/MarkerSaveGuard/TocNotesWiring等）不在候选测试目录。这224项不能证明新增闭包全部已验证。
+- Reader候选生产源全树对LegadoReadingProgressImporter/importArchive的引用仅在类自身，导入入口未接线。原工作树链为ProfileAction.ImportLegadoBackup→ProfileRoute→ProfileViewModel→webDavManager→legadoImporter；后续须最小接入该真实入口，不夹带WebDAV大重写。
+- Reader报告以所有权阻塞selectionSnapshot/TOC notes接缝，并复制自工作树的ReaderDocumentLoader及手写EPUB JSON适配；须补对应最小接缝/专项契约证明，不宣称与旧Locator公共输出等价。报告中的“旧真机已验”缺少本会话实际设备范围核对，历史证据应按真实MuMu/实体手机注明。
+
+下一轮：Reader同窗口扩大必要调用方/测试所有权补齐；单一集成者并行合入验证修正+S05并准备合流Reader完成版，待明确READY后仅跑一次最终完整门禁；独立WorkBuddy只在最终源码/APK哈希冻结后验收同一APK，不把等待写作完成。阶段计数A–E仍80%，提交未授权。
