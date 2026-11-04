@@ -2356,9 +2356,29 @@ button:disabled {
   margin-left: auto;
 }
 
+/* BD-243（WCAG 2.4.7 焦点可见·交叉类「键盘可达的控件不得靠 hover 才显形」）：
+ * 这一族原本只有 :hover 一条显形路——鼠标不碰就 opacity:0，而簇里的 15 枚钮 + 2 支下拉
+ * 全在 Tab 序列里（opacity 不摘 tabindex，运行时实测大纲第 10 步就落进
+ * button[aria-label="在卷「正文」新建章节"]）。落进去时本体算得出 solid 2px 的环
+ * ——常驻网据此判绿——可祖先 span.outline-node-actions 是 opacity:0，链上乘出来的绘制
+ * 不透明度 0.000，环没有任何一像素落在屏上（/tmp/bd243-p3.log：同一裁剪区「键盘聚焦 vs 离焦」
+ * changed=0 maxdelta=0，离焦基线逐字节稳定；同一区域 hover vs 离焦 changed=328 maxdelta=189
+ * ——即「只有 hover 才画得出东西」）。补 :focus-within 与 :hover 平级显形，选择器口径照抄
+ * 上面那三条的宿主（卷行/章行/场景行），行内任一控件拿到键盘焦点就把整簇亮起来，
+ * 与鼠标悬停看到的内容一致。
+ * 同形状但**不是**缺陷的对照（同批实测，口径写进常驻网的判据注释）：设置页开关
+ * input.paper-switch-input 本体也恒透明（opacity:0 的 sr-only 原生框），可见替身是同父兄弟
+ * .paper-switch-track，它带 `.paper-switch-input:focus-visible + …{ box-shadow }`——
+ * 真键盘聚焦时裁剪区 changed=323（/tmp/bd243-p3.log），聚焦看得见，无缺陷。
+ * ⚠ 这条差分只在**真键盘**下可信：同一支开关改成程序 focus() 回填，changed=0
+ * （/tmp/bd243-p2.log），:focus-visible 的键盘模态在程序聚焦时不保证点亮——量具别拿
+ * 程序聚焦的图当「聚焦态」。 */
 .outline-volume-row:hover .outline-node-actions,
 .outline-chapter-row:hover .outline-node-actions,
-.outline-scene:hover .outline-node-actions {
+.outline-scene:hover .outline-node-actions,
+.outline-volume-row:focus-within .outline-node-actions,
+.outline-chapter-row:focus-within .outline-node-actions,
+.outline-scene:focus-within .outline-node-actions {
   opacity: 1;
 }
 

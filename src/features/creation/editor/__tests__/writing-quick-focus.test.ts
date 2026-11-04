@@ -194,3 +194,67 @@ describe("BD-242 三面欠账进网：范围名 + 各自的解锁步骤", () => 
     expect(census).toMatch(/maxStops: 220, mustSel: "\.card-reference-input"/);
   });
 });
+
+/**
+ * BD-243 补这把尺子自己的盲区：computed outline 看不见 opacity。
+ * 大纲行内动作簇的 17 支控件（15 钮 + 2 下拉）平时整簇 `opacity: 0`、只有 :hover 才显形，
+ * 而本体算得出 `solid 2px` 的环——本网此前据此判绿，是它的头一个**假绿**。
+ * 实测账见 /tmp/bd243-p3.log（真键盘聚焦 vs 离焦 changed=0，同区域 hover vs 离焦 changed=328）。
+ * 闸门：本体连祖先乘出来的不透明度 < 0.15 ⇒ 本体环不作数，改走「本体∪父」区域像素差分。
+ */
+describe("BD-243 绘制可见性闸门：透明本体不吃 computed outline 的直判", () => {
+  const code = census.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  it("沿祖先链把 opacity 乘出来，低于 0.15 就判为本体透明", () => {
+    expect(code).toMatch(/paint \*= Number\.isFinite\(o\) \? o : 1;/);
+    expect(code).toMatch(/paint < 0\.15/);
+    expect(code).toMatch(/const lowPaint = !skip && paint < 0\.15;/);
+  });
+
+  it("透明本体不再走本体环／聚焦差分／容器代持——由闸门专管", () => {
+    expect(code).toMatch(/const needsDelta = !skip && !isRange && !lowPaint/);
+    expect(code).toMatch(/if \(info\.lowPaint && !info\.skip\) \{/);
+  });
+
+  it("聚焦图必须在 blur 之前拍：程序 focus() 不保证点亮 :focus-visible", () => {
+    const i = code.indexOf("if (info.lowPaint && !info.skip) {");
+    expect(i).toBeGreaterThanOrEqual(0);
+    const win = code.slice(i, i + 2600);
+    expect(win.indexOf("const shotOn = await page.screenshot")).toBeLessThan(
+      win.indexOf("document.activeElement?.blur?.()")
+    );
+    // 事后那次 focus() 只是把 Tab 序列归位，绝不能再拿它当聚焦态取图
+    expect(win.indexOf("const shotOn = await page.screenshot")).toBeLessThan(win.indexOf("el?.focus();"));
+  });
+
+  it("取图前把鼠标挪走：hover 本身就会让这一族显形，不挪走就把缺陷量成绿", () => {
+    const i = code.indexOf("if (info.lowPaint && !info.skip) {");
+    const win = code.slice(i, i + 2600);
+    expect(win).toMatch(/page\.mouse\.move\(2, 2\)/);
+    expect(win.indexOf("page.mouse.move(2, 2)")).toBeLessThan(win.indexOf("const shotOn = await page.screenshot"));
+  });
+
+  it("裁剪区取「本体∪父」，父是页面级容器时退回本体周边（可见替身一般在父里）", () => {
+    expect(code).toMatch(/Math\.max\(rect\.right, pr\.right\) - x/);
+    expect(code).toMatch(/Math\.max\(1, rect\.width \* rect\.height\) \* 30/);
+    expect(code).toMatch(/rect\.width \+ 192/);
+  });
+
+  it("基线不稳保守放行、稳且逐像素相同才判红——两种脸色都要点名", () => {
+    expect(census).toContain("透明本体·基线不稳·保守放行");
+    expect(census).toContain("透明本体·聚焦前后逐像素相同（只有 hover 才显形）");
+    expect(census).toContain("透明本体·区域像素差分有变化");
+    expect(code).toMatch(/const stable = Buffer\.compare\(shotOff1, shotOff2\) === 0;/);
+    expect(code).toMatch(/const differs = Buffer\.compare\(shotOn, shotOff1\) !== 0;/);
+    expect(code).toMatch(/info\.hasIndicator = stable \? differs : true;/);
+  });
+
+  it("去向单列一档、红面带上绘制不透明度，同一停靠点只取一轮图", () => {
+    expect(code).toMatch(/info\.paintProbe \? "透明本体·区域像素差分"/);
+    expect(code).toMatch(/const seenPaint = new Set\(\);/);
+    expect(code).toMatch(/r\.paintProbe/);
+    expect(code).toMatch(/绘制不透明度 \$\{r\.paint\?\.toFixed\?\.\(3\)\}/);
+    // 探针标记要留下、也要清干净（残留会让下一站认错元素）
+    expect((code.match(/data-paint-probe/g) || []).length).toBeGreaterThanOrEqual(4);
+  });
+});

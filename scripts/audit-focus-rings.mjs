@@ -88,6 +88,24 @@
  *      输入既无 class 也无 aria-label，id 长成 `input.(无类名)[]`），判不到就抛、落进跳过名单。
  *      本批三面各自点名：`.writing-quick-field input` / `.creation-search-input` /
  *      `.card-reference-input`（引用卡一站的上限同步提到 220）。
+ *
+ * BD-243 补这把尺子自己的盲区：**computed outline 看不见 opacity**。本网此前一律读
+ * 计算样式判本体环，而 `outline` 是绘制在元素自己那层像素上的——祖先 `opacity: 0` 时
+ * 它照样算出 `solid 2px`，屏幕上一像素都没有。运行时实测（/tmp/bd243-p3.log）：大纲
+ * 行内动作簇 `.outline-node-actions{opacity:0}` 只有 `:hover` 一条显形路，簇里 15 枚钮 +
+ * 2 支下拉全在 Tab 序列内（opacity 不摘 tabindex），键盘第 10 步就落进去、本体算得出环，
+ * 而「本体∪父」裁剪区在**真键盘聚焦 vs 离焦**之间 changed=0 / maxdelta=0、离焦基线逐字节
+ * 稳定 ⇒ 键盘用户聚焦了一个完全看不见的控件。这是本网的头一个**假绿**，也是产品缺陷：
+ * 修法见 styles.css 该族的 `:focus-within` 显形（与 :hover 平级）。
+ *  · 闸门判据：本体连祖先乘出来的不透明度 < 0.15 ⇒ 不接受本体环直判，改走区域像素差分
+ *    （聚焦图在 blur **之前**拍，两张离焦基线验稳定性，基线不稳保守放行）。
+ *  · 对照（同批实测，证明闸门不误伤「本体透明、有可见替身」的正常写法）：设置页开关
+ *    `input.paper-switch-input` 恒 `opacity:0`，可见替身是同父兄弟 `.paper-switch-track`
+ *    的 `:focus-visible` 3px 环——真键盘聚焦时同一裁剪区 changed=323 ⇒ 判绿。
+ *  · 牙齿教训：这条差分**只在真键盘下可信**。探针先用「blur → 程序 focus() 回填」取聚焦图，
+ *    同一支开关量出 changed=0（/tmp/bd243-p2.log）——:focus-visible 的键盘模态程序聚焦不
+ *    保证点亮，拿它当聚焦态就会把绿面判成红面。本网 range 那一支原先也 focus() 归位，
+ *    但它的聚焦图在 blur 前就拍完了，形状本来就对；BD-243 把同一顺序写成硬规矩。
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync } from "node:fs";
@@ -204,6 +222,35 @@ const inspectScript = () => {
     // <iframe> 壳——环由书内 CSS 管，不归 App 判据，豁免。
     || el.tagName.toLowerCase() === "iframe";
   const outlineOk = cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) >= 1;
+  // BD-243 绘制可见性闸门：computed outline 看不见 opacity——祖先 opacity:0 时，
+  // 「solid 2px 的环」一像素都不落在屏上（大纲行内动作簇就是这个形状，改前实测
+  // 键盘聚焦 vs 离焦的同一裁剪区 changed=0，/tmp/bd243-p3.log）。这里沿祖先链把
+  // opacity 乘出来，低于 0.15 的停靠点**不再接受本体环直判**，改走区域像素差分。
+  let paint = 1;
+  for (let n = el, k = 0; n && n.nodeType === 1 && k < 12; k += 1, n = n.parentElement) {
+    const o = parseFloat(getComputedStyle(n).opacity);
+    paint *= Number.isFinite(o) ? o : 1;
+    if (paint === 0) break;
+  }
+  const pr = el.parentElement?.getBoundingClientRect?.();
+  const lowPaint = !skip && paint < 0.15;
+  let paintClip = null;
+  if (lowPaint) {
+    // 裁剪区 = 本体 ∪ 父（可见替身通常就在父里：设置页开关的 track 是本体的同父兄弟）。
+    // 父太大（页面级容器）就退回本体 ±96，免得整屏噪声把差分变成假绿。
+    const rect = el.getBoundingClientRect();
+    let x = rect.x, y = rect.y, w = rect.width, h = rect.height;
+    if (pr) {
+      x = Math.min(x, pr.x); y = Math.min(y, pr.y);
+      w = Math.max(rect.right, pr.right) - x;
+      h = Math.max(rect.bottom, pr.bottom) - y;
+    }
+    if (!pr || w * h > Math.max(1, rect.width * rect.height) * 30 || w > 900 || h > 600) {
+      x = rect.x - 96; y = rect.y - 96; w = rect.width + 192; h = rect.height + 192;
+    }
+    paintClip = { x: Math.max(0, x), y: Math.max(0, y), width: Math.min(900, w), height: Math.min(600, h) };
+    el.setAttribute("data-paint-probe", "1");
+  }
   // computed 序列化是 "rgb(...) 0px 0px 0px 3px"，作者写法 "0 0 0 3px" 只可能出现在未序列化的
   // 场合——两种形状都认，但只作为本体纯环的补充，不再拿「有阴影」当放行理由。
   const ringShadow = /0px 0px 0px [1-9]/.test(cs.boxShadow) || /0 0 0 [1-9]/.test(cs.boxShadow);
@@ -214,13 +261,18 @@ const inspectScript = () => {
   // BD-241：本体没有确定环的停靠点打上行，交给 sweep() 做聚焦差分／容器代持（两者都要
   // 离焦基线，所以 blur 之后得能按这个标尺找回同一元素）。
   el.removeAttribute("data-ring-delta");
-  const needsDelta = !skip && !isRange && !(outlineOk || ringShadow);
+  // BD-243：本体透明的停靠点由闸门专管（区域像素差分），别再让差分／代持替它背书。
+  el.removeAttribute("data-paint-probe");
+  const needsDelta = !skip && !isRange && !lowPaint && !(outlineOk || ringShadow);
   if (needsDelta) el.setAttribute("data-ring-delta", "1");
   return {
     id,
     skip,
     isRange,
     needsDelta,
+    lowPaint,
+    paint,
+    paintClip,
     outline: `${cs.outlineStyle} ${cs.outlineWidth}`,
     boxShadow: cs.boxShadow.slice(0, 80),
     focused: {
@@ -237,6 +289,8 @@ const inspectScript = () => {
 const reds = new Map();
 const seenAll = new Set();
 const seenProbe = new Set();
+// BD-243：绘制可见性闸门的去重集（同一面同一停靠点只取一轮图）。
+const seenPaint = new Set();
 const unmeasurable = [];
 // BD-241：判据去向点名——本体环／聚焦差分／容器代持／range 像素差分，各多少个。
 const tally = new Map();
@@ -273,6 +327,54 @@ async function sweep(label, { resetFocus = true, maxStops = 120, judgeCurrentFir
     if (seen.has(info.id)) {
       // 回环再两圈即停
       if (i > 0 && seen.get(info.id) === "done") break;
+    }
+    // —— BD-243 绘制可见性闸门：本体连祖先乘出来的不透明度 < 0.15 ——
+    // 这一族 computed outline 完全正常（大纲动作簇改前实测 solid 2px），但祖先 opacity:0
+    // 让环一像素都落不在屏上——「算得出环」与「看得见环」在 opacity 面前是两件事。
+    // 判据改成区域像素差分（裁剪区 = 本体 ∪ 父）：真键盘聚焦图 vs 两张离焦基线。
+    // 实测两种形状各得其所（/tmp/bd243-p3.log）：
+    //  · 大纲行内动作簇（改前）changed=0、maxdelta=0、基线逐字节稳定 ⇒ 红；
+    //  · 设置页开关 input.paper-switch-input（本体恒 opacity:0，可见替身是同父兄弟
+    //    .paper-switch-track，带 :focus-visible 的 3px 环）changed=323、maxdelta=17 ⇒ 绿。
+    // ⚠ 取图必须在真键盘下：同一支开关改成 blur 后程序 focus() 回填，changed=0
+    //    （/tmp/bd243-p2.log）——:focus-visible 的键盘模态程序聚焦不保证点亮，
+    //    所以聚焦图一律在 blur **之前**拍，事后 focus() 只为把 Tab 序列归位。
+    // 取图前把鼠标挪到 (2,2)：hover 本身就能让这一族显形，不挪走就把缺陷量成绿。
+    if (info.lowPaint && !info.skip) {
+      const pkey = `paint|${label}|${info.id}`;
+      const cleanupPaint = () => page.evaluate(() => {
+        document.querySelectorAll("[data-paint-probe]").forEach((n) => n.removeAttribute("data-paint-probe"));
+      });
+      if (!seenPaint.has(pkey)) {
+        seenPaint.add(pkey);
+        if (info.paintClip) {
+          await page.mouse.move(2, 2);
+          await page.waitForTimeout(260);
+          const shotOn = await page.screenshot({ clip: info.paintClip });
+          await page.evaluate(() => document.activeElement?.blur?.());
+          await page.waitForTimeout(200);
+          const shotOff1 = await page.screenshot({ clip: info.paintClip });
+          await page.waitForTimeout(300);
+          const shotOff2 = await page.screenshot({ clip: info.paintClip });
+          // 归位：把 Tab 序列接回原站（图已经在 blur 前拍完，这里模态不模态都不影响判定）
+          await page.evaluate(() => {
+            const el = document.querySelector("[data-paint-probe]");
+            el?.removeAttribute("data-paint-probe");
+            el?.focus();
+          });
+          const stable = Buffer.compare(shotOff1, shotOff2) === 0;
+          const differs = Buffer.compare(shotOn, shotOff1) !== 0;
+          info.hasIndicator = stable ? differs : true;
+          info.paintProbe = stable
+            ? (differs ? "透明本体·区域像素差分有变化" : "透明本体·聚焦前后逐像素相同（只有 hover 才显形）")
+            : "透明本体·基线不稳·保守放行";
+          if (!differs && stable) info.judgedBy = "本体透明·区域无变化";
+        } else {
+          await cleanupPaint();
+        }
+      } else {
+        await cleanupPaint();
+      }
     }
     if (info.isRange) {
       // 像素差分：聚焦图对比两张离焦基线（见文件头）。探针结束后 focus() 归位，
@@ -418,7 +520,8 @@ async function sweep(label, { resetFocus = true, maxStops = 120, judgeCurrentFir
       seenAll.add(`${label}|${info.id}`);
       judged += 1;
       if (info.unmeasurable) unmeasurable.push(`${info.id}  [${label}]`);
-      const kind = info.pixelProbe ? "range 像素差分"
+      const kind = info.paintProbe ? "透明本体·区域像素差分"
+        : info.pixelProbe ? "range 像素差分"
         : info.unmeasurable ? "不可测（blur 即卸载）"
         : info.judgedBy ? (info.judgedBy.startsWith("容器代持") ? "容器代持" : info.judgedBy)
         : "本体环";
@@ -646,7 +749,7 @@ if (unmeasurable.length) {
 if (reds.size > 0) {
   console.log(`FOCUS_RING_RED：${reds.size} 个键盘停靠点无任何可见指示：`);
   for (const r of reds.values()) {
-    console.log(`  - ${r.id}  [${r.where.join("、")}]  outline=${r.outline} shadow=${r.boxShadow}${r.pixelProbe ? ` ${r.pixelProbe}` : ""}${r.judgedBy ? ` ${r.judgedBy}` : ""}`);
+    console.log(`  - ${r.id}  [${r.where.join("、")}]  outline=${r.outline} shadow=${r.boxShadow}${r.paintProbe ? ` ${r.paintProbe}（绘制不透明度 ${r.paint?.toFixed?.(3)}）` : ""}${r.pixelProbe ? ` ${r.pixelProbe}` : ""}${r.judgedBy ? ` ${r.judgedBy}` : ""}`);
   }
   await app.close();
   process.exit(1);
