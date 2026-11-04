@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.EditNote
@@ -162,6 +163,7 @@ internal fun HighlightItemCard(
     onDelete: () -> Unit,
     onChangeColor: (String) -> Unit,
     onJump: () -> Unit,
+    onInspectSource: (() -> Unit)? = null,
     onEditNote: () -> Unit,
     onConvertToNote: () -> Unit,
     onConvertToInspiration: () -> Unit,
@@ -322,6 +324,13 @@ internal fun HighlightItemCard(
                     icon = Icons.Outlined.NearMe,
                     onClick = onJump,
                 )
+                if (onInspectSource != null) {
+                    NotesActionPill(
+                        text = "临时查看来源",
+                        icon = Icons.Outlined.AutoStories,
+                        onClick = onInspectSource,
+                    )
+                }
                 NotesActionPill(
                     text = if (highlight.note.isNullOrBlank()) "加笔记" else "编辑笔记",
                     icon = Icons.Outlined.EditNote,
@@ -351,6 +360,7 @@ internal fun NoteItemCard(
     index: Int,
     reducedMotion: Boolean,
     onJump: () -> Unit,
+    onInspectSource: (() -> Unit)? = null,
     onDelete: () -> Unit,
 ) {
     val haptic = rememberHaptic(reducedMotion)
@@ -421,6 +431,14 @@ internal fun NoteItemCard(
                 icon = Icons.Outlined.NearMe,
                 onClick = onJump,
             )
+
+            if (onInspectSource != null) {
+                NotesActionPill(
+                    text = "临时查看来源",
+                    icon = Icons.Outlined.AutoStories,
+                    onClick = onInspectSource,
+                )
+            }
 
             Spacer(Modifier.width(6.dp))
 

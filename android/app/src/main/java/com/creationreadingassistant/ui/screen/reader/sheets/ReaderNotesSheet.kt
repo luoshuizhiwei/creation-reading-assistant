@@ -4,6 +4,7 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.serialization.SerializationException
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -59,6 +60,7 @@ import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.bounceable
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.navigation.readerTemporaryRouteForSource
 import java.time.LocalDateTime
 
 @Composable
@@ -85,12 +87,35 @@ internal fun NotesSheet(
      * 会跳到错误记录。
      */
     onJumpToNote: (NoteEntity) -> Unit,
+    /**
+     * 189-A：reader 内「临时查看来源」。入参是已构造好的 temporary route 字符串
+     * （`reader/{bookId}?sourceLocator=…&navigationMode=temporary`）；null = 不提供该入口
+     * （宿主未注入）。胶囊可见性由本层按条目 locator 能否解码出全局坐标判定
+     * （可见性 = 可跳转性，J1-I.2 口径）；路由构造复用冻结 readerTemporaryRouteForSource，
+     * request / 真实加载 commit / LIFO 返回链全部走既有 temporary 机械，本层零新增状态。
+     */
+    bookId: String = "",
+    onInspectSourceTemporarily: ((String) -> Unit)? = null,
+    onExportCompleted: ((android.net.Uri) -> Unit)? = null,
+    onExportFailed: ((Throwable) -> Unit)? = null,
+    onExportCancelled: (() -> Unit)? = null,
 ) {
     var editingNote by remember { mutableStateOf<HighlightEntity?>(null) }
     var noteDraft by remember { mutableStateOf("") }
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
     val context = LocalContext.current
+
+    /** 189-A：条目 locator → temporary route；无全局坐标返回 null（胶囊隐藏）。 */
+    fun tempSourceRoute(locatorJson: String?): String? {
+        val locator = LocatorCodec.decode(locatorJson) ?: return null
+        return readerTemporaryRouteForSource(
+            bookId = bookId,
+            legacyOffset = locator.legacyOffset,
+            chapterIndex = locator.chapterIndex,
+            charOffset = locator.charOffset,
+        )
+    }
 
     // SAF 写文件导出：点击时先固定导出内容，系统对话框返回 uri 后写出。
     var pendingExportMarkdown by remember { mutableStateOf<String?>(null) }
@@ -99,15 +124,29 @@ internal fun NotesSheet(
     ) { uri ->
         val markdown = pendingExportMarkdown
         pendingExportMarkdown = null
-        if (uri == null || markdown == null) return@rememberLauncherForActivityResult
+        if (uri == null) {
+            // 用户取消：单独回执，不能与“写入失败/导出成功”混为一谈。
+            onExportCancelled?.invoke()
+            return@rememberLauncherForActivityResult
+        }
+        if (markdown == null) {
+            // 系统已授权目标文档但待写内容丢失，属真实失败；不能静默当取消。
+            val error = IllegalStateException("导出内容未准备，系统返回了文档 URI 但无内容可写")
+            onExportFailed?.invoke(error)
+            Toast.makeText(context, "导出失败：${error.message}", Toast.LENGTH_SHORT).show()
+            return@rememberLauncherForActivityResult
+        }
         runCatching {
             context.contentResolver.openOutputStream(uri)?.use { os ->
                 os.write(markdown.toByteArray(Charsets.UTF_8))
             } ?: throw IllegalStateException("无法写入目标文件")
         }.onSuccess {
+            onExportCompleted?.invoke(uri)
             Toast.makeText(context, "已导出笔记", Toast.LENGTH_SHORT).show()
-        }.onFailure {
-            Toast.makeText(context, "导出失败：${it.message}", Toast.LENGTH_SHORT).show()
+        }.onFailure { error ->
+            // 保留原始异常，供回执/仪器区分失败与成功、取消。
+            onExportFailed?.invoke(error)
+            Toast.makeText(context, "导出失败：${error.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -119,11 +158,22 @@ internal fun NotesSheet(
         exportedAt = LocalDateTime.now(),
     )
 
+    // 来源数据损坏（灵感 payload 解析失败）在这里被转成既有失败 Toast：组装失败时
+    // 不进入 SAF 选择器、不分享不完整内容，快速反馈给用户。
+    // 仅捕获明确的 SerializationException，不捕获并掩盖内部程序错误。
+    fun exportMarkdownOrNotice(): String? = try {
+        currentExportMarkdown()
+    } catch (e: SerializationException) {
+        Toast.makeText(context, "导出失败：${e.message}", Toast.LENGTH_SHORT).show()
+        null
+    }
+
     fun shareExport() {
+        val markdown = exportMarkdownOrNotice() ?: return
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TITLE, "《${bookTitle}》阅读笔记")
-            putExtra(Intent.EXTRA_TEXT, currentExportMarkdown())
+            putExtra(Intent.EXTRA_TEXT, markdown)
         }
         // 分享失败必须说出来：静默 no-op 会让用户以为「已经发出去了」。
         // （用户在选择器里主动取消不会抛异常，因此这里只覆盖「没有可用目标」。）
@@ -246,7 +296,8 @@ internal fun NotesSheet(
                     Surface(
                         onClick = {
                             haptic(HapticFeedbackType.TextHandleMove)
-                            pendingExportMarkdown = currentExportMarkdown()
+                            val markdown = exportMarkdownOrNotice() ?: return@Surface
+                            pendingExportMarkdown = markdown
                             exportLauncher.launch(notesExportFileName(bookTitle, LocalDateTime.now()))
                         },
                         shape = PillShape,
@@ -362,6 +413,9 @@ internal fun NotesSheet(
                             onDelete = { pendingDelete = NotesDeleteRequest.Highlight(h) },
                             onChangeColor = { c -> onChangeHighlightColor(h, c) },
                             onJump = { onJumpToHighlight(h) },
+                            onInspectSource = onInspectSourceTemporarily?.let { onInspect ->
+                                tempSourceRoute(h.locator_json)?.let { route -> { onInspect(route) } }
+                            },
                             onEditNote = {
                                 noteDraft = h.note ?: ""
                                 editingNote = h
@@ -389,6 +443,9 @@ internal fun NotesSheet(
                         index = index,
                         reducedMotion = reducedMotion,
                         onJump = { onJumpToNote(n) },
+                        onInspectSource = onInspectSourceTemporarily?.let { onInspect ->
+                            tempSourceRoute(n.locator_json)?.let { route -> { onInspect(route) } }
+                        },
                         onDelete = { pendingDelete = NotesDeleteRequest.Note(n) },
                     )
                 }

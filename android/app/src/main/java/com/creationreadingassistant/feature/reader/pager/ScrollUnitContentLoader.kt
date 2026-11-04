@@ -2,6 +2,7 @@ package com.creationreadingassistant.feature.reader.pager
 
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import com.creationreadingassistant.feature.reader.rules.ScrollUnitProjection
 import kotlinx.coroutines.CancellationException
@@ -26,6 +27,23 @@ class ScrollUnitContentLoader(
     private var currentSourceKey: Any? = null
     private var cacheSourceKey: Any? = null
 
+    /**
+     * 任意单元加载状态变化的单调修订号（CRA-JOINT-31-MERGE-FREEZE-ACCEPT-v2）。
+     *
+     * 恢复落位判定必须在**真实正文布局**上做出：Loading 占位（ShimmerBlock）同样参与
+     * LazyColumn 测量，其高度与正文无关，据此判出的「末项已在屏内」是假落位。恢复协程用
+     * `snapshotFlow` 观察本值，从而在任何单元状态真正变化（开始加载 / Loaded / Failed /
+     * 释放 / 切源）时**重新判定**，而不是依赖「布局三元组恰好也变了」这种偶然。
+     */
+    private val stateRevisionState = mutableIntStateOf(0)
+
+    /** 只读观察入口：值本身无意义，变化即代表有单元状态发生变更。 */
+    val stateRevision: State<Int> get() = stateRevisionState
+
+    private fun bumpRevision() {
+        stateRevisionState.intValue += 1
+    }
+
     fun switchSource(sourceKey: Any) {
         if (sourceKey === currentSourceKey) return
         currentSourceKey = sourceKey
@@ -36,6 +54,7 @@ class ScrollUnitContentLoader(
         states.putAll(newSourceStates)
         attempts.clear()
         stickyFailures.clear()
+        bumpRevision()
     }
 
     fun stateFor(sourceKey: Any, unitIndex: Int): State<ScrollUnitContentState> {
@@ -45,6 +64,15 @@ class ScrollUnitContentLoader(
             mutableStateOf(cached?.let(ScrollUnitContentState::Loaded) ?: ScrollUnitContentState.Loading)
         }
     }
+
+    /**
+     * 当前 source 下该单元的加载状态（只读观察；不创建条目、不触发加载）。
+     *
+     * 条目不存在（尚未组合 / 已释放 / 切源后未重建）一律按 [ScrollUnitContentState.Loading]
+     * 处理 ——「未开始加载」不是「正文已就绪」，恢复落位不得据此放行。
+     */
+    fun currentStateOf(unitIndex: Int): ScrollUnitContentState =
+        states[currentSourceKey to unitIndex]?.value ?: ScrollUnitContentState.Loading
 
     fun release(sourceKey: Any, unitIndex: Int) {
         val key = sourceKey to unitIndex
@@ -57,6 +85,7 @@ class ScrollUnitContentLoader(
         } else {
             states.remove(key)
         }
+        bumpRevision()
     }
 
     suspend fun load(
@@ -70,10 +99,12 @@ class ScrollUnitContentLoader(
         if (cached != null) {
             states.getOrPut(key) { mutableStateOf(ScrollUnitContentState.Loading) }.value =
                 ScrollUnitContentState.Loaded(cached)
+            bumpRevision()
             return
         }
         val state = states.getOrPut(key) { mutableStateOf(ScrollUnitContentState.Loading) }
         state.value = ScrollUnitContentState.Loading
+        bumpRevision()
         val attempt = (attempts[key] ?: 0) + 1
         attempts[key] = attempt
         publishAfterRead(key, sourceKey, unitIndex, state, attempt, read)
@@ -89,6 +120,7 @@ class ScrollUnitContentLoader(
         attempts[key] = (attempts[key] ?: 0) + 1
         states.getOrPut(key) { mutableStateOf(ScrollUnitContentState.Loading) }.value =
             ScrollUnitContentState.Loading
+        bumpRevision()
         load(sourceKey, unitIndex, read)
     }
 
@@ -114,6 +146,7 @@ class ScrollUnitContentLoader(
                 if (sourceKey === cacheSourceKey) cache.put(unitIndex, result.content)
             }
             state.value = result
+            bumpRevision()
         }
     }
 }

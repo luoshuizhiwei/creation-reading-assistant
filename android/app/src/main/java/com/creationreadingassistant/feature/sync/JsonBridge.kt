@@ -254,6 +254,8 @@ data class LocalExport(
 data class ImportMergeResult(
     val acceptedBookIds: Set<String> = emptySet(),
     val skippedBookContentPaths: List<String> = emptyList(),
+    val strictlyNewerBookContentPaths: List<String> = emptyList(),
+    val equalBookContentPaths: List<String> = emptyList(),
 )
 
 class JsonBridge @Inject constructor(
@@ -369,6 +371,9 @@ class JsonBridge @Inject constructor(
      * 全程包在单个数据库事务中：导入中途失败时整体回滚，不会留下半导入的脏状态。
      * 合并策略与局域网同步拉取共用 [SyncMergePolicy]，消除两条路径的策略分叉。
      * 每类数据先批量查询建 Map，循环内查 Map，消除逐条 getById 的 N+1。
+     *
+     * N1-v4 窄接缝：在 DB 可能提交之前，通过 [onMergeResult] 回调可靠持久化备份身份与可执行计划；
+     * 计划落盘失败时抛出异常，DB 事务不会提交，保证 fail-closed。
      */
     suspend fun importFromString(
         context: Context,
@@ -383,20 +388,51 @@ class JsonBridge @Inject constructor(
 
         val acceptedBookIds = mutableSetOf<String>()
         val skippedBookContentPaths = mutableListOf<String>()
+        val strictlyNewerBookContentPaths = mutableListOf<String>()
+        val equalBookContentPaths = mutableListOf<String>()
+
         bookDao.runInTransaction {
-            // 书籍：revision 高者胜；revision 相等时比较 updated_at
+            // 书籍：区分接受、等版本、严格较新
             val localBooks = batchLoad(export.books.map { it.payload.id }) { bookDao.getByIds(it) }
                 .associateBy { it.id }
+            val booksToUpsert = mutableListOf<BookEntity>()
+
             export.books.forEach { env ->
                 val local = localBooks[env.payload.id]
-                if (local == null || SyncMergePolicy.shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at)) {
-                    bookDao.upsert(env.payload)
+                if (local == null) {
+                    booksToUpsert += env.payload
+                    acceptedBookIds += env.payload.id
+                } else if (SyncMergePolicy.shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at)) {
+                    booksToUpsert += env.payload
                     acceptedBookIds += env.payload.id
                 } else {
-                    // 本地较新被跳过：记录其源文件路径，供文件恢复段排除覆盖（S14）。
-                    local.local_content_path?.let { skippedBookContentPaths += it }
+                    val path = local.local_content_path
+                    if (env.revision == local.revision && env.updatedAt == local.updated_at) {
+                        path?.let {
+                            equalBookContentPaths += it
+                            skippedBookContentPaths += it
+                        }
+                    } else {
+                        path?.let {
+                            strictlyNewerBookContentPaths += it
+                            skippedBookContentPaths += it
+                        }
+                    }
                 }
             }
+
+            val preCommitResult = ImportMergeResult(
+                acceptedBookIds = acceptedBookIds,
+                skippedBookContentPaths = skippedBookContentPaths,
+                strictlyNewerBookContentPaths = strictlyNewerBookContentPaths,
+                equalBookContentPaths = equalBookContentPaths,
+            )
+
+            // N1-v4 窄接缝：在 DB 事务实际写入和提交之前执行回调（例如可执行计划落盘）
+            // 若执行失败，异常上抛使整个 DB 事务回滚，DB 零污染（fail-closed）
+            onMergeResult(preCommitResult)
+
+            booksToUpsert.forEach { bookDao.upsert(it) }
 
             // 灵感
             val localInspirations = batchLoad(export.inspirations.map { it.payload.id }) { inspirationDao.getByIds(it) }
@@ -435,19 +471,20 @@ class JsonBridge @Inject constructor(
             mergeEntities(export.categories, localId = { it.payload.id }, query = { categoryDao.getById(it) }, upsert = { categoryDao.upsert(it) })
             mergeEntities(export.shelves, localId = { it.payload.id }, query = { shelfDao.getById(it) }, upsert = { shelfDao.upsert(it) })
 
-            // 关联表与已读标记：整表重建（派生关系无独立 revision，备份为准）
-            if (export.bookTags.isNotEmpty() || export.bookCategories.isNotEmpty() ||
-                export.shelfBooks.isNotEmpty() || export.chapterReads.isNotEmpty()
-            ) {
-                bookTagDao.clearAll()
-                bookCategoryDao.clearAll()
-                shelfBookDao.clearAll()
-                chapterReadDao.clearAll()
-                bookTagDao.upsertAll(export.bookTags)
-                bookCategoryDao.upsertAll(export.bookCategories)
-                shelfBookDao.upsertAll(export.shelfBooks)
-                chapterReadDao.upsertAll(export.chapterReads)
-            }
+            // 关联表与已读标记：R3 修复（2026-10-13）。关系行没有独立 revision，旧实现
+            // 「任一备份列表非空就 clearAll 四表再重放备份」会把备份之后本地新增的
+            // 标签/分类/书单/已读关联全部清掉（本地较新的书、被 revision 门拒收的旧书
+            // 同样受害），且备份只含一类关系时其余三类也一并被清——这是确定性数据丢失，
+            // 违背 ProfileRoute「按版本合并、旧不覆新」的恢复承诺。改为保守合并：
+            // 保留本地全部现存关系，仅把备份中本地缺失的行补入；chapter_reads 同键
+            // 保留较新的 read_at，避免旧备份倒退已读时间。R3-v2 补充：shelf_book 的
+            // ShelfBookEntity 除复合主键外还有 position 列，REPLACE 会整行覆盖——
+            // 同键直接 upsertAll 会用旧备份 position 覆盖本地重排后的顺序，因此与
+            // chapter_reads 一样先查本地、同键整行保留、只写本地缺失的行。
+            bookTagDao.upsertAll(export.bookTags)
+            bookCategoryDao.upsertAll(export.bookCategories)
+            mergeShelfBooks(export.shelfBooks)
+            mergeChapterReads(export.chapterReads)
 
             // —— S04-5 / S14 补齐：来源引用与阅读器规则/纠错数据（旧不覆新）——
             sourceRefDao?.let { dao ->
@@ -484,13 +521,6 @@ class JsonBridge @Inject constructor(
                 }
             }
         }
-        // 事务已提交后才回报合并结果；快照反映的是落库后的真实状态（S14 文件保护）。
-        onMergeResult(
-            ImportMergeResult(
-                acceptedBookIds = acceptedBookIds,
-                skippedBookContentPaths = skippedBookContentPaths,
-            ),
-        )
     }
 
     /**
@@ -510,6 +540,44 @@ class JsonBridge @Inject constructor(
             }
         }
     }
+
+    /**
+     * 章节已读标记保守合并（R3）：复合主键 (book_id, chapter_index) 相同的行保留较新的
+     * read_at，本地缺失的行按备份补入。read_at 是 markRead 的 `Instant.now().toString()`
+     * ISO-8601 时间戳，字典序与时间序一致；相等时保留本地（含格式差异），重复恢复幂等。
+     * 解析失败的时间戳按本地有效、备份无效处理，不吞错重新抛出。
+     */
+    private suspend fun mergeChapterReads(backup: List<ChapterReadEntity>) {
+        if (backup.isEmpty()) return
+        val local = chapterReadDao.getByBookIds(backup.map { it.book_id })
+            .associateBy { it.book_id to it.chapter_index }
+        val toUpsert = backup.filter { remote ->
+            val existing = local[remote.book_id to remote.chapter_index]
+            existing == null || isNewerReadAt(remote.read_at, existing.read_at)
+        }
+        if (toUpsert.isNotEmpty()) chapterReadDao.upsertAll(toUpsert)
+    }
+
+    /**
+     * 书单关联保守合并（R3-v2）：复合主键 (shelf_id, book_id) 相同的行**整行保留本地**，
+     * 只补入本地缺失的键。ShelfBookEntity 的 position 是非主键列，REPLACE 会整行覆盖，
+     * 同键直接 upsertAll 会用旧备份的 position 倒退本地重排后的书单顺序——关系行没有
+     * 版本字段，无法判定本地 position 与备份 position 谁新，保守保留本地。
+     */
+    private suspend fun mergeShelfBooks(backup: List<ShelfBookEntity>) {
+        if (backup.isEmpty()) return
+        val localKeys = shelfBookDao.getByBookIds(backup.map { it.book_id })
+            .map { it.shelf_id to it.book_id }
+            .toHashSet()
+        val toUpsert = backup.filter { (it.shelf_id to it.book_id) !in localKeys }
+        if (toUpsert.isNotEmpty()) shelfBookDao.upsertAll(toUpsert)
+    }
+
+    /** 备份 read_at 严格晚于本地时才算「较新」；相等或无法解析（且本地可解析）都保留本地。 */
+    private fun isNewerReadAt(remoteReadAt: String, localReadAt: String): Boolean =
+        runCatching {
+            Instant.parse(remoteReadAt).isAfter(Instant.parse(localReadAt))
+        }.getOrThrow()
 
     private fun <T> revisionOf(entity: T): Int = when (entity) {
         is NoteEntity -> entity.revision

@@ -18,6 +18,16 @@ class SearchIndexScheduler @Inject constructor(
     @ApplicationContext val appContext: Context,
 ) {
 
+    /**
+     * WorkManager 取用点（可测接缝，CRA-SEARCH-INDEX-CANCEL-CONTROL-v1）。
+     *
+     * 生产恒为 `WorkManager.getInstance(appContext)`；JVM 定向测试注入替身，
+     * 以便对「真实调用链发起的取消请求」做断言，而不是只检查源码文本。
+     */
+    internal var workManagerProvider: (Context) -> WorkManager = { WorkManager.getInstance(it) }
+
+    private fun workManager(): WorkManager = workManagerProvider(appContext)
+
     /** 冷启动接线：入队一次增量扫描 + 周期扫描（见 App.onCreate）。 */
     fun start() {
         enqueueOnce()
@@ -41,7 +51,7 @@ class SearchIndexScheduler @Inject constructor(
             .setConstraints(constraints())
             .build()
 
-        WorkManager.getInstance(appContext).enqueueUniqueWork(
+        workManager().enqueueUniqueWork(
             UNIQUE_ONCE_WORK,
             ExistingWorkPolicy.KEEP,
             oneTimeRequest,
@@ -69,11 +79,28 @@ class SearchIndexScheduler @Inject constructor(
             .setConstraints(constraints())
             .build()
 
-        WorkManager.getInstance(appContext).enqueueUniqueWork(
+        workManager().enqueueUniqueWork(
             UNIQUE_ONCE_WORK,
             policy,
             oneTimeRequest,
         )
+    }
+
+    /**
+     * 取消**在跑 / 排队**的全库增量扫描（S1「可取消」的用户入口，
+     * CRA-SEARCH-INDEX-CANCEL-CONTROL-v1）。
+     *
+     * 只作用于一次性扫描 [UNIQUE_ONCE_WORK]：
+     * - 正在运行的 worker 收到 WorkManager 的协作取消，`CoroutineWorker` 抛出
+     *   `CancellationException` —— 既不记为 success，也不触发 retry
+     *   （见 `SearchIndexWorker.doWork` 的取消分支）；
+     * - 排队中的重试链同属该唯一任务名，一并被取消；
+     * - **不动**周期任务 [UNIQUE_PERIODIC_WORK]：它是冷启动 / 每日的兜底续建；
+     * - **不动**任何扫描游标、章节断点或已提交索引行 —— 下次触发按既有续建语义
+     *   从锚点继续（见 `SearchIndexRepository.ensureIndexedIncremental`）。
+     */
+    fun cancelPendingSweep() {
+        workManager().cancelUniqueWork(UNIQUE_ONCE_WORK)
     }
 
     private fun enqueuePeriodic() {
@@ -84,7 +111,7 @@ class SearchIndexScheduler @Inject constructor(
             .setConstraints(constraints())
             .build()
 
-        WorkManager.getInstance(appContext).enqueueUniquePeriodicWork(
+        workManager().enqueueUniquePeriodicWork(
             UNIQUE_PERIODIC_WORK,
             ExistingPeriodicWorkPolicy.KEEP,
             periodicRequest,

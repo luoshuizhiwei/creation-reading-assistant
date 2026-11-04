@@ -12,6 +12,51 @@ class MarkdownDocumentTest {
 
     private val tempFiles = mutableListOf<File>()
 
+    @Test fun `later chapter table and nested units share global carrier`() {
+        val doc = MarkdownDocument("# First\n\nOpening.\n\n# Second\n\n| Name | Value |\n| --- | --- |\n| Neutral | Target |\n\n> Quote\n>\n> - Nested item")
+        val chapter = (doc.blocks(1).single() as DocBlock.Markdown).chapter
+        val carrier = doc.renderCanonicalText(1)
+        for (unit in MarkdownRenderModel.flatten(chapter)) {
+            val range = unit.canonicalRange
+            if (!range.isEmpty()) assertTrue(carrier.substring(range.first, range.last + 1).isNotEmpty())
+            val table = unit.content as? MarkdownRenderContent.Table
+            if (table != null) {
+                for (cell in table.header + table.rows.flatten()) {
+                    if (!cell.canonicalRange.isEmpty()) {
+                        val text = carrier.substring(cell.canonicalRange.first, cell.canonicalRange.last + 1)
+                        assertTrue(text in listOf("Name", "Value", "Neutral", "Target"))
+                    }
+                }
+            }
+        }
+    }
+
+
+    @Test
+    fun `render carrier matches global ranges in later chapters without changing chapter text`() {
+        val source = (1..4).joinToString("\n\n") { chapter ->
+            "# Chapter $chapter\n\n" + (1..10).joinToString("\n\n") { paragraph ->
+                "Chapter $chapter paragraph $paragraph body with sufficient content."
+            }
+        }
+        val doc = MarkdownDocument(source)
+        assertEquals(4, doc.chapters.size)
+        for (index in doc.chapters.indices) {
+            val chapter = (doc.blocks(index).single() as DocBlock.Markdown).chapter
+            val carrier = doc.renderCanonicalText(index)
+            val units = MarkdownRenderModel.flatten(chapter)
+            for (unit in units) {
+                val range = unit.canonicalRange
+                val rendered = carrier.substring(range.first, range.last + 1)
+                val local = range.first - doc.chapters[index].startOffset
+                assertEquals(chapter.canonicalText.substring(local, local + rendered.length), rendered)
+            }
+            assertEquals(doc.chapters[index].charCount, doc.text(index).length)
+            assertEquals(chapter.canonicalText, doc.text(index))
+        }
+    }
+
+
     @After
     fun cleanup() {
         tempFiles.forEach { it.delete() }
@@ -162,6 +207,7 @@ class MarkdownDocumentTest {
         var sum = 0
         for (ci in doc.chapters.indices) {
             val text = doc.text(ci)
+            assertEquals("streamed render carrier stays chapter-local", text, doc.renderCanonicalText(ci))
             assertTrue("第 $ci 章不应为空", text.isNotEmpty())
             assertEquals("第 $ci 章长度", doc.chapters[ci].charCount, text.length)
             sum += text.length

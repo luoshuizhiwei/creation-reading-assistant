@@ -165,17 +165,21 @@ class WebDavBackupTest {
     @Test
     fun `test fallback to OPTIONS on 405 Method Not Allowed`() = runTest {
         server.enqueue(MockResponse().setResponseCode(405))
+        server.enqueue(MockResponse().setResponseCode(405))
         server.enqueue(MockResponse().setResponseCode(200))
         val result = backup.test(serverUrl(), user, pass)
         assertTrue(result.isSuccess)
         assertTrue(result.getOrNull()!!.contains("200"))
 
         val req1 = server.takeRequest()
-        assertEquals("PROPFIND", req1.method)
-        assertEquals("0", req1.getHeader("Depth"))
+        assertEquals("HEAD", req1.method)
 
         val req2 = server.takeRequest()
-        assertEquals("OPTIONS", req2.method)
+        assertEquals("PROPFIND", req2.method)
+        assertEquals("0", req2.getHeader("Depth"))
+
+        val req3 = server.takeRequest()
+        assertEquals("OPTIONS", req3.method)
     }
 
     // ---- get（下载恢复）----

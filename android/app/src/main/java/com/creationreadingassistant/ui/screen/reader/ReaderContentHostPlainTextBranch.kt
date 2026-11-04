@@ -32,8 +32,13 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -97,7 +102,10 @@ internal fun ReaderContentHostPlainTextBranch(
         }
     }
     val scrollSource = state.paging.scrollProjectedSource ?: fallbackScrollSource
-    val unitContentLoader = remember { ScrollUnitContentLoader() }
+    // CRA-JOINT-31-MERGE-FREEZE-ACCEPT-v2：loader 由 ReaderScreen 的 holders 持有并与恢复
+    // 落位判定共用同一实例（原先在本分支 `remember`，恢复侧看不到正文加载状态）。实例身份
+    // 不变，切源仍由下面的 `switchSource(scrollSource)` 负责清缓存与状态。
+    val unitContentLoader = state.source.scrollUnitContentLoader
     LaunchedEffect(scrollSource) {
         unitContentLoader.switchSource(scrollSource)
         // 与 PagerEngineState 的 assemble trace 配对：这里只记录 source 是否真的被
@@ -128,6 +136,24 @@ internal fun ReaderContentHostPlainTextBranch(
     val latestSelectedRangeStart by rememberUpdatedState(state.selection.selectedRangeStart)
     val latestReadingUnits by rememberUpdatedState(s.readingUnits)
     val latestClearSelection by rememberUpdatedState(callbacks.onSelect)
+    val latestPlainTextUserScrollInput by rememberUpdatedState(callbacks.onPlainTextUserScrollInput)
+    // Foundation's real scroll node reports consumed pointer-wheel, keyboard and semantics
+    // scroll as UserInput. A nonzero consumed delta proves this list actually moved; layout
+    // changes and programmatic scrolls do not satisfy this gate.
+    val userInputScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (source == NestedScrollSource.UserInput && consumed.y != 0f) {
+                    latestPlainTextUserScrollInput()
+                }
+                return Offset.Zero
+            }
+        }
+    }
     val invalidationGate = remember { ScrollSelectionInvalidationGate() }
     LaunchedEffect(s.plainListState) {
         val listState = s.plainListState
@@ -161,6 +187,14 @@ internal fun ReaderContentHostPlainTextBranch(
     Box(
         Modifier
             .fillMaxSize()
+            .onSizeChanged { size ->
+                ReaderClampDiagnostics.log(
+                    "reader_viewport_layout",
+                    "bid" to state.source.bid,
+                    "width" to size.width,
+                    "height" to size.height,
+                )
+            }
             .readerCenterTapToToggle(
                 onCenterTap = { callbacks.onToggleControls() },
                 gate = tapGate,
@@ -168,7 +202,11 @@ internal fun ReaderContentHostPlainTextBranch(
     ) {
         LazyColumn(
             state = s.plainListState,
-            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = s.chapterFade.value },
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("reader-plain-scroll")
+                .graphicsLayer { alpha = s.chapterFade.value }
+                .nestedScroll(userInputScrollConnection),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 horizontal = settings.readerSettings.pageMargin.dp,
                 vertical = settings.readerSettings.pageMargin.dp,

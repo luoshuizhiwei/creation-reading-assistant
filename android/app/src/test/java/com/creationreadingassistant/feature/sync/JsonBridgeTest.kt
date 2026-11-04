@@ -27,7 +27,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -396,7 +398,7 @@ class JsonBridgeTest {
         assertTrue("导出应含 bookTags", exported.contains("\"bookTags\""))
         assertTrue("导出应含 chapterReads", exported.contains("\"chapterReads\""))
 
-        // 导入：实体按 revision 合并、关联整表重建
+        // 导入：实体按 revision 合并、关系保守合并（R3：不再 clearAll 整表重建）
         coEvery { noteDao.getById(any()) } returns null
         coEvery { highlightDao.getById(any()) } returns null
         coEvery { tagDao.getById(any()) } returns null
@@ -405,9 +407,13 @@ class JsonBridgeTest {
         coVerify(exactly = 1) { noteDao.upsert(n) }
         coVerify(exactly = 1) { highlightDao.upsert(h) }
         coVerify(exactly = 1) { tagDao.upsert(t) }
-        coVerify(exactly = 1) { bookTagDao.clearAll() }
-        coVerify(exactly = 1) { chapterReadDao.clearAll() }
-        coVerify(exactly = 1) { chapterReadDao.upsertAll(any()) }
+        // R3 修复合同：恢复绝不整表清空关系；备份关系通过补入合并落库
+        coVerify(exactly = 0) { bookTagDao.clearAll() }
+        coVerify(exactly = 0) { bookCategoryDao.clearAll() }
+        coVerify(exactly = 0) { shelfBookDao.clearAll() }
+        coVerify(exactly = 0) { chapterReadDao.clearAll() }
+        coVerify(exactly = 1) { bookTagDao.upsertAll(listOf(com.creationreadingassistant.data.local.entity.BookTagEntity("b1", "t1"))) }
+        coVerify(exactly = 1) { chapterReadDao.upsertAll(listOf(com.creationreadingassistant.data.local.entity.ChapterReadEntity("b1", 3, "2026-01-01T00:00:00Z"))) }
     }
 
     @Test
@@ -443,5 +449,61 @@ class JsonBridgeTest {
         val topLevelFields = kotlinx.serialization.json.Json.parseToJsonElement(exported)
             .let { it as kotlinx.serialization.json.JsonObject }.keys
         assertTrue("导出顶层字段越界：$topLevelFields", topLevelFields.all { it in knownFields })
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  N1-repair-v4 窄接缝合同测试
+    // ════════════════════════════════════════════════════════════════════════
+
+    @Test
+    fun `importFromString distinguishes strictly newer from equal revision`() = runTest {
+        val localNewer = book("b1", revision = 5, updatedAt = "2026-06-01T00:00:00Z")
+            .copy(local_content_path = "/data/books/b1.txt")
+        val localEqual = book("b2", revision = 2, updatedAt = "2026-02-01T00:00:00Z")
+            .copy(local_content_path = "/data/books/b2.txt")
+        val localOlder = book("b3", revision = 1, updatedAt = "2026-01-01T00:00:00Z")
+            .copy(local_content_path = "/data/books/b3.txt")
+
+        coEvery { bookDao.getByIds(any()) } returns listOf(localNewer, localEqual, localOlder)
+
+        val remoteOlderForB1 = book("b1", revision = 2, updatedAt = "2026-01-01T00:00:00Z") // 本地严格较新
+        val remoteEqualForB2 = book("b2", revision = 2, updatedAt = "2026-02-01T00:00:00Z") // 等版本
+        val remoteNewerForB3 = book("b3", revision = 4, updatedAt = "2026-04-01T00:00:00Z") // 远端较新被接受
+
+        var capturedResult: ImportMergeResult? = null
+        bridge().importFromString(
+            context = context,
+            text = exportJson(books = listOf(bookEnvelope(remoteOlderForB1), bookEnvelope(remoteEqualForB2), bookEnvelope(remoteNewerForB3))),
+            onMergeResult = { capturedResult = it },
+        )
+
+        assertNotNull("合并结果必须非空", capturedResult)
+        assertEquals("b3 必须被接受", setOf("b3"), capturedResult!!.acceptedBookIds)
+        assertEquals("b1 必须分类为 strictlyNewer", listOf("/data/books/b1.txt"), capturedResult!!.strictlyNewerBookContentPaths)
+        assertEquals("b2 必须分类为 equal", listOf("/data/books/b2.txt"), capturedResult!!.equalBookContentPaths)
+        assertTrue(
+            "skippedBookContentPaths 保持兼容并包含两者",
+            capturedResult!!.skippedBookContentPaths.contains("/data/books/b1.txt") &&
+                capturedResult!!.skippedBookContentPaths.contains("/data/books/b2.txt"),
+        )
+    }
+
+    @Test
+    fun `preCommitPlan failure aborts transaction and prevents upsert`() = runTest {
+        val remote = book("b1", revision = 2, updatedAt = "2026-01-01T00:00:00Z")
+        coEvery { bookDao.getByIds(any()) } returns emptyList()
+
+        val result = runCatching {
+            bridge().importFromString(
+                context = context,
+                text = exportJson(books = listOf(bookEnvelope(remote))),
+            ) {
+                throw java.io.IOException("计划落盘失败")
+            }
+        }
+
+        assertTrue("挂钩抛出异常必须上抛", result.isFailure)
+        assertTrue(result.exceptionOrNull() is java.io.IOException)
+        coVerify(exactly = 0) { bookDao.upsert(any<BookEntity>()) }
     }
 }

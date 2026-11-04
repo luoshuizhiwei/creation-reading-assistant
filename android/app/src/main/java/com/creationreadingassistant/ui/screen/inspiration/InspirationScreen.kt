@@ -59,15 +59,58 @@ import com.creationreadingassistant.ui.screen.inspiration.components.Inspiration
 import com.creationreadingassistant.ui.screen.inspiration.components.rememberDetailToolbar
 import com.creationreadingassistant.ui.screen.inspiration.components.rememberEditorToolbar
 import com.creationreadingassistant.ui.screen.inspiration.components.rememberListToolbar
+import com.creationreadingassistant.ui.viewmodel.BookListState
+import com.creationreadingassistant.ui.viewmodel.CategoryListState
+import com.creationreadingassistant.ui.viewmodel.InspirationCategoryFilterOption
 import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
 import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
+import com.creationreadingassistant.ui.viewmodel.inspirationCategoryNames
+
+/**
+ * 详情页来源书的显示状态。
+ *
+ * 由 payload 的 `source.bookId` + ViewModel 的 [BookListState] 共同派生，
+ * 不使用 `emptyList()` 同时代表“未加载”和“确定为空”：
+ * - [Loading]：书籍 Flow 尚未首发；不得显示确定缺书，也不得伪装可用；
+ * - [Available]：已加载且来源书存在；书名优先取真实书籍；
+ * - [Missing]：已加载且来源书确实缺失；保留历史书名快照并明确提示；
+ * - [Failed]：书籍 Flow 读取失败；明确“无法确认”，不得降级成缺书；
+ * - [NotLinked]：灵感本身没有关联来源书。
+ */
+internal sealed interface SourceBookStatus {
+    data object NotLinked : SourceBookStatus
+    data object Loading : SourceBookStatus
+    data class Available(val book: BookEntity) : SourceBookStatus
+    data object Missing : SourceBookStatus
+    data class Failed(val message: String?) : SourceBookStatus
+}
+
+/** 纯函数：把真实书籍加载状态解析为详情可消费的来源书状态。 */
+internal fun resolveSourceBookStatus(
+    source: InspirationSourceInfo?,
+    booksState: BookListState,
+): SourceBookStatus {
+    val bookId = source?.bookId?.takeIf { it.isNotBlank() }
+        ?: return SourceBookStatus.NotLinked
+    return when (booksState) {
+        BookListState.Loading -> SourceBookStatus.Loading
+        is BookListState.Failed -> SourceBookStatus.Failed(booksState.message)
+        is BookListState.Loaded -> booksState.books.firstOrNull { it.id == bookId }
+            ?.let { SourceBookStatus.Available(it) }
+            ?: SourceBookStatus.Missing
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun InspirationScreen(
     state: InspirationUiState,
     items: List<InspirationEntity>,
-    books: List<BookEntity>,
+    booksState: BookListState,
+    /** 任务93-v1-A：分类目录加载状态（Loading/Failed 不当作空目录）。 */
+    categoriesState: CategoryListState,
+    availableCategories: List<Pair<String, String>>,
+    categoryOptions: List<InspirationCategoryFilterOption>,
     filteredItems: List<InspirationEntity>,
     availableTypes: List<Pair<String, String>>,
     typeCounts: Map<String, Int>,
@@ -89,6 +132,11 @@ internal fun InspirationScreen(
     val tagsOf: (InspirationEntity) -> List<String> = remember(viewModel) {
         { viewModel.tagsOf(it) }
     }
+    // 列表卡片显示分类名称：活动目录内显示真实名称，旧 id 显示不可用标签（不隐藏）。
+    val categoryNamesOf: (InspirationEntity) -> List<String> =
+        remember(viewModel, availableCategories) {
+            { entity -> inspirationCategoryNames(viewModel.categoryIdsOf(entity), availableCategories) }
+        }
 
     val listToolbar = rememberListToolbar(
         searchOpen = state.searchOpen,
@@ -128,6 +176,10 @@ internal fun InspirationScreen(
     AppScreenScaffold(
         modifier = modifier.testTag("inspiration-screen"),
         title = toolbar.title,
+        // 列表搜索态的输入框由 ToolbarConfig.titleContent 提供；此前漏传导致 searchOpen 后
+        // 搜索图标隐藏、输入框却从未渲染（用户看不到搜索框）。仅在搜索打开时接管标题区，
+        // 关闭态继续走 AppTopBar 的标准标题样式，避免字体/排版变化。
+        titleContent = if (state.searchOpen) toolbar.titleContent else null,
         navigationIcon = toolbar.navigationIcon,
         actions = toolbar.actions,
         snackbarHost = {
@@ -149,6 +201,9 @@ internal fun InspirationScreen(
                         filtered = filteredItems,
                         typeFilter = state.typeFilter,
                         statusFilter = state.statusFilter,
+                        categoryFilter = state.categoryFilter,
+                        categoryOptions = categoryOptions,
+                        categoryNamesOf = categoryNamesOf,
                         availableTypes = availableTypes,
                         typeCounts = typeCounts,
                         availableStatuses = availableStatuses,
@@ -162,11 +217,17 @@ internal fun InspirationScreen(
                 }
                 is InspirationPage.Detail -> {
                     if (selectedEntity != null) {
+                        val source = sourceOf(selectedEntity)
+                        val payload = viewModel.payloadFor(selectedEntity)
                         InspirationDetail(
                             entity = selectedEntity,
-                            source = sourceOf(selectedEntity),
-                            payload = viewModel.payloadFor(selectedEntity),
+                            source = source,
+                            // 来源书状态由真实 BookListState 派生；Loading/Failed 不会被
+                            // 当成确定缺书，Available 时才使用真实书名。
+                            sourceStatus = resolveSourceBookStatus(source, booksState),
+                            payload = payload,
                             tags = tagsOf(selectedEntity),
+                            categoryNames = inspirationCategoryNames(payload.categoryIds, availableCategories),
                             viewModel = viewModel,
                             onAction = onAction,
                         )
@@ -207,6 +268,9 @@ internal fun InspirationScreen(
                     InspirationEditor(
                         existing = editingEntity,
                         viewModel = viewModel,
+                        availableCategories = availableCategories,
+                        categoriesLoading = categoriesState is CategoryListState.Loading,
+                        categoriesFailed = categoriesState is CategoryListState.Failed,
                         onAction = onAction,
                     )
                 }

@@ -6,6 +6,7 @@ import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -30,6 +31,42 @@ import com.creationreadingassistant.feature.log.AppLog
 internal fun programmaticJumpInvalidation(
     onSelect: (text: String, sourceStart: Int, sourceEnd: Int) -> Unit,
 ): () -> Unit = { onSelect("", -1, -1) }
+
+/** 任务86-v1-A：只读诊断（不改变任何行为），与既有 CRA_CLAMP_DIAG 同一 tag。 */
+private fun t86diag(event: String, vararg pairs: Pair<String, Any?>) {
+    AppLog.debug(
+        "CRA_CLAMP_DIAG",
+        "event=$event " + pairs.joinToString(", ") { "${it.first}=${it.second}" },
+    )
+}
+
+/**
+ * 任务86-v1-A：分页位置上报裁决（纯函数，JVM 可直接回归）。
+ *
+ * 背景（85 实测）：退出阅读器时同一 bookId 的持久位置由 offset 1235（28.46%）回退到
+ * 1034（23.83%），而期间没有任何用户翻页。`pagedAbsOffsetState` 只有一个写入方
+ *（本文件的页变化回调，取 `controller.currentPageStartAbs`），因此只可能是 controller
+ * 重排后把**页首**前移并上报。
+ *
+ * 裁决：只有「用户真的翻页（阅读锚点已不在当前页区间）」或「本会话首次落位」才上报。
+ * 重排后锚点仍在页内时，页首前移不代表阅读位置变化，不得覆盖持久化位置。
+ */
+internal data class PagedPositionDecision(
+    val anchorMoved: Boolean,
+    val shouldReport: Boolean,
+)
+
+internal fun decidePagedPositionReport(
+    everReported: Boolean,
+    anchor: Int,
+    range: IntRange?,
+): PagedPositionDecision {
+    val anchorMoved = range == null || anchor !in range
+    return PagedPositionDecision(
+        anchorMoved = anchorMoved,
+        shouldReport = !everReported || anchorMoved,
+    )
+}
 
 /**
  * 一次程序化跳转（进度条 / 目录 / 回源）是否会改变**可见页面身份**（S07-F2.1）。
@@ -132,20 +169,48 @@ internal fun PagedReaderControllerEffects(
     var revealProgress by revealProgressState
 
     // 新 controller（首开 / 配置变化重建）→ 回到锚点所在句
-    LaunchedEffect(controller) { controller.open(anchor.intValue) }
+    LaunchedEffect(controller) {
+        t86diag("paged_controller_open", "target" to anchor.intValue)
+        controller.open(anchor.intValue)
+    }
 
     // 页变化 → 上报进度；锚点只在「用户真的离开了锚点所在页」时才移动。
     // 改字号/转屏引发的重排会让页首前移，若无条件把锚点改成新页首，
     // 连续几次重排锚点就会一路往回漂（每次退小半页）。
+    // 任务86-v1-A：本宿主会话是否已上报过位置。remember 无 key，跨 controller 重建保留，
+    // 用来区分「本会话首次落位」与「重建后的过渡排版」。
+    val positionEverReported = remember { mutableStateOf(false) }
     LaunchedEffect(controller) {
         snapshotFlow { Triple(controller.chapterIndex, controller.pageIndex, controller.pageCount) }
             .collect { (_, _, count) ->
                 if (count > 0 && !controller.isLayingOut) {
                     val range = controller.currentPageRangeAbs
-                    if (range != null && anchor.intValue !in range) {
+                    val decision = decidePagedPositionReport(
+                        everReported = positionEverReported.value,
+                        anchor = anchor.intValue,
+                        range = range,
+                    )
+                    if (decision.anchorMoved && range != null) {
                         anchor.intValue = range.first
                     }
-                    latestOnPositionChanged(controller.currentPageStartAbs, controller.progressPercent)
+                    // 任务86-v1-A：持久化位置只在「用户真的翻页（锚点离开旧页）」或
+                    // 「本会话首次落位」时更新。退出/重排引发的过渡排版会把页首前移
+                    //（85 实测 1235→1034），不得用它覆盖用户实际阅读位置。
+                    t86diag(
+                        "paged_position_emit",
+                        "chapter" to controller.chapterIndex,
+                        "pageIndex" to controller.pageIndex,
+                        "pageCount" to controller.pageCount,
+                        "pageStartAbs" to controller.currentPageStartAbs,
+                        "anchor" to anchor.intValue,
+                        "anchorMoved" to decision.anchorMoved,
+                        "reported" to decision.shouldReport,
+                        "percent" to controller.progressPercent,
+                    )
+                    if (decision.shouldReport) {
+                        positionEverReported.value = true
+                        latestOnPositionChanged(controller.currentPageStartAbs, controller.progressPercent)
+                    }
                     latestOnPageIndexChanged(
                         bookId,
                         controller.chapterIndex,

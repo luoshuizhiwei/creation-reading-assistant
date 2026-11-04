@@ -1,15 +1,22 @@
 package com.creationreadingassistant.ui.viewmodel
 
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
 import com.creationreadingassistant.data.ai.AiClient
 import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
+import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
+import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.ChapterReadRepository
+import com.creationreadingassistant.data.repository.ReaderProgressSaveOrder
 import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.repository.SearchIndexRepository
 import com.creationreadingassistant.data.repository.SearchIndexScheduler
@@ -37,11 +44,14 @@ import com.creationreadingassistant.feature.reader.session.ReadingSessionRecorde
 import com.creationreadingassistant.feature.reader.session.ReadingActivity
 import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordinator
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
+import com.creationreadingassistant.ui.screen.reader.ReaderLifecyclePersistGate
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -54,18 +64,22 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -368,7 +382,17 @@ class ReaderViewModelTest {
         awaitIo()
 
         // 进度应为 (2+1)/5 * 100 ≈ 60%（浮点精度）
-        coVerify(timeout = 2000) { epubRepository.saveProgress("book-1", 2, any()) }
+        // CRA-READER-DISPATCH-ORDER-MINIMAL-v6：章切换落库现在带 order，见 saveProgress 签名。
+        coVerify(timeout = 2000) {
+            epubRepository.saveProgress(
+                bookId = "book-1",
+                chapterIndex = 2,
+                percent = any(),
+                offsetInChapter = any(),
+                absoluteOffset = any(),
+                order = any(),
+            )
+        }
     }
 
     @Test
@@ -389,9 +413,48 @@ class ReaderViewModelTest {
         viewModel.onAction(ReaderAction.LoadChapter("book-1", 2, persistProgress = false))
         awaitIo()
 
-        coVerify(exactly = 0) { epubRepository.saveProgress(any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) {
+            epubRepository.saveProgress(
+                bookId = any(),
+                chapterIndex = any(),
+                percent = any(),
+                offsetInChapter = any(),
+                absoluteOffset = any(),
+                order = any(),
+            )
+        }
         // 章块加载与已读标记不受影响
         coVerify(exactly = 1) { chapterReadRepository.markRead("book-1", 2) }
+    }
+
+    @Test
+    fun `progress saves carry a dispatch-time order across the async io boundary`() = runTest {
+        // CRA-READER-DISPATCH-ORDER-MINIMAL-v6：事件序号必须在**派发边界**取号后随事件带到持久入口，
+        // 不能在 io 落库入口才分配。这里用排队式调度把两次保存的落库都推迟到两次派发之后，
+        // 并在两次派发之间插入一次「另一条生产事件」的取号作为分界：
+        // 若序号是落库时才取，两次保存都会晚于分界；只有派发时取号才会以分界为界一前一后。
+        val calls = mutableListOf<Pair<String, Long>>()
+        coEvery { bookRepository.saveProgress(any(), any()) } coAnswers {
+            calls += Pair(firstArg<ReadingProgressEntity>().book_id, secondArg())
+        }
+        val vm = createViewModel(ioDispatcher = StandardTestDispatcher(testScheduler))
+
+        vm.onAction(
+            ReaderAction.SaveProgress(
+                ReadingProgressEntity(book_id = "book-1", updated_at = "2026-10-12T10:00:00Z"),
+            ),
+        )
+        val boundary = ReaderProgressSaveOrder.next() // 另一条生产事件在此刻派发
+        vm.onAction(
+            ReaderAction.SaveProgress(
+                ReadingProgressEntity(book_id = "book-1", updated_at = "2026-10-12T10:00:01Z"),
+            ),
+        )
+        advanceUntilIdle()
+
+        assertEquals("两次保存都必须到达持久入口", 2, calls.size)
+        assertTrue("第一次保存的序号在派发边界取得（早于中间事件）", calls[0].second < boundary)
+        assertTrue("第二次保存的序号在派发边界取得（晚于中间事件）", calls[1].second > boundary)
     }
 
     @Test
@@ -1677,6 +1740,514 @@ class ReaderViewModelTest {
 
         val after = rulesRepository.observe("book-1").first().effectiveTocProfile.key
         org.junit.Assert.assertNotEquals("重排后旧 key 必须失效", before, after)
+    }
+
+    @Test
+    fun `create category action persists the caller supplied id`() = runTest {
+        val id = "mobile-category-identity-contract"
+        viewModel.onAction(ReaderAction.CreateCategory(id = id, name = "身份测试分类"))
+        advanceUntilIdle()
+
+        val captured = slot<CategoryEntity>()
+        coVerify(exactly = 1) { taxonomyRepository.upsertCategory(capture(captured)) }
+        assertEquals("回调返回的 id 必须与最终落库 id 同源", id, captured.captured.id)
+        assertEquals("身份测试分类", captured.captured.name)
+    }
+
+    // ── 退出保存完成边界（CRA-READER-EXIT-SAVE-DRAIN-v1；141-A 红的演进） ──────────
+    /**
+     * 141-A「直接 store.clear()」的旧 hazard，保留为**显式 characterization**：
+     * framework 的强制清理（`ViewModel.clear()` → `ViewModelImpl.clear()` 先取消
+     * `viewModelScope`，再 `onCleared()`）不会等待在途保存，这一语义**没有**被本批改变。
+     * 因此生产不得把"强制 clear 后最终完成"当作"退出前已 drain"；真实退出必须走
+     * [ReaderExitBoundary]（下方 exitThroughSharedBoundary… 覆盖）。
+     *
+     * 141-A 的原始红记录（同名用例、原始断言、log/XML）永久保留在
+     * `task141-offline-implementation-v1/lane-a`，本文件不覆盖它。
+     */
+    @Test
+    fun directClearWithoutAwaitStillCancelsPendingSave() = runTest {
+        // 同调度器：viewModelScope（Main.immediate）与注入的 ioDispatcher 都落在本 testScheduler 上。
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val bookId = "book-exit-pending-save"
+        val entered = CompletableDeferred<Unit>()
+        val gate = CompletableDeferred<Unit>()
+        var completed = false
+        var cancelled = false
+        coEvery { bookRepository.saveProgress(any(), any()) } coAnswers {
+            assertEquals(
+                "派发到持久入口的书 id 必须是本用例唯一书",
+                bookId,
+                firstArg<ReadingProgressEntity>().book_id,
+            )
+            entered.complete(Unit)
+            try {
+                gate.await()
+                completed = true
+            } catch (c: CancellationException) {
+                cancelled = true
+                throw c
+            }
+        }
+
+        val vm = createViewModel(ioDispatcher = StandardTestDispatcher(testScheduler))
+        val store = ViewModelStore()
+        try {
+            val provider = ViewModelProvider(
+                store,
+                object : ViewModelProvider.Factory {
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T = vm as T
+                },
+            )
+            assertSame(
+                "夹具：store 必须真实持有同一个 VM（真实 clear 路径才成立）",
+                vm,
+                provider[ReaderViewModel::class.java],
+            )
+
+            // 1) 派发一次退出落库（生产分支 ReaderViewModel.kt:464-477；序号在派发边界取）。
+            vm.onAction(
+                ReaderAction.SaveProgress(
+                    ReadingProgressEntity(book_id = bookId, updated_at = "2026-10-26T00:00:00Z"),
+                ),
+            )
+            runCurrent()
+
+            // 2) 闩锁前置：已进入持久入口、仍 pending、未被取消。
+            assertTrue("前置：保存必须已进入 bookRepository.saveProgress", entered.isCompleted)
+            assertFalse("前置：写操作此刻必须仍未完成", completed)
+            assertFalse("前置：写操作此刻不得已被取消", cancelled)
+
+            // 3) 真实退出：ViewModelStore.clear() → ViewModelImpl.clear()（取消 viewModelScope）→ onCleared()。
+            store.clear()
+            advanceUntilIdle() // 让取消投递到 await 处
+
+            // 4) 打开闩锁：若退出未 drain，保存已被取消，永远不会恢复完成。
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertFalse("强制 clear 不等待时，在途保存不会正常完成（framework 语义未变）", completed)
+            assertTrue("强制 clear 会取消在途保存：生产不得把它当作退出前 drain", cancelled)
+        } finally {
+            gate.complete(Unit)
+            store.clear()
+        }
+    }
+
+    /**
+     * 真实共用退出入口（[ReaderExitBoundary]）的严格顺序：
+     * 先派发退出保存 → 等待本 reader 已派发的进度保存**全部正常完成** → 才导航一次。
+     *
+     * 本用例把四件事同时钉死：
+     * - store/provider 在退出**之前**就持有真实 VM；`navigate` 回调内核对"全部完成 / 无 pending /
+     *   作用域仍存活"，然后才执行真实 `store.clear()`，并记录 navigate→clear 顺序；
+     * - 等待**已经开始之后**再派发后到事件，必须被计入，且只有它完成才放行；
+     * - 等待期间重复 Back 不得再派发保存、不得排队第二次导航；
+     * - 成功退出必须把 lifecycle 防重复门标记为已落库（onDispose 不再重复派发）。
+     */
+    @Test
+    fun exitThroughSharedBoundaryMustDrainPendingSavesBeforeNavigation() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val bookId = "book-exit-shared-boundary"
+        val gates = mutableListOf<CompletableDeferred<Unit>>()
+        var completed = 0
+        var cancelled = 0
+        coEvery { bookRepository.saveProgress(any(), any()) } coAnswers {
+            assertEquals("持久入口只接收本书的进度保存", bookId, firstArg<ReadingProgressEntity>().book_id)
+            val gate = CompletableDeferred<Unit>()
+            gates += gate
+            try {
+                gate.await()
+                completed += 1
+            } catch (c: CancellationException) {
+                cancelled += 1
+                throw c
+            }
+        }
+        val vm = createViewModel(ioDispatcher = StandardTestDispatcher(testScheduler))
+
+        // store/provider 在退出前就持有真实 VM（clear 与导航的顺序由 navigate 回调绑定）。
+        val store = ViewModelStore()
+        ViewModelProvider(
+            store,
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T = vm as T
+            },
+        )[ReaderViewModel::class.java]
+
+        val order = mutableListOf<String>()
+        val persistGate = ReaderLifecyclePersistGate()
+        var navigations = 0
+        val boundary = ReaderExitBoundary(
+            scope = backgroundScope,
+            dispatchExitSave = {
+                vm.onAction(
+                    ReaderAction.SaveProgress(
+                        ReadingProgressEntity(book_id = bookId, updated_at = "2026-10-26T02:00:02Z"),
+                    ),
+                )
+            },
+            awaitProgressSaves = { vm.awaitProgressSaves() },
+            navigate = {
+                assertEquals("导航时全部已派发保存必须已正常完成", gates.size, completed)
+                assertTrue("导航时 VM 作用域必须仍然存活", vm.viewModelScope.isActive)
+                order += "navigate"
+                store.clear() // 真实 clear 绑定在导航之后
+                order += "clear"
+                navigations += 1
+            },
+            onDrained = { persistGate.onPauseOrStop() },
+        )
+
+        // 1) 退出之前已派发、仍在途的保存（滚动/防抖侧）。
+        vm.onAction(
+            ReaderAction.SaveProgress(
+                ReadingProgressEntity(book_id = bookId, updated_at = "2026-10-26T02:00:01Z"),
+            ),
+        )
+        runCurrent()
+        assertEquals("前置：已有一次保存进入持久入口", 1, gates.size)
+
+        // 2) 真实退出入口：先派发退出保存（派发先于等待），再等待。
+        boundary.requestExit()
+        runCurrent()
+        assertEquals("退出保存必须已经派发（派发先于等待）", 2, gates.size)
+        assertEquals("仍有 pending 保存时不得导航", 0, navigations)
+        assertTrue("退出等待期间 VM 作用域不得被清除", vm.viewModelScope.isActive)
+
+        // 3) 等待已经开始之后，再派发一个后到事件：必须被计入。
+        vm.onAction(
+            ReaderAction.SaveProgress(
+                ReadingProgressEntity(book_id = bookId, updated_at = "2026-10-26T02:00:03Z"),
+            ),
+        )
+        runCurrent()
+        assertEquals("等待期间后到的事件必须被计入", 3, gates.size)
+
+        // 4) 等待期间重复 Back：不得再派发保存，也不得排队第二次导航。
+        boundary.requestExit()
+        runCurrent()
+        assertEquals("重复 Back 不得再派发退出保存", 3, gates.size)
+        assertEquals("重复 Back 不得触发导航", 0, navigations)
+
+        // 5) 只放行早期两次：后到事件仍 pending → 仍不得导航。
+        gates[0].complete(Unit)
+        gates[1].complete(Unit)
+        runCurrent()
+        assertEquals("只完成更早的保存不足以放行导航", 0, navigations)
+        assertEquals(2, completed)
+
+        // 6) 放行后到事件：全部正常完成后才导航，且导航后立即真实 clear。
+        gates[2].complete(Unit)
+        advanceUntilIdle()
+        assertEquals("全部已派发保存正常完成后才导航，且只导航一次", 1, navigations)
+        assertEquals("三次保存都必须正常完成", 3, completed)
+        assertEquals("退出 drain 不得取消任何已派发保存", 0, cancelled)
+        assertEquals("导航必须发生在真实 clear 之前", listOf("navigate", "clear"), order)
+        assertFalse("clear 之后 VM 作用域必须已取消", vm.viewModelScope.isActive)
+        assertFalse(
+            "成功退出必须把 lifecycle 防重复门标记为已落库（onDispose 不得再重复派发）",
+            persistGate.shouldPersistOnDispose(),
+        )
+    }
+
+    /** 保存失败不得当作 drained 成功：不导航、原异常可观察、不标记已落库。 */
+    @Test
+    fun exitMustNotNavigateWhenPendingSaveFails() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val bookId = "book-exit-save-failure"
+        coEvery { bookRepository.saveProgress(any(), any()) } coAnswers {
+            throw IllegalStateException("progress write failed")
+        }
+        val vm = createViewModel(ioDispatcher = StandardTestDispatcher(testScheduler))
+        var navigations = 0
+        var failure: Throwable? = null
+        val persistGate = ReaderLifecyclePersistGate()
+        val boundary = ReaderExitBoundary(
+            scope = backgroundScope,
+            dispatchExitSave = {
+                vm.onAction(
+                    ReaderAction.SaveProgress(
+                        ReadingProgressEntity(book_id = bookId, updated_at = "2026-10-26T02:00:04Z"),
+                    ),
+                )
+            },
+            awaitProgressSaves = { vm.awaitProgressSaves() },
+            navigate = { navigations += 1 },
+            onDrained = { persistGate.onPauseOrStop() },
+        )
+
+        boundary.requestExit(onFailure = { failure = it })
+        advanceUntilIdle()
+
+        assertEquals("保存失败时不得导航（reader 留在原页）", 0, navigations)
+        assertTrue("失败必须可观察，且保留原异常类型", failure is IllegalStateException)
+        assertEquals("失败必须保留原始消息（不包装、不吞）", "progress write failed", failure?.message)
+        assertTrue("失败路径不得标记已落库：onDispose 仍应允许保存", persistGate.shouldPersistOnDispose())
+    }
+
+    /**
+     * 保存**自身**被取消 ≠ 退出协程被取消：前者必须留 reader 并回传可观察原因
+     * （142-v1 的缺口：CancellationException 被直接 rethrow，onFailure 从未调用）。
+     */
+    @Test
+    fun exitMustSurfaceSaveCancellationInsteadOfSkippingFeedback() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val bookId = "book-exit-save-cancelled"
+        coEvery { bookRepository.saveProgress(any(), any()) } coAnswers {
+            throw CancellationException("save cancelled by storage layer")
+        }
+        val vm = createViewModel(ioDispatcher = StandardTestDispatcher(testScheduler))
+        var navigations = 0
+        var failure: Throwable? = null
+        val persistGate = ReaderLifecyclePersistGate()
+        val boundary = ReaderExitBoundary(
+            scope = backgroundScope,
+            dispatchExitSave = {
+                vm.onAction(
+                    ReaderAction.SaveProgress(
+                        ReadingProgressEntity(book_id = bookId, updated_at = "2026-10-26T02:00:05Z"),
+                    ),
+                )
+            },
+            awaitProgressSaves = { vm.awaitProgressSaves() },
+            navigate = { navigations += 1 },
+            onDrained = { persistGate.onPauseOrStop() },
+        )
+
+        boundary.requestExit(onFailure = { failure = it })
+        advanceUntilIdle()
+
+        assertEquals("保存自身被取消时不得导航", 0, navigations)
+        assertTrue("保存取消必须作为可观察原因回传，不得静默跳过", failure is CancellationException)
+        assertEquals("必须保留原始取消原因", "save cancelled by storage layer", failure?.message)
+        assertTrue("失败路径不得标记已落库", persistGate.shouldPersistOnDispose())
+    }
+
+    /**
+     * 可重试语义：失败不会被"消费"掉。
+     * 第一次退出失败后，即使下一次退出**不派发任何新保存**（空保存路径）也必须继续失败，
+     * 不允许假 drain；只有更晚派发的一次保存正常完成后才解除阻塞。
+     */
+    @Test
+    fun exitMustNotFalselyDrainAfterFailureUntilALaterSaveSucceeds() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val bookId = "book-exit-retry-semantics"
+        var failNext = true
+        coEvery { bookRepository.saveProgress(any(), any()) } coAnswers {
+            if (failNext) throw IllegalStateException("first write failed")
+        }
+        val vm = createViewModel(ioDispatcher = StandardTestDispatcher(testScheduler))
+        var dispatch = true
+        var dispatches = 0
+        var navigations = 0
+        val failures = mutableListOf<Throwable>()
+        val boundary = ReaderExitBoundary(
+            scope = backgroundScope,
+            dispatchExitSave = {
+                if (dispatch) {
+                    dispatches += 1
+                    vm.onAction(
+                        ReaderAction.SaveProgress(
+                            ReadingProgressEntity(book_id = bookId, updated_at = "2026-10-26T02:00:06Z"),
+                        ),
+                    )
+                }
+            },
+            awaitProgressSaves = { vm.awaitProgressSaves() },
+            navigate = { navigations += 1 },
+        )
+
+        // 1) 第一次退出：保存失败 → 不导航，原因可观察。
+        //    用 runCurrent 精确驱动本次 requestExit 派生的任务（不用 advanceUntilIdle 含糊推进）。
+        boundary.requestExit(onFailure = { failures += it })
+        runCurrent()
+        assertEquals("第 1 次退出必须真的派发保存", 1, dispatches)
+        assertEquals(0, navigations)
+        assertEquals("第 1 次退出必须真的走完失败回调", 1, failures.size)
+        assertTrue(failures[0] is IllegalStateException)
+
+        // 2) 失败不得被消费：空等一次仍然必须抛出同一失败（sticky，不返回成功）。
+        dispatch = false
+        val stillFailing = runCatching { withTimeoutOrNull(5_000) { vm.awaitProgressSaves() } }.exceptionOrNull()
+        assertTrue("失败必须 sticky：空等不得返回 drained，也不得永久挂起", stillFailing is IllegalStateException)
+        assertEquals("失败必须保留原始消息", "first write failed", stillFailing?.message)
+        boundary.requestExit(onFailure = { failures += it })
+        runCurrent()
+        assertEquals("空保存退出不得再派发", 1, dispatches)
+        assertEquals("第 2 次退出必须真的走完失败回调（证明 exitJob 已结束）", 2, failures.size)
+        assertEquals("空保存再退一次不得假成功", 0, navigations)
+
+        // 3) 更晚派发的一次保存正常完成 → 解除阻塞，退出才通过。
+        //    这里先证明"第 3 次退出确实派发了保存"，再证明只导航一次。
+        failNext = false
+        dispatch = true
+        boundary.requestExit(onFailure = { failures += it })
+        runCurrent()
+        assertEquals("第 3 次退出必须真的派发新保存（不得因 exitJob 仍 active 被忽略）", 2, dispatches)
+        assertEquals("更晚的保存成功后才允许退出", 1, navigations)
+        assertEquals("成功退出不应再产生新失败", 2, failures.size)
+    }
+
+    /**
+     * 142-r3：同一 book 内「更新请求的失败」不得被更旧请求的成功清掉。
+     *
+     * 受控完成顺序：seq1 失败 → seq3 失败 → seq2 成功。
+     * seq3 是比 seq2 更新的一次失败，seq2 的成功**不能**把它清掉；
+     * 只有更晚（seq4）真正成功的一次保存才允许解除阻塞。
+     */
+    @Test
+    fun newerSaveFailureMustNotBeClearedByAnOlderSaveSuccess() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val bookId = "book-failure-order"
+        val gates = mutableMapOf<String, CompletableDeferred<Unit>>()
+        coEvery { bookRepository.saveProgress(any(), any()) } coAnswers {
+            val entity = firstArg<ReadingProgressEntity>()
+            val key = entity.updated_at ?: error("updated_at 必填")
+            val gate = CompletableDeferred<Unit>()
+            gates[key] = gate
+            gate.await()
+            when (key) {
+                "seq1" -> throw IllegalStateException("failure-1")
+                "seq2" -> Unit
+                "seq3" -> throw IllegalStateException("failure-3")
+                else -> Unit
+            }
+        }
+        val vm = createViewModel(ioDispatcher = StandardTestDispatcher(testScheduler))
+        fun dispatch(key: String, book: String = bookId) {
+            vm.onAction(
+                ReaderAction.SaveProgress(
+                    ReadingProgressEntity(book_id = book, updated_at = key),
+                ),
+            )
+        }
+
+        dispatch("seq1"); runCurrent()
+        dispatch("seq2"); runCurrent()
+        dispatch("seq3"); runCurrent()
+        assertEquals("三次保存都必须已进入持久入口", 3, gates.size)
+
+        // 受控完成顺序：1 失败 → 3 失败 → 2 成功
+        gates.getValue("seq1").complete(Unit); runCurrent()
+        gates.getValue("seq3").complete(Unit); runCurrent()
+        gates.getValue("seq2").complete(Unit); runCurrent()
+
+        val remaining = runCatching {
+            withTimeoutOrNull(5_000) { vm.awaitProgressSaves() }
+        }.exceptionOrNull()
+        assertTrue(
+            "比 seq2 更新的 seq3 失败不得被 seq2 的成功清掉",
+            remaining is IllegalStateException,
+        )
+        assertEquals("必须保留更新那次失败的原始原因", "failure-3", remaining?.message)
+
+        // 另一个 book 的成功不得清掉本书的失败。
+        dispatch("other-book-success", book = "book-other")
+        runCurrent()
+        gates.getValue("other-book-success").complete(Unit)
+        runCurrent()
+        val afterOtherBook = runCatching {
+            withTimeoutOrNull(5_000) { vm.awaitProgressSaves() }
+        }.exceptionOrNull()
+        assertTrue(
+            "其它 book 的成功不得清掉本书未解决的失败",
+            afterOtherBook is IllegalStateException,
+        )
+        assertEquals("failure-3", afterOtherBook?.message)
+
+        // 只有更晚（seq4）真正成功的一次保存才解除阻塞。
+        dispatch("seq4"); runCurrent()
+        gates.getValue("seq4").complete(Unit)
+        runCurrent()
+        val cleared = runCatching {
+            withTimeoutOrNull(5_000) { vm.awaitProgressSaves() }
+        }.exceptionOrNull()
+        assertNull("更晚的成功保存必须解除阻塞", cleared)
+    }
+
+    /**
+     * 142-r3 反向完成顺序：更新请求（seq2）先成功，更旧请求（seq1）后失败。
+     * 旧失败晚到不得把 reader 永久卡死（它已被更晚的成功保存覆盖），
+     * 但随后 seq3 的新失败仍必须被保留。
+     */
+    @Test
+    fun olderFailureArrivingAfterANewerSuccessMustNotBlockForever() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val bookId = "book-failure-order-reverse"
+        val gates = mutableMapOf<String, CompletableDeferred<Unit>>()
+        coEvery { bookRepository.saveProgress(any(), any()) } coAnswers {
+            val entity = firstArg<ReadingProgressEntity>()
+            val key = entity.updated_at ?: error("updated_at 必填")
+            val gate = CompletableDeferred<Unit>()
+            gates[key] = gate
+            gate.await()
+            when (key) {
+                "seq1" -> throw IllegalStateException("failure-1")
+                "seq2" -> Unit
+                "seq3" -> throw IllegalStateException("failure-3")
+                else -> Unit
+            }
+        }
+        val vm = createViewModel(ioDispatcher = StandardTestDispatcher(testScheduler))
+        fun dispatch(key: String) {
+            vm.onAction(
+                ReaderAction.SaveProgress(
+                    ReadingProgressEntity(book_id = bookId, updated_at = key),
+                ),
+            )
+        }
+
+        dispatch("seq1"); runCurrent()
+        dispatch("seq2"); runCurrent()
+        assertEquals(2, gates.size)
+
+        // 反向：seq2 先成功，seq1 后失败
+        gates.getValue("seq2").complete(Unit); runCurrent()
+        gates.getValue("seq1").complete(Unit); runCurrent()
+
+        val afterLateOldFailure = runCatching {
+            withTimeoutOrNull(5_000) { vm.awaitProgressSaves() }
+        }.exceptionOrNull()
+        assertNull(
+            "已被更晚成功保存覆盖的旧失败晚到，不得把 reader 永久卡死",
+            afterLateOldFailure,
+        )
+
+        // 随后一次更新的失败仍必须保留。
+        dispatch("seq3"); runCurrent()
+        gates.getValue("seq3").complete(Unit); runCurrent()
+        val newest = runCatching {
+            withTimeoutOrNull(5_000) { vm.awaitProgressSaves() }
+        }.exceptionOrNull()
+        assertTrue("更新的失败仍必须保留", newest is IllegalStateException)
+        assertEquals("failure-3", newest?.message)
+    }
+
+    /** 无 pending / 临时查阅空保存：正常一次退出，不得误持久化进度，且标记已落库。 */
+    @Test
+    fun exitWithNoPendingSavesNavigatesExactlyOnce() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val vm = createViewModel(ioDispatcher = StandardTestDispatcher(testScheduler))
+        var navigations = 0
+        val persistGate = ReaderLifecyclePersistGate()
+        val boundary = ReaderExitBoundary(
+            scope = backgroundScope,
+            // 等价生产 persistOnLeave 的早退（临时查阅 / 位置未就绪）：不派发任何保存。
+            dispatchExitSave = {},
+            awaitProgressSaves = { vm.awaitProgressSaves() },
+            navigate = { navigations += 1 },
+            onDrained = { persistGate.onPauseOrStop() },
+        )
+
+        boundary.requestExit()
+        advanceUntilIdle()
+
+        assertEquals("无 pending 时应正常退出且只导航一次", 1, navigations)
+        coVerify(exactly = 0) { bookRepository.saveProgress(any(), any()) }
+        assertFalse("成功退出必须标记已落库", persistGate.shouldPersistOnDispose())
     }
 }
 

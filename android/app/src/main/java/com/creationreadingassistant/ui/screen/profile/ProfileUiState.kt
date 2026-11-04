@@ -178,6 +178,9 @@ internal sealed interface ProfileAction {
     /** R6-B7：重置全库搜索索引进度并重新入队后台扫描（惰性、分窗口）。 */
     data object RebuildSearchIndex : ProfileAction
 
+    /** §6.9：用户取消正在进行的后台索引构建（保留断点，下次续建）。 */
+    data object CancelSearchIndex : ProfileAction
+
     // Sync
     data class StartPairing(val rawQr: String) : ProfileAction
     data object SyncNow : ProfileAction

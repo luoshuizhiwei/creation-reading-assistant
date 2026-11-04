@@ -132,16 +132,20 @@ class SettingsStoreBootMirrorTest {
 
     @Test
     fun `legacy datastore default system theme marks mirror as present after first load`() = runTest {
-        // 先确保底层 DataStore 存有 system，再抹去镜像，模拟升级前无镜像但 DataStore 默认跟随系统的用户
+        // 先确保底层 DataStore 存有 system，再抹去镜像，模拟升级前无镜像但 DataStore 默认跟随系统的用户。
+        // 关键：themeMode 的默认值本身就是 "system"，仅等 themeMode 会在 DataStore 回填前就命中
+        // StateFlow 的初始值（bootAppearance），无法证明「已加载权威数据并补齐镜像」。这里同时种入
+        // 一个**非镜像、非初始**的外观字段 amoledPureBlack=true，等待条件必须同时满足两者，
+        // 才能确保等到的是 DataStore 加载后的权威数据（初始 bootAppearance 的 amoledPureBlack=false）。
         val existingUser = SettingsStore(context, scope)
         existingUser.appearance.first()
-        existingUser.updateAppearance { copy(themeMode = "system") }
+        existingUser.updateAppearance { copy(themeMode = "system", amoledPureBlack = true) }
         context.getSharedPreferences("cra_boot_mirror", Context.MODE_PRIVATE).edit().clear().apply()
         assertEquals("升级前无镜像标记", false, BootMirror.hasThemeMode(context))
         assertEquals("升级前读取回落为 system", "system", BootMirror.themeMode(context))
 
         val upgraded = SettingsStore(context, scope)
-        upgraded.appearance.first { it.themeMode == "system" }
+        upgraded.appearance.first { it.themeMode == "system" && it.amoledPureBlack }
 
         assertEquals("首次加载后必须记录镜像已就绪状态", true, BootMirror.hasThemeMode(context))
         assertEquals("回填后镜像主题为 system", "system", BootMirror.themeMode(context))

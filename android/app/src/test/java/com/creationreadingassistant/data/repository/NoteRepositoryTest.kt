@@ -6,6 +6,8 @@ import com.creationreadingassistant.data.local.dao.NoteDao
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
+import com.creationreadingassistant.ui.viewmodel.InspirationPayloadData
+import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -14,6 +16,7 @@ import io.mockk.slot
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -39,18 +42,35 @@ class NoteRepositoryTest {
         repository = NoteRepository(highlightDao, noteDao, inspirationDao)
     }
 
-    private fun highlight(id: String = "h1", text: String = "原文摘录", note: String? = null) =
-        HighlightEntity(
-            id = id,
-            book_id = "b1",
-            text = text,
-            color = "#ff0",
-            note = note,
-            chapter_title = "第三章",
-            progress_percent = 0.4f,
-            created_at = "2026-08-01T10:00:00Z",
-            updated_at = "2026-08-01T10:00:00Z",
-        )
+    private fun highlight(
+        id: String = "h1",
+        text: String = "原文摘录",
+        note: String? = null,
+        bookId: String = "b1",
+        chapterTitle: String? = "第三章",
+        progressPercent: Float? = 0.4f,
+        locatorJson: String? = null,
+    ) = HighlightEntity(
+        id = id,
+        book_id = bookId,
+        text = text,
+        color = "#ff0",
+        note = note,
+        chapter_title = chapterTitle,
+        progress_percent = progressPercent,
+        locator_json = locatorJson,
+        created_at = "2026-08-01T10:00:00Z",
+        updated_at = "2026-08-01T10:00:00Z",
+    )
+
+    /**
+     * 用**真实消费模型**反序列化落库 payload —— 与 InspirationViewModel /
+     * HomeArchiveFormatters 的解析配置完全一致，避免只核对 JSON 子串。
+     */
+    private val payloadJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+    private fun sourceOf(entity: InspirationEntity): InspirationSourceInfo? =
+        payloadJson.decodeFromString<InspirationPayloadData>(entity.payload ?: "{}").source
 
     @Test
     fun `observe by book delegates to daos`() = runTest {
@@ -184,6 +204,112 @@ class NoteRepositoryTest {
         assertEquals("一段足够长的原文摘录用于截取前二十四个字符", entity.body)
         assertEquals("inbox", entity.status)
         assertEquals("b1", entity.source_book_id)
+    }
+
+    @Test
+    fun `convertHighlightToInspiration persists structured source with excerpt and locator`() = runTest {
+        val locator = """{"v":2,"offset":128,"chapterIndex":2}"""
+        coEvery { highlightDao.getById("h1") } returns highlight(
+            text = "原文摘录",
+            note = "我的批注",
+            locatorJson = locator,
+        )
+
+        repository.convertHighlightToInspiration("h1")
+
+        val saved = slot<InspirationEntity>()
+        coVerify(exactly = 1) { inspirationDao.upsert(capture(saved)) }
+        val entity = saved.captured
+        val source = sourceOf(entity)
+        assertNotNull("payload.source 缺失：灵感详情与回源无法消费来源", source)
+        source!!
+        assertEquals("b1", source.bookId)
+        assertEquals("第三章", source.chapterTitle)
+        assertEquals(0.4f, source.progressPercent ?: -1f)
+        assertEquals("原文摘录", source.excerpt)
+        assertEquals(locator, source.locatorJson)
+        // 来源摘录与个人批注可区分：source.excerpt 只有原文，body 才带批注
+        assertEquals("原文摘录", source.excerpt)
+        assertEquals("原文摘录\n\n我的批注", entity.body)
+    }
+
+    @Test
+    fun `convertHighlightToInspiration without note still keeps excerpt and locator`() = runTest {
+        val locator = """{"v":2,"offset":64}"""
+        coEvery { highlightDao.getById("h1") } returns highlight(
+            text = "摘录",
+            note = null,
+            locatorJson = locator,
+        )
+
+        repository.convertHighlightToInspiration("h1")
+
+        val saved = slot<InspirationEntity>()
+        coVerify(exactly = 1) { inspirationDao.upsert(capture(saved)) }
+        val source = sourceOf(saved.captured)
+        assertNotNull(source)
+        assertEquals("摘录", source!!.excerpt)
+        assertEquals(locator, source.locatorJson)
+        assertEquals("摘录", saved.captured.body)
+    }
+
+    @Test
+    fun `convertHighlightToInspiration does not fabricate source for missing locator or book id`() = runTest {
+        coEvery { highlightDao.getById("h1") } returns highlight(
+            text = "摘录",
+            note = null,
+            bookId = " ",
+            chapterTitle = null,
+            progressPercent = null,
+            locatorJson = null,
+        )
+
+        repository.convertHighlightToInspiration("h1")
+
+        val saved = slot<InspirationEntity>()
+        coVerify(exactly = 1) { inspirationDao.upsert(capture(saved)) }
+        val source = sourceOf(saved.captured)
+        assertNotNull(source)
+        assertNull(source!!.bookId)
+        assertNull(source.chapterTitle)
+        assertNull(source.progressPercent)
+        assertNull(source.locatorJson)
+        // 真实存在的摘录仍保留，不被"无来源"连坐清空
+        assertEquals("摘录", source.excerpt)
+    }
+
+    @Test
+    fun `convertHighlightToInspiration preserves a real zero progress`() = runTest {
+        coEvery { highlightDao.getById("h1") } returns highlight(progressPercent = 0f)
+        repository.convertHighlightToInspiration("h1")
+        val saved = slot<InspirationEntity>()
+        coVerify(exactly = 1) { inspirationDao.upsert(capture(saved)) }
+        val source = sourceOf(saved.captured)
+        assertNotNull(source)
+        assertEquals(0f, source!!.progressPercent)
+    }
+
+    @Test
+    fun `convertHighlightToInspiration missing highlight is no-op`() = runTest {
+        coEvery { highlightDao.getById("missing") } returns null
+
+        repository.convertHighlightToInspiration("missing")
+
+        coVerify(exactly = 0) { inspirationDao.upsert(any()) }
+    }
+
+    @Test
+    fun `convertHighlightToInspiration leaves the original highlight untouched`() = runTest {
+        coEvery { highlightDao.getById("h1") } returns highlight(
+            text = "摘录",
+            note = "批注",
+            locatorJson = """{"v":2,"offset":1}""",
+        )
+
+        repository.convertHighlightToInspiration("h1")
+
+        coVerify(exactly = 0) { highlightDao.upsert(any()) }
+        coVerify(exactly = 1) { highlightDao.getById("h1") }
     }
 
     @Test

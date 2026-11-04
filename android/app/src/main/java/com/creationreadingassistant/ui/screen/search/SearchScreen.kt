@@ -42,6 +42,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,6 +61,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsPropertyKey
+import androidx.compose.ui.semantics.SemanticsPropertyReceiver
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -70,7 +76,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.creationreadingassistant.feature.search.SearchCoverageState
 import com.creationreadingassistant.feature.search.SearchHit
 import com.creationreadingassistant.feature.search.SearchTextBasis
@@ -94,11 +102,72 @@ import com.creationreadingassistant.ui.viewmodel.SearchNotice
 import com.creationreadingassistant.ui.viewmodel.SearchNoticeKind
 import com.creationreadingassistant.ui.viewmodel.SearchViewModel
 
+/** J1-CROSSBOOK-v2：命中无法形成可靠 source 定位时的用户可见反馈文案。 */
+internal const val SEARCH_NO_SOURCE_POSITION_MESSAGE = "该结果没有可定位的原文位置"
+
+/**
+ * J1-CROSSBOOK-v2 §四.1：搜索「正文命中」的**入口判定**（真实调用点，不是平行 helper）。
+ *
+ * 正文命中是「去看一眼」而不是「把阅读进度搬过去」，因此唯一合法的成功形态是**临时查阅**
+ * route；换算不出全书偏移（如大 TXT 取不到精确 offset）时必须**只反馈、不导航**。
+ * 旧实现把它降级成 `reader/{bookId}` 普通打开目标书，B 定位完成后 recordNormalReading(B)
+ * 会把普通阅读位置覆盖成 B —— 用「普通打开另一本书」冒充「临时查阅成功」，并丢掉原阅读现场。
+ *
+ * 判据直接复用既有 [readerTemporaryRouteForSource]（拒绝空书 ID / 负 offset / 仅章节元组），
+ * 不引入平行协议。
+ */
+internal sealed interface SearchContentHitNavigation {
+    /** 可临时查阅：携带 navigationMode=temporary 的 route。 */
+    data class TemporaryInspection(val route: String) : SearchContentHitNavigation
+
+    /** 无可靠 source 定位：只反馈，不导航。类型上不存在可导航目标。 */
+    data object NoReliableSource : SearchContentHitNavigation
+}
+
+/** 正文命中入口判定：能造出临时查阅 route 才返回 [SearchContentHitNavigation.TemporaryInspection]。 */
+internal fun searchContentHitNavigation(
+    bookId: String,
+    preciseOffset: Int?,
+): SearchContentHitNavigation {
+    val offset = preciseOffset ?: return SearchContentHitNavigation.NoReliableSource
+    val route = readerTemporaryRouteForSource(
+        bookId = bookId,
+        legacyOffset = offset,
+        chapterIndex = null,
+        charOffset = null,
+    ) ?: return SearchContentHitNavigation.NoReliableSource
+    return SearchContentHitNavigation.TemporaryInspection(route)
+}
+
+/**
+ * J1-CROSSBOOK-v2 §四.1：搜索「书籍命中」是用户主动的**普通打开书籍**，保持既有语义不变 ——
+ * 不携带 navigationMode、不产生临时查阅会话，也不受正文命中失败降级规则影响。
+ */
+internal fun searchBookHitRoute(bookId: String): String = "reader/$bookId"
+
 private val SearchBookColor = Color(0xFF7C3AED)
 private val SearchInspColor = Color(0xFFD97706)
 private val SearchNoteColor = Color(0xFF0284C7)
 private val SearchHighlightColor = Color(0xFF059669)
 private val SearchContentColor = Color(0xFFBE185D)
+
+/**
+ * 测试观察接缝：全局搜索结果列表的只读快照。
+ *
+ * 只暴露 [LazyListState] 的公开只读属性与当前 Tab/query；不改变列表行为、key、排序或导航。
+ * 供 androidTest 精确断言返回后的滚动位置，产品 UI 不消费该语义。
+ */
+data class SearchListSnapshot(
+    val firstVisibleItemIndex: Int,
+    val firstVisibleItemScrollOffset: Int,
+    val tab: String,
+    val query: String,
+    val topItemKey: String?,
+    val itemCount: Int,
+)
+
+val SearchListSnapshotKey = SemanticsPropertyKey<SearchListSnapshot>("SearchListSnapshot")
+var SemanticsPropertyReceiver.searchListSnapshot by SearchListSnapshotKey
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -120,6 +189,8 @@ fun SearchScreen(
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
     val scope = rememberCoroutineScope()
+    // J1-CROSSBOOK-v2 §四.1：命中无法形成可靠 source 定位时只做明确反馈，不导航。
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
     LaunchedEffect(query) { viewModel.search(query) }
@@ -155,6 +226,7 @@ fun SearchScreen(
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
             }
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             // 顶部优雅搜索框
@@ -411,7 +483,23 @@ fun SearchScreen(
                     )
                 }
                 else -> {
-                    LazyColumn(modifier = Modifier.fillMaxSize(), state = viewModel.listState) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("search-results-list")
+                            .semantics {
+                                searchListSnapshot = SearchListSnapshot(
+                                    firstVisibleItemIndex = viewModel.listState.firstVisibleItemIndex,
+                                    firstVisibleItemScrollOffset = viewModel.listState.firstVisibleItemScrollOffset,
+                                    tab = tab,
+                                    query = query,
+                                    topItemKey = viewModel.listState.layoutInfo.visibleItemsInfo
+                                        .firstOrNull()?.key as? String,
+                                    itemCount = viewModel.listState.layoutInfo.totalItemsCount,
+                                )
+                            },
+                        state = viewModel.listState,
+                    ) {
                         if (tab == "all" || tab == "books") {
                             // 「全部」页排除掉同时有正文命中的书 —— 正文那行信息更丰富（带位置与覆盖说明），
                             // 留它即可；「书籍」页仍显示全部元数据命中。
@@ -436,7 +524,9 @@ fun SearchScreen(
                                     snippet = (book.author ?: "未知作者") + " · ${book.format.uppercase()}",
                                     onClick = {
                                         viewModel.addHistory(query)
-                                        navController.navigate("reader/${book.id}")
+                                        // J1-CROSSBOOK-v2 §四.1：书籍命中 = 用户主动普通打开书籍，
+                                        // 保持既有语义（见 searchBookHitRoute），不因正文命中降级规则受影响。
+                                        navController.navigate(searchBookHitRoute(book.id))
                                     },
                                 )
                             }
@@ -465,21 +555,29 @@ fun SearchScreen(
                                     onClick = {
                                         viewModel.addHistory(query)
                                         val targetBookId = hit.bookId
-                                        // 精确跳转（R2-S1.4）：
-                                        // 走**临时查阅** route —— 命中是「去看一眼」而不是「把阅读进度搬过去」，
-                                        // 于是返回行为由既有的临时返回栈接管（正是 R2 退出条件要的「可返回」）。
-                                        // 换算不出全书偏移时降级为只打开书，绝不伪造 offset=0。
+                                        // 精确跳转（R2-S1.4）：走**临时查阅** route —— 命中是「去看一眼」
+                                        // 而不是「把阅读进度搬过去」，返回行为由既有临时返回栈接管。
+                                        // J1-CROSSBOOK-v2 §四.1：换算不出全书偏移时只反馈、不导航
+                                        // （判定见 searchContentHitNavigation，绝不降级成普通打开目标书）。
                                         scope.launch {
+                                            // 磁盘换算保持在既有 IO 路径上，不搬动、不复制。
                                             val offset = viewModel.resolvePreciseOffset(hit)
-                                            val route = offset?.let { resolved ->
-                                                readerTemporaryRouteForSource(
-                                                    bookId = targetBookId,
-                                                    legacyOffset = resolved,
-                                                    chapterIndex = null,
-                                                    charOffset = null,
-                                                )
+                                            // 导航与反馈的**主线程亲和性**保证：resolvePreciseOffset
+                                            // 返回后，续体可能落在后台调度线程上（见 v6 first_failure：
+                                            // CoroutineScheduler$Worker 线程调用 NavController.navigate →
+                                            // LifecycleRegistry.setCurrentState 拒绝非主线程状态更新）。
+                                            // Main.immediate：已在主线程时不额外派发，不在时切回主线程。
+                                            // 只包住导航/反馈分支，不改 route 构造、不改 null 偏移判定、
+                                            // 不吞异常（navigate 的异常照常向上传播）。
+                                            withContext(Dispatchers.Main.immediate) {
+                                                when (val navigation = searchContentHitNavigation(targetBookId, offset)) {
+                                                    is SearchContentHitNavigation.TemporaryInspection ->
+                                                        navController.navigate(navigation.route)
+
+                                                    SearchContentHitNavigation.NoReliableSource ->
+                                                        snackbarHostState.showSnackbar(SEARCH_NO_SOURCE_POSITION_MESSAGE)
+                                                }
                                             }
-                                            navController.navigate(route ?: "reader/$targetBookId")
                                         }
                                     },
                                 )
@@ -576,6 +674,8 @@ private fun SearchNoticeBanner(
             "全文索引尚未建立，当前只搜到了书名、作者等元数据"
         SearchNoticeKind.COVERAGE_INCOMPLETE ->
             "有 ${notice.affectedBooks} 本书只索引了部分内容，正文搜索结果可能不全"
+        SearchNoticeKind.CONTENT_SEARCH_FAILED ->
+            "正文搜索失败，以下仅显示书名、作者、笔记等其他搜索结果"
     }
     Surface(
         modifier = modifier.fillMaxWidth(),

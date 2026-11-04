@@ -48,6 +48,18 @@ internal fun ReaderPlatformEffects(
     // Lifecycle
     onReaderResumed: (Boolean) -> Unit,
     onPersistProgress: () -> Unit,
+    /**
+     * CRA-READER-EXIT-SAVE-DRAIN-v1：lifecycle 防重复落库门由 ReaderScreen 持有，
+     * 真实退出边界成功 drain 后会把"本次会话已在权威时机落库"标进去，
+     * 因此导航后的 onDispose 不再派发一次可能被 scope 取消的重复保存。
+     */
+    persistGate: ReaderLifecyclePersistGate,
+    /**
+     * CRA-READER-SESSION-PROGRESS-GUARD-FIX-v1：阅读会话结束（本组合销毁）时的清理回调。
+     * 在**退出落库之后**于同一 onDispose 块内顺序调用，保证守卫的退出裁决先于其状态释放
+     *（不依赖 Compose 对多个 DisposableEffect 的释放顺序）。
+     */
+    onReaderSessionEnded: () -> Unit = {},
     // Auto-hide
     controlsVisibleForAutoHide: Boolean,
     autoHideSeconds: Int,
@@ -59,15 +71,42 @@ internal fun ReaderPlatformEffects(
     val lifecycleOwner = LocalLifecycleOwner.current
     val latestOnReaderResumed = rememberUpdatedState(onReaderResumed)
     val latestOnPersistProgress = rememberUpdatedState(onPersistProgress)
+    val latestOnReaderSessionEnded = rememberUpdatedState(onReaderSessionEnded)
 
     // ── 1. Lifecycle observer ──────────────────────────────────────────────
+    //
+    // CRA-JOINT-31-MERGE-FREEZE-ACCEPT-v1（保存接缝：onDispose 用过渡布局重算并覆盖权威位置）：
+    // 设备实测（j1_55s）显示，用户退出时 ON_PAUSE/ON_STOP 先各落一次**正确**位置（与滚动保存的
+    // S2 同值）；随后组合被销毁触发的 onDispose 又落一次，但此刻阅读列表已按**过渡中的更窄视口**
+    // （实测宽 1080→940）重新测量、同一像素位移映射到**不同字符偏移**，于是把正确的退出值覆盖成
+    // 错误位置（实测 5269→4821）。滚动模式的位置真源是「用户停留在哪」，不是「销毁瞬间的过渡布局」。
+    // 修复：本次组合已经因生命周期事件（ON_PAUSE/ON_STOP）落过权威位置时，onDispose 的重复落库
+    // 视为冗余并跳过；只有**未经生命周期落库**的销毁（如同 Activity 内路由离开阅读器而只触发
+    // composable dispose）才仍用 onDispose 落库——保持该路径的既有保存能力不丢失。
+    // 不新增超时、不改判定标准、不改任何 marker/S/R/S2 合同。
+    // CRA-JOINT-31-MERGE-FREEZE-ACCEPT-v2：状态机抽成纯 Kotlin 类 [ReaderLifecyclePersistGate]，
+    // 三条真实路径（生命周期已保存后 dispose 不覆盖 / 重新 ON_RESUME 后路由离开仍保存 /
+    // 未经生命周期保存时 dispose 仍保存）可在 JVM 上按事件顺序驱动。
     DisposableEffect(lifecycleOwner) {
+        // 组合（重新）开始：尚无生命周期落库。绝不把标记跨会话留存 —— 保存标记不得永久
+        // 抑制后续保存。
+        persistGate.onResume()
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> latestOnReaderResumed.value(true)
+                Lifecycle.Event.ON_RESUME -> {
+                    // 回到前台：清掉「已由生命周期落库」标记，使后续同 Activity 内离开阅读器
+                    // （只触发 composable dispose、不再有 ON_STOP）仍能经 onDispose 落库。
+                    persistGate.onResume()
+                    latestOnReaderResumed.value(true)
+                }
                 Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> {
                     latestOnReaderResumed.value(false)
-                    latestOnPersistProgress.value()
+                    val shouldPersist = persistGate.shouldPersistOnPauseOrStop()
+                    persistGate.onPauseOrStop()
+                    ReaderClampDiagnostics.log("reader_lifecycle_persist", "event" to event.name, "persist" to shouldPersist)
+                    if (shouldPersist) {
+                        latestOnPersistProgress.value()
+                    }
                 }
                 else -> Unit
             }
@@ -75,7 +114,15 @@ internal fun ReaderPlatformEffects(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             latestOnReaderResumed.value(false)
-            latestOnPersistProgress.value()
+            // 已经由生命周期事件（权威时机）落过位置 → 不再用销毁瞬间的过渡布局覆盖。
+            val persistOnDispose = persistGate.shouldPersistOnDispose()
+            ReaderClampDiagnostics.log("reader_dispose_persist", "persist" to persistOnDispose)
+            if (persistOnDispose) {
+                latestOnPersistProgress.value()
+            }
+            // CRA-READER-SESSION-PROGRESS-GUARD-FIX-v1：落库之后再释放本会话守卫状态
+            //（同一 onDispose 块内顺序执行，退出裁决一定先于释放）。
+            latestOnReaderSessionEnded.value()
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }

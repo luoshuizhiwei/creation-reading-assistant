@@ -42,6 +42,17 @@ import com.creationreadingassistant.ui.viewmodel.TaxonomyViewModel
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.creationreadingassistant.feature.sync.LocalZipRestoreState
 
 /**
  * 通过 CompositionLocal 从 Route 层把 SnackbarHostState 桥给 Pure Screen 层。
@@ -104,6 +115,8 @@ internal fun ProfileRoute(
     val aiHttpWarning by viewModel.aiHttpWarning.collectAsStateWithLifecycle()
     val bridgeStatus by viewModel.bridgeStatus.collectAsStateWithLifecycle()
     val zipStatus by viewModel.zipStatus.collectAsStateWithLifecycle()
+    // N1-repair-v1：整包恢复的**持久**中断状态（来自磁盘，跨实例可见，不是一次性 Toast）。
+    val zipRestoreState by viewModel.zipRestoreState.collectAsStateWithLifecycle()
     val homeSummary by viewModel.homeSummary.collectAsStateWithLifecycle()
     val goal by viewModel.goalState.collectAsStateWithLifecycle()
     val lastSyncResult by viewModel.lastSyncResult.collectAsStateWithLifecycle()
@@ -188,6 +201,9 @@ internal fun ProfileRoute(
     LaunchedEffect(aiMsg) { aiMsg?.let { showMsg(it) } }
     LaunchedEffect(bridgeStatus) { bridgeStatus?.let { showMsg(it) } }
     LaunchedEffect(zipStatus) { zipStatus?.let { showMsg(it) } }
+
+    // 进入「我的」页即从磁盘读一次中断状态：新实例（重启/重进）同样能看到未完成提示。
+    LaunchedEffect(Unit) { viewModel.refreshZipRestoreState(context) }
 
     // ---- R1 统一阅读笔记：动作桥（回源导航 / 删除撤销 / 编辑 / 改色 / 导出 / 分享）----
 
@@ -358,10 +374,21 @@ internal fun ProfileRoute(
         LocalSettingsFocusController provides focusController,
         LocalSettingsListState provides settingsListState,
     ) {
-        ProfileScreen(
-            state = uiState,
-            onAction = handleAction,
-        )
+        Column(modifier = Modifier.fillMaxSize()) {
+            // N1-repair-v1：上次整包恢复未完成时，在页首常驻说明（不依赖 Snackbar 记忆），
+            // 重试入口复用既有的「导入整包备份」动作（同一确认对话框 + SAF 选择器）。
+            zipRestoreState?.takeIf { !it.isComplete }?.let { interrupted ->
+                ZipRestoreInterruptedBanner(
+                    state = interrupted,
+                    onRetry = { handleAction(ProfileAction.ImportZip) },
+                )
+            }
+            ProfileScreen(
+                state = uiState,
+                onAction = handleAction,
+                modifier = Modifier.weight(1f),
+            )
+        }
 
         confirmDialog?.let { spec ->
             GlassAlertDialog(
@@ -375,6 +402,52 @@ internal fun ProfileRoute(
                 title = { Text(spec.title) },
                 text = { Text(spec.message) },
             )
+        }
+    }
+}
+
+/**
+ * 整包恢复未完成时的常驻说明条（N1-repair-v1）。
+ *
+ * 与 Snackbar 的区别：状态来自磁盘（[LocalZipRestoreState]），新实例照样显示；
+ * 文案如实说明「上次没做完、现在处于什么阶段」，并给出**明确的重试入口**——
+ * 复用既有的「导入整包备份」动作重新选择同一份备份。这里不提供任何「清理/回滚」
+ * 按钮：无归属证据的文件一律保留，未完成状态只能靠重新导入同一份备份收敛。
+ */
+@Composable
+private fun ZipRestoreInterruptedBanner(
+    state: LocalZipRestoreState,
+    onRetry: () -> Unit,
+) {
+    val stageText = when (state.stage) {
+        LocalZipRestoreState.STAGE_STARTED -> "已开始，恢复未完成（数据库状态未知）"
+        LocalZipRestoreState.STAGE_DB_COMMITTED -> "数据库已更新、书籍文件尚未复制完"
+        LocalZipRestoreState.STAGE_UNKNOWN -> "状态不可判定（状态文件损坏）"
+        else -> "阶段：${state.stage}"
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "上次整包恢复未完成",
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                text = "$stageText。当前数据库与书籍文件可能不一致，导出已被阻止，以免把混合状态写进新备份。" +
+                    state.failureSummary?.let { "\n上次失败：$it" }.orEmpty(),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onRetry) { Text("重新选择同一备份重试") }
+            }
         }
     }
 }
@@ -441,8 +514,12 @@ private fun handleProfileAction(
             SyncToggleItem.INSPIRATIONS -> viewModel.setSyncInspirations(action.enabled)
         }
         is ProfileAction.SetConflictStrategy -> viewModel.setConflictStrategy(action.strategy)
-        ProfileAction.RebuildSearchIndex ->
-            viewModel.rebuildSearchIndex { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }
+        // 搜索索引两个动作走 ViewModel 的**真实分发入口**：UI 与 JVM 定向测试共用同一份
+        // when 分支，不为测试复制一份转发逻辑（CRA-SEARCH-INDEX-CANCEL-CONTROL-v3）。
+        ProfileAction.RebuildSearchIndex,
+        ProfileAction.CancelSearchIndex,
+        ->
+            viewModel.handleProfileAction(action) { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }
 
         // ---- WebDAV ----
         is ProfileAction.SaveWebDav -> {

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Icon
@@ -93,6 +94,8 @@ internal fun DiagnosticsSubPage(
     var showClearConfirm by remember { mutableStateOf(false) }
     // R6-B7：全库索引重建需要二次确认（会重置增量游标，后台分窗口重扫全书）
     var showRebuildIndexConfirm by remember { mutableStateOf(false) }
+    // §6.9 停止索引构建二次确认
+    var showCancelIndexConfirm by remember { mutableStateOf(false) }
 
     val modules = remember(logs) { logs.map { it.module }.distinct().sorted() }
     val filtered = remember(logs, selectedLevel, selectedModule) {
@@ -172,6 +175,17 @@ internal fun DiagnosticsSubPage(
             onConfirm = {
                 showRebuildIndexConfirm = false
                 onAction(ProfileAction.RebuildSearchIndex)
+            },
+        )
+    }
+    // §6.9-v3 停止索引构建二次确认（在跑与排队共用同一条真实动作分发）
+    if (showCancelIndexConfirm) {
+        SearchIndexCancelConfirmDialog(
+            queued = !state.searchIndexProgress.isRunning && state.searchIndexProgress.isQueued,
+            onDismiss = { showCancelIndexConfirm = false },
+            onConfirm = {
+                showCancelIndexConfirm = false
+                onAction(ProfileAction.CancelSearchIndex)
             },
         )
     }
@@ -305,6 +319,31 @@ internal fun DiagnosticsSubPage(
                     },
                     onClick = { showRebuildIndexConfirm = true },
                 )
+
+                // §6.9-v3 在跑**或已排队**都显示停止入口：排队/等待重试阶段此前没有入口
+                if (state.searchIndexProgress.canCancel) {
+                    CompactItemDivider()
+                    CompactSettingRow(
+                        title = if (state.searchIndexProgress.isRunning) "停止搜索索引" else "撤下排队的索引构建",
+                        subtitle = "保留断点，下次续建",
+                        leading = {
+                            Icon(
+                                Icons.Outlined.Stop,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        },
+                        trailing = {
+                            Text(
+                                text = "停止",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        onClick = { showCancelIndexConfirm = true },
+                    )
+                }
 
                 exportMsg?.let { msg ->
                     Text(

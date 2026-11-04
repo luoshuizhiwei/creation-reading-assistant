@@ -138,6 +138,14 @@ object SourceNavigationContract {
      *
      * The oldest temporary entry is dropped when [maxTemporaryHistory] is exceeded, so a burst
      * of inspection hops cannot grow unboundedly.
+     *
+     * 120-v1 source-context rule: the return target is **only** [SourceNavigationState.active] —
+     * the reading spot that is genuinely on screen right now (an in-reader hop, e.g. opening a
+     * highlight source from inside the reader). The durable [SourceNavigationState.normalReading]
+     * pointer is **history**, not the current navigation context: after the user leaves the
+     * reader for Home (see [leaveReaderSession]), a temporary inspection started from global
+     * search must not fabricate a "return to the reader" target out of that stale pointer — its
+     * return is the navigation back stack (the search page), not an old reading spot.
      */
     fun beginTemporaryInspection(
         state: SourceNavigationState,
@@ -146,7 +154,7 @@ object SourceNavigationContract {
     ): SourceNavigationState {
         require(maxTemporaryHistory > 0) { "maxTemporaryHistory must be positive" }
 
-        val returnTarget = state.active ?: state.normalReading
+        val returnTarget = state.active
         val stack = if (returnTarget == null) {
             state.temporaryReturnStack
         } else {
@@ -154,6 +162,25 @@ object SourceNavigationContract {
         }
         return state.copy(active = destination, temporaryReturnStack = stack)
     }
+
+    /**
+     * Ends the current reader navigation session: the on-screen [SourceNavigationState.active]
+     * spot and any residual temporary return stack become invalid, while the durable
+     * [SourceNavigationState.normalReading] pointer is **kept** for later recovery
+     * (e.g. Home "continue reading" re-establishes it via [recordNormalReading]).
+     *
+     * Called when navigation leaves the reader domain (AppNavigation observes the current
+     * destination). This is the session-boundary counterpart of [restoreAfterRestart]:
+     * restart restores active from the durable pointer because the process resumes reading,
+     * whereas leaving the reader means the user is elsewhere — a later temporary inspection
+     * must return to its real origin (navigation back stack), never to the stale pointer.
+     */
+    fun leaveReaderSession(state: SourceNavigationState): SourceNavigationState =
+        SourceNavigationState(
+            active = null,
+            normalReading = state.normalReading,
+            temporaryReturnStack = emptyList(),
+        )
 
     /**
      * Returns from one temporary inspection level. If no temporary level remains, return to the

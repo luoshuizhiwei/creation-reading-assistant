@@ -48,6 +48,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
@@ -75,6 +78,44 @@ enum class IndexSweepResult {
      * 根治需要章节级续建（`SearchIndexStateRow.last_scanned_chapter_index` 已预留该字段）。
      */
     STALLED,
+}
+
+/**
+ * 显式全量重建（[SearchIndexRepository.triggerFullRebuildNow]）的实际结果。
+ *
+ * 反馈必须如实：取消与重置/排队的先后关系不同，用户看到的结果也不同 ——
+ * 「已重置并排队」「取消先到、断点保留」「已重置但未排队」是三件不同的事，
+ * 不能一律说成「已重置索引进度」（v3 缺陷 B）。
+ */
+enum class FullRebuildLaunch {
+    /** 游标已重置到起点，且已请求后台重建（正常显式重建）。 */
+    RESET_QUEUED,
+
+    /** 取消先于重置到达：游标**没有**被动（断点保留），也没有重新排队。 */
+    SKIPPED_CANCELLED,
+
+    /** 重置已提交，但排队之前又被取消：游标已重置（不得声称断点保留），但**没有**排队。 */
+    RESET_NOT_QUEUED,
+}
+
+/**
+ * [SearchIndexRepository.cancelIndexing] 的结果：如实区分三种取消，供 UI 反馈。
+ */
+data class CancelIndexingResult(
+    /** 取消前确有构建在跑（持有执行权）。 */
+    val wasRunning: Boolean,
+    /** 取消前确有已排队 / 等待重试的构建。 */
+    val wasQueued: Boolean,
+    /**
+     * 扫描断点（游标）是否已确认保留。重置提交中或已重置时为 false；
+     * 提交中必须优先按 [resetPending] 反馈，不承诺保留或已清除。
+     */
+    val anchorPreserved: Boolean,
+    /** 重置已取得提交资格，但 DAO 尚未返回；断点以提交结果为准。 */
+    val resetPending: Boolean = false,
+) {
+    /** 是否确实停止/撤下了什么：false 表示本来就没有构建，不得谎报「已停止」。 */
+    val stoppedSomething: Boolean get() = wasRunning || wasQueued
 }
 
 /**
@@ -123,7 +164,18 @@ class SearchIndexRepository @Inject constructor(
         val totalBooks: Int,
         val isRunning: Boolean,
         val totalTerms: Long = 0L,
-    )
+        /**
+         * 已请求后台扫描但**尚未取得执行权**（WorkManager 排队中 / 预算耗尽等待重试）。
+         *
+         * 与 [isRunning] 是两种不同状态：排队时并没有任何协程在扫书，但用户看得见
+         * 「还有一次构建在等」，且**必须**能取消它 —— 只在 [isRunning] 时给停止入口
+         * 会让排队/等待重试阶段的构建无法被取消（CRA-…-v3 缺陷 C）。
+         */
+        val isQueued: Boolean = false,
+    ) {
+        /** 是否可以取消：在跑、或已排队等待，两者都必须给用户停止入口。 */
+        val canCancel: Boolean get() = isRunning || isQueued
+    }
 
     private val _progress = MutableStateFlow(Progress(0L, 0, false))
     val progress: StateFlow<Progress> = _progress.asStateFlow()
@@ -154,6 +206,56 @@ class SearchIndexRepository @Inject constructor(
     /** 活跃的单本书即时构建任务计数 */
     private val singleBookRunningCount = AtomicInteger(0)
 
+    /**
+     * 取消归属（§6.9-v3）：取消事实挂在**具体执行**上，不再用全局共享布尔标志。
+     *
+     * v2 的共享 `AtomicBoolean` 有个致命竞态：[cancelIndexing] 置 true 后，任何**新**占权的
+     * 扫描都会把它清成 false；被取消的旧扫描恢复后读到 false，就不再被认成取消 ——
+     * 取消事实被新任务擦掉，旧扫描退回 `indexSweepResult` 的判定（PROGRESSED / STALLED），
+     * 于是 Worker 要么 `Result.retry()` 立刻重试，要么误报「单本超窗」后 `Result.failure()`。
+     *
+     * 现在一次取消记录两件事，缺一不可：
+     * - [cancelledJobIds]：取消当时**持有执行权**的那个具体 job（在跑的扫描或重建）。
+     *   只有它自己结束时会读到「我被取消了」，新任务占权不会改写这条事实；
+     * - [cancelEpoch]：单调递增的取消计数，覆盖「已排队、尚未占权」的执行 ——
+     *   一次扫描在占权时快照它，结束时只和**自己的快照**比，天然区分「取消发生在我之前」与「之后」。
+     */
+    private val cancelledJobIds: MutableSet<Long> =
+        Collections.newSetFromMap(ConcurrentHashMap<Long, Boolean>())
+
+    private val cancelEpoch = AtomicLong(0L)
+
+    /**
+     * 取消与「真正动作」之间的**串行门槛**（v4）。
+     *
+     * 存在理由：光有 [cancelEpoch] 不够 —— 「读一次 epoch」与「真的去做」之间只要还有
+     * 挂起点（等锁、挂起 DAO），取消就能插进缝隙。于是出现两种复活：
+     * - 清断点：检查通过后去等 `sweepLock`，取消在此期间到达 ⇒ 断点照样被清；
+     * - 入队：检查通过后挂起 `bookDao.countActive()`，取消在此期间先 `cancelUniqueWork`，
+     *   旧请求随后又 `triggerNow` ⇒ 刚取消的重建被重新排上队。
+     *
+     * 因此每个不可逆动作都必须把**检查与动作放进同一个临界区**：
+     * - 清断点的线性化点 = 取得 `sweepLock`（提交资格）后在**锁内**再校验一次；
+     * - 入队的线性化点 = 取得本门槛后在**门槛内**再校验一次再 `triggerNow`。
+     *
+     * 门槛内只做非挂起操作（一次 `AtomicLong` 读 + 一次 WorkManager 入队调用），
+     * 挂起的 DAO 一律放在门槛之外 —— 不制造「锁内挂起」的死锁面。
+     */
+    private val cancelGate = Mutex()
+
+    /** 断点状态以一次原子快照发布，提交中不能承诺已保留或已清除。 */
+    private enum class AnchorState { PRESERVED, RESET_PENDING, RESET_COMMITTED }
+    private val anchorState = AtomicReference(AnchorState.PRESERVED)
+
+    /** 一次执行是否已被用户取消：[jobId] 被点名，或快照之后又发生了新的取消。 */
+    private fun isCancelRequestedFor(jobId: Long, epochAtStart: Long): Boolean =
+        cancelledJobIds.contains(jobId) || cancelEpoch.get() != epochAtStart
+
+    /** 忘记某次执行的取消事实（执行已结束，事实不再需要保留，避免集合无界增长）。 */
+    private fun forgetCancel(jobId: Long) {
+        cancelledJobIds.remove(jobId)
+    }
+
     /** 仅供确定性并发测试注入的无锁协作拦截点（在短临界区完全释放后触发） */
     internal var testHookAfterStep: (suspend (step: String) -> Unit)? = null
 
@@ -165,6 +267,9 @@ class SearchIndexRepository @Inject constructor(
 
     /** 仅供确定性并发测试注入的无锁拦截点：重建已占权、尚未获取锁重置状态 */
     internal var testHookBeforeRebuildReset: (suspend (rebuildJobId: Long) -> Unit)? = null
+
+    /** 仅供确定性并发测试注入的无锁拦截点：重建游标重置**已提交**、尚未重新排队 */
+    internal var testHookAfterRebuildReset: (suspend (rebuildJobId: Long) -> Unit)? = null
 
     internal fun getCurrentGeneration(): Long = coordinationState.get().generation
 
@@ -231,7 +336,10 @@ class SearchIndexRepository @Inject constructor(
             val current = coordinationState.get()
             if (current.activeJobId == rebuildJobId) {
                 val next = SweepCoordinationState(
-                    generation = rollbackGen,
+                    // §6.9 回滚不得恢复旧 generation：cancel 可能在 rebuild 期间推进过代次，
+                    // 恢复旧值会让被取消的旧扫描通过代次校验 → 迟到写入复活。
+                    // 保持当前代次，只清重建标记与活跃任务。
+                    generation = current.generation,
                     activeJobId = null,
                     isRebuilding = false,
                 )
@@ -258,6 +366,36 @@ class SearchIndexRepository @Inject constructor(
         }
     }
 
+    /**
+     * 让**当前在跑的扫描任务立即失效**并归还执行权（用户取消专用）。
+     *
+     * 与 [beginRebuild] 共用「接管 + 推进代次」的同一套原子协议，但语义不同：
+     * 本方法只推进代次并清空活跃任务，**不置 `isRebuilding`**，也**不触碰**任何
+     * 游标、章节断点或索引行。在跑任务此后调用 [isSweepActiveAndValid] 一律为
+     * false，其后续写入被 [runIfCurrentGeneration] 拒绝 —— 因此「取消后立刻发起
+     * 的新任务」不会被旧任务的迟到写入覆盖。
+     *
+     * 全量重建正在重置游标时（`isRebuilding == true`）**不抢它的执行权**，
+     * 只推进代次让旧扫描失效，避免把重建的活跃任务清掉后 `isRebuilding` 悬挂。
+     */
+    private fun invalidateActiveSweep() {
+        while (true) {
+            val current = coordinationState.get()
+            val next = if (current.isRebuilding) {
+                current.copy(generation = current.generation + 1)
+            } else {
+                SweepCoordinationState(
+                    generation = current.generation + 1,
+                    activeJobId = null,
+                    isRebuilding = false,
+                )
+            }
+            if (coordinationState.compareAndSet(current, next)) {
+                return
+            }
+        }
+    }
+
     private fun isAnyIndexingRunning(): Boolean {
         val current = coordinationState.get()
         return current.activeJobId != null || current.isRebuilding || singleBookRunningCount.get() > 0
@@ -270,7 +408,20 @@ class SearchIndexRepository @Inject constructor(
             totalBooks = totalBooks ?: cur.totalBooks,
             isRunning = isAnyIndexingRunning(),
             totalTerms = cur.totalTerms,
+            isQueued = cur.isQueued,
         )
+    }
+
+    /** 记为「已请求、尚未取得执行权」：worker 会重新入队，用户必须看得到并能取消。 */
+    private fun markQueued() {
+        val cur = _progress.value
+        if (!cur.isQueued) _progress.value = cur.copy(isQueued = true)
+    }
+
+    /** 清除排队标记：已真正开跑、已跑完，或已被取消。 */
+    private fun clearQueued() {
+        val cur = _progress.value
+        if (cur.isQueued) _progress.value = cur.copy(isQueued = false)
     }
 
     /**
@@ -442,22 +593,32 @@ class SearchIndexRepository @Inject constructor(
         deadlineMs: Long = System.currentTimeMillis() + INDEX_BUILD_BUDGET_MS,
     ): IndexSweepResult {
         // 原子取得全库扫描执行权与当前代次（S03-1 统一原子协议）
-        val acquired = tryAcquireIncrementalSweep() ?: return IndexSweepResult.PROGRESSED
+        val acquired = tryAcquireIncrementalSweep() ?: run {
+            // 执行权在别人手上（在跑的扫描 / 正在重置的重建）：本次**没有**执行，
+            // worker 会重新入队 ⇒ 如实记为「已排队」，用户才看得到也取消得掉。
+            markQueued()
+            return IndexSweepResult.PROGRESSED
+        }
         val (myJobId, myGeneration) = acquired
+        // 取消归属快照：本轮只认**自己开始之后**发生的取消。取消发生在本次占权之前时
+        // 属于上一次执行的事实，绝不能让「取消后重新触发的续建」替旧执行背取消。
+        val cancelEpochAtStart = cancelEpoch.get()
+        clearQueued() // 已真正取得执行权，不再是「排队中」
 
         return try {
             testHookAfterAcquireOwnership?.invoke()
             if (!isSweepActiveAndValid(myJobId, myGeneration)) {
-                return IndexSweepResult.PROGRESSED
+                return stopOrWaitRetry(myJobId, cancelEpochAtStart)
             }
             val total = bookDao.countActive()
             if (total == 0) {
+                clearQueued()
                 updateProgressRunningState(indexedBooks = 0L, totalBooks = 0)
                 return IndexSweepResult.COMPLETED
             }
             val cur = stateDao.get()
             if (!isSweepActiveAndValid(myJobId, myGeneration)) {
-                return IndexSweepResult.PROGRESSED
+                return stopOrWaitRetry(myJobId, cancelEpochAtStart)
             }
             // tokenizer 版本变更 → 先清旧索引再从头扫
             if (cur != null && cur.tokenizer_version != TOKENIZER_VERSION) {
@@ -466,7 +627,7 @@ class SearchIndexRepository @Inject constructor(
                 }
             }
             if (!isSweepActiveAndValid(myJobId, myGeneration)) {
-                return IndexSweepResult.PROGRESSED
+                return stopOrWaitRetry(myJobId, cancelEpochAtStart)
             }
             // observeAllActive 返回 Flow<List<BookEntity>>；首帧就是 DB 最新的活跃书架快照
             val activeFlow: kotlinx.coroutines.flow.Flow<List<BookEntity>> = bookDao.observeAllActive()
@@ -490,18 +651,47 @@ class SearchIndexRepository @Inject constructor(
             }
             updateProgressRunningState(indexedBooks = countIndexedBooksCheap(), totalBooks = total)
             val outcome = processChunked(snapshot, startIdx, snapshot.size, deadlineMs, resumeChapter, myGeneration)
-            indexSweepResult(
-                reached = outcome.reached,
-                from = startIdx,
-                until = snapshot.size,
-                advancedWithinBook = outcome.advancedWithinBook,
-            )
+            when {
+                // §6.9-v3 取消归属：只有**本轮**被用户取消才优雅停止（COMPLETED：Worker 既不
+                // 重试也不记失败）。新任务占权不会改写这条事实 —— 旧扫描的取消不会被擦掉。
+                isCancelRequestedFor(myJobId, cancelEpochAtStart) -> {
+                    clearQueued()
+                    IndexSweepResult.COMPLETED
+                }
+                else -> {
+                    val result = indexSweepResult(
+                        reached = outcome.reached,
+                        from = startIdx,
+                        until = snapshot.size,
+                        advancedWithinBook = outcome.advancedWithinBook,
+                    )
+                    // 预算耗尽确有推进 → PROGRESSED：Worker 正常重试续建（不因取消机制被误伤），
+                    // 同时如实标记「等待重试」；STALLED 则停止自动重试，不留排队标记。
+                    if (result == IndexSweepResult.PROGRESSED) markQueued() else clearQueued()
+                    result
+                }
+            }
         } finally {
+            // 本轮执行结束，取消事实随之作废（集合不无界增长）
+            forgetCancel(myJobId)
             // 安全归还执行权：若当前仍是自己持有，归还并刷新 running 状态；
             // 若已被重建或新作业替换，绝不把全局 isRunning 刷成 false（S03-1）
             releaseSweepOwnership(myJobId)
             updateProgressRunningState()
         }
+    }
+
+    /**
+     * 扫描中途失去执行权时的处置（取消归属：只问**自己**是否被取消）。
+     *
+     * - 被用户取消 → [IndexSweepResult.COMPLETED]：优雅停止。Worker 既不 `Result.retry()`，
+     *   也不 `Result.failure()` —— 被取消的任务不得因为「reached > from」被当成预算推进而重试；
+     * - 其他原因（被重建接管、被更新的扫描替换）→ [IndexSweepResult.PROGRESSED]：等下个窗口续建。
+     */
+    private fun stopOrWaitRetry(myJobId: Long, epochAtStart: Long): IndexSweepResult {
+        val cancelled = isCancelRequestedFor(myJobId, epochAtStart)
+        if (cancelled) clearQueued() else markQueued()
+        return if (cancelled) IndexSweepResult.COMPLETED else IndexSweepResult.PROGRESSED
     }
 
     /**
@@ -534,32 +724,79 @@ class SearchIndexRepository @Inject constructor(
      * 游标只前进（见 [ensureIndexedIncremental]），因此「让已建过的书被重扫」唯一途径
      * 就是重置它；重建由后台 [SearchIndexWorker] 跨多个作业窗口完成。
      */
-    suspend fun invalidateSweepForFullRebuild() {
-        rebuildLock.withLock {
+    suspend fun invalidateSweepForFullRebuild(): Boolean =
+        invalidateSweepForFullRebuildFrom(cancelEpoch.get())
+
+    /**
+     * [invalidateSweepForFullRebuild] 的实现体，[cancelEpochAtStart] 是**本次重建请求起点**
+     * 的取消归属快照。
+     *
+     * 为什么必须由调用方把请求起点的快照传进来（CRA-SEARCH-REBUILD-CANCEL-EPOCH-FIX-v1）：
+     * 取消归属判据是「本次请求之后发生的取消才算数」。若在**取得重置资格的那一刻**才去读
+     * [cancelEpoch]，则请求起点到这一刻之间发生的取消会被漏掉 —— 而这个区间里有两个真实挂起窗口：
+     *   · [triggerFullRebuildNow] 在请求起点之后先挂起 `purgeOrphanIndexRows()`；
+     *   · 第二次重建请求可能一直排在 `rebuildLock` 上等前一次重建。
+     * 两处的取消都会在「重新取快照」时被洗掉，于是旧请求照样清断点。
+     * 直接调用本函数（如 `ReaderSearchIndexCoordinator`）时请求起点就是调用起点，由
+     * [invalidateSweepForFullRebuild] 就地取快照，语义与调用方传入一致。
+     */
+    private suspend fun invalidateSweepForFullRebuildFrom(cancelEpochAtStart: Long): Boolean {
+        return rebuildLock.withLock {
             val rebuildJobId = jobIdSequence.incrementAndGet()
             // 接管全库执行权与推进代次，阻止任何新扫描在重置完成前启动并读取旧游标
             val oldGen = beginRebuild(rebuildJobId)
+            var committed = false
             try {
                 testHookBeforeRebuildReset?.invoke(rebuildJobId)
+                // ── 线性化点（v4）──────────────────────────────────────────────
+                // 校验与「清断点」必须在**同一个**临界区（sweepLock）内完成。
+                // v3 把校验放在取锁之前：校验通过后去等锁的这段时间里，取消可以先到达，
+                // 但取到锁之后仍会照样清断点 —— 检查与动作之间有缝。
+                // 现在取到锁（= 取得提交资格）后再校验一次：
+                //   · 取消的 epoch 自增发生在本次校验之前 ⇒ 取消赢，断点保留；
+                //   · 发生在之后 ⇒ 重置已取得提交资格，DAO 返回前只报告「提交中」。
                 sweepLock.withLock {
-                    stateDao.set(
-                        SearchIndexStateRow(
-                            tokenizer_version = TOKENIZER_VERSION,
-                            last_scanned_book_id = null,
-                            last_scanned_chapter_index = 0,
-                            built_at = 0,
-                        ),
-                    )
+                    val previousAnchor = cancelGate.withLock {
+                        if (isCancelRequestedFor(rebuildJobId, cancelEpochAtStart)) null
+                        else anchorState.getAndSet(AnchorState.RESET_PENDING)
+                    } ?: return@withLock
+                    try {
+                        stateDao.set(
+                            SearchIndexStateRow(
+                                tokenizer_version = TOKENIZER_VERSION,
+                                last_scanned_book_id = null,
+                                last_scanned_chapter_index = 0,
+                                built_at = 0,
+                            ),
+                        )
+                        committed = true
+                        anchorState.set(AnchorState.RESET_COMMITTED)
+                    } finally {
+                        if (!committed) anchorState.set(previousAnchor)
+                    }
                 }
+                if (!committed) {
+                    // 取消先取得资格 ⇒ 不得清断点：回滚接管，如实返回「未提交」。
+                    // （回滚放在 sweepLock 之外，门槛内不做任何挂起操作。）
+                    rollbackRebuild(rebuildJobId, oldGen)
+                    forgetCancel(rebuildJobId)
+                    updateProgressRunningState()
+                    return@withLock false
+                }
+                testHookAfterRebuildReset?.invoke(rebuildJobId)
             } catch (e: Throwable) {
-                // 失败恢复策略：回滚代次并释放接管锁，防止系统进入「新代次 + 旧游标」腐化状态
+                // 失败恢复策略：回滚代次并释放接管锁，防止系统进入「新代次 + 旧游标」腐化状态。
+                // 保留 v2 的修复：回滚**不恢复旧 generation**，被取消的旧扫描不得因此复活。
                 rollbackRebuild(rebuildJobId, oldGen)
+                forgetCancel(rebuildJobId)
                 updateProgressRunningState()
                 throw e
             }
             // 重置完成，释放执行权供后续新扫描使用
             completeRebuild(rebuildJobId)
+            forgetCancel(rebuildJobId)
             updateProgressRunningState()
+            committed
         }
     }
 
@@ -572,12 +809,111 @@ class SearchIndexRepository @Inject constructor(
      * （`SearchViewModel.triggerRebuildIndex`）与「存储 / 日志与诊断」页的按钮
      * （`ProfileViewModel.rebuildSearchIndex`）。
      */
-    suspend fun triggerFullRebuildNow(overrideScheduler: SearchIndexScheduler? = null) {
+    suspend fun triggerFullRebuildNow(overrideScheduler: SearchIndexScheduler? = null): FullRebuildLaunch {
+        // 取消归属快照：本次重建**请求之后**发生的取消才算数（请求之前那次取消属于上一次执行）。
+        // 这个快照必须一路带到真正的重置资格检查 —— 中间隔着 purgeOrphanIndexRows 的多次挂起
+        // 与可能的 rebuildLock 排队，在那里重新取快照会把窗口内的取消洗掉
+        //（CRA-SEARCH-REBUILD-CANCEL-EPOCH-FIX-v1）。
+        val cancelEpochAtStart = cancelEpoch.get()
         purgeOrphanIndexRows()
-        invalidateSweepForFullRebuild()
+        if (!invalidateSweepForFullRebuildFrom(cancelEpochAtStart)) {
+            // 取消先于本次重置资格：本次请求没有清断点，也不得排队复活刚被取消的请求。
+            // 但断点可能已由**更早**的重置清除（anchor 仍是 RESET_COMMITTED）—— 此时如实报
+            // 「重置已提交但未排队」，不得声称断点原样保留。
+            clearQueued()
+            updateProgressRunningState()
+            return if (anchorState.get() == AnchorState.RESET_COMMITTED) {
+                FullRebuildLaunch.RESET_NOT_QUEUED
+            } else {
+                FullRebuildLaunch.SKIPPED_CANCELLED
+            }
+        }
+        // 挂起的 DAO 读取放在门槛**之外**（门槛内不做挂起操作）
         val total = bookDao.countActive()
-        _progress.value = Progress(0L, total, isRunning = isAnyIndexingRunning(), totalTerms = 0L)
-        (overrideScheduler ?: scheduler)?.triggerNow(force = true)
+        // ── 线性化点（v4）──────────────────────────────────────────────────
+        // 校验与「真正入队」必须在**同一个**临界区（cancelGate）内完成，且两者之间
+        // 不再有任何挂起点。v3 把校验放在挂起的 `bookDao.countActive()` 之前：
+        // 取消可以在 countActive 挂起期间先跑完 `cancelUniqueWork`，随后旧请求仍会
+        // `triggerNow` 重新排队 —— 刚被取消的重建被复活。
+        // 现在：取到门槛后再校验一次，不成立就直接返回，绝不入队。
+        //   · 取消先取得资格 ⇒ RESET_NOT_QUEUED（游标已重置是既成事实，如实报告）；
+        //   · 入队先取得资格 ⇒ RESET_QUEUED，用户随后取消仍走 `cancelPendingSweep()`。
+        val queued = cancelGate.withLock {
+            if (cancelEpoch.get() != cancelEpochAtStart) {
+                false
+            } else {
+                _progress.value = Progress(
+                    0L, total, isRunning = isAnyIndexingRunning(), totalTerms = 0L, isQueued = true,
+                )
+                (overrideScheduler ?: scheduler)?.triggerNow(force = true)
+                true
+            }
+        }
+        if (!queued) {
+            clearQueued()
+            updateProgressRunningState()
+            return FullRebuildLaunch.RESET_NOT_QUEUED
+        }
+        return FullRebuildLaunch.RESET_QUEUED
+    }
+
+    /**
+     * 用户显式取消后台索引构建（S1「可取消、续建」合同，
+     * CRA-SEARCH-INDEX-CANCEL-CONTROL-v1）。
+     *
+     * 语义边界（逐条对应 S1 验收要求）：
+     * 1. **只取消在跑 / 排队的一次性扫描**，并让在跑任务立即失效（推进代次）；
+     * 2. **不把取消说成完成**：本方法不写任何完成标记，`progress.isRunning` 按真实
+     *    协调状态重算（取消后为 false），已建/未建仍按实际覆盖度呈现；
+     * 3. **保留合法已提交章节与断点**：不读写 `search_index_state`（`last_scanned_book_id`
+     *    / `last_scanned_chapter_index` 原样保留），也不删除任何 `search_terms` /
+     *    `search_index_coverage` 行；
+     * 4. **后续续建走既有语义**：下一次 [ensureIndexedIncremental]（冷启动 / 周期任务 /
+     *    [enqueueOnce]）从保留的锚点继续，**不是**清空后重建；
+     * 5. **显式全量重建保持原语义**：取消不改变 [triggerFullRebuildNow] 的行为 ——
+     *    它仍然会重置游标并从第 0 本重扫；
+     * 6. **重试与取消竞态**：代次已推进 ⇒ 被取消任务的迟到写入一律被拒，
+     *    新任务（续建或重建）不会被旧任务覆盖。
+     *
+     * 7. **取消归属具体执行（v3）**：取消事实挂在取消当时持有执行权的 job 上，并推进
+     *    [cancelEpoch] 覆盖「已排队尚未占权」的执行。新任务占权**不会**擦掉旧任务的
+     *    取消事实 —— v2 的共享布尔标志会被新扫描清零，导致被取消的旧扫描恢复后退回
+     *    `PROGRESSED` / `STALLED` 判定，Worker 于是重试或误报失败。
+     *
+     * @return [CancelIndexingResult]（供 UI **如实**反馈：区分在跑 / 排队 / 本来就没事，
+     *         以及断点是否仍然保留，不夸大为「已完成」）。
+     */
+    suspend fun cancelIndexing(): CancelIndexingResult {
+        val wasRunning = isAnyIndexingRunning()
+        val wasQueued = _progress.value.isQueued
+        // 取消的**线性化点**：整段「点名 job + 推进 epoch + 作废执行权 + 撤下 WorkManager
+        // 排队」都在 [cancelGate] 内一次做完，与「入队」动作互斥 —— 于是
+        // 「先 cancelUniqueWork、随后旧请求又 enqueue」这类复活不再可能发生。
+        // 门槛内只有非挂起操作，不会与任何锁形成死锁面。
+        cancelGate.withLock {
+            // 取消归属：点名取消「取消当时持有执行权的那个 job」，再推进 epoch 覆盖排队执行。
+            // 顺序要紧：必须先读到 jobId，[invalidateActiveSweep] 之后就取不到了。
+            val activeJobId = coordinationState.get().activeJobId
+            if (activeJobId != null) cancelledJobIds.add(activeJobId)
+            cancelEpoch.incrementAndGet()
+            invalidateActiveSweep()
+            scheduler?.cancelPendingSweep()
+        }
+        clearQueued()
+        updateProgressRunningState()
+        val anchorSnapshot = anchorState.get()
+        val result = CancelIndexingResult(
+            wasRunning = wasRunning,
+            wasQueued = wasQueued,
+            anchorPreserved = anchorSnapshot == AnchorState.PRESERVED,
+            resetPending = anchorSnapshot == AnchorState.RESET_PENDING,
+        )
+        AppLog.event(
+            "SearchIndex",
+            "用户取消后台索引构建（在跑=$wasRunning，排队=$wasQueued，断点保留=${result.anchorPreserved}，重置提交中=${result.resetPending}）；" +
+                "已提交章节保留，下次按当前锚点继续或从头重扫",
+        )
+        return result
     }
 
     /**
@@ -1046,6 +1382,7 @@ class SearchIndexRepository @Inject constructor(
                                 built_at = System.currentTimeMillis(),
                             ),
                         )
+                        anchorState.set(AnchorState.PRESERVED)
                     }
                     if (!updated) break
                     i++
@@ -1062,6 +1399,7 @@ class SearchIndexRepository @Inject constructor(
                                 built_at = System.currentTimeMillis(),
                             ),
                         )
+                        anchorState.set(AnchorState.PRESERVED)
                     }
                     if (!updated) break
                     advancedWithinBook = outcome.lastChapter > startChapter
@@ -1080,6 +1418,7 @@ class SearchIndexRepository @Inject constructor(
                                 built_at = System.currentTimeMillis(),
                             ),
                         )
+                        anchorState.set(AnchorState.PRESERVED)
                     }
                     if (!updated) break
                     i++
@@ -1312,7 +1651,7 @@ class SearchIndexRepository @Inject constructor(
                     if (pending.size >= UPSERT_BATCH_ROWS) {
                         testHookBeforeWrite?.invoke("term_batch", book.id)
                         val flushed = runIfCurrentGeneration(generation) {
-                            termDao.upsertAll(pending.toList())
+                            termDao.upsertAllIfBookActive(pending.toList())
                         }
                         if (!flushed) {
                             pending.clear()
@@ -1451,7 +1790,7 @@ class SearchIndexRepository @Inject constructor(
                             if (pending.size >= UPSERT_BATCH_ROWS) {
                                 testHookBeforeWrite?.invoke("term_batch", book.id)
                                 val flushed = runIfCurrentGeneration(generation) {
-                                    termDao.upsertAll(pending.toList())
+                                    termDao.upsertAllIfBookActive(pending.toList())
                                 }
                                 if (!flushed) {
                                     pending.clear()
@@ -1586,9 +1925,27 @@ class SearchIndexRepository @Inject constructor(
         val now = System.currentTimeMillis()
         val formatWire = book.format.lowercase()
         val displayBuiltAt = if (displayState == SearchCoverageState.NOT_APPLICABLE || displayFailed) 0L else now
+        // §6.9 词项先落盘，再写覆盖率：取消发生在两者之间时，
+        // coverage 不得先于 terms 记 FULL —— 否则取消后留下「虚假 FULL」。
+        if (pending.isNotEmpty()) {
+            var k = 0
+            while (k < pending.size) {
+                val slice = pending.subList(k, (k + UPSERT_BATCH_ROWS).coerceAtMost(pending.size))
+                testHookBeforeWrite?.invoke("term_tail", book.id)
+                val termsWritten = runIfCurrentGeneration(generation) {
+                    termDao.upsertAllIfBookActive(slice)
+                }
+                if (!termsWritten) {
+                    pending.clear()
+                    return BookChapterOutcome(completed = false, lastChapter = lastChapter)
+                }
+                k += UPSERT_BATCH_ROWS
+            }
+        }
+
         testHookBeforeWrite?.invoke("coverage", book.id)
         val coverageWritten = runIfCurrentGeneration(generation) {
-            coverageDao.upsertAll(
+            coverageDao.upsertAllIfBookActive(
                 listOf(
                     SearchIndexCoverageRow(
                         book_id = book.id,
@@ -1620,21 +1977,6 @@ class SearchIndexRepository @Inject constructor(
             return BookChapterOutcome(completed = false, lastChapter = lastChapter)
         }
 
-        if (pending.isNotEmpty()) {
-            var k = 0
-            while (k < pending.size) {
-                val slice = pending.subList(k, (k + UPSERT_BATCH_ROWS).coerceAtMost(pending.size))
-                testHookBeforeWrite?.invoke("term_tail", book.id)
-                val termsWritten = runIfCurrentGeneration(generation) {
-                    termDao.upsertAll(slice)
-                }
-                if (!termsWritten) {
-                    pending.clear()
-                    return BookChapterOutcome(completed = false, lastChapter = lastChapter)
-                }
-                k += UPSERT_BATCH_ROWS
-            }
-        }
         return BookChapterOutcome(completed = !interrupted, lastChapter = lastChapter)
     }
 

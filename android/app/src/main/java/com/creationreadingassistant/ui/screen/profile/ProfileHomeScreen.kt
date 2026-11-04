@@ -226,6 +226,13 @@ internal fun ProfileHomeScreen(
                     onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) },
                 )
                 MenuItem(
+                    Icons.AutoMirrored.Outlined.MenuBook,
+                    "阅读笔记",
+                    "高亮、批注与书签",
+                    iconTint = Color(0xFF006874),
+                    onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.NOTES)) },
+                )
+                MenuItem(
                     Icons.Outlined.Flag,
                     "阅读目标",
                     if (state.goal.goalEnabled) "每天 ${state.goal.dailyMinutes} 分钟" else "设定每日目标与提醒",

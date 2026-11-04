@@ -112,7 +112,12 @@ internal fun openTts(
     if (result is TtsPlayResult.Rejected) {
         // 提示策略：被动 init failure 静默；用户主动打开听书且引擎不可用时恰好提示一次
         //（snackbar 带去设置）并进程内 reinitialize；未就绪显示可解释原因；主动错误不被吞。
-        when (val decision = TtsNoticePolicy.onOpenTtsRejected(tts.availability)) {
+        val rejectionNotice = if (tts.availability == TtsAvailability.Ready) {
+            TtsNoticeAction.ShowMessage(result.reason)
+        } else {
+            TtsNoticePolicy.onOpenTtsRejected(tts.availability)
+        }
+        when (val decision = rejectionNotice) {
             TtsNoticeAction.None -> Unit
             TtsNoticeAction.ReinitializeWithNotice -> {
                 tts.notifyUnavailable()
@@ -311,6 +316,18 @@ internal fun buildReaderNavActions(
     ttsContentText: String = contentText,
     /** R2-J1.4：返回阅读处回调（临时查阅 LIFO 返回一层）。 */
     onReturnToReading: () -> Unit = {},
+    /**
+     * CRA-READER-SESSION-PROGRESS-GUARD-FIX-v1：本阅读会话的位置保护守卫实例
+     *（与 [com.creationreadingassistant.ui.screen.reader.ReaderProgressEffects] 共用同一实例），
+     * 供退出落库做会话裁决。
+     */
+    sessionPositionGuard: ReaderSessionPositionGuard? = null,
+    /**
+     * CRA-EPUB-TEMPORARY-PROGRESS-FIX-v1：本会话是否为**临时查阅**。为 true 时所有
+     * 章导航（source locator 跨章、目录主动选章、上一/下一章、被动同步）都不落普通
+     * 阅读进度，只加载章节块；普通阅读传 false，行为与修复前逐字一致。
+     */
+    temporaryInspection: Boolean = false,
 ): ReaderNavActions {
     val showNoticeFn: (String) -> Unit = { msg ->
         scope.launch { snackbarHost.showSnackbar(msg) }
@@ -319,6 +336,7 @@ internal fun buildReaderNavActions(
         goToChapter(
             i, epubBook, markdownDocument, pagerEngineOn, chapterStartOffsets,
             pagedJumpRequest, chapterIndexState, tts, onAction, bid,
+            temporaryInspection = temporaryInspection,
         )
     }
     // M-BUG-08：「上一章」——落点取上一章末尾，对齐 md3 moveToPrevChapter(toLast = true)。
@@ -327,6 +345,7 @@ internal fun buildReaderNavActions(
             i, epubBook, markdownDocument, pagerEngineOn, chapterStartOffsets,
             pagedJumpRequest, chapterIndexState, tts, onAction, bid,
             atChapterEnd = true,
+            temporaryInspection = temporaryInspection,
         )
     }
     // 翻页跨章的被动章号同步：只更新 ViewModel 章状态（章号/TTS/章节块加载），
@@ -337,9 +356,15 @@ internal fun buildReaderNavActions(
             i, epubBook, markdownDocument, pagerEngineOn, chapterStartOffsets,
             pagedJumpRequest, chapterIndexState, tts, onAction, bid,
             jumpToStart = false,
+            temporaryInspection = temporaryInspection,
         )
     }
     val jumpToPlainOffsetFn: (Int) -> Unit = { offset ->
+        if (!temporaryInspection && !pagerEngineOn && readingUnits.isNotEmpty() &&
+            (unitIndexForOffset(readingUnits, offset) != plainListState.firstVisibleItemIndex ||
+                plainListState.firstVisibleItemScrollOffset != 0)) {
+            sessionPositionGuard?.recordNavigation()
+        }
         jumpToPlainOffset(
             offset, pagerEngineOn, readingUnits, scope, plainListState, pagedJumpRequest,
         )
@@ -410,6 +435,7 @@ internal fun buildReaderNavActions(
                 markdownDocument, txtStreamingDocument, plainContent, epubDocument,
                 plainListState = plainListState,
                 readingUnits = readingUnits,
+                sessionPositionGuard = sessionPositionGuard,
                 onAction = onAction,
             )
         },
@@ -432,6 +458,7 @@ internal fun buildReaderNavActions(
                 action, showTts, tts, autoPagingActiveState, autoPagingSupported,
                 onAction = onAction,
                 onBack = onBack, openTts = openTtsFn, showNotice = showNoticeFn,
+                onReturnToReading = onReturnToReading,
             )
         },
     )

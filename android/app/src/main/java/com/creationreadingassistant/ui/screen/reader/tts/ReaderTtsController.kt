@@ -36,9 +36,20 @@ import java.util.Locale
  * 句级续读（R3）：暂停记忆当前句索引，恢复从当前句续读；跨会话续读通过外部持久化句首偏移实现
  * （见 ReaderScreen 中的 ttsResumeOffset / SettingsStore.saveTtsResume）。
  */
-internal class TtsController(context: Context) : TtsStatus {
+internal class TtsController(
+    context: Context,
+    private val audioManager: AudioManager = context.applicationContext
+        .getSystemService(Context.AUDIO_SERVICE) as AudioManager,
+    private val createTts: (Context, TextToSpeech.OnInitListener) -> TextToSpeech = { c, listener ->
+        TextToSpeech(c, listener)
+    },
+    createMedia: (Context, () -> Unit, () -> Unit, () -> Unit, () -> Unit, () -> Unit) -> TtsMediaSession =
+        ::TtsMediaSession,
+    createFocusListener: ((Int) -> Unit) -> AudioManager.OnAudioFocusChangeListener = { callback ->
+        AudioManager.OnAudioFocusChangeListener { callback(it) }
+    },
+) : TtsStatus {
     private val appContext = context.applicationContext
-    private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var tts: TextToSpeech? = null
     private val statusHolder = TtsStatusHolder()
@@ -76,7 +87,6 @@ internal class TtsController(context: Context) : TtsStatus {
     var timedStopMinutes by mutableIntStateOf(0)
     /** 睡眠定时剩余秒数，供界面动态展示倒计时微胶囊与快捷延长（R3+）。 */
     var timedStopRemainingSeconds by mutableIntStateOf(0)
-    private var timedStopEndTimestamp = 0L
     private var countdownRunnable: Runnable? = null
     /** 当前朗读句在播放文本中的 [start, end) 偏移，供阅读器高亮与滚动（R2）。 */
     var currentSentenceRange by mutableStateOf(0 to 0)
@@ -91,26 +101,51 @@ internal class TtsController(context: Context) : TtsStatus {
     private var sentences: List<Pair<String, Int>> = emptyList() // (句文本, 句首偏移)
     private var index = 0
     private var originalVolume = -1
-    private var timedStopRunnable: Runnable? = null
-    private val media = TtsMediaSession(appContext, ::onMediaPlay, ::pause, ::next, ::prev, ::stop)
+    private val media = createMedia(appContext, ::onMediaPlay, ::pause, ::next, ::prev, ::stop)
+
+    /**
+     * 睡眠定时宿主：协调器只决定「何时」动作，音量写入与最终停止仍由本控制器执行，
+     * 保证抽取前后的播放行为一致。
+     */
+    private val timedStopHost = object : TtsTimedStopHost {
+        override fun isPlaying(): Boolean = status == "playing"
+        override fun currentVolume(): Float = volume
+        override fun setVolume(volume: Float, apply: Boolean) {
+            this@TtsController.volume = volume.coerceIn(0f, 1f)
+            if (apply) applyVolume()
+        }
+        override fun onTimedStop() = stop()
+    }
+
+    /** 睡眠定时生命周期协调器：计时 → 淡出 → 停止，全部走真实生产链路。 */
+    private val timedStop = TtsTimedStopCoordinator(
+        clock = { System.currentTimeMillis() },
+        postDelayed = { delayMs, action -> handler.postDelayed(action, delayMs) },
+        removeCallbacks = { action -> handler.removeCallbacks(action) },
+        host = timedStopHost,
+    )
 
     private var focusRequest: AudioFocusRequest? = null
+    private var hasAudioFocus: Boolean = false
     private var focusGainLegacy: Boolean = false
     private var wasPlayingBeforeFocusLoss: Boolean = false
 
-    private val afChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+    private val afChangeListener = createFocusListener { focusChange ->
         when (focusChange) {
             AudioManager.AUDIOFOCUS_LOSS -> {
+                hasAudioFocus = false
                 wasPlayingBeforeFocusLoss = false
                 pause()
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                 wasPlayingBeforeFocusLoss = (status == "playing")
+                hasAudioFocus = false
                 pause()
             }
             AudioManager.AUDIOFOCUS_GAIN -> {
                 if (wasPlayingBeforeFocusLoss) {
+                    hasAudioFocus = true
                     wasPlayingBeforeFocusLoss = false
                     resume()
                 }
@@ -128,13 +163,15 @@ internal class TtsController(context: Context) : TtsStatus {
                             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                             .build(),
                     )
-                    setAcceptsDelayedFocusGain(true)
+                    // 当前接口只接受立即获准；不排队等待后续 GAIN 自动开始朗读。
+                    setAcceptsDelayedFocusGain(false)
                     setOnAudioFocusChangeListener(afChangeListener)
                     build()
                 }
             }
             val r = audioManager.requestAudioFocus(focusRequest!!)
-            r == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            hasAudioFocus = (r == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
+            hasAudioFocus
         } else {
             @Suppress("DEPRECATION")
             val r = audioManager.requestAudioFocus(
@@ -143,11 +180,14 @@ internal class TtsController(context: Context) : TtsStatus {
                 AudioManager.AUDIOFOCUS_GAIN,
             )
             focusGainLegacy = (r == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
-            focusGainLegacy
+            hasAudioFocus = focusGainLegacy
+            hasAudioFocus
         }
     }
 
     private fun abandonFocus() {
+        hasAudioFocus = false
+        wasPlayingBeforeFocusLoss = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest?.let { runCatching { audioManager.abandonAudioFocusRequest(it) } }
         } else {
@@ -179,6 +219,7 @@ internal class TtsController(context: Context) : TtsStatus {
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {
                         handler.post {
+                            if (!hasAudioFocus) return@post
                             statusHolder.markPlaying()
                             media.updateState(PlaybackState.STATE_PLAYING)
                         }
@@ -186,6 +227,7 @@ internal class TtsController(context: Context) : TtsStatus {
 
                     override fun onDone(utteranceId: String?) {
                         handler.post {
+                            if (!hasAudioFocus) return@post
                             if (index < sentences.lastIndex) {
                                 index += 1
                                 speakCurrent()
@@ -236,7 +278,7 @@ internal class TtsController(context: Context) : TtsStatus {
     }
 
     init {
-        tts = TextToSpeech(appContext, initListener)
+        tts = createTts(appContext, initListener)
         ContextCompat.registerReceiver(
             appContext,
             noisyReceiver,
@@ -258,7 +300,10 @@ internal class TtsController(context: Context) : TtsStatus {
         sentences = splitSentencesWithOffsets(text)
         if (sentences.isEmpty()) return TtsPlayResult.Rejected("当前没有可朗读的文字。")
         index = sentences.indexOfFirst { it.second >= startOffset }.coerceAtLeast(0)
-        requestFocus()
+        if (!requestFocus()) {
+            stop()
+            return TtsPlayResult.Rejected(MSG_FOCUS_DENIED)
+        }
         media.updateMetadata(chapterLabel.ifBlank { "朗读" }, bookTitle.ifBlank { "创作阅读助手" })
         media.updateState(PlaybackState.STATE_PLAYING)
         media.showNotification()
@@ -292,6 +337,7 @@ internal class TtsController(context: Context) : TtsStatus {
     }
 
     private fun speakCurrent() {
+        if (!hasAudioFocus) return
         val pair = sentences.getOrNull(index) ?: return
         val (sentence, start) = pair
         currentSentenceRange = start to (start + sentence.length)
@@ -323,81 +369,25 @@ internal class TtsController(context: Context) : TtsStatus {
         stop()
     }
 
-    private var fadeOutRunnable: Runnable? = null
-    private var preFadeVolume: Float? = null
-
-    /** 取消当前正在执行的音量淡出任务并恢复淡出前音量。 */
-    private fun cancelFadeOut() {
-        fadeOutRunnable?.let { handler.removeCallbacks(it) }
-        fadeOutRunnable = null
-        preFadeVolume?.let { saved ->
-            volume = saved
-            applyVolume()
-            preFadeVolume = null
-        }
-    }
-
     /**
-     * 平滑淡出并终止播放（柔和入眠体验）。
-     *
-     * 在设定的毫秒内（默认 3 秒）将音量从当前值阶梯衰减至 0，随后执行 stop()。
-     * 完成后将控制器内部记录的音量值恢复为淡出前的值，确保下一次启动时声音不为 0。
+     * 武装睡眠定时：每次 play / resume 调用一次。语义与抽取前一致——
+     * 每次都按完整时长从当前时刻重新计时，本方法不感知章节。
      */
-    private fun fadeOutAndStop(durationMs: Long = 3000L) {
-        if (status != "playing") {
-            stop()
-            return
-        }
-        val initialVol = volume
-        preFadeVolume = initialVol
-        val intervalMs = 100L
-        val totalSteps = (durationMs / intervalMs).coerceAtLeast(1).toInt()
-        var step = 0
-
-        val runnable = object : Runnable {
-            override fun run() {
-                step++
-                if (step >= totalSteps || status != "playing") {
-                    fadeOutRunnable = null
-                    val saved = preFadeVolume
-                    preFadeVolume = null
-                    stop()
-                    saved?.let { volume = it }
-                    return
-                }
-                val ratio = 1f - (step.toFloat() / totalSteps)
-                volume = (initialVol * ratio).coerceIn(0f, 1f)
-                applyVolume()
-                handler.postDelayed(this, intervalMs)
-            }
-        }
-        fadeOutRunnable = runnable
-        handler.post(runnable)
-    }
-
     private fun scheduleTimedStop() {
         clearTimedStop()
-        if (timedStopMinutes > 0) {
-            val totalDelay = timedStopMinutes * 60_000L
-            val fadeDuration = 3000L
-            val triggerDelay = if (totalDelay > fadeDuration) totalDelay - fadeDuration else totalDelay
-            timedStopEndTimestamp = System.currentTimeMillis() + totalDelay
-            val runnable = Runnable {
-                fadeOutAndStop(fadeDuration.coerceAtMost(totalDelay))
-            }
-            timedStopRunnable = runnable
-            handler.postDelayed(runnable, triggerDelay)
-            startCountdown()
-        }
+        if (timedStop.arm(timedStopMinutes)) startCountdown()
     }
 
     private fun startCountdown() {
         stopCountdown()
         val tick = object : Runnable {
             override fun run() {
-                val rem = ((timedStopEndTimestamp - System.currentTimeMillis()) / 1000L).coerceAtLeast(0L).toInt()
+                val rem = timedStop.remainingSeconds()
                 timedStopRemainingSeconds = rem
-                if (rem > 0 && status != "idle") {
+                // 103-v1：首次 tick 可能先于异步 onStart 执行，此时 status 仍为 idle；
+                // 是否继续只取决于已武装的 deadline/剩余秒，不能把异步播放态耦合进来，
+                // 否则刚 play 就会清零倒计时。暂停/停止/关闭/release 仍由 clearTimedStop 统一清理。
+                if (rem > 0) {
                     handler.postDelayed(this, 1000L)
                 } else {
                     stopCountdown()
@@ -414,11 +404,13 @@ internal class TtsController(context: Context) : TtsStatus {
         timedStopRemainingSeconds = 0
     }
 
+    /**
+     * 清空睡眠定时：取消尚未到期的计时与进行中的淡出（并恢复淡出前音量），同时停止倒计时。
+     * 手动 [stop]、[pause]、末句播完与 [reinitialize] 均走此处。
+     */
     private fun clearTimedStop() {
-        timedStopRunnable?.let { handler.removeCallbacks(it) }
-        timedStopRunnable = null
+        timedStop.cancel()
         stopCountdown()
-        cancelFadeOut()
     }
 
     fun setTimedStop(min: Int) {
@@ -437,7 +429,7 @@ internal class TtsController(context: Context) : TtsStatus {
 
     /** 实时调节音量：立即作用到 STREAM_MUSIC（不会等到下一句）。 */
     fun updateVolume(v: Float) {
-        cancelFadeOut()
+        timedStop.cancelFade()
         volume = v.coerceIn(0f, 1f)
         if (status != "idle") applyVolume()
     }
@@ -482,7 +474,11 @@ internal class TtsController(context: Context) : TtsStatus {
             }
             is TtsPlayResult.Accepted -> Unit
         }
-        requestFocus()
+        if (!requestFocus()) {
+            stop()
+            statusHolder.publishError(MSG_FOCUS_DENIED)
+            return
+        }
         media.updateState(PlaybackState.STATE_PLAYING)
         media.showNotification()
         speakCurrent()
@@ -517,7 +513,8 @@ internal class TtsController(context: Context) : TtsStatus {
     }
 
     fun release() {
-        clearTimedStop()
+        timedStop.release()
+        stopCountdown()
         tts?.stop()
         restoreVolume()
         abandonFocus()
@@ -539,11 +536,12 @@ internal class TtsController(context: Context) : TtsStatus {
         tts?.shutdown()
         statusHolder.reinitialize()
         media.updateState(PlaybackState.STATE_STOPPED)
-        tts = TextToSpeech(appContext, initListener)
+        tts = createTts(appContext, initListener)
     }
 
     companion object {
         private const val MSG_INIT_FAILED = "系统语音引擎初始化失败，请到系统设置检查文字转语音。"
+        private const val MSG_FOCUS_DENIED = "暂时无法获得音频焦点，请稍后重试朗读。"
         private const val MSG_ENGINE_ERROR = "朗读播放出错，请检查系统语音引擎。"
     }
 }

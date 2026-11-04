@@ -184,7 +184,8 @@ sealed interface ReaderAction {
     data class ConvertHighlightToNote(val highlightId: String) : ReaderAction
     data class ConvertHighlightToInspiration(val highlightId: String) : ReaderAction
     data class SaveInspiration(val inspiration: InspirationEntity) : ReaderAction
-    data class CreateCategory(val name: String) : ReaderAction
+    /** 分类创建事件携带调用方生成的 id，保证回调返回值与最终落库 id 同源。 */
+    data class CreateCategory(val id: String, val name: String) : ReaderAction
     data class CreateTag(val name: String) : ReaderAction
     data class SaveProgress(val progress: ReadingProgressEntity) : ReaderAction
     data class UpdateReadingActivity(

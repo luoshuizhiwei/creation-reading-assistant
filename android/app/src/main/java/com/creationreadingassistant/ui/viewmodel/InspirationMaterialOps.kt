@@ -59,8 +59,12 @@ fun payloadWithoutAdoption(
 /**
  * 把多条素材聚合成一张**多摘录素材卡**的 payload（契约 8：素材可聚合多个来源）。
  *
- * - 每条来源的摘录文本 + 来源快照 + locator 原样保留（I2 摘录来源关联）；
- * - 只有具备摘录文本或定位信息的条目才进入聚合，纯想法条目只保留正文；
+ * - 每条输入先消费自身 `source` 槽位，再消费已有 `excerpts`（聚合卡再合并时，
+ *   其结构化摘录与 locator 原样进入新卡，不因 source 为 null 被跳过）；
+ * - 只有具备摘录文本或定位信息的 source 槽位才进入聚合，纯想法条目只保留正文；
+ *   `excerpts` 槽位按生产合同已过滤，原样继承；
+ * - 去重 = [InspirationSourceInfo] 完整数据类精确相等（与导出侧合同一致），
+ *   同书同摘录文字但 locator/字段不同是不同位置，不去重；保首次出现顺序；
  * - 聚合卡片自身的 tags/categoryIds 取各条的并集（保序去重）。
  */
 fun mergedMaterialPayload(
@@ -68,11 +72,14 @@ fun mergedMaterialPayload(
     tags: List<String>,
     categoryIds: List<String>,
 ): InspirationPayloadData {
-    val excerpts = sources.mapNotNull { src ->
-        val s = src.source ?: return@mapNotNull null
-        val hasExcerpt = !s.excerpt.isNullOrBlank()
-        if (hasExcerpt || !s.locatorJson.isNullOrBlank()) s else null
-    }
+    val excerpts = buildList {
+        sources.forEach { src ->
+            src.source?.let { s ->
+                if (!s.excerpt.isNullOrBlank() || !s.locatorJson.isNullOrBlank()) add(s)
+            }
+            addAll(src.excerpts)
+        }
+    }.distinct()
     return InspirationPayloadData(
         tags = tags.union(sources.flatMap { it.tags }).toList(),
         categoryIds = categoryIds.union(sources.flatMap { it.categoryIds }).toList(),

@@ -150,9 +150,15 @@ internal fun TtsAutoNextChapterEffect(
     LaunchedEffect(tts, showTts) {
         tts.onFinished = if (showTts) {
             {
-                if (latestChapterIndex < latestChapterCount - 1) {
+                // 每次回调时读取宿主当前值，播放中改定时选项不需要重建 effect。
+                val target = ttsAutoNextTarget(
+                    chapterIndex = latestChapterIndex,
+                    chapterCount = latestChapterCount,
+                    timedStopMinutes = tts.timedStopMinutes,
+                )
+                if (target != null) {
                     advancing.value = true
-                    goToChapter(latestChapterIndex + 1)
+                    goToChapter(target)
                 }
             }
         } else {
@@ -166,6 +172,27 @@ internal fun TtsAutoNextChapterEffect(
         }
     }
 }
+
+/**
+ * 章末自动接续的唯一判定入口。
+ *
+ * effect 在 onFinished 真正执行时读取宿主当前的 timedStopMinutes 并传入这里，
+ * 因此播放中改选项会立即生效，不受 Compose 旧闭包影响。
+ * 返回 null 表示本章结束后保持停止，不翻章、不重播。
+ */
+internal fun ttsAutoNextTarget(
+    chapterIndex: Int,
+    chapterCount: Int,
+    timedStopMinutes: Int,
+): Int? {
+    // 「播完本章」：本章结束即停，不翻章、不重播。
+    if (timedStopMinutes == TTS_TIMED_STOP_END_OF_CHAPTER) return null
+    if (chapterIndex < chapterCount - 1) return chapterIndex + 1
+    return null
+}
+
+/** 定时停止「播完本章」选项的持久化值，与 ReaderTtsBar 的选项一致。 */
+internal const val TTS_TIMED_STOP_END_OF_CHAPTER = -1
 
 /** 跨会话续读应保存的章号：EPUB / Markdown 按章跟踪，TXT 保持无章号语义。 */
 internal fun ttsResumeChapterFor(

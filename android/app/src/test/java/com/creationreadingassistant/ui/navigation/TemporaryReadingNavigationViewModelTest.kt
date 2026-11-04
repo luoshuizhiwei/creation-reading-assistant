@@ -118,4 +118,34 @@ class TemporaryReadingNavigationViewModelTest {
         assertNull(vm.state.value.active)
         assertFalse(vm.hasReturnableTarget)
     }
+
+    // 7. v4：请求成功身份判定 —— 只有本 route 的**请求真正提交过**才走 LIFO，
+    //    绝不用目标值 / 旧 active / 旧栈成员代替（J1-CROSSBOOK-TEMPORARY-SEAM-v4 缺陷 1）。
+    @Test
+    fun `isRequestCommitted tracks per-request success identity rather than target value`() {
+        val vm = TemporaryReadingNavigationViewModel()
+        val a = target("book-a", 100)
+        val b = target("book-b", 200)
+        vm.recordNormalReading(a)
+
+        // 未登记过的 requestId 一律不算已提交
+        assertFalse(vm.isRequestCommitted(null))
+        assertFalse("未登记过的 requestId 不得算已提交", vm.isRequestCommitted(9_999L))
+
+        // 登记但尚未提交（等待/失败）→ 不算已提交
+        val pending = vm.requestTemporaryInspection(b)!!
+        assertFalse("等待中的请求不得算已提交", vm.isRequestCommitted(pending))
+        assertTrue(vm.abandonPendingInspection(pending))
+        assertFalse("失败/取消的请求不得算已提交", vm.isRequestCommitted(pending))
+
+        // 真正提交成功后才算已提交
+        val committed = vm.requestTemporaryInspection(b)!!
+        assertTrue(vm.commitPendingInspection(committed, "book-b"))
+        assertTrue("成功提交的请求身份必须被记住", vm.isRequestCommitted(committed))
+
+        // 关键：同一目标值再次请求（未提交）不得被当作已提交 —— 身份而非目标值
+        val duplicateTarget = vm.requestTemporaryInspection(b)!!
+        assertFalse("重复目标值的未提交请求不得算已提交", vm.isRequestCommitted(duplicateTarget))
+        assertTrue("先前真正提交过的请求身份仍是已提交", vm.isRequestCommitted(committed))
+    }
 }

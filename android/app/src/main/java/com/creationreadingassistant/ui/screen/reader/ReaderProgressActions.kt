@@ -8,9 +8,12 @@ import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.doc.EpubDocument
+import com.creationreadingassistant.feature.reader.doc.MarkdownDocument
+import com.creationreadingassistant.feature.reader.doc.MarkdownRenderModel
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
+import com.creationreadingassistant.feature.reader.locator.EpubLocatorMapping
 import com.creationreadingassistant.feature.reader.locator.EpubProgressCalibration
 import com.creationreadingassistant.feature.reader.locator.LocatorBuilder
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
@@ -92,6 +95,15 @@ internal fun goToChapter(
      * 末尾取「下一章章首 - 1」，因为 chapterStartOffsets 是各章起始偏移。
      */
     atChapterEnd: Boolean = false,
+    /**
+     * CRA-EPUB-TEMPORARY-PROGRESS-FIX-v1：本会话是否为**临时查阅**。
+     *
+     * 临时查阅（搜索命中 / 回源）不是普通阅读，其跨章导航（含 source locator 目标章
+     * 切换、目录主动选章）**不得**落普通阅读进度——否则会把该书已存的续读点搬到章首
+     * （同书查阅污染原位置，跨书查阅污染被查看书）。这里把该规则传到实际章导航，
+     * 由 [ReaderAction.LoadChapter] 的 persistProgress 承载；章块加载不受影响。
+     */
+    temporaryInspection: Boolean = false,
 ) {
     val maxIndex = when {
         epubBook != null -> epubBook.chapters.lastIndex
@@ -116,7 +128,13 @@ internal fun goToChapter(
     // 可能是上一章末页）不得让 VM 写「章首」进度覆盖真实位置（merge 无条件采信
     // incoming locator；否则退出重进回到前一章开头）。分页模式的精确进度由
     // 防抖保存落库。
-    onAction(ReaderAction.LoadChapter(bid, clamped, persistProgress = jumpToStart || !pagerEngineOn))
+    // 临时查阅禁止普通保存：即便 jumpToStart/滚动模式本来会保存，也不得写普通进度。
+    onAction(
+        ReaderAction.LoadChapter(
+            bid, clamped,
+            persistProgress = (jumpToStart || !pagerEngineOn) && !temporaryInspection,
+        ),
+    )
 }
 
 /** TXT 跳转统一入口：分页引擎开着走翻页定位，否则滚动列表。两条路都以全书字符偏移为准。 */
@@ -172,6 +190,102 @@ internal fun currentReaderProgressSnapshot(
     chapterIndex = chapterIndexState.intValue,
 )
 
+internal fun markdownVisibleSourceOffset(
+    chapter: com.creationreadingassistant.feature.reader.doc.MarkdownParser.MarkdownChapter,
+    chapterBase: Int,
+    blocksGlobal: Boolean,
+    itemIndex: Int,
+    fraction: Float,
+): Int? {
+    val unit = MarkdownRenderModel.flatten(chapter).getOrNull(itemIndex) ?: return null
+    if (unit.canonicalRange.isEmpty()) return null
+    val start = unit.canonicalRange.first
+    val length = unit.canonicalRange.last - start + 1
+    val within = (length * fraction.coerceIn(0f, 1f)).toInt().coerceAtMost(length - 1)
+    return (if (blocksGlobal) 0 else chapterBase) + start + within
+}
+
+/**
+ * CRA-TASK48-v3：退出落库裁决（[TemporaryReturnSaveGuard.observe]）所需的
+ * **实时权威位置**。
+ *
+ * 与 [ReaderProgressEffects] 四个 500ms 防抖落库消费者各自的坐标映射逐一对齐
+ * （分页 = 引擎当前页首偏移 + 章映射；Markdown 滚动 = 可见渲染单元映射的
+ * source 偏移 + 当前章；纯文本滚动 = [plainScrollPersistOffset] 的持久位置
+ * 语义 + 全书章起始偏移反推）：任意防抖尚未发射时（含返回后 500ms 内快速
+ * 移动并退出），这里算出的位置与「下一刻防抖将要落库」的位置完全一致，
+ * 退出裁决与防抖裁决同口径。
+ *
+ * 恢复落位未定案（[pendingInitialPosition] / 搜索滚动聚焦请求未消费）时返回
+ * null：此刻任何视口坐标都只是中间态，不得据其判定「用户已移动」；调用方对
+ * null 一律维持冻结，与防抖期间不落库的行为一致。
+ */
+@Suppress("LongParameterList")
+internal fun temporaryReturnLeaveSourcePosition(
+    pagerEngineOn: Boolean,
+    pendingInitialPosition: Boolean,
+    searchScrollFocusPending: Boolean,
+    pagedAbsOffset: Int,
+    epubBook: EpubBook?,
+    pagedSource: PagedChapterSource?,
+    markdownDocument: ReaderDocument?,
+    chapterBlocks: List<DocBlock>,
+    chapterBase: Int,
+    epubListState: LazyListState,
+    plainListState: LazyListState,
+    readingUnits: List<ReadingUnit>,
+    txtStreamingDocument: PlainTextDocument?,
+    plainContent: String,
+    chapterStartOffsets: List<Int>,
+    scrollChapterIndex: Int,
+): Pair<Int, Int>? {
+    if (pendingInitialPosition || searchScrollFocusPending) return null
+    // 分页引擎开启：位置真源是引擎当前页首偏移（与翻页防抖落库同口径）。
+    if (pagerEngineOn) {
+        val offset = pagedAbsOffset
+        if (offset < 0) return null
+        val source = pagedSource ?: return null
+        val chapterIndex = if (epubBook != null) {
+            source.chapterIndexFor(offset)
+        } else {
+            EpubLocatorMapping.toChapterOffset(offset.coerceAtLeast(0), chapterStartOffsets).first
+        }
+        return offset to chapterIndex
+    }
+    // Markdown 滚动：可见渲染单元映射回 source 偏移（与 Markdown 防抖落库同口径；
+    // 位置取 epubListState —— Markdown 布局与 EPUB 共用该列表，不是纯文本列表）。
+    if (markdownDocument != null) {
+        val chapter = chapterBlocks.filterIsInstance<DocBlock.Markdown>().firstOrNull()?.chapter
+            ?: return null
+        val itemIndex = epubListState.firstVisibleItemIndex
+        val item = epubListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == itemIndex }
+        val fraction = if (item != null && item.size > 0) {
+            epubListState.firstVisibleItemScrollOffset.toFloat() / item.size
+        } else {
+            0f
+        }
+        val offset = markdownVisibleSourceOffset(
+            chapter,
+            chapterBase,
+            (markdownDocument as? MarkdownDocument)?.isWholeDocumentParse == true,
+            itemIndex,
+            fraction,
+        ) ?: return null
+        return offset to scrollChapterIndex
+    }
+    // 纯文本滚动：持久位置语义（含书末 clamp），章号按全书章起始偏移反推
+    // （与 TXT 滚动防抖落库同口径）。
+    val totalChars = txtStreamingDocument?.totalChars ?: plainContent.length.coerceAtLeast(1)
+    val offset = plainScrollPersistOffset(
+        canScrollForward = plainListState.canScrollForward,
+        listState = plainListState,
+        units = readingUnits,
+        totalChars = totalChars,
+    )
+    val chapterIndex = EpubLocatorMapping.toChapterOffset(offset.coerceAtLeast(0), chapterStartOffsets).first
+    return offset to chapterIndex
+}
+
 /**
  * 持久化当前阅读进度。EPUB 走 SaveEpubProgress，TXT/Markdown 走 SaveProgress。
  * 逐字搬运自 ReaderScreen，不改任何偏移计算或落库字段。
@@ -200,13 +314,28 @@ internal fun persistCurrentProgress(
     epubDocument: EpubDocument? = null,
     plainListState: LazyListState? = null,
     readingUnits: List<ReadingUnit> = emptyList(),
+    /**
+     * CRA-READER-SESSION-PROGRESS-GUARD-FIX-v1：本阅读会话的位置保护守卫实例。
+     * 为 null（未接线，如 Markdown 路径 / 既有单测）时行为与接线前逐字一致：不做会话裁决，
+     * 直接使用实时位置。
+     */
+    sessionPositionGuard: ReaderSessionPositionGuard? = null,
     onAction: (ReaderAction) -> Unit,
 ) {
+    val canPersist = canPersistLegacyScrollPosition(pendingInitialPosition)
+    ReaderClampDiagnostics.log(
+        "persist_current_progress_call",
+        "bid" to bid,
+        "pendingInitialPosition" to pendingInitialPosition,
+        "canPersist" to canPersist,
+        "visiblePlainOffset" to visiblePlainOffset,
+        "pagerEngineOn" to pagerEngineOn,
+    )
     if (
         bid.isBlank() ||
         loadedBook == null ||
         error != null ||
-        !canPersistLegacyScrollPosition(pendingInitialPosition)
+        !canPersist
     ) return
     if (epubBook != null) {
         val chapterOffset = if (pagerEngineOn && pagedAbsOffset >= 0) {
@@ -259,7 +388,17 @@ internal fun persistCurrentProgress(
             )
         )
     } else {
-        val livePlainOffset = if (plainListState != null && readingUnits.isNotEmpty()) {
+        // CRA-READER-SESSION-PROGRESS-GUARD-FIX-v1：用**退出瞬间的实时列表坐标**做会话裁决
+        //（而非依赖 500ms 防抖采样）。仅当用户确实未移动、实时坐标仍等于恢复锚点时，
+        // 才回退到权威初始进度；否则一律使用实时位置——快速滑动后防抖未发射即退出也能
+        // 正确保存用户的新位置。
+        val guardedPosition = sessionPositionGuard?.resolveNoMovePosition(
+            currentIndex = plainListState?.firstVisibleItemIndex ?: -1,
+            currentOffsetPx = plainListState?.firstVisibleItemScrollOffset ?: -1,
+        )
+        val livePlainOffset = if (guardedPosition != null) {
+            guardedPosition.first
+        } else if (plainListState != null && readingUnits.isNotEmpty()) {
             if (!plainListState.canScrollForward && txtStreamingDocument != null) {
                 txtStreamingDocument.totalChars
             } else {
@@ -268,8 +407,23 @@ internal fun persistCurrentProgress(
         } else {
             visiblePlainOffset
         }
-        val absoluteOffset = if (pagerEngineOn && pagedAbsOffset >= 0) {
+        val absoluteOffset = if (guardedPosition != null) {
+            guardedPosition.first
+        } else if (pagerEngineOn && pagedAbsOffset >= 0) {
             pagedAbsOffset
+        } else if (markdownDocument != null) {
+            val chapter = chapterBlocks.filterIsInstance<DocBlock.Markdown>().firstOrNull()?.chapter
+                ?: return
+            val item = epubListState.layoutInfo.visibleItemsInfo
+                .firstOrNull { it.index == epubListState.firstVisibleItemIndex }
+            val fraction = if (item != null && item.size > 0) {
+                epubListState.firstVisibleItemScrollOffset.toFloat() / item.size
+            } else 0f
+            markdownVisibleSourceOffset(
+                chapter, chapterBase,
+                (markdownDocument as? MarkdownDocument)?.isWholeDocumentParse == true,
+                epubListState.firstVisibleItemIndex, fraction,
+            ) ?: return
         } else {
             livePlainOffset
         }.coerceAtLeast(0)
@@ -278,7 +432,11 @@ internal fun persistCurrentProgress(
             txtStreamingDocument != null -> txtStreamingDocument.totalChars
             else -> plainContent.length
         }.coerceAtLeast(1)
-        val percent = (absoluteOffset * 100f / totalChars).coerceIn(0f, 100f)
+        val percent = if (guardedPosition != null) {
+            guardedPosition.second
+        } else {
+            (absoluteOffset * 100f / totalChars).coerceIn(0f, 100f)
+        }
         // TXT/Markdown 也存真实章号：书架进度卡显示「第 N 章」读的就是这个 ci。
         // 此前恒写 0，书架永远显示「第1章」（用户 2026-09-18 反馈）。退出保存是离开阅读器
         // 前的最后一次落库，漏了它前面的防抖保存就白做。
@@ -294,6 +452,26 @@ internal fun persistCurrentProgress(
                 ?.let { com.creationreadingassistant.feature.reader.locator.EpubLocatorMapping
                     .toChapterOffset(absoluteOffset, it).first }
             ?: chapterIndex.coerceAtLeast(0)
+        ReaderClampDiagnostics.log(
+            "persist_current_progress_dispatch",
+            "bid" to bid,
+            "livePlainOffset" to livePlainOffset,
+            "absoluteOffset" to absoluteOffset,
+            "totalChars" to totalChars,
+            "percent" to percent,
+            "canForward" to (plainListState?.canScrollForward),
+            // 任务86-v1-A：记录本次落库采用的位置来源，供退出回退定位。
+            "source" to when {
+                guardedPosition != null -> "session_guard"
+                pagerEngineOn && pagedAbsOffset >= 0 -> "paged"
+                markdownDocument != null -> "markdown"
+                else -> "plain"
+            },
+            "pagerEngineOn" to pagerEngineOn,
+            "pagedAbsOffset" to pagedAbsOffset,
+            "plainIndex" to (plainListState?.firstVisibleItemIndex ?: -1),
+            "plainOffsetPx" to (plainListState?.firstVisibleItemScrollOffset ?: -1),
+        )
         onAction(
             ReaderAction.SaveProgress(
                 ReadingProgressEntity(

@@ -104,17 +104,36 @@ class BookRepository @Inject constructor(
     /**
      * 阅读器自动进度写入：用 mergeReaderProgress 合并现有业务状态（搁置/读完不回退），
      * 只更新位置与百分比字段，保留累计时长、同步信息等已有数据。
+     *
+     * CRA-READER-DISPATCH-ORDER-MINIMAL-v6（风险 F）——**迟到旧事件保存丢弃**：
+     * 阅读器保存链是无序并发（`ReaderViewModel.io` = `viewModelScope.launch(ioDispatcher)`），
+     * 而 [mergeReaderProgress] 无条件以 incoming 覆盖位置。较早派发的离开保存或延迟回调若在
+     * 新事件保存**之后**才落到存储，就会把较新的进度覆盖回旧位置。
+     *
+     * [order] 由生产方在**事件产生点（业务派发边界）**同步取号给出（见 [ReaderProgressSaveOrder]）。
+     * 这里做「串行化读改写 + 按 order 丢弃迟到事件（order < last）」，
+     * **不使用墙钟、不使用位置数值方向、也不与库里的 `updated_at` 比较**——
+     * `updated_at` 仍按业务合同写成真实合并时刻。
      */
-    suspend fun saveProgress(incoming: ReadingProgressEntity) {
-        val now = Instant.now().toString()
-        progressDao.upsert(
-            mergeReaderProgress(
-                existing = progressDao.getByBook(incoming.book_id),
-                incoming = incoming,
-                nowIso = now,
-                nowMillis = System.currentTimeMillis(),
-            ),
-        )
+    suspend fun saveProgress(
+        incoming: ReadingProgressEntity,
+        /**
+         * 事件序号。**不传**表示本次写入不属于任何阅读派发（自成一次事件，取单调递增的新序号，
+         * 因此总是被接受）——只有替换/验收夹具这类不经阅读派发的调用方才省略；生产阅读
+         * 路径（`ReaderViewModel` 的保存分支）恒显式传入派发边界取到的真实值。
+         */
+        order: Long = ReaderProgressSaveOrder.next(),
+    ) {
+        ReaderProgressSaveOrder.accept(incoming.book_id, order) {
+            progressDao.upsert(
+                mergeReaderProgress(
+                    existing = progressDao.getByBook(incoming.book_id),
+                    incoming = incoming,
+                    nowIso = Instant.now().toString(),
+                    nowMillis = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     /** 写入阅读器生成的本地会话；切段与门槛策略由 ReadingSessionRecorder 统一负责。 */

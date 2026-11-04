@@ -8,6 +8,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.ColumnInfo
+import androidx.room.Transaction
 
 /**
  * P2-FTS5 MVP：search_terms 表的写入 DAO。
@@ -21,6 +22,26 @@ interface SearchTermDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<SearchTermRow>)
+
+    /**
+     * 101-v1：仅当 books 中该书仍活跃时，才在同一 Room 事务内写入 term 行。
+     * 删除事务与索引提交事务因此串行化：要么索引先提交、随后删除清掉这些行；
+     * 要么删除先提交、这里看到 deleted_at 非空而拒绝写入。避免“先查一次活跃后
+     * 再写”的窗口，也避免删除后旧快照任务回写孤儿行。
+     */
+    @Transaction
+    suspend fun upsertAllIfBookActive(rows: List<SearchTermRow>): Boolean {
+        val bookId = rows.firstOrNull()?.book_id ?: return false
+        if (rows.any { it.book_id != bookId }) {
+            throw IllegalArgumentException("term rows must belong to one book")
+        }
+        if (countActiveBook(bookId) == 0) return false
+        upsertAll(rows)
+        return true
+    }
+
+    @Query("SELECT COUNT(*) FROM books WHERE id = :bookId AND deleted_at IS NULL")
+    suspend fun countActiveBook(bookId: String): Int
 
     @Query("DELETE FROM search_terms WHERE book_id = :bookId")
     suspend fun deleteByBook(bookId: String)
@@ -155,6 +176,21 @@ interface SearchIndexCoverageDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<SearchIndexCoverageRow>)
+
+    /** 101-v1：coverage 行与 term 行共用同一「书仍活跃」事务门控。 */
+    @Transaction
+    suspend fun upsertAllIfBookActive(rows: List<SearchIndexCoverageRow>): Boolean {
+        val bookId = rows.firstOrNull()?.book_id ?: return false
+        if (rows.any { it.book_id != bookId }) {
+            throw IllegalArgumentException("coverage rows must belong to one book")
+        }
+        if (countActiveBook(bookId) == 0) return false
+        upsertAll(rows)
+        return true
+    }
+
+    @Query("SELECT COUNT(*) FROM books WHERE id = :bookId AND deleted_at IS NULL")
+    suspend fun countActiveBook(bookId: String): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(row: SearchIndexCoverageRow)

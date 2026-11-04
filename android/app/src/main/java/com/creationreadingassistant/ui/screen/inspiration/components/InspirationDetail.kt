@@ -68,6 +68,7 @@ import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.components.IslandSectionHeader
 import com.creationreadingassistant.ui.screen.inspiration.InspirationAction
+import com.creationreadingassistant.ui.screen.inspiration.SourceBookStatus
 import com.creationreadingassistant.ui.screen.inspiration.aiActionLabel
 import com.creationreadingassistant.ui.screen.inspiration.formatDetailTime
 import com.creationreadingassistant.ui.screen.inspiration.getStatusLabel
@@ -84,19 +85,47 @@ import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
 /**
  * 灵感详情页内容。不创建 Scaffold，不创建顶栏。
  * 只负责：标题 / 正文 / 标签 / 来源区块 / AI 候选与 AI 动作按钮。
+ *
+ * [sourceStatus] 由 [com.creationreadingassistant.ui.screen.inspiration.InspirationScreen]
+ * 根据真实书籍 Flow 与 payload 的 `source.bookId` 派生：
+ * - [SourceBookStatus.Loading]：书籍尚未首发，只显示加载说明，不宣称缺书；
+ * - [SourceBookStatus.Available]：真实书名优先，来源动作可用；
+ * - [SourceBookStatus.Missing]：保留历史书名快照，同时明确显示缺失；
+ * - [SourceBookStatus.Failed]：明确“无法确认”，不降级成缺书；
+ * - [SourceBookStatus.NotLinked]：灵感本身没有关联来源书。
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun InspirationDetail(
     entity: InspirationEntity,
     source: InspirationSourceInfo?,
+    sourceStatus: SourceBookStatus,
     payload: InspirationPayloadData?,
     tags: List<String>,
+    /** 任务93-v1-A：payload.categoryIds 的名称投影（旧 id 显示不可用标签）。 */
+    categoryNames: List<String> = emptyList(),
     viewModel: InspirationViewModel,
     onAction: (InspirationAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spec = LocalComponentSpec.current
+    // 实际书籍优先于历史 payload 快照；缺失时快照仍保留，并另外显示明确状态。
+    val snapshotBookTitle = source?.bookTitle?.takeIf { it.isNotBlank() }
+    val actualBookTitle = (sourceStatus as? SourceBookStatus.Available)
+        ?.book?.title?.takeIf { it.isNotBlank() }
+    val resolvedBookTitle = actualBookTitle ?: snapshotBookTitle
+    val sourceBookLabel = when {
+        sourceStatus is SourceBookStatus.NotLinked -> "未关联来源书籍"
+        resolvedBookTitle != null -> "《$resolvedBookTitle》"
+        else -> "来源书籍"
+    }
+    val sourceBookStatusLabel = when (sourceStatus) {
+        SourceBookStatus.Loading -> "正在加载来源书籍…"
+        is SourceBookStatus.Failed -> "无法确认来源书籍状态"
+        SourceBookStatus.Missing -> "来源书籍已不可用"
+        SourceBookStatus.NotLinked -> null
+        is SourceBookStatus.Available -> null
+    }
     // observeVariants 每次调用都返回新 Flow；collectAsStateWithLifecycle 内部以 Flow 实例为
     // produceState 的 key，直接在组合中调用会在每次重组时重新订阅。按 entity.id 记住同一实例。
     val variantsFlow = remember(entity.id) { viewModel.observeVariants(entity.id) }
@@ -219,6 +248,29 @@ internal fun InspirationDetail(
                         }
                     }
                 }
+
+                // 任务93-v1-A：灵感分类名称（旧 id 显示不可用标签，不隐藏）。
+                if (categoryNames.isNotEmpty()) {
+                    Spacer(Modifier.height(14.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        categoryNames.forEach { name ->
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                shape = PillShape,
+                            ) {
+                                Text(
+                                    name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
         } // end item core-card
@@ -257,10 +309,21 @@ internal fun InspirationDetail(
                             )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    source.bookTitle?.let { "《$it》" } ?: "来源书籍已不可用",
+                                    sourceBookLabel,
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
+                                if (sourceBookStatusLabel != null) {
+                                    Text(
+                                        sourceBookStatusLabel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (sourceStatus is SourceBookStatus.Missing) {
+                                            MaterialTheme.colorScheme.error
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                    )
+                                }
                                 if (!source.bookAuthor.isNullOrBlank()) {
                                     Text(
                                         source.bookAuthor,

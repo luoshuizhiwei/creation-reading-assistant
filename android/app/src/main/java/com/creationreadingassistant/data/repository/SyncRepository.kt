@@ -9,6 +9,7 @@ import com.creationreadingassistant.data.local.dao.ReadingSessionDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.BookFileEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
+import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.remote.DeviceInfoProvider
@@ -26,10 +27,14 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import okhttp3.ResponseBody
 import java.io.File
@@ -43,7 +48,12 @@ import javax.inject.Singleton
  *
  * 核心约定（与 P1 的 V2 schema 同构）：每张业务表都有 `payload TEXT` 真相源列，
  * 因此信封的 payload（业务对象 JSON）原样写入该列，提升列仅用于查询。
- * 拉取时直接把信封映射成实体落库；推送时把本地实体 payload 解析回信封发往服务端。
+ * 拉取时把信封与本地行**按字段合并**落库（R1）：远端 payload 显式给值的合同字段
+ * 覆盖本地，缺键/显式 null 保留本地值（新记录落实体默认值）；本机事实列
+ * （local_uri / local_content_path / content_status / size / cover_data_url /
+ * current_location_json 等）不在 payload 合同内，接受远端时原样保留。
+ * 推送时把本地实体 payload 解析回信封发往服务端；payload 列为空的本地记录
+ * （本机阅读流不写 payload）按 wire 合同从提升列回填，使对端能学到本机事实。
  */
 @Singleton
 class SyncRepository @Inject constructor(
@@ -151,26 +161,47 @@ class SyncRepository @Inject constructor(
     private fun jsonStr(payload: JsonObject): String = payload.toString()
 
     /**
-     * 应用远端书籍。
-     *
-     * ⚠️ 远端载荷**只有跨设备字段**（书名/作者/格式/内容哈希/删除标记…），不含
-     * `local_uri` / `local_content_path` / `size` / `content_status` / `cover_data_url` /
-     * `imported_at` —— 这些是**本机事实**，对端无从得知。因此必须基于 [local] 合并，
-     * 绝不能拿一个用默认值补齐的新 `BookEntity` 去覆盖：
-     * `content_status` 默认 `"available"`、`local_content_path` 默认 null，覆盖后这本书
-     * 在本机立刻变成「正文指向空路径」，表现为书架上的书打不开、读了一半的进度丢失
-     * （进度行虽在，但书无法加载）。本地不存在该书时才按远端字段新建。
+     * R1：显式取值辅助——键存在、**类型正确**且值合法才算「远端显式给值」，否则
+     * 一律按「未给出」处理（保留本地值或实体默认值），绝不把非法输入转成字面量
+     * （既有 [str] 对显式 JSON null 会产生字面量 "null"、对数字/布尔会把值转成
+     * 其文本表示、对对象/数组直接抛错）：
+     * - 字符串键要求 `isString`：显式 null、数字、布尔、对象/数组都不构成字符串值；
+     * - 数字键要求非字符串且可解析；
+     * - 浮点数额外要求有限（NaN/Infinity 等非有限值按未给出，绝不让它们流进
+     *   进度/时长列）。
+     * 显式 null 与缺键同途：任何对端实现都可能显式发 null，把它解释为「清除本机
+     * 数据」没有合同依据，保守保留本地才是唯一不丢数据的选择。
      */
+    private fun optString(obj: JsonObject, key: String): String? =
+        (obj[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
+
+    private fun optLong(obj: JsonObject, key: String): Long? =
+        (obj[key] as? JsonPrimitive)?.takeIf { !it.isString }?.longOrNull
+
+    private fun optFloat(obj: JsonObject, key: String): Float? =
+        (obj[key] as? JsonPrimitive)?.takeIf { !it.isString }
+            ?.contentOrNull?.toFloatOrNull()?.takeIf { it.isFinite() }
+
+    /** ISO 时间字符串 → epoch millis；不可解析（合同外输入）返回 null。 */
+    private fun epochMillisOrNull(iso: String?): Long? =
+        iso?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+
     private suspend fun applyBook(env: SyncEnvelope<JsonObject>, strategy: ConflictStrategy?) {
         val local = bookDao.getById(env.id)
         if (local != null && !shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at, strategy)) return
         val p = env.payload
-        val remote = BookEntity(
+        // R1：新旧记录统一走同一条合并路径与同一套安全解析（optString 对显式 null /
+        // 数字 / 布尔 / 对象一律按「未给出」处理，新记录不得落字面量 "null"，已有
+        // 记录不得被 123/true 这类非法类型改写）。接受远端新版 = 远端合同字段
+        // （title/author/format/contentHash）覆盖 + 本机事实列原样保留：
+        // local_uri / local_content_path / content_status / size / cover_data_url /
+        // original_file_name / imported_at / description 不在 LAN 同步 payload 合同内
+        // （桌面 LibraryBook.filePath/coverPath 是对端设备自己的路径，不得落成
+        // "本机路径"），copy 自 base 天然保留。软删除仍以信封为准（墓碑传播）。
+        val base = local ?: BookEntity(
             id = env.id,
-            title = str(p, "title") ?: "(未命名)",
-            author = str(p, "author"),
-            format = str(p, "format") ?: "txt",
-            content_hash = str(p, "contentHash"),
+            title = "(未命名)",
+            format = "txt",
             payload = jsonStr(p),
             revision = env.revision,
             device_id = env.deviceId,
@@ -178,22 +209,17 @@ class SyncRepository @Inject constructor(
             deleted_at = env.deletedAt,
         )
         bookDao.upsert(
-            if (local == null) {
-                remote
-            } else {
-                // 本机列一律保留本地值；远端列以远端为准。
-                local.copy(
-                    title = remote.title,
-                    author = remote.author,
-                    format = remote.format,
-                    content_hash = remote.content_hash,
-                    payload = remote.payload,
-                    revision = remote.revision,
-                    device_id = remote.device_id,
-                    updated_at = remote.updated_at,
-                    deleted_at = remote.deleted_at,
-                )
-            },
+            base.copy(
+                title = optString(p, "title") ?: base.title,
+                author = optString(p, "author") ?: base.author,
+                format = optString(p, "format") ?: base.format,
+                content_hash = optString(p, "contentHash") ?: base.content_hash,
+                payload = jsonStr(p),
+                revision = env.revision,
+                device_id = env.deviceId,
+                updated_at = env.updatedAt,
+                deleted_at = env.deletedAt,
+            ),
         )
     }
 
@@ -219,19 +245,11 @@ class SyncRepository @Inject constructor(
         )
     }
 
-    /**
-     * 应用远端阅读进度。
-     *
-     * 与 [applyBook] 同理：远端载荷不含本机事实，且这里的载荷当前**只带 payload**，
-     * 因此必须基于本地行合并 —— 直接用新实体覆盖会把 `progress_percent` 归零、
-     * `completion_state` 打回 `"reading"`、`current_location_json` 清空，
-     * 用户看到的是「同步一次，所有书的阅读进度全部回到开头」。
-     */
     private suspend fun applyProgress(env: SyncEnvelope<JsonObject>, strategy: ConflictStrategy?) {
         val local = readingProgressDao.getByBook(env.id)
         if (local != null && !shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at, strategy)) return
         val p = env.payload
-        val remote = ReadingProgressEntity(
+        val base = local ?: ReadingProgressEntity(
             book_id = env.id,
             payload = jsonStr(p),
             revision = env.revision,
@@ -239,67 +257,88 @@ class SyncRepository @Inject constructor(
             updated_at = env.updatedAt,
             deleted_at = env.deletedAt,
         )
+        // R1：提升列逐字段合并。远端 payload 显式给值才消费（缺键/显式 null 保留
+        // 本地，新记录落到实体默认值）；显式 0 是合法值。依据：
+        // - `progressPercent` 在 wire 上是桌面 0..1 尺度（electron normalizeProgressItem
+        //   的 clamp01 + 0.995 完成阈值），落库换算为原生 0..100；
+        // - `completionState` 是桌面词汇（unread/reading/completed），经
+        //   ReadingCompletionState.fromStorage 映射（completed→finished 别名已被
+        //   既有代码承认；unread 落到 reading；shelved 是 Android 词汇，fromStorage
+        //   原样识别，容错另一 Android 经中转发来的本机词汇）；
+        // - `completedAt` 是 ISO 字符串（桌面 ReadingProgress.completedAt: ISODateString），
+        //   原生列是 epoch millis，解析失败按未给出处理；
+        // - `currentLocation` 与原生 current_location_json（locator_v2/offset 模式，
+        //   LocatorBuilder.progressJson 产出）不是同一 JSON 合同，跨格式换算属于
+        //   猜测——本机定位保留，远端对象留在 payload 真相源里。
+        // 完成态/完成时间一致：completed_at 以**最终合并后的状态**为准——只有
+        // finished 才允许存在完成时间（对齐原生 writer 不变式）。状态缺键不推断
+        // 完成（本地 reading/shelved + 远端只带 completedAt 不得形成非完成+完成
+        // 时间）；100% 不自动标为 finished（S05-①：显式状态权威，percent 不反推）；
+        // 显式完成态采纳可解析完成时间，否则保留本机值，不伪造时间戳。
+        val explicitPercent = optFloat(p, "progressPercent")?.let { (it * 100f).coerceIn(0f, 100f) }
+        val explicitState = optString(p, "completionState")?.let { ReadingCompletionState.fromStorage(it).storageValue }
+        val explicitCompletedAt = epochMillisOrNull(optString(p, "completedAt"))
+        val finalState = explicitState ?: base.completion_state
+        val finalCompletedAt = when (finalState) {
+            ReadingCompletionState.FINISHED.storageValue -> explicitCompletedAt ?: base.completed_at
+            else -> null
+        }
         readingProgressDao.upsert(
-            if (local == null) {
-                remote
-            } else {
-                local.copy(
-                    payload = remote.payload,
-                    revision = remote.revision,
-                    device_id = remote.device_id,
-                    updated_at = remote.updated_at,
-                    deleted_at = remote.deleted_at,
-                )
-            },
+            base.copy(
+                progress_percent = explicitPercent ?: base.progress_percent,
+                last_read_at = optString(p, "lastReadAt") ?: base.last_read_at,
+                total_reading_time_ms = optLong(p, "totalReadingTimeMs")?.coerceAtLeast(0L) ?: base.total_reading_time_ms,
+                completion_state = finalState,
+                completed_at = finalCompletedAt,
+                payload = jsonStr(p),
+                revision = env.revision,
+                device_id = env.deviceId,
+                updated_at = env.updatedAt,
+                deleted_at = env.deletedAt,
+            ),
         )
     }
 
-    /**
-     * 应用远端阅读会话。
-     *
-     * 与 [applyBook] 同理：远端载荷不含本机事实（`duration_ms` / `started_at` /
-     * `ended_at` / `progress_percent` 都不在载荷里），直接覆盖会把这次会话的时长清零，
-     * 进而抹掉「今日阅读时长」统计。基于本地行合并，本地不存在时才新建。
-     */
     private suspend fun applySession(env: SyncEnvelope<JsonObject>, strategy: ConflictStrategy?) {
         val local = readingSessionDao.getById(env.id)
         if (local != null && !shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at, strategy)) return
         val p = env.payload
-        val remote = ReadingSessionEntity(
+        val base = local ?: ReadingSessionEntity(
             id = env.id,
-            book_id = str(p, "bookId") ?: "",
+            book_id = "",
             payload = jsonStr(p),
             revision = env.revision,
             device_id = env.deviceId,
-            created_at = str(p, "createdAt") ?: env.updatedAt,
+            created_at = env.updatedAt,
             updated_at = env.updatedAt,
             deleted_at = env.deletedAt,
         )
+        // R1：提升列逐字段合并（同 applyProgress 的缺键/显式 null 保留本地规则）。
+        // 时间词汇：wire 主用桌面 startAt/endAt；同时容错接受 Android 记录器词汇
+        // startedAt/endedAt（ReadingSessionPayload；桌面 normalizeSessionItem 亦接受
+        // startedAt 回退）。`durationMs` 两侧同为总时长毫秒（桌面 = active + idle）。
+        // session 的 `progressPercent` 唯一生产者是 Android 记录器（0..100 尺度，
+        // ReadingSessionRecorder coerceIn(0f,100f)）；桌面 ReadingSession 合同无此键。
         readingSessionDao.upsert(
-            if (local == null) {
-                remote
-            } else {
-                local.copy(
-                    book_id = remote.book_id,
-                    payload = remote.payload,
-                    revision = remote.revision,
-                    device_id = remote.device_id,
-                    updated_at = remote.updated_at,
-                    deleted_at = remote.deleted_at,
-                )
-            },
+            base.copy(
+                book_id = optString(p, "bookId") ?: base.book_id,
+                started_at = optString(p, "startAt") ?: optString(p, "startedAt") ?: base.started_at,
+                ended_at = optString(p, "endAt") ?: optString(p, "endedAt") ?: base.ended_at,
+                duration_ms = optLong(p, "durationMs")?.coerceAtLeast(0L) ?: base.duration_ms,
+                progress_percent = optFloat(p, "progressPercent")?.coerceIn(0f, 100f) ?: base.progress_percent,
+                created_at = optString(p, "createdAt") ?: base.created_at,
+                payload = jsonStr(p),
+                revision = env.revision,
+                device_id = env.deviceId,
+                updated_at = env.updatedAt,
+                deleted_at = env.deletedAt,
+            ),
         )
     }
 
     /**
-     * 冲突合并策略。
-     *
-     * - [strategy] 为 null（无参 pull 的历史默认）→ 委托 [SyncMergePolicy]，与本地 JSON /
-     *   WebDAV 恢复路径（[com.creationreadingassistant.feature.sync.JsonBridge]）共用同一纯函数
-     *   （revision 优先，等 revision 比较 updated_at 取较新者），避免策略分叉。
-     * - 用户在「我的 · 同步」显式选择策略时，**等 revision**（双方离线各改一次的真冲突）的裁决
-     *   改由策略决定：远端为准 = 接受远端；本地为准 = 保留本地。revision 不等的分支两种策略都与
-     *   历史一致（高者胜），因此策略只影响真冲突，不会让高 revision 的更新被错误丢弃。
+     * 冲突合并策略：委托给 [SyncMergePolicy]，与本地 JSON / WebDAV 恢复路径
+     * （[com.creationreadingassistant.feature.sync.JsonBridge]）共用同一纯函数，避免策略分叉。
      */
     private fun shouldAcceptRemote(
         remoteRevision: Int, localRevision: Int,
@@ -326,13 +365,20 @@ class SyncRepository @Inject constructor(
         val deletedBooks = bookDao.getDeleted()
         val allBooks = activeBooks + deletedBooks
         allBooks.forEach { localBookMap[it.id] = it }
-        // 关闭的同步项推送空列表（该类别本次不上传，删除也不传播），与 pull 侧的门控对称。
-        val books = (if (options.syncBooks) allBooks else emptyList()).map { e ->
-            SyncEnvelope(
-                id = e.id, type = "book", revision = e.revision,
-                deviceId = e.device_id ?: device.deviceId, updatedAt = e.updated_at,
-                deletedAt = e.deleted_at, payload = backfillBookPayload(e),
-            )
+        // R1：payload 整理可能无法形成合法记录（filePath 无来源）——此时跳过该条
+        // 并记入 failedItems（可检查原因），不发注定被对端丢弃的信封，也不伪造路径。
+        val books = mutableListOf<SyncEnvelope<JsonObject>>()
+        (if (options.syncBooks) allBooks else emptyList()).forEach { e ->
+            val payload = backfillBookPayload(e, e.device_id ?: device.deviceId)
+            if (payload == null) {
+                failures += SyncFailedEntry("book", e.id, e.title, skipReasonMissingFilePath)
+            } else {
+                books += SyncEnvelope(
+                    id = e.id, type = "book", revision = e.revision,
+                    deviceId = e.device_id ?: device.deviceId, updatedAt = e.updated_at,
+                    deletedAt = e.deleted_at, payload = payload,
+                )
+            }
         }
         val activeInspirations = inspirationDao.observeAllActive().first()
         val deletedInspirations = inspirationDao.getDeleted()
@@ -342,30 +388,42 @@ class SyncRepository @Inject constructor(
             SyncEnvelope(
                 id = e.id, type = "inspiration", revision = e.revision,
                 deviceId = e.device_id ?: device.deviceId, updatedAt = e.updated_at,
-                deletedAt = e.deleted_at, payload = backfillInspirationPayload(e),
+                deletedAt = e.deleted_at, payload = backfillInspirationPayload(e, e.device_id ?: device.deviceId),
             )
         }
         val activeProgress = readingProgressDao.observeAllActive().first()
         val deletedProgress = readingProgressDao.getDeleted()
         val allProgress = activeProgress + deletedProgress
         allProgress.forEach { localProgressMap[it.book_id] = it }
-        val progress = (if (options.syncProgress) allProgress else emptyList()).map { e ->
-            SyncEnvelope(
-                id = e.book_id, type = "progress", revision = e.revision,
-                deviceId = e.device_id ?: device.deviceId, updatedAt = e.updated_at,
-                deletedAt = e.deleted_at, payload = toJsonObject(e.payload),
-            )
+        val progress = mutableListOf<SyncEnvelope<JsonObject>>()
+        (if (options.syncProgress) allProgress else emptyList()).forEach { e ->
+            val payload = backfillProgressPayload(e, e.device_id ?: device.deviceId, localBookMap[e.book_id])
+            if (payload == null) {
+                failures += SyncFailedEntry("progress", e.book_id, null, skipReasonMissingFilePath)
+            } else {
+                progress += SyncEnvelope(
+                    id = e.book_id, type = "progress", revision = e.revision,
+                    deviceId = e.device_id ?: device.deviceId, updatedAt = e.updated_at,
+                    deletedAt = e.deleted_at, payload = payload,
+                )
+            }
         }
         val activeSessions = readingSessionDao.observeAllActive().first()
         val deletedSessions = readingSessionDao.getDeleted()
         val allSessions = activeSessions + deletedSessions
         allSessions.forEach { localSessionMap[it.id] = it }
-        val sessions = (if (options.syncProgress) allSessions else emptyList()).map { e ->
-            SyncEnvelope(
-                id = e.id, type = "session", revision = e.revision,
-                deviceId = e.device_id ?: device.deviceId, updatedAt = e.updated_at,
-                deletedAt = e.deleted_at, payload = toJsonObject(e.payload),
-            )
+        val sessions = mutableListOf<SyncEnvelope<JsonObject>>()
+        (if (options.syncProgress) allSessions else emptyList()).forEach { e ->
+            val payload = backfillSessionPayload(e, e.device_id ?: device.deviceId, localBookMap[e.book_id])
+            if (payload == null) {
+                failures += SyncFailedEntry("session", e.id, null, skipReasonMissingFilePath)
+            } else {
+                sessions += SyncEnvelope(
+                    id = e.id, type = "session", revision = e.revision,
+                    deviceId = e.device_id ?: device.deviceId, updatedAt = e.updated_at,
+                    deletedAt = e.deleted_at, payload = payload,
+                )
+            }
         }
 
         val payload = SyncContract.SyncPushPayload(
@@ -390,8 +448,8 @@ class SyncRepository @Inject constructor(
                 type = env.type,
                 id = env.id,
                 title = when (env.type) {
-                    "book" -> str(env.payload, "title")
-                    "inspiration" -> str(env.payload, "title")
+                    "book" -> optString(env.payload, "title")
+                    "inspiration" -> optString(env.payload, "title")
                     else -> null
                 },
                 remoteUpdatedAt = env.updatedAt,
@@ -414,28 +472,187 @@ class SyncRepository @Inject constructor(
             .getOrElse { buildJsonObject { } }
     }
 
-    /** 检查 payload 是否为空或空对象，若是则从实体提升列回填。 */
-    private fun backfillBookPayload(e: BookEntity): JsonObject {
+    /** 书籍合并时受管理键：一律取当前实体/信封值，旧 payload 中的同名键不保留。 */
+    private val bookManagedKeys = setOf(
+        "id", "filePath", "title", "author", "format", "contentHash", "importedAt",
+        "revision", "deviceId", "updatedAt", "deletedAt",
+    )
+
+    /** 无法形成合法同步记录（桌面 normalize 硬性键 filePath 缺失）时的跳过原因。 */
+    private val skipReasonMissingFilePath =
+        "无法形成合法同步记录：payload 与本机书籍事实均未提供 filePath（桌面 normalize 要求非空），已跳过该条"
+
+    /**
+     * push 前把书籍行整理成 wire 合同 payload（R1 修订：**合并而非透传**）。
+     * - 起点是已存 payload（保留全部未知字段）；受管理键一律取当前实体/信封值
+     *   （桌面 normalizeLibraryBook 要求 `id`/`filePath`/`title` 非空，mergeByUpdatedAt
+     *   读取 payload 内嵌的 revision/deviceId/updatedAt/deletedAt（withSyncMetadata），
+     *   缺失时按桌面当前时间处理会破坏冲突序）；
+     * - filePath：payload 已有非空值优先（对端自己的路径，不覆盖也不伪造），否则
+     *   本机书籍事实；两者皆无且 payload 非空 → 返回 null，调用方跳过该条并给出
+     *   可检查原因。payload 列为空的旧行为（从提升列整体构建、filePath 允许空串、
+     *   墓碑照发——软删除传播尽力而为）保持不变。
+     */
+    private fun backfillBookPayload(e: BookEntity, deviceId: String): JsonObject? {
         val parsed = toJsonObject(e.payload)
-        if (parsed.isNotEmpty()) return parsed
+        val filePath = optString(parsed, "filePath")?.takeIf { it.isNotBlank() }
+            ?: e.local_content_path?.takeIf { it.isNotBlank() }
+            ?: e.local_uri?.takeIf { it.isNotBlank() }
+        if (parsed.isNotEmpty() && filePath == null) return null
         return buildJsonObject {
+            parsed.forEach { (k, v) -> if (k !in bookManagedKeys) put(k, v) }
+            put("id", e.id)
+            put("filePath", filePath ?: "")
             put("title", e.title)
             e.author?.let { put("author", it) }
             put("format", e.format)
+            e.imported_at?.let { put("importedAt", it) }
             e.content_hash?.let { put("contentHash", it) }
+            put("revision", e.revision)
+            put("deviceId", deviceId)
+            put("updatedAt", e.updated_at)
+            e.deleted_at?.let { put("deletedAt", it) }
         }
     }
 
-    /** 检查 payload 是否为空或空对象，若是则从实体提升列回填。 */
-    private fun backfillInspirationPayload(e: InspirationEntity): JsonObject {
+    /** 进度合并时受管理键：一律取当前实体/信封值，旧 payload 中的同名键不保留。 */
+    private val progressManagedKeys = setOf(
+        "bookId", "filePath", "progressPercent", "completionState", "completedAt",
+        "lastReadAt", "totalReadingTimeMs", "revision", "deviceId", "updatedAt", "deletedAt",
+    )
+
+    /**
+     * push 前把进度行整理成 wire 合同 payload（R1 修订：**合并而非透传**）。
+     * pull 会把远端非空 payload 原样存入 payload 列，本机阅读/取消完成只更新提升列
+     * 而不改写 payload——透传会把旧进度/状态/时长与旧内嵌 metadata 发回。因此：
+     * - 起点是已存 payload（保留全部未知字段，对端专有键不丢），受管理键一律取
+     *   当前实体/信封值；
+     * - `progressPercent` 用桌面 0..1 尺度（桌面 clamp01 会把 0..100 的 47.42 钳成
+     *   1.0=100%），与 pull 侧 ×100 落库互为逆变换；`completionState` finished→completed，
+     *   其余原样（shelved 由对端按其合同归一，不伪造 unread）；`completedAt` 输出
+     *   ISO 字符串，为 null 时键不出现（受管理键排除已清掉旧值）；
+     * - `currentLocation` 不伪造（桌面会按 progressPercent 构造默认定位）；
+     * - filePath：payload 已有非空值优先（对端自己的路径，不覆盖也不伪造），否则
+     *   本机书籍事实；两者皆无且 payload 非空 → 返回 null，调用方跳过该条并给出
+     *   可检查原因（桌面 normalizeProgressItem 要求 filePath 非空，发注定被丢弃的
+     *   记录没有意义）。payload 列为空的旧行为（从提升列整体构建、filePath 允许
+     *   空串）保持不变。
+     */
+    private fun backfillProgressPayload(
+        e: ReadingProgressEntity,
+        deviceId: String,
+        book: BookEntity?,
+    ): JsonObject? {
         val parsed = toJsonObject(e.payload)
-        if (parsed.isNotEmpty()) return parsed
+        val filePath = optString(parsed, "filePath")?.takeIf { it.isNotBlank() }
+            ?: book?.local_content_path?.takeIf { it.isNotBlank() }
+            ?: book?.local_uri?.takeIf { it.isNotBlank() }
+        if (parsed.isNotEmpty() && filePath == null) return null
         return buildJsonObject {
+            parsed.forEach { (k, v) -> if (k !in progressManagedKeys) put(k, v) }
+            put("bookId", e.book_id)
+            put("filePath", filePath ?: "")
+            put("progressPercent", (e.progress_percent / 100f).coerceIn(0f, 1f))
+            put(
+                "completionState",
+                if (e.completion_state == ReadingCompletionState.FINISHED.storageValue) "completed" else e.completion_state,
+            )
+            e.completed_at?.let { put("completedAt", Instant.ofEpochMilli(it).toString()) }
+            e.last_read_at?.let { put("lastReadAt", it) }
+            put("totalReadingTimeMs", e.total_reading_time_ms)
+            put("revision", e.revision)
+            put("deviceId", deviceId)
+            put("updatedAt", e.updated_at)
+            e.deleted_at?.let { put("deletedAt", it) }
+        }
+    }
+
+    /** 会话合并时受管理键：一律取当前实体/信封值，旧 payload 中的同名键不保留。 */
+    private val sessionManagedKeys = setOf(
+        "id", "bookId", "filePath", "startedAt", "endedAt", "durationMs",
+        "progressPercent", "createdAt", "revision", "deviceId", "updatedAt", "deletedAt",
+    )
+
+    /**
+     * push 前把会话行整理成 wire 合同 payload（R1 修订：**合并而非透传**）。
+     * - 起点是已存 payload（保留全部未知字段）；受管理键一律取当前实体/信封值。
+     *   实际记录器形状（ReadingSessionPayload：startedAt/endedAt/durationMs/
+     *   progressPercent/createdAt，0..100 进度尺度）缺桌面必需的 filePath——在同一
+     *   序列化函数中按真实合同从本机书籍事实注入；桌面词汇键（startAt/endAt）若
+     *   出现在旧 payload 中，同样刷新为当前事实，避免桌面 normalizeSessionItem 优先
+     *   读到旧时间。session 的 `progressPercent` 桌面合同无此键（读取方为原生 pull）；
+     * - filePath：payload 已有非空值优先（对端自己的路径，不覆盖也不伪造），否则
+     *   本机书籍事实；两者皆无且 payload 非空 → 返回 null，调用方跳过该条并给出
+     *   可检查原因。payload 列为空的旧行为（从提升列整体构建、filePath 允许空串）
+     *   保持不变。
+     */
+    private fun backfillSessionPayload(
+        e: ReadingSessionEntity,
+        deviceId: String,
+        book: BookEntity?,
+    ): JsonObject? {
+        val parsed = toJsonObject(e.payload)
+        val filePath = optString(parsed, "filePath")?.takeIf { it.isNotBlank() }
+            ?: book?.local_content_path?.takeIf { it.isNotBlank() }
+            ?: book?.local_uri?.takeIf { it.isNotBlank() }
+        if (parsed.isNotEmpty() && filePath == null) return null
+        return buildJsonObject {
+            parsed.forEach { (k, v) -> if (k !in sessionManagedKeys) put(k, v) }
+            put("id", e.id)
+            put("bookId", e.book_id)
+            put("filePath", filePath ?: "")
+            e.started_at?.let { put("startedAt", it) }
+            e.ended_at?.let { put("endedAt", it) }
+            put("durationMs", e.duration_ms)
+            e.progress_percent?.let { put("progressPercent", it) }
+            e.created_at?.let { put("createdAt", it) }
+            if ("startAt" in parsed) e.started_at?.let { put("startAt", it) }
+            if ("endAt" in parsed) e.ended_at?.let { put("endAt", it) }
+            put("revision", e.revision)
+            put("deviceId", deviceId)
+            put("updatedAt", e.updated_at)
+            e.deleted_at?.let { put("deletedAt", it) }
+        }
+    }
+
+    /** 灵感合并时受管理键：一律取当前实体/信封值，旧 payload 中的同名键不保留。 */
+    private val inspirationManagedKeys = setOf(
+        "id", "title", "body", "type", "status", "sourceBookId",
+        "createdAt", "revision", "deviceId", "updatedAt", "deletedAt",
+    )
+
+    /**
+     * push 前把灵感行整理成 wire 合同 payload（R5 修订：**合并而非透传**）。
+     *
+     * 缺陷：真实客户端生产路径（`InspirationViewModel.saveInspiration`）写入的 payload 只含
+     * tags/categoryIds/source/adoptions/excerpts/mergedInto（`InspirationPayloadData`，
+     * encodeDefaults=true 恒非空）；标题/正文/type/status/sourceBookId 存在**实体提升列**。
+     * 旧实现「payload 非空即原样返回」导致这些原生新素材的 wire payload 缺 id/title/body 与
+     * 同步元信息；桌面消费者 `normalizeInspirationItem(envelope.payload)` 不从信封回填，
+     * 缺 id 会 `makeId` 生成新 id、缺 title 记「未命名灵感」、缺 body 记空，无法按原 id/正文入库。
+     *
+     * 修复与 book/progress/session 三路径同源：
+     * - 起点是已存 payload（**保留全部未知/扩展字段**，不整段替换）；
+     * - 受管理键一律取当前实体/信封值 —— 实体编辑后的 title/body 等**胜过** payload 里的
+     *   陈旧同名值（pull 落库的旧 payload 不覆盖新编辑）；
+     * - 空 payload 的旧行为（从提升列整体构建）保持不变，是上面的退化情形；
+     * - 不新增协议版本、不改接收端。
+     */
+    private fun backfillInspirationPayload(e: InspirationEntity, deviceId: String): JsonObject {
+        val parsed = toJsonObject(e.payload)
+        return buildJsonObject {
+            parsed.forEach { (k, v) -> if (k !in inspirationManagedKeys) put(k, v) }
+            put("id", e.id)
             put("title", e.title)
             put("body", e.body)
             put("type", e.type)
             put("status", e.status)
             e.source_book_id?.let { put("sourceBookId", it) }
+            put("createdAt", e.created_at)
+            put("revision", e.revision)
+            put("deviceId", deviceId)
+            put("updatedAt", e.updated_at)
+            e.deleted_at?.let { put("deletedAt", it) }
         }
     }
 

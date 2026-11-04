@@ -50,14 +50,18 @@ import com.creationreadingassistant.ui.screen.reader.withSelectionSnapshotReleas
 import com.creationreadingassistant.data.local.CoroutineScopeModule.ApplicationScope
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
+import com.creationreadingassistant.data.repository.ReaderProgressSaveOrder
 import com.creationreadingassistant.data.repository.SearchIndexRepository
 import com.creationreadingassistant.data.repository.SearchIndexScheduler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
@@ -74,6 +78,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -143,8 +148,23 @@ class ReaderViewModel @Inject constructor(
     // ── 文档加载代次 ──────────────────────────────────────────────
     private val loadGeneration = AtomicInteger(0)
     private var loadJob: Job? = null
+
     private val readerOpenTraceLock = Any()
     private var activeReaderOpenTraceCookie: Int? = null
+
+    // ── 阅读进度保存的完成边界（CRA-READER-EXIT-SAVE-DRAIN-v1）──────────────
+    // 只登记阅读进度保存（SaveProgress / SaveEpubProgress）：笔记/标签/规则等其它 io 写
+    // 不在此记账，退出边界也不等它们。登记发生在 launch **之前**，因此"刚派发"不会被判为空。
+    private val progressSaveStateLock = Any()
+    private var progressSavesInFlight = 0
+    private var progressSaveSeq = 0L
+    /** 每本书最近一次**未解决**的失败：保留其派发序号，用来界定"哪次成功才能覆盖它"。 */
+    private val progressSaveFailures = HashMap<String, ProgressSaveFailure>()
+    /** 每本书最近一次正常完成的保存序号：更旧的失败晚到时据此判定"已被更晚的成功覆盖"。 */
+    private val progressSaveSuccessSeq = HashMap<String, Long>()
+    private val progressSavesIdle = MutableStateFlow(true)
+
+    private class ProgressSaveFailure(val seq: Long, val throwable: Throwable)
 
     // ── 协同模块委托 ──────────────────────────────────────────────
     private val chapterLoaderCoordinator = ReaderChapterLoaderCoordinator()
@@ -449,15 +469,29 @@ class ReaderViewModel @Inject constructor(
             }
             is ReaderAction.SaveInspiration -> io { noteRepository.saveInspiration(action.inspiration) }
             is ReaderAction.CreateCategory -> io {
-                val id = "mobile-category-${java.util.UUID.randomUUID()}"
-                taxonomyRepository.upsertCategory(CategoryEntity(id = id, name = action.name, created_at = nowIso(), updated_at = nowIso()))
+                // 69-v2-B：使用事件携带的 id，与 onCreateCategory 回调返回给弹层的 id 同源，
+                // 避免 payload.categoryIds 指向另一枚从未落库的 id。
+                taxonomyRepository.upsertCategory(
+                    CategoryEntity(id = action.id, name = action.name, created_at = nowIso(), updated_at = nowIso())
+                )
             }
             is ReaderAction.CreateTag -> io {
                 val id = "mobile-tag-${java.util.UUID.randomUUID()}"
                 taxonomyRepository.upsertTag(TagEntity(id = id, name = action.name, type = "inspiration", created_at = nowIso(), updated_at = nowIso()))
             }
-            is ReaderAction.SaveProgress -> io {
-                bookRepository.saveProgress(action.progress)
+            is ReaderAction.SaveProgress -> {
+                // CRA-READER-DISPATCH-ORDER-MINIMAL-v6：事件序号在**派发边界**（本分支同步执行时）
+                // 取号，随后才交给 io 异步落库；绝不在 io 块内取号（那反映的是落库顺序）。
+                val saveOrder = ReaderProgressSaveOrder.next()
+                ioProgressSave(action.progress.book_id) {
+                    com.creationreadingassistant.ui.screen.reader.ReaderClampDiagnostics.log(
+                        "vm_save_progress_received",
+                        "bid" to action.progress.book_id,
+                        "new_offset" to action.progress.current_location_json,
+                        "new_percent" to action.progress.progress_percent,
+                    )
+                    bookRepository.saveProgress(action.progress, saveOrder)
+                }
             }
             is ReaderAction.UpdateReadingActivity -> readingSessionRecorder.update(
                 ReadingActivity(
@@ -466,14 +500,19 @@ class ReaderViewModel @Inject constructor(
                     progressPercent = action.progressPercent,
                 ),
             )
-            is ReaderAction.SaveEpubProgress -> io {
-                epubRepository.saveProgress(
-                    bookId = action.bookId,
-                    chapterIndex = action.chapterIndex,
-                    percent = action.percent,
-                    offsetInChapter = action.offsetInChapter,
-                    absoluteOffset = action.absoluteOffset,
-                )
+            is ReaderAction.SaveEpubProgress -> {
+                // 同 SaveProgress：序号在派发边界同步取号。
+                val saveOrder = ReaderProgressSaveOrder.next()
+                ioProgressSave(action.bookId) {
+                    epubRepository.saveProgress(
+                        bookId = action.bookId,
+                        chapterIndex = action.chapterIndex,
+                        percent = action.percent,
+                        offsetInChapter = action.offsetInChapter,
+                        absoluteOffset = action.absoluteOffset,
+                        order = saveOrder,
+                    )
+                }
             }
             is ReaderAction.DeleteBook -> io { deletions.deleteBook(action.bookId) }
             is ReaderAction.ClearChapterReads -> io {
@@ -659,6 +698,81 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch(ioDispatcher) { block() }
     }
 
+    /**
+     * 阅读进度保存的唯一派发入口（只给 SaveProgress / SaveEpubProgress 用）。
+     *
+     * 记账要点：
+     * - 登记在 launch **之前**（派发即计入，不会"刚派发就被判为空"）；
+     * - 结算挂在 `invokeOnCompletion` 上：**即使协程在真正开始执行前就被取消也会结算**，
+     *   不会留下永远减不掉的假 pending；
+     * - 失败（含保存自身被取消）保存**原异常实例**，类型与消息都不变；成功则结算该次派发。
+     */
+    private fun ioProgressSave(bookId: String, block: suspend () -> Unit) {
+        val seq: Long
+        synchronized(progressSaveStateLock) {
+            progressSaveSeq += 1
+            seq = progressSaveSeq
+            progressSavesInFlight += 1
+            progressSavesIdle.value = false
+        }
+        var failure: Throwable? = null
+        val job = viewModelScope.launch(ioDispatcher) {
+            // 不把异常抛进 viewModelScope（SupervisorJob 下仍会崩进程）：由完成回调统一结算。
+            try {
+                block()
+            } catch (t: Throwable) {
+                failure = t
+            }
+        }
+        job.invokeOnCompletion { cause ->
+            val recorded = failure ?: cause
+            synchronized(progressSaveStateLock) {
+                // 覆盖边界只看**同一本书**的序号：
+                // - 失败：比本书最近一次成功更旧的失败已被覆盖，不记（避免旧失败晚到永久卡死）；
+                //   否则记为本书最新的失败（更新的一次失败必须盖过更旧的失败）。
+                // - 成功：只有比本书最新失败更新的成功才解除它；更旧的成功不得清掉更新的失败。
+                val lastSuccess = progressSaveSuccessSeq[bookId] ?: 0L
+                if (recorded != null) {
+                    if (seq > lastSuccess) {
+                        val previous = progressSaveFailures[bookId]
+                        if (previous == null || seq > previous.seq) {
+                            progressSaveFailures[bookId] = ProgressSaveFailure(seq, recorded)
+                        }
+                    }
+                } else {
+                    if (seq > lastSuccess) progressSaveSuccessSeq[bookId] = seq
+                    val previous = progressSaveFailures[bookId]
+                    if (previous != null && seq > previous.seq) {
+                        progressSaveFailures.remove(bookId)
+                    }
+                }
+                progressSavesInFlight -= 1
+                if (progressSavesInFlight == 0) progressSavesIdle.value = true
+            }
+        }
+    }
+
+    /**
+     * 等待本 reader **已派发**的阅读进度保存全部正常完成。
+     *
+     * - 正常返回 = 在途计数归零且没有未解除的失败；
+     * - 失败/取消抛出**原异常实例**（不包装、不吞、**不消费**）：异常保持 sticky，
+     *   直到**更晚派发的一次保存正常完成**（新位置覆盖旧失败）才解除；
+     *   因此"空保存再退一次"不会假成功；
+     * - 只覆盖调用前已派发的事件；退出之后新派发的事件不在本保证范围。
+     */
+    suspend fun awaitProgressSaves() {
+        while (true) {
+            progressSavesIdle.first { it }
+            val (inFlight, failure) = synchronized(progressSaveStateLock) {
+                progressSavesInFlight to progressSaveFailures.values.maxByOrNull { it.seq }?.throwable
+            }
+            if (inFlight != 0) continue // 归零瞬间又派发了新事件：继续等
+            failure?.let { throw it }
+            return
+        }
+    }
+
     private fun nowIso(): String = com.creationreadingassistant.ui.util.nowIso()
 
     private fun openBook(bookId: String, force: Boolean) {
@@ -803,6 +917,10 @@ class ReaderViewModel @Inject constructor(
             persistProgress = persistProgress,
             chapterReadRepository = chapterReadRepository,
             epubRepository = epubRepository,
+            // CRA-READER-DISPATCH-ORDER-MINIMAL-v6：章切换落库（EPUB 只知章号）的事件序号在本
+            // 次导航的派发边界取号——不能在加载协程完成时取号，否则「慢的旧章加载」会拿到
+            // 比它之后的精确位置保存更大的序号，把进度倒回去。
+            saveOrder = ReaderProgressSaveOrder.next(),
         )
     }
 
@@ -875,5 +993,92 @@ class ReaderViewModel @Inject constructor(
 
     private companion object {
         const val READER_OPEN_TRACE = "ReaderOpen"
+    }
+}
+
+/**
+ * 阅读器退出边界（CRA-READER-EXIT-SAVE-DRAIN-v1）：系统 Back / 顶栏 Back / 临时返回的**唯一共用入口**。
+ *
+ * 语义（严格顺序，不可倒置）：
+ * 1. 先**同步派发**本次退出保存（[dispatchExitSave]，内部仍是生产 `persistOnLeave`，
+ *    临时查阅 / Legado marker / 会话位置守卫一律照旧生效）；
+ * 2. 再等待本 reader 已派发的进度保存**正常完成**（[awaitProgressSaves]）；
+ * 3. 只有全部正常完成后才导航**一次**（[navigate]）。
+ *
+ * 失败/取消一律不导航：原异常交给 [onFailure] 走既有提示路径，reader 留在原页。
+ * 等待期间重复 Back 不会触发第二次导航；等待结束（成功或失败）后允许再次发起退出。
+ *
+ * 边界之外：不新建持久队列 / WorkManager，不做超时强退，不在 `onCleared()` 等待，
+ * 也不把应用级 scope 的后台完成当作"退出前已 drain"。
+ */
+internal class ReaderExitBoundary(
+    private val scope: CoroutineScope,
+    private val dispatchExitSave: () -> Unit,
+    private val awaitProgressSaves: suspend () -> Unit,
+    private val navigate: () -> Unit = {},
+    /**
+     * 成功 drain 之后、导航之前调用一次：生产用它把 lifecycle 防重复门标记为
+     * "本次会话已在权威时机落过库"，避免导航后的 onDispose 再派发一次可能被取消的重复保存。
+     * 失败路径**不会**调用它（失败不得提前标成功去抑制应当发生的保存）。
+     */
+    private val onDrained: () -> Unit = {},
+) {
+    private var exitJob: Job? = null
+    private var navigated = false
+
+    fun requestExit(onFailure: (Throwable) -> Unit = {}) {
+        requestExitWithAction(navigate, onFailure = onFailure)
+    }
+
+    /**
+     * CRA-TASK195-r1: 支持携带特定跳转/退出动作的权威退出保存排空边界。
+     * - 保存/排空未完成：不执行 action，不标记 onDrained；
+     * - 保存失败/取消：不执行 action，保留原异常并回调 onFailure（主线程反馈）；
+     * - 协程自身取消直接重抛；保存过程内部取消作为失败回传；
+     * - 成功后在主线程标记 onDrained() 并执行 action() 一次；
+     * - 防重复点击：排空中或已导航时直接 return，防重复压栈。
+     */
+    fun requestExitWithAction(
+        action: () -> Unit,
+        skipExitSave: Boolean = false,
+        onFailure: (Throwable) -> Unit = {},
+    ) {
+        if (navigated || exitJob?.isActive == true) return
+        // 197-r3：skipExitSave=true = 临时入口转换（S0→T1），S0 无新进度可写 →
+        // 跳过 dispose 落库（S0 12 列冻结）；仍 await 排空在途保存后导航。
+        if (!skipExitSave) dispatchExitSave()
+        exitJob = scope.launch {
+            val failure: Throwable? = try {
+                awaitProgressSaves()
+                null
+            } catch (c: CancellationException) {
+                // 取消语义：
+                // - 外部退出协程取消（页面被销毁 / 作用域取消）：直接向外重抛，交由协程结构化并发处理；
+                // - 保存协程自身被取消：视同排空失败，停留在原页并向外可观察反馈。
+                if (!currentCoroutineContext().isActive) throw c
+                c
+            } catch (t: Throwable) {
+                t
+            }
+            if (failure != null) {
+                withContext(Dispatchers.Main.immediate) {
+                    onFailure(failure)
+                }
+                return@launch
+            }
+            withContext(Dispatchers.Main.immediate) {
+                onDrained()
+                navigated = true
+                action()
+            }
+        }
+    }
+
+    /**
+     * CRA-TASK195-r1: 当从临时查阅返回前台重新激活时复位导航就绪标志，
+     * 允许后续阅读与后续合法的退出保存。
+     */
+    fun onResume() {
+        navigated = false
     }
 }

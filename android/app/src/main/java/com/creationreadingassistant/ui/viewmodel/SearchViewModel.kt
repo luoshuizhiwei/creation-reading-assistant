@@ -18,9 +18,11 @@ import com.creationreadingassistant.feature.search.SearchCoveragePolicy
 import com.creationreadingassistant.feature.search.SearchHit
 import com.creationreadingassistant.feature.search.SearchTextBasis
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,11 +43,14 @@ enum class SearchNoticeKind {
 
     /** 命中的书里有若干本不是全量覆盖，正文结果可能不全。 */
     COVERAGE_INCOMPLETE,
+
+    /** 正文查询失败：保留其他结果，但不能把失败当成没有正文命中。 */
+    CONTENT_SEARCH_FAILED,
 }
 
 data class SearchNotice(
     val kind: SearchNoticeKind,
-    /** 受影响的书数量；[SearchNoticeKind.INDEX_NOT_BUILT] 时为 0。 */
+    /** 受影响的书数量；索引未建立或正文查询失败时为 0。 */
     val affectedBooks: Int,
 )
 
@@ -125,36 +130,52 @@ class SearchViewModel @Inject constructor(
     private var lastSearchedQuery: String? = null
 
     fun search(q: String) {
+        val query = q.trim()
+        // 取消前先记录是否真的有在途任务：[lastSearchedQuery] 只代表「上一次已完成查询」，
+        // 不能单独说明当前没有其他在途查询 —— 被取消的在途任务可能已经置过 loading。
+        val hadInFlightJob = searchJob?.isActive == true
         searchJob?.cancel()
-        // R2-S1.5：同一词（trim 后）已在显示结果时，跳过 —— 例如从阅读器临时查阅返回搜索页，
-        // SearchScreen 重组会重新触发 LaunchedEffect(query)。此时结果与 loading 都已就绪，
-        // 重复搜索既浪费 I/O，又会让列表重新转圈闪烁。
-        if (q.trim() == lastSearchedQuery) return
-        if (q.isBlank()) {
-            // 搜索中清空查询：取消在途 job 且显式复位 loading，避免永久转圈
+        if (query.isEmpty()) {
+            // 清空查询：无论上一次完成的是什么，都必须清空结果并复位 loading。
+            // 同词早退不能跳过这两件事 —— 否则「上次完成为空查询 + B 在途挂起 + 再次清空」
+            // 会留下 B 的结果与永久转圈。
             lastSearchedQuery = ""
             _results.value = SearchResults()
             _loading.value = false
             return
         }
+        if (query == lastSearchedQuery) {
+            // R2-S1.5：同一词已在显示结果时跳过 —— 例如从阅读器临时查阅返回搜索页，
+            // SearchScreen 重组会重新触发 LaunchedEffect(query)。此时结果与 loading 都已就绪，
+            // 重复搜索既浪费 I/O，又会让列表重新转圈闪烁。
+            // 但只有在「没有别的在途任务被取消」时才能直接返回：若刚取消了另一个在途任务，
+            // 必须复位它留下的 loading（results 仍是该词的正确结果）。
+            if (hadInFlightJob) _loading.value = false
+            return
+        }
         searchJob = viewModelScope.launch {
             delay(300) // debounce
             _loading.value = true
-            val query = q.trim()
             val results = withContext(ioDispatcher) {
                 val b = runCatching { bookRepository.search(query) }.getOrDefault(emptyList())
                 val i = runCatching { inspirationRepository.search(query) }.getOrDefault(emptyList())
                 val n = runCatching { noteRepository.searchNotes(query) }.getOrDefault(emptyList())
                 val h = runCatching { noteRepository.searchHighlights(query) }.getOrDefault(emptyList())
                 // R2-S1.3：全文索引首次真正被搜索 UI 消费（此前 searchContent 是死 seam）。
-                // 索引是派生数据，任何失败都只降级为「没有正文命中」，绝不让搜索页报错。
+                // 正文查询失败保留其他结果，并单独提示；取消必须继续传播。
                 // R2-S1.6：双通道口径——原文与替换显示文都搜，命中按 textBasis 标注来源。
-                val content = runCatching {
+                var contentSearchFailed = false
+                val content = try {
                     searchIndexRepository.searchContent(
                         query,
                         bases = setOf(SearchTextBasis.ORIGINAL, SearchTextBasis.DISPLAY),
                     )
-                }.getOrDefault(emptyList())
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    contentSearchFailed = true
+                    emptyList()
+                }
 
                 val metadataIds = b.map { it.id }.toSet()
                 val contentIds = content.map { it.bookId }.toSet()
@@ -179,9 +200,17 @@ class SearchViewModel @Inject constructor(
                     bookTitles = titles,
                     contentHits = content,
                     booksAlsoMatchedInContent = metadataIds.intersect(contentIds),
-                    notice = buildNotice(content),
+                    notice = if (contentSearchFailed) {
+                        SearchNotice(SearchNoticeKind.CONTENT_SEARCH_FAILED, 0)
+                    } else {
+                        buildNotice(content)
+                    },
                 )
             }
+            // 已被更新的查询取代：本任务的迟到完成/收尾不得覆盖新任务的结果与加载状态。
+            // 上面的 runCatching 会把仓储抛出的 CancellationException 降级成空结果，
+            // 因此这里显式保留协程取消语义，而不是靠 isActive 静默跳过。
+            ensureActive()
             _results.value = results
             _loading.value = false
             lastSearchedQuery = query

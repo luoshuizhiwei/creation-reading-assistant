@@ -5,6 +5,7 @@ import kotlinx.coroutines.delay
 import okhttp3.Credentials
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -28,7 +29,7 @@ import kotlin.random.Random
  * 支持标准 WebDAV（坚果云 / Nextcloud / 群晖 NAS / Nginx-webdav / Alist）。
  * - 认证支持 Basic Auth（显式 UTF-8 字符集）。
  * - 支持 PROPFIND（带命名空间感知与前缀剥离，兼容坚果云 D: 前缀）。
- * - 连接测试优先采用 WebDAV 规范的 PROPFIND (Depth: 0) 探针，平滑兼容 OPTIONS。
+ * - 连接测试优先采用轻量 HEAD 探针（减少往返），遇 405/501 平滑降级到 PROPFIND (Depth: 0)，仍 405/501 则降级到 OPTIONS。
  * - 支持 MKCOL 目录自动创建，解决 409 Conflict 与 404 Not Found。
  * - 路径自动进行标准 URL 编解码，杜绝中文文件名二次编码。
  */
@@ -50,28 +51,46 @@ class WebDavBackup @Inject constructor() {
         requireSafeTarget(url)
         requireSafeFilename(filename)
         val target = resolveTarget(url, filename)
-        withRetry {
-            val body = content.toRequestBody("application/json".toMediaType())
-            val request = Request.Builder()
-                .url(target)
-                .put(body)
-                .header("Authorization", basicAuth(user, pass))
-                .build()
-            val firstResp = client.newCall(request).execute()
-            var resp = firstResp
-            // 若远程目录不存在，坚果云、Nextcloud 等服务器通常返回 409 Conflict 或 404 Not Found
-            if (resp.code == 409 || resp.code == 404) {
-                firstResp.close()
-                // 尝试自动创建远程父目录集合（MKCOL）后重试一次
-                ensureCollection(url, user, pass)
-                resp = client.newCall(request).execute()
+        val body = content.toRequestBody("application/json".toMediaType())
+        val request = Request.Builder()
+            .url(target)
+            .put(body)
+            .header("Authorization", basicAuth(user, pass))
+            .build()
+
+        val firstResp = withRetry { client.newCall(request).execute() }
+        if (firstResp.isSuccessful) {
+            firstResp.close()
+            return@runCatching
+        }
+
+        val firstCode = firstResp.code
+        val firstErr = firstResp.body?.string()?.take(200)
+        firstResp.close()
+
+        // 认证失败直接识别并抛出，绝不当成方法不支持或缺目录，不能盲目重试或创建目录
+        if (firstCode == 401 || firstCode == 403) {
+            throw IllegalStateException("WebDAV 返回 $firstCode: $firstErr")
+        }
+
+        // 当且仅当目标目录不存在（404 或 409 Conflict）时，对配置的目标集合目录执行必要 MKCOL
+        if (firstCode == 404 || firstCode == 409) {
+            val collectionResult = ensureCollection(url, user, pass)
+            if (collectionResult.isFailure) {
+                val cause = collectionResult.exceptionOrNull()
+                throw IllegalStateException("目标目录不存在且创建失败: ${cause?.message ?: firstErr}", cause)
             }
-            resp.use { r ->
-                if (!r.isSuccessful) {
-                    throw IllegalStateException("WebDAV 返回 ${r.code}: ${r.body?.string()?.take(200)}")
+
+            // MKCOL 成功后，执行最多一次有限重试，严禁无限循环
+            withRetry { client.newCall(request).execute() }.use { retryResp ->
+                if (!retryResp.isSuccessful) {
+                    throw IllegalStateException("WebDAV 重试返回 ${retryResp.code}: ${retryResp.body?.string()?.take(200)}")
                 }
             }
+            return@runCatching
         }
+
+        throw IllegalStateException("WebDAV 返回 $firstCode: $firstErr")
     }
 
     /**
@@ -86,53 +105,78 @@ class WebDavBackup @Inject constructor() {
             .header("Authorization", basicAuth(user, pass))
             .build()
         client.newCall(request).execute().use { resp ->
-            // 201 Created: 创建成功；405: 目录已存在，均视为集合就绪
-            if (resp.isSuccessful || resp.code == 405 || resp.code == 200 || resp.code == 204) {
-                return@runCatching
+            when (resp.code) {
+                201, 200, 204, 405 -> return@runCatching // 201 成功创建；405/200/204 集合已存在，均视为就绪
+                401, 403 -> throw IllegalStateException("创建目录失败，权限不足（HTTP ${resp.code}）")
+                409 -> throw IllegalStateException("创建目录失败，上级目录不存在（HTTP 409 Conflict）")
+                else -> throw IllegalStateException("创建目录失败（HTTP ${resp.code}: ${resp.body?.string()?.take(200)}）")
             }
         }
     }
 
     /**
-     * 连接测试：使用 WebDAV 规范的 PROPFIND (Depth: 0) 探针，平滑回退 OPTIONS。
-     * 避免因使用 HEAD 方法而被坚果云/Nextcloud 等服务器报 HTTP 405 拦截。
+     * 连接测试：优先采用轻量 HEAD 探针以降低往返开销；
+     * 若服务端返回 HTTP 405 或 501（如坚果云不支持 HEAD），平滑降级至标准 PROPFIND (Depth: 0)；
+     * 若 PROPFIND 仍返回 405 或 501，进一步降级至 OPTIONS 探测。
      */
     suspend fun test(url: String, user: String, pass: String): Result<String> = runCatching {
         requireSafeTarget(url)
         val target = if (url.endsWith("/")) url else "$url/"
         withRetry(maxAttempts = 2) {
-            val propfindBody = """<?xml version="1.0" encoding="utf-8"?>
-                |<D:propfind xmlns:D="DAV:">
-                |  <D:prop><D:resourcetype/></D:prop>
-                |</D:propfind>
-            """.trimMargin().toRequestBody("text/xml".toMediaType())
-            val propfindRequest = Request.Builder()
+            val headRequest = Request.Builder()
                 .url(target)
-                .method("PROPFIND", propfindBody)
+                .head()
                 .header("Authorization", basicAuth(user, pass))
-                .header("Depth", "0")
                 .build()
-            var resp = client.newCall(propfindRequest).execute()
-            // 若服务器对根目录禁用了 PROPFIND（返回 405/501），回退使用 OPTIONS 探测
-            if (resp.code == 405 || resp.code == 501) {
-                resp.close()
-                val optionsRequest = Request.Builder()
-                    .url(target)
-                    .method("OPTIONS", null)
-                    .header("Authorization", basicAuth(user, pass))
-                    .build()
-                resp = client.newCall(optionsRequest).execute()
-            }
-            resp.use { r ->
-                when (r.code) {
-                    in 200..299 -> "连接成功（HTTP ${r.code}）"
-                    401, 403 -> "服务器可达，但凭据可能不正确（HTTP ${r.code}）"
-                    404 -> "服务器可达，但目录尚未建立（HTTP 404），保存备份时将自动创建"
-                    else -> throw IllegalStateException("连接测试返回 HTTP ${r.code}: ${r.body?.string()?.take(200)}")
+            val headResp = client.newCall(headRequest).execute()
+            val headCode = headResp.code
+            headResp.close()
+
+            when (headCode) {
+                in 200..299 -> "连接成功（HTTP $headCode）"
+                401, 403 -> "服务器可达，但凭据可能不正确（HTTP $headCode）"
+                405, 501 -> {
+                    // HEAD 方法不受服务器支持（如坚果云返回 405），平滑回退到 WebDAV 标准 PROPFIND (Depth: 0)
+                    val propfindBody = """<?xml version="1.0" encoding="utf-8"?>
+                        |<D:propfind xmlns:D="DAV:">
+                        |  <D:prop>
+                        |    <D:resourcetype/>
+                        |  </D:prop>
+                        |</D:propfind>
+                    """.trimMargin().toRequestBody("text/xml".toMediaType())
+                    val propfindRequest = Request.Builder()
+                        .url(target)
+                        .method("PROPFIND", propfindBody)
+                        .header("Authorization", basicAuth(user, pass))
+                        .header("Depth", "0")
+                        .build()
+                    client.newCall(propfindRequest).execute().use { propResp ->
+                        when (propResp.code) {
+                            in 200..299 -> "连接成功（HTTP ${propResp.code}）"
+                            401, 403 -> "服务器可达，但凭据可能不正确（HTTP ${propResp.code}）"
+                            405, 501 -> {
+                                val request = Request.Builder().url(target).method("OPTIONS", null)
+                                    .header("Authorization", basicAuth(user, pass)).build()
+                                client.newCall(request).execute().use { option ->
+                                    when (option.code) {
+                                        in 200..299 -> "连接成功（HTTP ${option.code}）"
+                                        401, 403 -> "服务器可达，但凭据可能不正确（HTTP ${option.code}）"
+                                        404 -> "服务器可达，但目录尚未建立（HTTP 404），保存备份时将自动创建"
+                                        else -> throw IllegalStateException("连接测试返回 HTTP ${option.code}")
+                                    }
+                                }
+                            }
+                            404 -> "服务器可达，但目录尚未建立（HTTP 404），保存备份时将自动创建"
+                            else -> throw IllegalStateException("连接测试返回 HTTP ${propResp.code}")
+                        }
+                    }
                 }
+                404 -> "服务器可达，但目录尚未建立（HTTP 404），保存备份时将自动创建"
+                else -> throw IllegalStateException("连接测试返回 HTTP $headCode")
             }
         }
     }
+
 
     /** 下载恢复：GET 指定备份文件，返回其 JSON 文本。 */
     suspend fun get(url: String, user: String, pass: String, filename: String): Result<String> = runCatching {
@@ -320,36 +364,77 @@ class WebDavBackup @Inject constructor() {
      * 公网一律要求 https；局域网自建服务（群晖/nginx-webdav/NAS）仍允许 http。
      */
     private fun requireSafeTarget(url: String) {
-        val uri = runCatching { java.net.URI(url.trim()) }.getOrNull()
+        val trimmed = url.trim()
+        val scheme = when {
+            trimmed.contains("://") -> trimmed.substringBefore("://").lowercase()
+            else -> null
+        }
+        if (scheme == null) {
+            throw IllegalArgumentException("WebDAV 地址缺少协议，请以 https:// 开头")
+        }
+        if (scheme != "http" && scheme != "https") {
+            throw IllegalArgumentException("WebDAV 地址协议不受支持：$scheme")
+        }
+
+        // 使用与 OkHttp 实际发起网络请求完全一致的解析器解析 URL，明确处理 userinfo、IPv6、端口
+        val httpUrl = trimmed.toHttpUrlOrNull()
             ?: throw IllegalArgumentException("WebDAV 地址无法解析：$url")
-        when (val scheme = uri.scheme?.lowercase()) {
-            "https" -> return
-            "http" -> {
-                val host = uri.host
-                    ?: throw IllegalArgumentException("WebDAV 地址缺少主机名：$url")
-                if (!isPermittedHttpHost(host)) {
-                    throw IllegalArgumentException(
-                        "已拒绝请求：$host 是公网地址，明文 HTTP 会泄露 WebDAV 账号密码与整库内容，请改用 https://。",
-                    )
-                }
-            }
-            null -> throw IllegalArgumentException("WebDAV 地址缺少协议，请以 https:// 开头")
-            else -> throw IllegalArgumentException("WebDAV 地址协议不受支持：$scheme")
+
+        // 坚决拒绝在配置 URL 中通过 userinfo 混淆目标 host（如 http://127.0.0.1:80@public.example/），必须在网络请求前阻断
+        if (httpUrl.username.isNotEmpty() || httpUrl.password.isNotEmpty()) {
+            throw IllegalArgumentException("WebDAV 地址不能包含用户信息（userinfo），账号密码请在输入框填写")
+        }
+
+        if (httpUrl.scheme == "https") return
+
+        // 真实请求 host（已由 HttpUrl 剥除 userinfo/端口并规范化）
+        val host = httpUrl.host
+        if (host.isEmpty()) {
+            throw IllegalArgumentException("WebDAV 地址缺少主机名：$url")
+        }
+
+        // 严格恢复既有 PairingManager 内网判定合同，不自行放宽无点单段域名或 .lan/.home 等范围
+        if (!PairingManager.isLanHost(host)) {
+            throw IllegalArgumentException(
+                "已拒绝请求：$host 是公网地址，明文 HTTP 会泄露 WebDAV 账号密码与整库内容，请改用 https://。",
+            )
         }
     }
 
     /**
-     * 文件名白名单：允许 Unicode（开源阅读可把设备名拼进 backup*.zip），但拒绝
-     * 路径分隔符、控制字符和 .. 注入，避免服务器返回的恶意 displayname 把请求
-     * 导向错误路径。
+     * 文件名白名单安全校验：
+     * 1. 允许集合：字母、数字、点(.)、下划线(_)、短横线(-)、普通半角空格、Unicode 字母和数字(\p{L}\p{N})、以及中英文括号()（）[]。
+     * 2. 拒绝包含任何控制字符（ASCII 0..31 如 \t, \n, \r 以及 DEL \u007F），不 trim 放过；
+     * 3. 拒绝首尾普通空格；
+     * 4. 拒绝 "."、".."、含 ".." 以及路径分隔符 '/' 与 '\\' 的目录穿越；
+     * 5. 拒绝白名单字符集外的其他字符（如 + @ # % , ~ ! 等特殊符号）。
      */
     private fun requireSafeFilename(filename: String) {
-        if (!FILENAME_RE.matches(filename) || filename.contains("..")) {
+        if (filename.isEmpty()) {
+            throw IllegalArgumentException("非法备份文件名：文件名不能为空")
+        }
+        // 拒绝原始文件名中包含任何控制字符（包括 ASCII 0..31 的 \t, \n, \r 等控制符以及 DEL \u007F）
+        if (filename.any { it < ' ' || it == '\u007F' }) {
+            throw IllegalArgumentException("非法备份文件名：文件名包含控制字符")
+        }
+        // 拒绝首尾普通空格
+        if (filename.startsWith(' ') || filename.endsWith(' ')) {
+            throw IllegalArgumentException("非法备份文件名：首尾不能包含空格")
+        }
+        // 拒绝相对路径与目录穿越
+        if (filename == "." || filename == ".." || filename.contains("..") ||
+            filename.contains('/') || filename.contains('\\')
+        ) {
+            throw IllegalArgumentException("非法备份文件名：禁止路径穿越符号")
+        }
+        // 白名单正则：仅允许字母、数字、点、下划线、短横线、普通半角空格、Unicode 字母和数字、以及中英文括号
+        // 坚决不使用 \\s（防止混入 tab/换行等其他空白控制符）
+        if (!FILENAME_RE.matches(filename)) {
             throw IllegalArgumentException("非法备份文件名：$filename")
         }
     }
 
-    private val FILENAME_RE = Regex("[^/\\\\\\u0000-\\u001F]{1,255}")
+    private val FILENAME_RE = Regex("^[A-Za-z0-9._\\- \\p{L}\\p{N}()（）\\[\\]]+$")
 
     /**
      * 解析 WebDAV PROPFIND XML 响应：

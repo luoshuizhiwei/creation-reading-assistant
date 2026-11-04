@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.compositionLocalOf
 import com.creationreadingassistant.data.local.entity.InspirationEntity
+import com.creationreadingassistant.ui.viewmodel.matchesCategoryFilter
 import androidx.compose.material3.SnackbarHostState
 
 /**
@@ -67,6 +68,8 @@ internal data class InspirationUiState(
     val query: String = "",
     val typeFilter: String = "all",
     val statusFilter: String = "all",
+    /** 任务93-v1-A：分类筛选（分类 id 或 "all"），与关键词/类型/状态按 AND 组合。 */
+    val categoryFilter: String = "all",
 ) {
     /** 返回顺序检查：弹层 → 编辑确认 → 详情 → 列表。（true = 还有可消费的"回"动作） */
     val canConsumeBack: Boolean
@@ -99,6 +102,8 @@ internal sealed interface InspirationAction {
     data class UpdateQuery(val query: String) : InspirationAction
     data class UpdateTypeFilter(val type: String) : InspirationAction
     data class UpdateStatusFilter(val status: String) : InspirationAction
+    /** 任务93-v1-A：按分类 id 筛选（"all" 表示不过滤）。 */
+    data class UpdateCategoryFilter(val categoryId: String) : InspirationAction
     data object ResetFilter : InspirationAction
 
     /* 排序 */
@@ -221,13 +226,17 @@ internal fun filterAndSortItems(
     needle: String,
     typeFilter: String,
     statusFilter: String,
+    categoryFilter: String,
     sortMode: String,
     sourceOf: (InspirationEntity) -> com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo?,
     tagsOf: (InspirationEntity) -> List<String>,
+    categoryIdsOf: (InspirationEntity) -> List<String>,
 ): List<InspirationEntity> {
     val filtered = items.filter { item ->
         if (typeFilter != "all" && (item.type ?: "note") != typeFilter) return@filter false
         if (statusFilter != "all" && (item.status ?: "inbox") != statusFilter) return@filter false
+        // 分类筛选与关键词/类型/状态是 AND 组合；关键词仍匹配标题/正文/来源/标签。
+        if (!matchesCategoryFilter(categoryIdsOf(item), categoryFilter)) return@filter false
         if (needle.isBlank()) return@filter true
         val src = sourceOf(item)
         val hay = listOf(

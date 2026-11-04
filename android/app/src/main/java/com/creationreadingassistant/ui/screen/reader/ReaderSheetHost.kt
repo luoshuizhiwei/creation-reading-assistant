@@ -29,6 +29,7 @@ import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability
 import com.creationreadingassistant.feature.reader.pager.ReaderPagePosition
 import com.creationreadingassistant.ui.components.SheetHandle
+import com.creationreadingassistant.ui.screen.reader.sheets.ReaderExportReceipts
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.AiAssistSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.AiExplainSheet
@@ -368,6 +369,15 @@ internal fun ReaderSheetHost(
                 ReaderSheet.NOTES -> NotesSheet(
                     paper = paper,
                     bookTitle = state.bookMeta.bookTitle,
+                    // 189-A：reader 内条目「临时查看来源」——回调来自 ReaderRoute
+                    //（navController.navigate 到 temporary route）；触发时先关闭当前 sheet 避免遮挡新 reader，null = 不提供入口。
+                    bookId = bid,
+                    onInspectSourceTemporarily = callbacks.onInspectSourceTemporarily?.let { inspect ->
+                        { route ->
+                            sheetCallbacks.onDismiss()
+                            inspect(route)
+                        }
+                    },
                     highlights = inputs.highlights,
                     notes = inputs.notes,
                     inspirations = inputs.inspirations,
@@ -427,6 +437,11 @@ internal fun ReaderSheetHost(
                     onJumpToNote = { n ->
                         sheetCallbacks.onJumpToTypedAnnotation(noteNavigationTarget(n))
                     },
+                    // 69-v4-B / 70-v1-A：记录系统 SAF 的实际结果（成功 URI / 取消 / 失败），
+                    // 只记回执，不改导出行为；失败保留原始异常供仪器分类。
+                    onExportCompleted = { uri -> ReaderExportReceipts.record(uri) },
+                    onExportFailed = { error -> ReaderExportReceipts.recordFailure(error) },
+                    onExportCancelled = { ReaderExportReceipts.recordCancelled() },
                 )
 
                 ReaderSheet.AI_ASSIST -> AiAssistSheet(

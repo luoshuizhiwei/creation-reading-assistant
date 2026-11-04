@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
@@ -33,7 +34,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,6 +55,7 @@ import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.ui.window.LocalDialogSystemBarsPolicy
@@ -59,6 +63,7 @@ import com.creationreadingassistant.ui.window.SystemBarsPolicy
 import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
 import com.creationreadingassistant.ui.viewmodel.ChapterLoadResult
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
+import com.creationreadingassistant.ui.viewmodel.ReaderExitBoundary
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedContent
 import com.creationreadingassistant.feature.reader.EpubParser
 import com.creationreadingassistant.feature.reader.doc.DocBlock
@@ -140,6 +145,18 @@ import com.creationreadingassistant.ui.screen.reader.rememberReaderScreenMutable
 fun ReaderScreen(
     inputs: ReaderScreenInputs,
     callbacks: ReaderScreenCallbacks,
+    /**
+     * CRA-READER-EXIT-SAVE-DRAIN-v1：本 reader 已派发阅读进度保存的完成等待入口
+     * （由 ReaderRoute 注入 `viewModel::awaitProgressSaves`）。
+     * 刻意**不提供**缺省空实现：空实现会让真实退出静默绕过 drain。
+     */
+    /**
+     * 149-r1 测试注入接缝（最小边界）：完整渲染本 composable 的唯一 Hilt 硬依赖。
+     * 生产调用方（ReaderRoute）不传该参数 → 缺省 null → 走原 hiltViewModel() 分支，
+     * 生产行为零变化。仅供 instrumentation 注入真实 SettingsViewModel 实例。
+     */
+    settingsViewModel: SettingsViewModel? = null,
+    awaitProgressSaves: suspend () -> Unit,
 ) {
     // ── 解构参数（B3 后仅保留主函数内实际消费的字段）──
     val bookId = inputs.bookId
@@ -166,7 +183,7 @@ fun ReaderScreen(
         highlightId = highlightId,
         sourceLocatorJson = sourceLocatorJson,
     )
-    val settingsVm: SettingsViewModel = hiltViewModel()
+    val settingsVm: SettingsViewModel = settingsViewModel ?: hiltViewModel()
     // R3-P1：阅读器消费的是**有效设置**（全局叠加本书覆盖），不得直接消费全局 reader，
     // 否则「本书覆盖」在渲染层完全不生效。全局值单独持有，供书内编辑路由做「还原全局原值」。
     val globalReaderSettings by settingsVm.reader.collectAsStateWithLifecycle()
@@ -198,6 +215,41 @@ fun ReaderScreen(
     val scope = rememberCoroutineScope()
     val haptic = rememberHaptic(reducedMotion)
     val snackbarHost = remember { SnackbarHostState() }
+
+    // ── CRA-READER-EXIT-SAVE-DRAIN-v1：退出边界（系统 Back / 顶栏 Back / 临时返回共用）──
+    // 真实顺序：先派发本次退出保存（闭包在 persistOnLeave 就绪后注册，见下方 SideEffect），
+    // 再等待本 reader 已派发的进度保存正常完成，只有全部完成才导航一次。
+    // 保存失败/取消 → 不导航、留在原页，并走既有 snackbar 反馈（不吞异常：类型与消息都记录）。
+    val latestOnBack by rememberUpdatedState(onBack)
+    val latestAwaitProgressSaves by rememberUpdatedState(awaitProgressSaves)
+    val exitSaveDispatch = remember { mutableStateOf<(() -> Unit)?>(null) }
+    // lifecycle 防重复落库门（原在 ReaderPlatformEffects 内部）上移到此处：
+    // 真实退出成功 drain 后先把它标记为"本次会话已在权威时机落库"，再导航；
+    // 这样导航后的 onDispose 不会重复派发一次可能被 scope 取消的保存。
+    val persistGate = remember { ReaderLifecyclePersistGate() }
+    val exitBoundary = remember(scope) {
+        ReaderExitBoundary(
+            scope = scope,
+            dispatchExitSave = { exitSaveDispatch.value?.invoke() },
+            awaitProgressSaves = { latestAwaitProgressSaves() },
+            navigate = { latestOnBack() },
+            onDrained = { persistGate.onPauseOrStop() },
+        )
+    }
+    val requestExit: () -> Unit = remember(exitBoundary) {
+        {
+            exitBoundary.requestExit(onFailure = { t ->
+                ReaderClampDiagnostics.log(
+                    "reader_exit_save_failed",
+                    "type" to t.javaClass.name,
+                    "message" to (t.message ?: ""),
+                )
+                scope.launch { snackbarHost.showSnackbar("进度保存未完成，已留在当前页") }
+            })
+        }
+    }
+
+
     val tts = rememberTts()
     // TTS 引擎错误 → 现有 notice（含「去设置」动作），不持有 Activity
     val ttsNotice = remember(context) { TtsNoticeAdapter(scope, snackbarHost, context) }
@@ -231,6 +283,20 @@ fun ReaderScreen(
     var chapterIndex by chapterIndexState
     var pendingInitialPosition by mutableHolders.pendingInitialPositionState
 
+    LaunchedEffect(bookId, loadedBook) {
+        if (loadedBook != null) {
+            ReaderClampDiagnostics.log(
+                "reader_screen_loaded",
+                "bid" to bookId,
+                "savedPlainOffset" to savedPlainOffset,
+                "savedPlainPercent" to savedPlainPercent,
+                "pending" to pendingInitialPosition,
+                "isText" to (textContent != null),
+                "textSize" to plainContent.length,
+            )
+        }
+    }
+
     // B3：预加载 / 流式 TXT 状态声明与「文档装载 / 章节加载代次」2 个 LaunchedEffect
     // 抽到 reader/ReaderDocumentLoadEffects.kt，逐字保真（State-holder 模式）。
     val docLoad = rememberReaderDocumentLoadState(
@@ -257,6 +323,18 @@ fun ReaderScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val readerResumedState = remember {
         mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+    }
+
+    DisposableEffect(lifecycleOwner, exitBoundary) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                exitBoundary.onResume()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     // 弹层打开时暂停「菜单自动隐藏」倒计时（否则调设置调到一半菜单没了）。
@@ -288,7 +366,6 @@ fun ReaderScreen(
     // J1.2：临时查阅期间离开/暂停阅读器不得把临时位置写回普通阅读进度。
     val temporaryInspection = inputs.navigationMode == ReaderNavigationMode.TEMPORARY
     val hasReturnableTarget = callbacks.hasReturnableTarget
-    val onTemporaryReturn = callbacks.onTemporaryReturn
 
     // R2-J1.4：返回键按"临时层级优先"处理：先关弹层/菜单/选区，再处理临时返回，最后离开阅读器。
     // 这与正文导航解耦，避免误触返回直接丢失当前阅读上下文。
@@ -297,21 +374,20 @@ fun ReaderScreen(
     // 清选区→ClearSelection（reducer 置 text=""、两偏移 -1、showColorRow=false，与原四行写入一致）；
     // 藏控件→ToggleControls(false)。
     // J1.4：临时查阅且存在返回目标时，先关闭临时 UI，再触发 onTemporaryReturn（LIFO 返回一层）。
-    BackHandler(
-        enabled = sheet != null ||
-            noteOpen ||
-            showReaderOverflow ||
-            selectedText.isNotBlank() ||
-            controlsVisible ||
-            (temporaryInspection && hasReturnableTarget),
-    ) {
+    // CRA-READER-EXIT-SAVE-DRAIN-v1：本处理器现在**始终**接管返回键——前五分支逐字保留
+    // （关弹层/笔记框/更多菜单/清选区/藏控件），最后一层才进入退出边界：先派发退出保存、
+    // 再等待本 reader 已派发的进度保存正常完成，完成后才导航一次（失败不导航）。
+    // 临时查阅的 LIFO 返回仍由同一 onBack（ReaderRoute 的 performTemporaryReturn）裁决，
+    // 顺序不降；这里只是把「离开阅读器」从 NavHost 默认 pop 换成同一边界。
+    BackHandler(enabled = true) {
         when {
             sheet != null -> onAction(ReaderAction.CloseSheet)
             noteOpen -> onAction(ReaderAction.SetNoteOpen(false))
             showReaderOverflow -> onAction(ReaderAction.SetShowOverflow(false))
             selectedText.isNotBlank() -> onAction(ReaderAction.ClearSelection)
             controlsVisible -> onAction(ReaderAction.ToggleControls(false))
-            temporaryInspection && hasReturnableTarget -> onTemporaryReturn()
+            temporaryInspection && hasReturnableTarget -> requestExit()
+            else -> requestExit()
         }
     }
 
@@ -323,6 +399,20 @@ fun ReaderScreen(
     val settingsRef = remember { mutableStateOf(readerSettings) }
 
     val bid = bookId ?: ""
+
+    // CRA-READER-SESSION-PROGRESS-GUARD-FIX-v1：本阅读会话的位置保护守卫。
+    // 按书身份持有会话实例（不再是进程级 bookId→Map 全局缓存）：切书即换实例，旧实例
+    // 不再被引用；会话结束（阅读器组合销毁）时的显式释放由 ReaderPlatformEffects 在退出
+    // 落库之后调用 sessionPositionGuard.disarm()，保证「先裁决、后释放」，且旧会话的
+    // 释放绝不会清掉新会话的状态。
+    val sessionPositionGuard = remember(bookId) { ReaderSessionPositionGuard() }
+
+    // 197-r1：分页会话 S0 锚 = 恢复落位后（pendingInitialPosition 解除）引擎上报的首个有效
+    // 分页页首。Int.MIN_VALUE = 尚未建立（fail-closed：缺锚不跳过退出落库）。锚建立后不随
+    // 翻页更新——翻页后 current != anchor，退出照常落库（最新合法进度不丢失）。滚动 TXT
+    // 不读本锚（走 sessionPositionGuard.resolveNoMovePosition 同一对称合同面）。
+    val pagedSessionAnchor = remember(bookId) { mutableIntStateOf(Int.MIN_VALUE) }
+
     var replacementStartupNoticeShown by rememberSaveable(bid) { mutableStateOf(false) }
     var txtTocRuleId by mutableHolders.txtTocRuleIdState
 
@@ -392,11 +482,56 @@ fun ReaderScreen(
         txtChapters = txtChapters,
     )
     val pagerEngineOn = pagerEngine.pagerEngineOn
+
+    // 197-r1：分页会话 S0 锚建立——恢复落位后（pendingInitialPosition 解除）的首个有效
+    // 分页页首。此后翻页/跳章改变 pagedAbsOffset 均不回写锚（退出照常落库，最新合法进度
+    // 不丢失）。滚动 TXT 不参与（pagerEngineOn=false 直接返回）。
+    LaunchedEffect(bookId, pagerEngineOn, pendingInitialPosition, pagerEngine.pagedAbsOffsetState.intValue) {
+        if (!pagerEngineOn || pendingInitialPosition) return@LaunchedEffect
+        val offset = pagerEngine.pagedAbsOffsetState.intValue
+        if (offset >= 0 && pagedSessionAnchor.intValue == Int.MIN_VALUE) {
+            pagedSessionAnchor.intValue = offset
+        }
+    }
     val pagedJumpRequest = pagerEngine.pagedJumpRequest
     val pagedHardwareTurnRequest = pagerEngine.pagedHardwareTurnRequest
     var pagedAbsOffset by pagerEngine.pagedAbsOffsetState
     var pagedPercent by pagerEngine.pagedPercentState
     val pagedSource = pagerEngine.pagedSource
+
+    // ── 197-r4：临时查阅入口（含 skipExitSave 基于 S0 锚/当前页首合同）──
+    // 位置在此：pagedSessionAnchor / pagedAbsOffset 已定义，lambda 闭包可实时读取。
+    // 临时入口转换 skipExitSave=true（S0 无新进度可写 → 不落库）；
+    // 真实移动 current != anchor → skipExitSave=false（照常落库最新合法进度）。
+    // 普通 Back / 生命周期不走此入口 → 照常落库（合同不变）。
+    val onInspectSourceWithBoundary: ((String) -> Unit)? =
+        callbacks.onInspectSourceTemporarily?.let { inspect ->
+            { route: String ->
+                val skipExitSave = skipPagedExitPersistOnUnmovedSession(
+                    anchorAbsOffset = pagedSessionAnchor.intValue,
+                    currentAbsOffset = pagedAbsOffset,
+                )
+                exitBoundary.requestExitWithAction(
+                    action = { inspect(route) },
+                    skipExitSave = skipExitSave,
+                    onFailure = { t ->
+                        ReaderClampDiagnostics.log(
+                            "reader_inspect_source_save_failed",
+                            "type" to t.javaClass.name,
+                            "message" to (t.message ?: ""),
+                        )
+                        scope.launch { snackbarHost.showSnackbar("进度保存未完成，请停留在当前页") }
+                    },
+                )
+            }
+        }
+    val scaffoldCallbacks = remember(callbacks, onInspectSourceWithBoundary) {
+        if (onInspectSourceWithBoundary != null) {
+            callbacks.copy(onInspectSourceTemporarily = onInspectSourceWithBoundary)
+        } else {
+            callbacks
+        }
+    }
 
     // Phase 5：进度计算抽到 reader/ReaderProgressComputations.kt，逐字保真。
     // 中间态（plainListSnapshot / streamingContentText / plainPercent / epubPercent / 阅读统计中间量）
@@ -461,7 +596,7 @@ fun ReaderScreen(
     // 各闭包体逐字保真（原局部 fun 每次重组重建，顶层 builder 语义一致）。──
     val nav = buildReaderNavActions(
         epubBook, markdownDocument, pagerEngineOn, chapterStartOffsets, pagedJumpRequest,
-        chapterIndexState, tts, onAction, onBack, bid, selectedGlobalOffset, selectedText,
+        chapterIndexState, tts, onAction, requestExit, bid, selectedGlobalOffset, selectedText,
         selectedRangeStart, scope, snackbarHost, readingUnits, plainListState, loadedBook,
         error, pendingInitialPosition, pagerEngine.pagedAbsOffsetState, pagedSource, chapterIndex, epubListState,
         eyeCareFocus.blockGlobalOffsets, eyeCareFocus.chapterBase, chapterBlocks, bookIndex,
@@ -470,16 +605,105 @@ fun ReaderScreen(
         currentChapterTitle, context, showTts, mutableHolders.autoPagingActiveState, autoPagingSupported,
         epubDocument,
         ttsContentText = progressState.ttsContentText,
-        onReturnToReading = onTemporaryReturn,
+        onReturnToReading = requestExit,
+        sessionPositionGuard = sessionPositionGuard,
+        // CRA-EPUB-TEMPORARY-PROGRESS-FIX-v1：临时查阅的章导航不得落普通阅读进度。
+        temporaryInspection = temporaryInspection,
     )
+
+    // CRA-TASK48-v3/v4：守卫采用**会话所有权**，且**所有**会修改守卫状态的入口
+    // 都限定在同一凭证上。本页进入组合（按书身份）时领取该书**当前**武装的临时
+    // 返回会话凭证；onDispose 释放与退出落库裁决都凭这一个凭证。
+    // 旧临时页面在 resolveTemporaryReturnRoute 武装**之前**已进入组合（领到
+    // null），其迟到的 onDispose、ON_PAUSE / 迟到离开回调都不可能清掉武装随后
+    // 为新普通页面发放的会话；新普通页面在导航之后进入组合，稳定领到该会话。
+    val ownedTemporaryReturnSession = remember(bid, temporaryInspection) {
+        val owner = if (temporaryInspection) null else TemporaryReturnSaveGuard.session(bid)
+        ReaderClampDiagnostics.log("temporary_return_session_adopt", "bid" to bid,
+            "temporary" to temporaryInspection, "owner" to owner)
+        owner
+    }
+
+    DisposableEffect(bid, temporaryInspection) {
+        onDispose {
+            TemporaryReturnSaveGuard.release(bid, ownedTemporaryReturnSession)
+        }
+    }
 
     val persistOnLeave: () -> Unit = {
         // S12：未换算 Legado marker 的保存保护——用户尚未改变阅读位置时，退出/暂停/
         // 离开落库不得把 marker 覆盖为近似位置的原生 locator。守卫的武装与解除都在
         // ReaderProgressEffects（依据 loader 的 unconvertedLegadoPosition 与位置变化），
         // 这里只读注册表；该书换算成功或已是原生进度时恒未武装，行为与之前逐字一致。
-        if (!temporaryInspection && !LegadoMarkerSaveGuard.isArmed(bid)) nav.persistCurrentProgress()
+        //
+        // CRA-TASK48-v2/v3：从临时查阅返回普通阅读时，退出落库与 500ms 防抖消费者
+        // **同口径裁决**——直接以实时权威位置（[temporaryReturnLeaveSourcePosition]，
+        // 分页/Markdown/纯文本滚动各自与对应防抖落库路径的坐标映射一致）比对返回基线：
+        // 用户已移动（含防抖尚未运行时）→ observe 解除武装并放行保存；
+        // 未移动或位置未就绪 → 维持抑制，保证全部 12 列冻结。
+        // 不假设防抖已经运行；位置就绪之前一律保守冻结。
+        //
+        // CRA-TASK48-v4：裁决携带**本页领到的会话凭证**（observeOwned）。本闭包先算
+        // 位置、先裁决，之后才用 `!temporaryInspection` 决定是否真正保存 —— 所以临时查阅
+        // 页面上的调用必须无所有权地通过，否则旧同书临时页面用自己的**查阅**位置（与
+        // 新返回基线不等）就能在「并未保存」的情况下解除新普通会话的保护。
+        val temporaryReturnPosition = temporaryReturnLeaveSourcePosition(
+            pagerEngineOn = pagerEngineOn,
+            pendingInitialPosition = pendingInitialPosition,
+            searchScrollFocusPending = mutableHolders.searchScrollFocusRequestState.value != null,
+            pagedAbsOffset = pagedAbsOffset,
+            epubBook = epubBook,
+            pagedSource = pagedSource,
+            markdownDocument = markdownDocument,
+            chapterBlocks = chapterBlocks,
+            chapterBase = eyeCareFocus.chapterBase,
+            epubListState = epubListState,
+            plainListState = plainListState,
+            readingUnits = readingUnits,
+            txtStreamingDocument = txtStreamingDocument,
+            plainContent = plainContent,
+            chapterStartOffsets = chapterStartOffsets,
+            scrollChapterIndex = chapterIndex,
+        )
+        val temporaryReturnFrozen = TemporaryReturnSaveGuard.observe(
+            bookId = bid,
+            currentOffset = temporaryReturnPosition?.first,
+            currentChapterIndex = temporaryReturnPosition?.second,
+            owned = ownedTemporaryReturnSession,
+        )
+        if (!temporaryInspection && !LegadoMarkerSaveGuard.isArmed(bid) && !temporaryReturnFrozen) {
+            val skipPersistDueToNoMove = if (epubBook == null && markdownDocument == null && !pagerEngineOn) {
+                val liveIndex = plainListState.firstVisibleItemIndex
+                val liveOffsetPx = plainListState.firstVisibleItemScrollOffset
+                val noMovePosition = sessionPositionGuard.resolveNoMovePosition(liveIndex, liveOffsetPx)
+                ReaderClampDiagnostics.log(
+                    "session_guard_leave_decision",
+                    "bid" to bid,
+                    "index" to liveIndex,
+                    "offsetPx" to liveOffsetPx,
+                    "armed" to sessionPositionGuard.isArmed(),
+                    "moved" to sessionPositionGuard.hasUserMoved(),
+                    "useInitialPosition" to (noMovePosition != null),
+                    "initialOffset" to noMovePosition?.first,
+                    "initialPercent" to noMovePosition?.second,
+                    "pendingInitialPosition" to pendingInitialPosition,
+                )
+                noMovePosition != null
+            } else {
+                // 197-r4：分页 skip 已移至 onInspectSourceWithBoundary 的 skipExitSave 参数；
+                // persistOnLeave 共用所有退出路径，不在此做临时入口特定跳过。
+                false
+            }
+            if (!skipPersistDueToNoMove) {
+                nav.persistCurrentProgress()
+            }
+        }
     }
+
+    // CRA-READER-EXIT-SAVE-DRAIN-v1：退出边界到这里才拿到真实的 persistOnLeave。
+    // requestExit 先同步调用它（派发退出保存，临时查阅 / Legado marker / 会话位置守卫照旧），
+    // 再 awaitProgressSaves；顺序由 ReaderExitBoundary 固定，不依赖任何时序巧合。
+    SideEffect { exitSaveDispatch.value = persistOnLeave }
 
     // S07-F4.1：把生产层算出的替换能力裁决同步给 ViewModel。
     //
@@ -574,7 +798,9 @@ fun ReaderScreen(
         jumpToPlainOffset = nav.jumpToPlainOffset,
         jumpToMarkdownOffset = nav.jumpToMarkdownOffset,
         persistCurrentProgress = persistOnLeave,
+        persistGate = persistGate,
         openTts = nav.openTts,
+        sessionPositionGuard = sessionPositionGuard,
     )
 
     // ── M-BUG-11：弹层窗口的系统栏策略 ──────────────────────────────────────
@@ -678,8 +904,15 @@ fun ReaderScreen(
         handleChromeAction = nav.handleChromeAction,
         computeLocatorJson = nav.computeLocatorJson,
         onPersistProgress = persistOnLeave,
+        onPlainTextUserScrollInput = {
+            if (isTxt && !temporaryInspection && !pagerEngineOn &&
+                !pendingInitialPosition && mutableHolders.searchScrollFocusRequestState.value == null
+            ) {
+                sessionPositionGuard.recordNavigation()
+            }
+        },
         inputs = inputs,
-        callbacks = callbacks,
+        callbacks = scaffoldCallbacks,
         settingsVm = settingsVm,
         sheetState = sheetState,
         searchSession = searchSession,

@@ -8,16 +8,23 @@ import com.creationreadingassistant.data.local.dao.ReadingProgressDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.mergeReaderProgress
+import com.creationreadingassistant.data.repository.ReaderProgressSaveOrder
 import com.creationreadingassistant.domain.model.EpubBook
-import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import com.creationreadingassistant.feature.log.AppLog
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/** 文件替换阶段（CRA-RESELECT-ROLLBACK-FIX-v1）：按旧目标被触碰的程度决定回滚动作。 */
+private const val SWAP_UNTOUCHED = 0
+private const val SWAP_BACKED_UP = 1
+private const val SWAP_TARGET_WRITTEN = 2
 
 /**
  * EPUB 仓储：负责打开解析、登记到书架（满足 reading_progress 外键约束）、
@@ -73,75 +80,56 @@ class EpubRepository @Inject constructor(
      * every id-keyed reading record. The selected file is fully parsed before the old copy is
      * touched, then swapped through a staging file so a failed repair cannot destroy the last
      * readable copy.
-     *
-     * **崩溃残留守卫（第一道，最小范围）**：若本次操作开始前同名的 `.backup` 已存在，
-     * 说明上次替换被进程杀死在「旧副本已挪走 / 新副本已落位」之间。此时磁盘上可能是
-     * 唯一完好的旧正文（旧文件已挪进 backup、新文件尚未落位），也可能只是上次已提交成功
-     * 却未清理的过期副本 —— 仅凭 target 是否存在或长度**无法区分**这两种情况。
-     * 因此一律保留 target 与 backup、拒绝本次替换，并抛出可识别错误；**绝不**删除、覆盖或
-     * 自动恢复任何一侧。自动恢复状态机属独立设计，不在本片实现。
-     * 无残留时保持下方 backupReady / promoteStarted 的进程内回滚语义不变。
      */
     suspend fun replaceStoredEpub(
         stored: BookEntity,
         selectedUri: Uri,
         selectedFileName: String,
     ): EpubBook = withContext(ioDispatcher) {
+        // CRA-ROLLBACK-WIP-RECONCILE-v3：同书文件互斥闸。守卫、fresh-source 解析、暂存/
+        // 备份/提升/DAO/回滚全程在闸内串行 —— 单个协程内的 for-loop 不构成跨协程互斥，
+        // 多个 ViewModel 协程先后触发同书替换、或「打开未落盘的书」的落位段并发时，
+        // 会互删 <id>.importing 或交替改写 target/backup。替换是低频用户操作，
+        // 进程级串行换取结构上不可能交叉写同一组文件；读书热路径不受影响。
+        EpubSwapGate.withGate {
         val target = File(context.filesDir, "books/epub/${stored.id}.epub")
         target.parentFile?.mkdirs()
         val staging = File(target.parentFile, "${stored.id}.repairing")
         val backup = File(target.parentFile, "${stored.id}.backup")
-
-        // 守卫必须先于 EpubParser.parse：解析会为来源文件落一份临时副本、对大文件还要读全量
-        // 字节，而拒绝与否只取决于磁盘上是否已有残留，与来源是否合法无关。
+        // CRA-RESELECT-ROLLBACK-FIX-v2/v3：既有 backup 可能是上次中断后**唯一**保存旧副本的文件
+        // （此时目标位恰好空缺）；残留也可能是文件或目录（中断的覆盖复制兜底不同阶段形态
+        // 不同）。**存在任何同名 backup 残留**即拒绝本次替换：不作归属猜测、不盲删、
+        // 不自动恢复，也不改写 target 或写 DB —— 把处理权交给用户。
+        // CRA-ROLLBACK-WIP-RECONCILE-v2：守卫必须前移到 fresh-source 解析**之前** ——
+        // 旧位置在 parse 之后，残留现场会先解析新来源、在派生路径落下 `.importing` 副本
+        // （同 URI 时派生 id 与 stored.id 重合），随后才被守卫拒绝，留下本次产生的孤儿副本。
         if (backup.exists()) {
-            // 提示语必须对**两种现场都成立**：target 存在（旧正文仍在）与 target 缺失
-            // （旧正文已挪进 backup）。故不能断言「原有文件已保留」—— target 缺失时并没有
-            // 这样一份文件，那样写会让用户误以为旧正文还在原处。
-            // 也不能暗示存在自助恢复入口，或引导用户删书/清备份（那正是销毁唯一副本的做法）。
             throw IllegalStateException(
                 "检测到未完成的替换残留（${backup.name}），本次替换已停止；" +
                     "旧正文若仍存在，则未被本次操作修改，残留备份已保留。" +
                     "重复重试不会自动恢复该备份",
             )
         }
-
-        // 必须传 requireFreshSource = true：本次要验证的是**所选来源的当前字节**，
-        // 而不是任何已存在的内部副本。
-        //
-        // 关键：传 expectedBookId **不足以**解决这个问题。书被导入时若不传 expectedBookId，
-        // parse 按 Uri 派生 id，而该派生 id 就是书的 bookId ⇒ 派生路径与下面的 target 是
-        // **同一个文件** ⇒ 只要存在旧副本，「文件已存在就直接沿用」的早退必然命中，
-        // 来源的新字节根本没被读过，替换退化成「用 V1 覆盖 V1」的 no-op
-        // （真机证据：docs/qa/2026-09-24-s04-safe-real-library-acceptance.md §9-1）。
-        //
-        // 新鲜来源模式下 parse 把字节落到 <id>.importing（不碰 target），
-        // 因此此刻 target 仍是唯一完好的旧正文；它只在下面备份就绪后才被改写。
-        val validated = EpubParser.parse(
-            context = context,
-            uri = selectedUri,
-            expectedBookId = stored.id,
-            requireFreshSource = true,
-        )
+        // CRA-ROLLBACK-WIP-RECONCILE-v2（S04 §9-1）：必须读取来源 URI 的**当前字节**，
+        // 禁止 EpubParser 复用既有内部副本 —— 导入时 bookId 往往就等于 Uri 派生 id，
+        // 普通模式下 parse 的早退分支会直接沿用旧 target，替换退化为「用 V1 覆盖 V1」的 no-op。
+        // 失败语义（S04 §9-4）：该阶段任何失败都必须清理本次落下的 `.importing` 副本，
+        // 且绝不退回旧内部副本冒充新来源 —— EpubParser 在 fresh-source 模式下已禁用该兜底。
+            val validated = EpubParser.parseUnderSwapGate(context, selectedUri, requireFreshSource = true)
         val validatedFile = File(validated.cachedEpubPath)
         require(validatedFile.isFile && validatedFile.length() > 0L) {
             "所选 EPUB 没有可读取的正文"
         }
 
         staging.delete()
-        // 此处不再有无条件的 `backup.delete()`：入口守卫已保证本次操作开始时不存在残留，
-        // 而对残留做删除正是「销毁唯一完好正文」的原始缺陷（见上方守卫注释）。
-        // 回滚必须按「走到哪一步」分流。旧实现把 `backup.exists()` 当作「备份可用」的判据，
-        // 于是有两个窗口会毁掉用户仅存的旧副本：
-        //   1) 建立 backup **之前**失败（staging 复制 / 长度校验）—— 此时 target 还是完好的
-        //      旧副本，而 backup 根本不存在；catch 里无条件的 `target.delete()` 直接把它删掉，
-        //      且没有任何东西可以还原。
-        //   2) `renameTo` 失败后退回 `copyTo`、而 `copyTo` 中途失败 —— backup 残缺、target 完好；
-        //      catch 仍会删掉 target，再把残缺的 backup 挪成 target（用坏文件覆盖好文件）。
-        // 下面两个标记把「旧副本是否已安全落进 backup」与「是否已开始改写 target」分开，
-        // 只有 backupReady 时才允许删除 / 覆盖 target。
-        var backupReady = false
-        var promoteStarted = false
+        // CRA-RESELECT-ROLLBACK-FIX-v1：按「旧目标被触碰的程度」分阶段回滚。
+        // 修复前 catch 无条件 target.delete()，而暂存复制发生在旧目标备份**之前**：
+        // 复制阶段就失败时旧副本原地未动、backup 尚未创建，却被删掉且无从恢复。
+        // CRA-RESELECT-ROLLBACK-FIX-v2：catch 只能清理本次操作确实可能留下的临时字节。
+        // 入口守卫已保证开始时 backup 位不存在，故此后在 backup 位出现的文件只会来自本次写入。
+        var swapStage = SWAP_UNTOUCHED
+        var backupMayHoldOurPartialBytes = false
+        var oldBytesParkedInBackup = false
         try {
             validatedFile.inputStream().use { input ->
                 staging.outputStream().use { output -> input.copyTo(output) }
@@ -150,25 +138,26 @@ class EpubRepository @Inject constructor(
                 "复制 EPUB 时文件不完整"
             }
             if (target.exists()) {
-                if (fileOps.renameTo(target, backup)) {
-                    backupReady = true
-                } else {
-                    // rename 失败退回复制：必须**复制完整并校验通过**后才允许删原文件。
-                    // 中途失败时 target 仍是完好的旧副本，backup 可能是残缺文件。
+                if (!fileOps.renameTo(target, backup)) {
+                    // copyTo 兜底此刻起可能在本备份路径留下半成品，归本次操作所有
+                    backupMayHoldOurPartialBytes = true
                     fileOps.copyTo(target, backup)
-                    require(backup.length() == target.length()) { "备份旧副本时文件不完整" }
-                    backupReady = true
-                    target.delete()
+                    // S04 阻断①（CRA-ROLLBACK-WIP-RECONCILE-v2）：短写与「等长但错字节」都必须
+                    // 拒绝，不得只比长度 —— 删掉旧 target 之前，backup 必须已与 target 逐字节一致。
+                    require(verifyFilesEqual(target, backup)) { "备份旧副本时文件不完整" }
                 }
+                oldBytesParkedInBackup = true
+                swapStage = SWAP_BACKED_UP
             }
-            promoteStarted = true
+            // 从这里起目标位会被写入（rename 失败时走覆盖复制的兜底，同样可能写坏目标）
+            swapStage = SWAP_TARGET_WRITTEN
             if (!staging.renameTo(target)) {
                 staging.copyTo(target, overwrite = true)
                 staging.delete()
             }
 
             memoryCache.remove(stored.id)
-            val replacement = EpubParser.parse(
+            val replacement = EpubParser.parseUnderSwapGate(
                 context = context,
                 uri = Uri.fromFile(target),
                 expectedBookId = stored.id,
@@ -194,102 +183,91 @@ class EpubRepository @Inject constructor(
             if (bookDao.update(updated) == 0) bookDao.upsert(updated)
             memoryCache[stored.id] = replacement
             backup.delete()
-            if (validatedFile.absolutePath != target.absolutePath) validatedFile.delete()
             replacement
         } catch (error: Throwable) {
             memoryCache.remove(stored.id)
-            // 只在「旧副本已安全落进 backup」时才动 target：
-            //   - backup 就绪：先删掉本次已改写的 target，再把 backup 还原回去。
-            //   - backup 未就绪：target 就是唯一完好的旧副本，**原样保留**；
-            //     若磁盘上残留的是「复制备份中途失败」的残缺文件，把它清掉，
-            //     避免下次启动被误当成可用备份。
-            if (backupReady) {
-                if (promoteStarted) target.delete()
-                restoreBackupAfterFailedPromotion(target, backup, error)
-            } else {
-                if (backup.exists()) backup.delete()
-                if (promoteStarted) target.delete()
+            when (swapStage) {
+                // 尚未触碰旧目标：旧副本原地不动，只清掉本次 copyTo 兜底可能留下的半成品
+                SWAP_UNTOUCHED -> if (backupMayHoldOurPartialBytes) backup.delete()
+                // 旧副本已安全移入 backup、目标位空缺：复位旧字节
+                SWAP_BACKED_UP -> restoreBackupOver(target, backup, error)
+                // 新副本已（部分）安装：先删本次写入的新字节，再复位旧字节
+                else -> {
+                    target.delete()
+                    if (oldBytesParkedInBackup) restoreBackupOver(target, backup, error)
+                }
             }
-            // 取消同样走这条回滚（不在此处直接重抛 CancellationException 跳过回滚）：
-            // 否则取消会把半截的新副本留在 target 上，反而破坏原本完好的旧副本。
             throw error
         } finally {
             staging.delete()
-            // 新鲜来源副本（<id>.importing）是**本次操作**产生的：无论成功失败都不该留下。
-            // 成功路径已在 try 末尾删除；这里兜住「成功删除之前就抛出」与所有失败路径，
-            // 否则损坏/失败的 EPUB 会在私有目录留下无人引用的孤儿副本
-            // （真机证据：docs/qa/2026-09-24-s04-safe-real-library-acceptance.md §9-4）。
-            // 注意：它绝不等于 target/backup，删它不会碰任何已登记的正文或备份。
-            runCatching { validatedFile.delete() }
+            // CRA-ROLLBACK-WIP-RECONCILE-v3：validatedFile（fresh-source 落在
+            // <派生id>.importing 的来源副本）是本次独占产生的临时字节，
+            // 成功与任何失败路径（暂存/备份建立/DAO/回滚）都必须清理；
+            // 防御 `!= target` —— 万一未来 parse 语义变化把正式副本路径返回时不得误删。
+            runCatching {
+                if (validatedFile.absolutePath != target.absolutePath) validatedFile.delete()
+            }
+        }
         }
     }
 
     /**
-     * 失败回滚的恢复段：把 [backup]（旧副本）还原为 [target]。
+     * 把 [backup] 复位到 [target]（CRA-RESELECT-ROLLBACK-FIX-v1 / v2）。
      *
-     * 两条不变式，均以 [primaryError] 优先：
-     * 1. **原异常不被顶替**：恢复动作自身的任何异常经 [runCatching] 收集后挂到
-     *    [primaryError.addSuppressed]，最终仍抛出 [primaryError]。
-     * 2. **完整 backup 只在验证通过后才删除**：
-     *    - `fileOps.renameTo` 成功 ⇒ 内容未变，直接完成；
-     *    - 失败则退回 `fileOps.copyTo`，返回后先流式核对 target 与 backup 逐字节一致
-     *      （[contentEquals]，固定 64 KiB 缓冲、遇差异即停，不做整文件驻留内存）；
-     *    - 核对**通过**才删除 backup（完整旧字节已被 target 接管）；
-     *    - 核对**失败**则保留 backup（完整旧字节仍在磁盘上，绝不静默丢失），
-     *      把失败原因挂为 suppressed 并写入诊断日志（[AppLog]，固定描述，不含书名/文件名/路径/正文/异常消息）；
-     *      注意 suppressed 只是尽力而为的附加信息：当前生产调用方（ShelfImporter.repairFileTyped）
-     *      只读取异常 message 做任务态展示，并不依据 suppressed 作出用户提示决策；当异常跨
-     *      `withContext` 边界且协程栈回溯恢复开启（JVM 断言开启或显式 `kotlinx.coroutines.debug`，
-     *      生产 Android 默认关闭）时，调用方捕获到的是恢复后的副本——其 suppressed 为空，
-     *      携带 suppressed 的原实例位于其 cause 链上。调用层当前对回滚状态的可靠判据是
-     *      磁盘残留（入口守卫），不是异常对象；
-     *      此时 target 是不完整的恢复结果，但**不存在比它更完整的在盘副本被删掉**。
-     *
-     * 恢复侧的 rename / copy 经 [fileOps] 路由（与建立备份阶段同一条接缝），
-     * 测试可按 source/dest 区分注入；生产实现 [DefaultFileOps] 与直接 `File` 调用逐字同义。
-     *
-     * `target.delete()` 与 `backup.delete()` 的返回值沿既有边界不检查（尽力而为）；
-     * 对 `renameTo` 成功路径的内容一致性由「rename 是原子换名」这一文件系统语义保证。
+     * 先 rename；跨平台失败时退回覆盖复制，复制**逐字节核对通过后才删 backup**
+     * （S04 阻断②：短写或等长错字节都不得删掉唯一完整旧副本）。恢复失败时**保留 backup
+     * 字节**供人工恢复，并把恢复异常挂到主异常 [primary] 的 suppressed 上：调用方看到的
+     * 仍是原始失败原因，恢复失败也不会被吞掉，且本条路径绝不返回「恢复成功」。
      */
-    private fun restoreBackupAfterFailedPromotion(target: File, backup: File, primaryError: Throwable) {
-        if (!backup.exists()) return
-        runCatching {
-            if (fileOps.renameTo(backup, target)) return@runCatching
-            fileOps.copyTo(backup, target)
-            if (!contentEquals(target, backup)) {
-                error("回滚恢复不完整：target 与 backup 内容不一致，backup 已保留")
+    private fun restoreBackupOver(target: File, backup: File, primary: Throwable) {
+        if (!backup.exists()) {
+            // 旧字节本应在此备份里却不存在 —— 这是恢复失败，不能静默当作「无需恢复」。
+            primary.addSuppressed(IllegalStateException("回滚失败：旧副本备份 ${backup.name} 已不存在"))
+            return
+        }
+        try {
+            if (!fileOps.renameTo(backup, target)) {
+                fileOps.copyTo(backup, target)
+                if (!verifyFilesEqual(backup, target)) {
+                    throw IOException("回滚恢复不完整：旧副本未逐字节复位")
+                }
+                backup.delete()
             }
-            backup.delete()
-        }.onFailure { restoreFailure ->
-            primaryError.addSuppressed(restoreFailure)
-            // 诊断记录（应用「日志与诊断」页可见）。必须先挂载 suppressed 再写日志，且记录动作
-            // 自身包在 runCatching 里：即使记录失败也不得顶替主异常、不阻断 suppressed、不触碰 backup。
-            // 消息为固定描述 + 失败类别（异常类名），不含书名、文件名、路径、正文或异常消息。
+        } catch (recovery: Throwable) {
+            // 中性诊断（S04 §9-6）：只记录发生了什么，不含书名 / 文件名 / 完整路径 / 内容。
+            // CRA-ROLLBACK-WIP-RECONCILE-v3：备份是否真的保留必须按现场断言 ——
+            // 不得声称不存在的备份「已保留」；日志自身失败不得顶替原始主异常。
             runCatching {
-                AppLog.w(
-                    "EpubRepository",
-                    "EPUB 回滚恢复未完成(${restoreFailure::class.simpleName ?: "Throwable"})：" +
-                        "完整旧字节已保留在备份文件中，后续替换会被残留守卫拒绝",
-                )
+                if (backup.exists()) {
+                    AppLog.e("EpubRepository", "EPUB 回滚恢复未完成，完整备份已保留，旧正文可能部分损坏")
+                } else {
+                    AppLog.e("EpubRepository", "EPUB 回滚恢复未完成，旧副本备份已丢失，需要从外部来源恢复")
+                }
             }
+            primary.addSuppressed(recovery)
         }
     }
 
-    /** 流式逐字节比较两个文件内容；长度不同直接判否，不做整文件驻留内存。 */
-    private fun contentEquals(a: File, b: File): Boolean {
-        if (a.length() != b.length()) return false
-        a.inputStream().use { ia ->
-            b.inputStream().use { ib ->
-                val bufA = ByteArray(BUFFER_BYTES)
-                val bufB = ByteArray(BUFFER_BYTES)
+    /**
+     * 有界缓冲流式核对两文件逐字节一致（S04 阻断①②，CRA-ROLLBACK-WIP-RECONCILE-v2）。
+     *
+     * 只检查长度不能拦下「等长但错字节」的损坏副本；全文件载入内存又会在大书上
+     * 撑爆堆。这里用 64 KiB 双缓冲逐块比较：长度不同先失败，同长逐字节核对，
+     * 任何一字节差异都返回 false。仅使用 java.io 基础 API，无 Android 版本要求。
+     */
+    private fun verifyFilesEqual(expected: File, actual: File): Boolean {
+        if (expected.length() != actual.length()) return false
+        expected.inputStream().use { a ->
+            actual.inputStream().use { b ->
+                val bufA = ByteArray(64 * 1024)
+                val bufB = ByteArray(64 * 1024)
                 while (true) {
-                    val nA = ia.read(bufA)
-                    val nB = ib.read(bufB)
+                    val nA = a.read(bufA)
+                    val nB = b.read(bufB)
                     if (nA != nB) return false
-                    if (nA < 0) return true
+                    if (nA <= 0) return true
                     if (!bufA.copyOf(nA).contentEquals(bufB.copyOf(nB))) return false
                 }
-                @Suppress("UNREACHABLE_CODE") true
             }
         }
     }
@@ -377,12 +355,23 @@ class EpubRepository @Inject constructor(
 
     fun cached(bookId: String): EpubBook? = memoryCache[bookId]
 
+    /**
+     * CRA-READER-DISPATCH-ORDER-MINIMAL-v6：与 [com.creationreadingassistant.data.repository.BookRepository.saveProgress]
+     * 同一条迟到丢弃合同（见 `ReaderProgressSaveOrder`）。EPUB 的两次真实保存动作
+     * （分页防抖/退出保存、章切换落库）都经本入口，[order] 由生产方在事件产生点（业务派发边界）给出。
+     */
     suspend fun saveProgress(
         bookId: String,
         chapterIndex: Int,
         percent: Float,
         offsetInChapter: Int = 0,
         absoluteOffset: Int = -1,
+        /**
+         * 事件序号。**不传**表示本次写入不属于任何阅读派发（自成一次事件，取单调递增的新序号，
+         * 因此总是被接受）——只有替换/验收夹具这类不经阅读派发的调用方才省略；生产阅读
+         * 路径（`ReaderViewModel` 的保存分支与章切换落库）恒显式传入真实值。
+         */
+        order: Long = ReaderProgressSaveOrder.next(),
     ) {
         val now = Instant.now()
         val legacyOffset = offsetInChapter.coerceAtLeast(0)
@@ -405,14 +394,16 @@ class EpubRepository @Inject constructor(
             current_location_json = currentLocationJson,
             updated_at = now.toString(),
         )
-        readingProgressDao.upsert(
-            mergeReaderProgress(
-                existing = readingProgressDao.getByBook(bookId),
-                incoming = incoming,
-                nowIso = now.toString(),
-                nowMillis = now.toEpochMilli(),
-            ),
-        )
+        ReaderProgressSaveOrder.accept(bookId, order) {
+            readingProgressDao.upsert(
+                mergeReaderProgress(
+                    existing = readingProgressDao.getByBook(bookId),
+                    incoming = incoming,
+                    nowIso = now.toString(),
+                    nowMillis = now.toEpochMilli(),
+                ),
+            )
+        }
     }
 
     suspend fun loadProgress(bookId: String): Int {
@@ -494,9 +485,6 @@ class EpubRepository @Inject constructor(
 
     companion object {
         const val MAX_HASH_BYTES = 32 * 1024 * 1024
-
-        /** 回滚恢复内容核对的流式缓冲大小（64 KiB，与既有哈希计算口径一致）。 */
-        private const val BUFFER_BYTES = 64 * 1024
     }
 }
 

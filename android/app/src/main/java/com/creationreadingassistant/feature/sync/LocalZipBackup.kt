@@ -5,10 +5,15 @@ import android.net.Uri
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import com.creationreadingassistant.feature.log.AppLog
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -20,6 +25,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
+import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -61,6 +67,15 @@ import javax.inject.Singleton
  *      rename（旧目标原样保留），杜绝「无归属证据」的换入中间态。
  *    失败后的中间态（DB=备份世界 ∪ 保留旧书行、文件=新旧混合）由「再次导入同一
  *    ZIP 收敛」兜底（DB 合并幂等、文件全量重写自愈半写入）。
+ * 2'. **整次操作的持久中断状态**（N1-repair-v1，2026-10-01）：逐文件 journal 只覆盖
+ *    「单个目标文件的换入现场」，回答不了「上一次整包恢复到底做完了没有」。真实进程
+ *    中断实证（N1）确认：DB 提交后、文件复制中被杀会留下混合状态，且**重启不会自动
+ *    收敛**。因此 [importZip] 在任何持久副作用之前先用 [LocalZipRestoreStateStore]
+ *    持久记录整次操作的身份与阶段（started → db_committed → files_copied），
+ *    完成标记只在 DB 与需要复制的文件都完成后才关闭；任何一步的持久化失败都
+ *    fail-closed 上抛，不带着缺失的归属继续。未完成状态下 [exportZip] **明确阻止**
+ *    导出（避免把混合状态扩散进新备份）并提示重新选择同一份备份重试；重试复用既有
+ *    journal 与 staging 复制，对同一 ZIP 幂等收敛，**不做无依据的整库回滚**。
  * 3. **与 JSON 备份一致**：backup.json 与 JsonBridge 导出的纯 JSON 完全相同，
  *    因此用户若只想快速迁移元数据（不含书源文件），继续用纯 JSON 即可；
  *    ZIP 是「连书一起搬走」的整包形态。
@@ -69,109 +84,359 @@ import javax.inject.Singleton
 class LocalZipBackup @Inject constructor(
     private val jsonBridge: JsonBridge,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val restoreStateStore: LocalZipRestoreStateStore = LocalZipRestoreStateStore(),
 ) {
+
+    /** 导出与导入共享的服务层互斥边界（N1-repair-v2 漏洞 3 修复）。 */
+    private val zipOperationMutex = Mutex()
+
+    /** 供测试注入的测试挂钩与接缝 */
+    internal var onExportCheckFinished: (suspend () -> Unit)? = null
+    internal var onImportStarted: (suspend () -> Unit)? = null
+    internal var deleteRecursivelyOperation: ((File) -> Boolean)? = null
+    /** 测试接缝：注入 staging 残片删除行为（N1-repair-v3 反例4）。null 时走默认 File.delete()。 */
+    internal var fileDeleteOperation: ((File) -> Boolean)? = null
+
+    /**
+     * 读取上一次整包恢复的持久状态（N1-repair-v1）：新实例据此识别「未完成」，
+     * 不依赖内存提示。返回 `null` 表示从未有过未完成操作或上次已正常完成。
+     */
+    fun readRestoreState(context: Context): LocalZipRestoreState? = restoreStateStore.read(context)
 
     /** 通过 SAF 选择的 URI 导出 ZIP（backup.json + filesDir/books/ 原始文件）。 */
     suspend fun exportZip(context: Context, zipUri: Uri) = withContext(ioDispatcher) {
-        context.contentResolver.openOutputStream(zipUri)?.use { rawOs ->
-            BufferedOutputStream(rawOs, BUF_SIZE).use { bos ->
-                ZipOutputStream(bos).use { zos ->
-                    // 1. 先写 backup.json（元数据最小，通常 < 5MB，优先落盘）
-                    val json = jsonBridge.exportToString(context)
-                    putTextEntry(zos, NAME_BACKUP_JSON, json)
+        zipOperationMutex.withLock {
+            // N1-repair-v1：未完成的整包恢复意味着「DB 已是备份世界、书籍文件仍是新旧混合」。
+            // 此时导出会把这份不一致扩散进下一份备份，因此**明确阻止**并提示先完成恢复；
+            // 只阻止，不删除、不改名任何既有文件（无归属证据的文件一律保留）。
+            val unfinished = restoreStateStore.read(context)?.takeIf { !it.isComplete }
+            if (unfinished != null) {
+                throw IllegalStateException(unfinished.blockingExportMessage())
+            }
+            onExportCheckFinished?.invoke()
 
-                    // 2. 遍历 booksDir 下所有文件，按相对路径写入
-                    val booksDir = File(context.filesDir, "books")
-                    if (booksDir.isDirectory) {
-                        // S14 残留归属收口：导出前先按归属日志收敛可判定的 crash 残留
-                        // （如「dst 缺失 + backup 独存」复位为正常书籍文件），让备份链
-                        // 拿到书本体；失败不阻塞导出，现场原样保留并继续。
-                        runCatching { recoverCrashResidues(booksDir) }
-                            .onFailure {
-                                AppLog.w(TAG, "导出前 crash 残留恢复失败（保留现场继续导出）：${it.message}")
+            context.contentResolver.openOutputStream(zipUri)?.use { rawOs ->
+                BufferedOutputStream(rawOs, BUF_SIZE).use { bos ->
+                    ZipOutputStream(bos).use { zos ->
+                        // 1. 先写 backup.json（元数据最小，通常 < 5MB，优先落盘）
+                        val json = jsonBridge.exportToString(context)
+                        putTextEntry(zos, NAME_BACKUP_JSON, json)
+
+                        // 2. 遍历 booksDir 下所有文件，按相对路径写入
+                        val booksDir = File(context.filesDir, "books")
+                        if (booksDir.isDirectory) {
+                            // S14 残留归口：导出前先按归属日志收敛可判定的 crash 残留
+                            runCatching { recoverCrashResidues(booksDir) }
+                                .onFailure {
+                                    AppLog.w(TAG, "导出前 crash 残留恢复失败（保留现场继续导出）：${it.message}")
+                                }
+                            val journal = readJournal(booksDir)
+                            val stagingRels = journal.map { siblingRel(it.rel, it.staging) }.toSet()
+                            val backupRelToDst = journal.associate { siblingRel(it.rel, it.backup) to it.rel }
+                            booksDir.walkTopDown().forEach { f ->
+                                if (!f.isFile) return@forEach
+                                val rel = relativePathOf(booksDir, f)
+                                if (rel == JOURNAL_NAME) return@forEach // 归属日志是工具元数据，永不进入备份链
+                                if (rel in stagingRels) return@forEach
+                                val backupDst = backupRelToDst[rel]
+                                if (backupDst != null && File(booksDir, backupDst).isFile) return@forEach
+                                val entryName = "$BOOKS_PREFIX/$rel"
+                                putFileEntry(zos, entryName, f)
                             }
-                        // 过滤只认归属日志：日志归属的 staging 永不打包（内容不可信）；
-                        // 日志归属的 backup 在 dst 仍存在时已被取代，不打包。**其余一律
-                        // 打包**——包括无日志证据的同格式文件：它可能是恰好同名的普通
-                        // 书籍文件，凭文件名跳过会让导出缺书（真正的数据丢失）；打包
-                        // 半写入残留的最坏后果只是目标端多一个无 DB 行的孤立文件。
-                        val journal = readJournal(booksDir)
-                        val stagingRels = journal.map { siblingRel(it.rel, it.staging) }.toSet()
-                        val backupRelToDst = journal.associate { siblingRel(it.rel, it.backup) to it.rel }
-                        booksDir.walkTopDown().forEach { f ->
-                            if (!f.isFile) return@forEach
-                            val rel = relativePathOf(booksDir, f)
-                            if (rel == JOURNAL_NAME) return@forEach // 归属日志是工具元数据，永不进入备份链
-                            if (rel in stagingRels) return@forEach
-                            val backupDst = backupRelToDst[rel]
-                            if (backupDst != null && File(booksDir, backupDst).isFile) return@forEach
-                            val entryName = "$BOOKS_PREFIX/$rel"
-                            putFileEntry(zos, entryName, f)
                         }
                     }
                 }
-            }
-        } ?: throw IllegalStateException("无法写入 ZIP：$zipUri")
+            } ?: throw IllegalStateException("无法写入 ZIP：$zipUri")
+        }
     }
 
     /** 从 SAF 选择的 ZIP 恢复：解到临时目录 → 校验 JSON → 入库 + 覆盖 books。 */
     suspend fun importZip(context: Context, zipUri: Uri) = withContext(ioDispatcher) {
-        val tmp = File(context.cacheDir, "zip-restore-${System.currentTimeMillis()}")
-        try {
-            // 0. crash residue 恢复：先按归属日志完成上一次被杀换入的现场（staging
-            //    优先落位 / backup 兜底复位 / 被取代文件清理），再进入解压 / DB / 文件段。
-            //    恢复只依据 books 目录与归属日志，不依赖本次 ZIP 内容；无日志证据的
-            //    同格式文件按普通文件保留并报告，绝不凭文件名改名。
-            recoverCrashResidues(File(context.filesDir, "books"))
+        zipOperationMutex.withLock {
+            onImportStarted?.invoke()
+            val tmp = File(context.cacheDir, "zip-restore-${System.currentTimeMillis()}")
+            var state: LocalZipRestoreState? = null
+            var primary: Throwable? = null
+            try {
+                val previousState = restoreStateStore.read(context)
 
-            // 1. 解压到临时目录，边解边校验 entry 名（防止 ZipSlip）
-            tmp.mkdirs()
-            val jsonFile = File(tmp, NAME_BACKUP_JSON)
-            val tmpBooks = File(tmp, "books")
-            context.contentResolver.openInputStream(zipUri)?.use { rawIs ->
-                BufferedInputStream(rawIs, BUF_SIZE).use { bis ->
-                    ZipInputStream(bis).use { zis ->
-                        var entry: ZipEntry? = zis.nextEntry
-                        while (entry != null) {
-                            val safeName = sanitizeEntryName(entry.name)
-                            val target = File(tmp, safeName)
-                            if (!target.normalize().path.startsWith(tmp.normalize().path + File.separator) &&
-                                target.normalize().path != tmp.normalize().path
-                            ) {
-                                throw SecurityException("ZIP 包含非法路径：${entry.name}")
+                // 0'. 在任何持久副作用之前，先把整次导入的身份与阶段可靠落盘。
+                state = restoreStateStore.begin(
+                    context = context,
+                    sourceLabel = zipUri.toString(),
+                    nowMillis = System.currentTimeMillis(),
+                )
+
+                // 0. crash residue 恢复：先按归属日志完成上一次被杀换入的现场
+                recoverCrashResidues(File(context.filesDir, "books"))
+
+                // 1. 解压到临时目录，边解边校验 entry 名（防止 ZipSlip）
+                tmp.mkdirs()
+                val jsonFile = File(tmp, NAME_BACKUP_JSON)
+                val tmpBooks = File(tmp, "books")
+                context.contentResolver.openInputStream(zipUri)?.use { rawIs ->
+                    BufferedInputStream(rawIs, BUF_SIZE).use { bis ->
+                        ZipInputStream(bis).use { zis ->
+                            var entry: ZipEntry? = zis.nextEntry
+                            while (entry != null) {
+                                val safeName = sanitizeEntryName(entry.name)
+                                val target = File(tmp, safeName)
+                                if (!target.normalize().path.startsWith(tmp.normalize().path + File.separator) &&
+                                    target.normalize().path != tmp.normalize().path
+                                ) {
+                                    throw SecurityException("ZIP 包含非法路径：${entry.name}")
+                                }
+                                if (entry.isDirectory) {
+                                    target.mkdirs()
+                                } else {
+                                    target.parentFile?.mkdirs()
+                                    target.outputStream().use { os -> zis.copyTo(os, BUF_SIZE) }
+                                }
+                                zis.closeEntry()
+                                entry = zis.nextEntry
                             }
-                            if (entry.isDirectory) {
-                                target.mkdirs()
-                            } else {
-                                target.parentFile?.mkdirs()
-                                target.outputStream().use { os -> zis.copyTo(os, BUF_SIZE) }
+                        }
+                    }
+                } ?: throw IllegalStateException("无法读取 ZIP：$zipUri")
+
+                if (!jsonFile.isFile) {
+                    throw IllegalStateException("ZIP 中缺少 $NAME_BACKUP_JSON，不是合法备份")
+                }
+
+                val backupJsonHash = computeSha256(jsonFile)
+
+                val realBooksDir = File(context.filesDir, "books")
+                val allSrcBookFiles = if (tmpBooks.isDirectory) {
+                    tmpBooks.walkTopDown().filter { it.isFile && relativePathOf(tmpBooks, it) != JOURNAL_NAME }.toList()
+                } else emptyList()
+                // N1-repair-v3/v4：目标完成判定用内容指纹（SHA-256），不只靠长度
+                val allSrcTargets = allSrcBookFiles.associate {
+                    relativePathOf(tmpBooks, it) to computeSha256(it)
+                }
+
+                // N1-repair-v3/v4：备份身份覆盖正文内容，同 backup.json 不同正文判为不同备份
+                val contentFingerprint = allSrcTargets.entries
+                    .sortedBy { it.key }
+                    .joinToString(",") { "${it.key}:${it.value}" }
+                val backupFingerprint = "$backupJsonHash|$contentFingerprint"
+
+                var actualTargetsToCopy = emptyMap<String, String>()
+                val effectiveSkipped = mutableSetOf<String>()
+                var planCommitted = false
+
+                val onPlanReady: (ImportMergeResult) -> Unit = { mergeResult ->
+                    if (!planCommitted) {
+                        planCommitted = true
+                        // 严格较新路径：本地 revision/updatedAt 严格胜出者，绝对受保护！
+                        val strictlyNewerPaths = mergeResult.strictlyNewerBookContentPaths.toSet()
+                        val strictlyNewerRels = strictlyNewerPaths
+                            .mapNotNull { relativePathOrNull(realBooksDir, File(it)) ?: it.takeIf { s -> !s.startsWith("/") } }
+                            .toSet()
+
+                        effectiveSkipped.clear()
+                        effectiveSkipped.addAll(mergeResult.skippedBookContentPaths)
+
+                        val equalRels = mergeResult.equalBookContentPaths
+                            .mapNotNull { relativePathOrNull(realBooksDir, File(it)) ?: it.takeIf { s -> !s.startsWith("/") } }
+                            .toSet()
+
+                        // 前序未完成义务：unresolvedTargets 与 pendingTargets（如 A->B->A 场景继承的 A 目标）
+                        val inheritedObligations = previousState?.let {
+                            it.unresolvedTargets + it.pendingTargets
+                        }.orEmpty()
+
+                        allSrcTargets.forEach { (rel, srcHash) ->
+                            val dstFile = File(realBooksDir, rel)
+                            val isStrictlyNewer = rel in strictlyNewerRels || dstFile.absolutePath in strictlyNewerPaths
+                            if (isStrictlyNewer) {
+                                // 铁律 1（反例 1 守卫）：严格较新永不被旧正文覆盖！
+                                // 绝不因空指纹或重试而解除保护！
+                                return@forEach
                             }
-                            zis.closeEntry()
-                            entry = zis.nextEntry
+
+                            // 关键规则（反例 2 & 3 守卫）：源内容与继承义务完全匹配才能补偿
+                            val expectedObligation = inheritedObligations[rel]
+                            // N1-repair-v6：义务是否被**本次源正文**满足。三种情况：
+                            // - 无继承义务 → 不存在冲突（true）
+                            // - legacy 长度义务 → 长度证据不足以证明正文身份，**永不算满足**
+                            //   （不猜测原来源；继续保留阻断）
+                            // - 可靠 SHA 义务 → 仅当源正文 SHA 与之完全一致
+                            val obligationSatisfied = obligationSatisfiedBy(srcHash, expectedObligation)
+                            val isEqualRel = rel in equalRels || dstFile.absolutePath in mergeResult.equalBookContentPaths
+                            val isStartedEmptyFingerprint = previousState != null &&
+                                !previousState.isComplete &&
+                                previousState.backupFingerprint.isEmpty()
+                            val isSameFingerprintRetry = previousState != null &&
+                                !previousState.isComplete &&
+                                previousState.backupFingerprint.isNotEmpty() &&
+                                previousState.backupFingerprint == backupFingerprint
+                            // 同一备份指纹重试：待修集合严格限定在 pendingTargets / unresolvedTargets 中，被 merge 保护的文件不在其中
+                            val isSameFingerprintCandidate = isSameFingerprintRetry && rel in inheritedObligations.keys
+
+                            // ── 统一冲突守卫（N1-repair-v6）──────────────────────────────
+                            // 只要存在继承义务且源正文不能满足它，本次导入对该 rel 的**一切**
+                            // 授权路径都不成立：equal、空指纹、最近一次指纹相同、路径相同，
+                            // 都只证明「DB 版本相等 / 重复选了最近的包 / 目标路径相同」，
+                            // **都不证明源正文就是被继承义务要求的那份正文**。
+                            // 因此冲突目标既不得进入本轮复制集合，也不得据此剪掉旧义务。
+                            // （v5 只把冲突挂在 equalAuthorized 上，其余 OR 仍可单独授权，
+                            //   导致 A→B→B / A→坏ZIP→B / legacy→B→B 三条路径可绕过。）
+                            val hasConflictingObligation = expectedObligation != null && !obligationSatisfied
+
+                            // 补偿条件（受统一守卫约束）：
+                            // 1. 继承义务已被源正文满足（补齐义务，如 A→B→A 回到 A）
+                            // 2. 等版本（equal）且本地未就位
+                            // 3. 同一备份指纹待修目标（在 pendingTargets / unresolvedTargets 中）且本地未就位
+                            // 4. DB 提交后 markDbCommitted 未落盘现场（空指纹且非严格较新）且本地未就位
+                            val sourceAuthorized = !hasConflictingObligation &&
+                                (expectedObligation != null || isEqualRel ||
+                                    isSameFingerprintCandidate || isStartedEmptyFingerprint)
+                            val needCompensate = sourceAuthorized &&
+                                (!dstFile.isFile || computeSha256(dstFile) != srcHash)
+
+                            if (needCompensate) {
+                                effectiveSkipped.remove(dstFile.absolutePath)
+                                effectiveSkipped.remove(rel)
+                            } else if (hasConflictingObligation) {
+                                // 冲突目标显式留在跳过集合：即使 merge 把它判为 accepted
+                                // （本地版本较低）也不得写入——否则同样会剪掉旧义务。
+                                effectiveSkipped.add(dstFile.absolutePath)
+                                effectiveSkipped.add(rel)
+                            }
+                        }
+
+                        actualTargetsToCopy = allSrcTargets.filterKeys { rel ->
+                            val dst = File(realBooksDir, rel)
+                            val isProtected = rel in effectiveSkipped || dst.absolutePath in effectiveSkipped
+                            !isProtected
+                        }
+
+                        // 2'. 在 DB 事务提交前（或 relaxed 桩兜底时）：持久化 db_committed 阶段、内容指纹与待修目标！
+                        // 若落盘失败上抛，DB 事务整体回滚，不留脏数据（fail-closed）
+                        state = restoreStateStore.markDbCommitted(
+                            context = context,
+                            state = state!!,
+                            backupFingerprint = backupFingerprint,
+                            pendingTargets = actualTargetsToCopy,
+                            nowMillis = System.currentTimeMillis(),
+                        )
+                    }
+                }
+
+                // 2. 先导入 DB（整体事务，失败自动回滚）：
+                // N1-v4 窄接缝：回调在 DB 事务提交前执行；区分接受、等版本、严格较新。
+                // 在 DB 可能提交之前，可靠持久化备份身份与可执行计划；计划落盘失败时抛出异常，DB 事务不会提交，保证 fail-closed。
+                jsonBridge.importFromString(context, jsonFile.readText(Charsets.UTF_8)) { mergeResult ->
+                    onPlanReady(mergeResult)
+                }
+
+                // 针对 relaxed mockk 或未执行回调桩的防御性兜底：确保 markDbCommitted 无论如何均能落盘
+                if (!planCommitted) {
+                    onPlanReady(ImportMergeResult())
+                }
+
+                // 3. 复制书籍文件
+                copyBookFiles(tmpBooks, realBooksDir, effectiveSkipped)
+
+                // 3'. 验证目标确实完成（漏洞 1 核心守卫 + N1-repair-v3：内容一致性证明）
+                for ((rel, expectedHash) in actualTargetsToCopy) {
+                    val dst = File(realBooksDir, rel)
+                    if (!dst.isFile || computeSha256(dst) != expectedHash) {
+                        throw IllegalStateException("待修目标验证失败（正文未就位或内容不符）：$rel")
+                    }
+                }
+
+                // 完成标记推进
+                val committedState = state ?: throw IllegalStateException("恢复状态未初始化")
+                val filesCopiedState = restoreStateStore.markStage(
+                    context = context,
+                    state = committedState.copy(pendingTargets = emptyMap()),
+                    stage = LocalZipRestoreState.STAGE_FILES_COPIED,
+                    nowMillis = System.currentTimeMillis(),
+                )
+                state = filesCopiedState
+                restoreStateStore.clear(context, filesCopiedState.operationId, realBooksDir)
+            } catch (e: Throwable) {
+                primary = e
+                throw e
+            } finally {
+                // 漏洞 5 修复：先清理临时目录并准确检查 deleteRecursively 返回值
+                var cleanupFailure: Throwable? = null
+                if (tmp.exists()) {
+                    val deleteFunc = deleteRecursivelyOperation ?: { f: File -> f.deleteRecursively() }
+                    val deleted = runCatching { deleteFunc(tmp) }.getOrElse {
+                        cleanupFailure = it
+                        false
+                    }
+                    if (!deleted && cleanupFailure == null) {
+                        cleanupFailure = java.io.IOException("临时目录删除失败（deleteRecursively 返回 false）：${tmp.path}")
+                    }
+                }
+
+                // 异常合并：保全主异常与清理异常
+                val effectiveError: Throwable?
+                if (primary != null) {
+                    if (cleanupFailure != null && primary !== cleanupFailure) {
+                        primary.addSuppressed(cleanupFailure)
+                    }
+                    effectiveError = primary
+                } else {
+                    effectiveError = cleanupFailure
+                }
+
+                // 在异常合并完成后，将包含 suppressed 链的完整摘要落盘
+                if (effectiveError != null) {
+                    val recorded = state
+                    if (recorded != null) {
+                        runCatching {
+                            restoreStateStore.recordFailure(context, recorded, effectiveError, System.currentTimeMillis())
                         }
                     }
                 }
-            } ?: throw IllegalStateException("无法读取 ZIP：$zipUri")
 
-            if (!jsonFile.isFile) {
-                throw IllegalStateException("ZIP 中缺少 $NAME_BACKUP_JSON，不是合法备份")
+                if (primary == null && cleanupFailure != null) {
+                    throw IllegalStateException(
+                        "整包恢复已完成，但临时目录清理失败，已在 cacheDir 留下残留：${tmp.path}",
+                        cleanupFailure,
+                    )
+                }
             }
-
-            // 2. 先导入 DB（整体事务，失败自动回滚），并取回合并结果：
-            //    哪些书籍行本次实际被写入、哪些本地较新书籍行被跳过（S14 版本感知复制）。
-            var mergeResult = ImportMergeResult()
-            jsonBridge.importFromString(context, jsonFile.readText(Charsets.UTF_8)) {
-                mergeResult = it
-            }
-
-            // 3. 再恢复 books 目录。DB 已提交而文件复制在后，这一段不在任何事务里：
-            //    每个目标文件走 staging → 校验 → 原子替换；本地较新书籍的文件按
-            //    合并结果跳过。失败时的中间态与恢复路径见类注释（S14 修订）。
-            copyBookFiles(tmpBooks, File(context.filesDir, "books"), mergeResult)
-        } finally {
-            // 无论成功失败，清理临时目录
-            runCatching { tmp.deleteRecursively() }
         }
+    }
+
+    private fun computeSha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { fis ->
+            val buf = ByteArray(BUF_SIZE)
+            var n: Int
+            while (fis.read(buf).also { n = it } > 0) {
+                digest.update(buf, 0, n)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * 义务是否被源正文满足（N1-repair-v6 统一守卫的唯一判定入口）。
+     *
+     * - 空义务字符串（不应出现）→ 不满足；
+     * - legacy 长度义务 → **不满足**：长度证据不足以证明正文身份，不猜测原来源；
+     * - 可靠 SHA-256 义务 → 仅当源正文指纹完全一致。
+     */
+    private fun obligationSatisfiedBy(srcHash: String, expected: String?): Boolean = when {
+        expected == null -> true
+        expected.isEmpty() -> false
+        LocalZipRestoreStateStore.isLegacyLength(expected) -> false
+        else -> srcHash == expected
+    }
+
+    /** 未完成状态下阻止导出时的说明文案（含阶段与重试指引）。 */
+    private fun LocalZipRestoreState.blockingExportMessage(): String {
+        val whenText = if (startedAtMillis > 0L) "（开始于 $startedAtMillis）" else ""
+        val cause = failureSummary?.let { "；上次失败：$it" } ?: ""
+        return "上次整包恢复未完成$whenText，阶段=$stage$cause。" +
+            "当前数据库与书籍文件可能不一致，已阻止导出以免把混合状态写进新备份。" +
+            "请先重新选择同一份整包备份完成恢复（我的 → 数据与存储 → 导入整包备份），再导出。"
     }
 
     // ── helpers ────────────────────────────────────────────────────────────
@@ -194,11 +459,11 @@ class LocalZipBackup @Inject constructor(
      *   按未保护处理（该文件本来也不在导出集合里的情况才可能发生）。
      * - **逐文件 staging**：见 [copyWithStaging]。
      */
-    private fun copyBookFiles(tmpBooks: File, realBooksDir: File, mergeResult: ImportMergeResult) {
+    private fun copyBookFiles(tmpBooks: File, realBooksDir: File, skippedPaths: Set<String>) {
         if (!tmpBooks.isDirectory) return
         realBooksDir.mkdirs()
-        val protectedRels = mergeResult.skippedBookContentPaths
-            .mapNotNull { relativePathOrNull(realBooksDir, File(it)) }
+        val protectedRels = skippedPaths
+            .mapNotNull { relativePathOrNull(realBooksDir, File(it)) ?: it.takeIf { s -> !s.startsWith("/") } }
             .toSet()
         tmpBooks.walkTopDown().forEach { src ->
             val rel = relativePathOf(tmpBooks, src)
@@ -206,10 +471,9 @@ class LocalZipBackup @Inject constructor(
             if (src.isDirectory) {
                 dst.mkdirs()
             } else if (src.isFile) {
-                // 外来 ZIP 不得借 books/.cra-restore-journal.json 注入或覆盖本地归属日志：
-                // 日志一旦可被备份包写入，伪造条目就能让恢复端误判普通文件归属。
+                // 外来 ZIP 不得借 books/.cra-restore-journal.json 注入或覆盖本地归属日志
                 if (rel == JOURNAL_NAME) return@forEach
-                if (rel in protectedRels) return@forEach
+                if (rel in protectedRels || dst.absolutePath in skippedPaths) return@forEach
                 dst.parentFile?.mkdirs()
                 copyWithStaging(src, dst, rel, realBooksDir)
             }
@@ -217,25 +481,27 @@ class LocalZipBackup @Inject constructor(
     }
 
     /**
-     * 单个书源文件的受保护复制：先写同目录独立 staging，完整复制并校验长度后替换目标。
-     *
-     * 替换是**跨平台**的（`File.renameTo` 在 POSIX/Android 上原子替换既有目标，
-     * 但在 Windows 对已存在目标返回 false）：
-     * 1. 目标是**目录**时直接拒绝（目录内容来历不明，不得被搬走后删除）；
-     * 2. 先 `renameTo`——Android/Linux 一次到位（含既有目标）；
-     * 3. 失败且目标存在时走「保护性 backup 换入」：旧目标 rename 为同目录
-     *    `*.restore-backup-<nano>`（旧字节全程存在，**绝不先删除旧目标**），
-     *    再 rename staging 到位；落位失败则把 backup 恢复回目标，自动恢复也失败时
-     *    **显式报错并保留 backup**；成功后清理 backup，清理失败同样显式报错并保留。
-     *
-     * 任何失败都保留旧目标字节并上抛；绝不退回直接对目标 outputStream 写入。
-     * finally 清理 staging 残留。
+     * 单个书源文件的受保护复制：
+     * 关键防御（漏洞 4 修复）：在实际创建/写入 staging 之前，必须先将归属记录落入 journal（verified = false）！
+     * 写入并校验长度通过后更新为 verified = true；发生中断时未校验的 staging 绝不换入。
      */
     private fun copyWithStaging(src: File, dst: File, rel: String, booksDir: File) {
         if (dst.isDirectory) {
             throw IllegalStateException("书源文件替换失败：目标位置被目录占用（已原样保留）：$rel")
         }
         val staging = File(dst.parentFile, "${dst.name}.restore-${System.nanoTime()}.staging")
+        val backup = File(dst.parentFile, "${dst.name}.restore-backup-${System.nanoTime()}")
+
+        // 漏洞 4 修复：创建 staging 之前，必须在归属日志中可靠记录归属（verified = false）！
+        val initialEntry = RestoreJournalEntry(
+            rel = rel,
+            backup = backup.name,
+            staging = staging.name,
+            verified = false,
+        )
+        journalAdd(booksDir, initialEntry)
+
+        var verified = false
         try {
             staging.outputStream().use { out ->
                 src.inputStream().use { input -> fileCopyOperation(input, out) }
@@ -243,25 +509,22 @@ class LocalZipBackup @Inject constructor(
             if (staging.length() != src.length()) {
                 throw IllegalStateException("书源文件 staging 校验失败（长度与源不一致）：$rel")
             }
+
+            verified = true
+            val verifiedEntry = initialEntry.copy(verified = true)
+            journalUpdate(booksDir, verifiedEntry)
+
             if (staging.renameTo(dst)) {
+                journalRemove(booksDir, verifiedEntry)
                 return
             }
             if (!dst.exists()) {
+                journalRemove(booksDir, verifiedEntry)
                 throw IllegalStateException("书源文件替换失败（目标不存在，无旧文件可保护）：$rel")
             }
             // Windows 等平台对已存在目标 renameTo 返回 false：走保护性 backup 换入。
-            val backup = File(dst.parentFile, "${dst.name}.restore-backup-${System.nanoTime()}")
-            // 归属日志先于任何破坏性 rename **持久化**落盘（writeJournalDurably：写 +
-            // flush + fsync 文件内容）：此后进程被杀，恢复端才能凭日志「可靠认定」
-            // dst/backup/staging 是本工具 in-flight 现场（而不是恰好同名的普通书籍文件）。
-            // **fail-closed**：日志写不进去（磁盘满 / 路径不可写等）时 journalAdd 直接
-            // 上抛，绝不执行随后的破坏性 rename —— 宁可本次换入失败、旧目标原样保留，
-            // 也不制造「无归属证据」的换入中间态（此时旧目标尚未被触碰）。
-            val journalEntry = RestoreJournalEntry(rel = rel, backup = backup.name, staging = staging.name)
-            journalAdd(booksDir, journalEntry)
             if (!dst.renameTo(backup)) {
-                // ③ 失败：dst 原样、无 backup 产生，条目即时剪枝。
-                journalRemove(booksDir, journalEntry)
+                journalRemove(booksDir, verifiedEntry)
                 throw IllegalStateException("书源文件替换失败：旧目标移入保护性 backup 失败（旧目标原样保留）：$rel")
             }
             try {
@@ -270,34 +533,36 @@ class LocalZipBackup @Inject constructor(
                 }
             } catch (e: IllegalStateException) {
                 if (backup.renameTo(dst)) {
-                    // 自动恢复成功：dst=旧字节、backup 已被消费，条目剪枝。
-                    journalRemove(booksDir, journalEntry)
+                    journalRemove(booksDir, verifiedEntry)
                     throw e
                 }
-                // 自动恢复也失败：dst 缺失、backup 旧字节唯一存在——保留条目，恢复端补完。
                 throw IllegalStateException(
                     "书源文件替换失败，且旧目标自动恢复失败；保护性 backup 已保留：${backup.path}",
                     e,
                 )
             }
             if (!backup.delete()) {
-                // dst=新字节、backup=被取代旧字节：保留条目，恢复端按证据补完 ⑤。
                 throw IllegalStateException("书源文件已替换，但保护性 backup 清理失败，已按原样保留：${backup.path}")
             }
-            journalRemove(booksDir, journalEntry)
+            journalRemove(booksDir, verifiedEntry)
         } finally {
-            if (staging.exists()) staging.delete()
+            val stagingDeleted = if (staging.exists()) {
+                val deleteFunc = fileDeleteOperation ?: { f: File -> f.delete() }
+                runCatching { deleteFunc(staging) }.getOrDefault(false)
+            } else true
+
+            if (!verified) {
+                if (stagingDeleted && !staging.exists()) {
+                    runCatching { journalRemove(booksDir, initialEntry) }
+                } else {
+                    AppLog.w(TAG, "未校验 staging 删除失败，保留归属日志以防止残片失去归属：${staging.path}")
+                }
+            }
         }
     }
 
     // ── crash residue 恢复与识别（S14 残留归属收口，2026-09-28）───────────
 
-    // 本工具残留的严格命名格式：时间戳取 System.nanoTime()（当前 19 位，下限 13 位）。
-    // 形近命名（非数字后缀、位数不足、分隔符变体）一律不匹配——普通书源文件名可能
-    // 恰好类似残留，识别必须宁缺毋滥。**严格格式匹配 ≠ 归属**：完全同格式的命名学
-    // 冲突仅凭文件名不可判定，归属必须由恢复归属日志证明；无证据的同格式文件按
-    // 普通文件处理（保留原名、导出照常打包、诊断日志报告）。
-    // 数字一律以字符串承载与比较（[compareNanoDigits]）：任意长度都不会溢出。
     private val backupResidueRegex = Regex("^(.+)\\.restore-backup-(\\d{13,})$")
     private val stagingResidueRegex = Regex("^(.+)\\.restore-(\\d{13,})\\.staging$")
 
@@ -340,39 +605,52 @@ class LocalZipBackup @Inject constructor(
 
     /**
      * 一条 in-flight 换入记录。[rel] 是 dst 相对 books 根的路径（正斜杠），
-     * [backup]/[staging] 是 dst 同目录下的文件名。三个名字间有一致性约束
-     * （backup/staging 的目标名 == rel 的最后一段），读取时校验，不一致按无效丢弃。
+     * [backup]/[staging] 是 dst 同目录下的文件名。[verified] 标明 staging 是否已通过长度校验。
      */
-    private data class RestoreJournalEntry(val rel: String, val backup: String, val staging: String)
+    private data class RestoreJournalEntry(
+        val rel: String,
+        val backup: String,
+        val staging: String,
+        val verified: Boolean = false,
+    )
+
+    private data class RawJournal(
+        val validEntries: List<RestoreJournalEntry>,
+        val allElements: List<JsonElement>,
+    )
+
+    private fun readRawJournal(booksDir: File): RawJournal {
+        val file = File(booksDir, JOURNAL_NAME)
+        if (!file.isFile) return RawJournal(emptyList(), emptyList())
+        val elements = runCatching {
+            Json.parseToJsonElement(file.readText()).jsonArray
+        }.onFailure {
+            AppLog.w(TAG, "恢复归属日志残缺（进程可能死于写入中途），按无归属证据处理：同格式文件全部保留原名")
+        }.getOrNull() ?: return RawJournal(emptyList(), emptyList())
+
+        val valid = mutableListOf<RestoreJournalEntry>()
+        elements.forEach { elem ->
+            val obj = elem.jsonObject
+            val entry = RestoreJournalEntry(
+                rel = obj["rel"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                backup = obj["backup"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                staging = obj["staging"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                verified = obj["verified"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull() ?: true,
+            ).validated()
+            if (entry != null) {
+                valid.add(entry)
+            } else {
+                AppLog.w(TAG, "归属日志条目无效，按无证据处理（文件保留原名）：$elem")
+            }
+        }
+        return RawJournal(valid, elements)
+    }
 
     /**
      * 读取并校验归属日志。任何异常形态都按「无证据」处理（返回已有有效条目或空）：
-     * - 文件不存在 → 空（常态：POSIX 上直接 rename 原子替换，不产生备份，无需日志）；
-     * - JSON 残缺（进程死于写入/剪枝重写中途）→ 整体按无证据处理并记录诊断日志，
-     *   此前所有破坏性 rename 都发生在日志写成功之后，因此"无证据"方向是安全的；
-     * - 条目名不合严格格式 / 三名不一致 → 仅丢弃该条（其余条目仍有证据效力）。
      */
-    private fun readJournal(booksDir: File): List<RestoreJournalEntry> {
-        val file = File(booksDir, JOURNAL_NAME)
-        if (!file.isFile) return emptyList()
-        val parsed = runCatching {
-            Json.parseToJsonElement(file.readText()).jsonArray.map { element ->
-                val obj = element.jsonObject
-                RestoreJournalEntry(
-                    rel = obj["rel"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                    backup = obj["backup"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                    staging = obj["staging"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                )
-            }
-        }.onFailure {
-            AppLog.w(TAG, "恢复归属日志残缺（进程可能死于写入中途），按无归属证据处理：同格式文件全部保留原名")
-        }.getOrNull() ?: return emptyList()
-        return parsed.mapNotNull { entry ->
-            entry.validated().also {
-                if (it == null) AppLog.w(TAG, "归属日志条目无效，按无证据处理（文件保留原名）：$entry")
-            }
-        }
-    }
+    private fun readJournal(booksDir: File): List<RestoreJournalEntry> =
+        readRawJournal(booksDir).validEntries
 
     private fun RestoreJournalEntry.validated(): RestoreJournalEntry? {
         fun badSegment(segment: String) = segment.isBlank() || segment == "." || segment == ".." ||
@@ -385,35 +663,30 @@ class LocalZipBackup @Inject constructor(
         return this
     }
 
-    private fun writeJournal(booksDir: File, entries: List<RestoreJournalEntry>) {
-        val json = buildJsonArray {
-            entries.forEach { entry ->
-                addJsonObject {
-                    put("rel", entry.rel)
-                    put("backup", entry.backup)
-                    put("staging", entry.staging)
-                }
-            }
-        }
+    private fun writeElements(booksDir: File, elements: List<JsonElement>) {
+        val json = JsonArray(elements)
         runCatching { File(booksDir, JOURNAL_NAME).writeText(json.toString()) }
             .onFailure { AppLog.w(TAG, "恢复归属日志写入失败（若进程被杀，现场将按无证据保留）：${it.message}") }
     }
 
-    /**
-     * [writeJournal] 的持久化版本：写 + flush + fsync 文件内容后才返回。
-     * 用于归属日志先于破坏性 rename 落盘的场景——确保进程被杀后日志在磁盘上。
-     * 失败上抛（调用方决定是否继续）；不吞异常，不写半文件。
-     */
-    private fun writeJournalDurably(booksDir: File, entries: List<RestoreJournalEntry>) {
-        val json = buildJsonArray {
-            entries.forEach { entry ->
-                addJsonObject {
-                    put("rel", entry.rel)
-                    put("backup", entry.backup)
-                    put("staging", entry.staging)
-                }
+    private fun writeJournal(booksDir: File, remainingEntries: List<RestoreJournalEntry>) {
+        runCatching {
+            val raw = readRawJournal(booksDir)
+            val remainingKeys = remainingEntries.map { it.rel to it.staging }.toSet()
+            val initialKeys = raw.validEntries.map { it.rel to it.staging }.toSet()
+            val removedKeys = initialKeys - remainingKeys
+            val filteredElements = raw.allElements.filterNot { elem ->
+                val obj = elem.jsonObject
+                val rel = obj["rel"]?.jsonPrimitive?.contentOrNull
+                val staging = obj["staging"]?.jsonPrimitive?.contentOrNull
+                (rel to staging) in removedKeys
             }
-        }
+            writeElements(booksDir, filteredElements)
+        }.onFailure { AppLog.w(TAG, "归属日志重写失败：${it.message}") }
+    }
+
+    private fun writeElementsDurably(booksDir: File, elements: List<JsonElement>) {
+        val json = JsonArray(elements)
         val journalFile = File(booksDir, JOURNAL_NAME)
         FileOutputStream(journalFile).use { fos ->
             fos.write(json.toString().toByteArray(Charsets.UTF_8))
@@ -423,23 +696,62 @@ class LocalZipBackup @Inject constructor(
     }
 
     /**
-     * 追加一条 in-flight 记录（**fail-closed**）：持久化写入失败时上抛，绝不执行
-     * 随后的破坏性 rename——宁可本次换入失败、旧目标原样保留，也不制造「无归属
-     * 证据」的换入中间态（此时旧目标尚未被触碰）。IOException 包装为
-     * IllegalStateException（与 [copyWithStaging] 的异常约定一致）并保留原始 cause。
+     * 追加一条 in-flight 记录（**fail-closed**）
      */
     private fun journalAdd(booksDir: File, entry: RestoreJournalEntry) {
         try {
-            writeJournalDurably(booksDir, readJournal(booksDir) + entry)
+            val raw = readRawJournal(booksDir)
+            val entryObj = buildJsonObject {
+                put("rel", entry.rel)
+                put("backup", entry.backup)
+                put("staging", entry.staging)
+                put("verified", entry.verified.toString())
+            }
+            writeElementsDurably(booksDir, raw.allElements + entryObj)
         } catch (e: java.io.IOException) {
             throw IllegalStateException("归属日志持久化失败（fail-closed：中止换入，旧目标原样保留）", e)
         }
     }
 
-    /** 剪枝一条已解析记录；失败仅记录（陈旧条目会在下次恢复时再次剪枝）。 */
+    /**
+     * 更新一条记录（如由 verified=false 更新为 verified=true）
+     */
+    private fun journalUpdate(booksDir: File, entry: RestoreJournalEntry) {
+        try {
+            val raw = readRawJournal(booksDir)
+            val newObj = buildJsonObject {
+                put("rel", entry.rel)
+                put("backup", entry.backup)
+                put("staging", entry.staging)
+                put("verified", entry.verified.toString())
+            }
+            val updated = raw.allElements.map { elem ->
+                val obj = elem.jsonObject
+                if (obj["rel"]?.jsonPrimitive?.contentOrNull == entry.rel &&
+                    obj["staging"]?.jsonPrimitive?.contentOrNull == entry.staging
+                ) {
+                    newObj
+                } else {
+                    elem
+                }
+            }
+            writeElementsDurably(booksDir, updated)
+        } catch (e: java.io.IOException) {
+            throw IllegalStateException("归属日志更新持久化失败", e)
+        }
+    }
+
+    /** 剪枝一条已解析记录；保留其他原始元素（包括无效条目，不破坏原日志）。 */
     private fun journalRemove(booksDir: File, entry: RestoreJournalEntry) {
-        runCatching { writeJournal(booksDir, readJournal(booksDir) - entry) }
-            .onFailure { AppLog.w(TAG, "归属日志剪枝失败（陈旧条目将由下次恢复收敛）：${it.message}") }
+        runCatching {
+            val raw = readRawJournal(booksDir)
+            val remaining = raw.allElements.filterNot { elem ->
+                val obj = elem.jsonObject
+                obj["rel"]?.jsonPrimitive?.contentOrNull == entry.rel &&
+                    obj["staging"]?.jsonPrimitive?.contentOrNull == entry.staging
+            }
+            writeElements(booksDir, remaining)
+        }.onFailure { AppLog.w(TAG, "归属日志剪枝失败（陈旧条目将由下次恢复收敛）：${it.message}") }
     }
 
     /** [rel] 同目录下的兄弟文件相对路径。 */
@@ -449,24 +761,8 @@ class LocalZipBackup @Inject constructor(
     }
 
     /**
-     * 进程在保护性换入的破坏性 rename 序列中被杀时，books 目录会留下 dst/backup/
-     * staging 的中间态。恢复只对**归属日志**证明的现场生效（日志先于第一个破坏性
-     * rename 写入，且写入时 staging 已通过长度校验、DB 事务已提交）：
-     *
-     * - **完成被打断的换入**：dst **缺失**时优先把日志归属的 staging（已校验的完整新
-     *   字节，与已提交 DB 一致）落位为 dst；staging 缺席时以 backup 旧字节兜底复位。
-     *   dst **仍在**（旧字节）且 staging 在、backup 未产生时（kill 于 ③ 后 ④ 前），
-     *   同样补完换入：旧字节移入 backup、staging 落位为 dst（[completeInterruptedSwapIn]）
-     *   ——否则旧正文会停在 dst，与已提交 DB 不一致。
-     * - **⑤ 补完**：dst 就位后，同 op 的 backup（被取代旧字节）与残留 staging 凭
-     *   日志证据清理——这正是原操作成功路径本来要做的事。
-     * - **同一 dst 多条目**（多轮 kill 累积）：按 staging nanoTime 新→旧处理，收敛
-     *   到最近一次完整新字节；旧代文件随 ⑤ 补完清理。
-     * - **陈旧条目**（引用文件已不存在）→ 剪枝；**日志残缺/条目无效** → 整体按无
-     *   证据处理。
-     * - **无日志证据的同格式文件**：一律不改名、不删除、原样保留，并在诊断日志
-     *   明确报告"未能自动清理"——它可能是恰好同名的普通书籍文件，仅凭文件名
-     *   达不到「可靠认定为本工具产生」的门槛。
+     * 恢复 crash residues。
+     * 漏洞 4 防御：对于 verified == false 的条目（半写中断产生），绝不换入为 dst，直接清理未校验 staging 并剪枝！
      */
     private fun recoverCrashResidues(booksDir: File) {
         if (!booksDir.isDirectory) return
@@ -485,6 +781,20 @@ class LocalZipBackup @Inject constructor(
             for (entry in ordered) {
                 val backupFile = File(dir, entry.backup)
                 val stagingFile = File(dir, entry.staging)
+                // 漏洞 4 关键防御：未通过长度校验的半写 staging 绝不能换入为 dst！
+                // N1-repair-v3：delete 返回 false 时保留归属条目——staging 残片不被剪掉，
+                // 仍在 stagingRels 中被导出过滤，不会当普通资产打包（反例4）。
+                if (!entry.verified) {
+                    if (stagingFile.exists()) {
+                        val deleteFunc = fileDeleteOperation ?: { f: File -> f.delete() }
+                        if (!deleteFunc(stagingFile)) {
+                            AppLog.w(TAG, "半写 staging 删除失败（保留归属记录，防止残片被误当普通资产）：${stagingFile.path}")
+                            continue
+                        }
+                    }
+                    remaining.remove(entry)
+                    continue
+                }
                 if (!dst.exists() && stagingFile.isFile) {
                     if (!stagingFile.renameTo(dst)) {
                         throw IllegalStateException(
@@ -498,13 +808,9 @@ class LocalZipBackup @Inject constructor(
                         )
                     }
                 } else if (dst.isFile && stagingFile.isFile && !backupFile.exists()) {
-                    // kill 于 journalAdd 后、③（dst→backup）前：dst 仍为旧字节、staging
-                    // 为已校验新字节、backup 未产生——补完换入（旧字节移入 backup、
-                    // staging 落位为 dst），否则旧正文停在 dst 与已提交 DB 不一致。
                     completeInterruptedSwapIn(dst, backupFile, stagingFile, rel)
                 }
                 if (dst.isFile) {
-                    // ⑤ 补完：dst 就位后，同 op 的 backup 与 staging 已无角色，按证据清理。
                     val backupGone = !backupFile.exists() || backupFile.delete()
                     val stagingGone = !stagingFile.exists() || stagingFile.delete()
                     if (backupGone && stagingGone) {
@@ -516,10 +822,8 @@ class LocalZipBackup @Inject constructor(
                         )
                     }
                 } else if (!backupFile.exists() && !stagingFile.exists()) {
-                    // 陈旧条目：无可恢复文件，剪枝。
                     remaining.remove(entry)
                 } else {
-                    // dst 被目录占用等保守场景：文件与条目都原样保留。
                     AppLog.w(TAG, "crash residue 现场保守保留（dst 非普通文件）：${dst.path}")
                 }
             }

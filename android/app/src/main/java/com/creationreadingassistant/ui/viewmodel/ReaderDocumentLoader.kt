@@ -157,14 +157,20 @@ class ReaderDocumentLoader @Inject constructor(
                     AppLog.debug("TxtPerfTrace", "TxtDocumentLoad: ${(traceEndNs - traceStartNs) / 1_000_000} ms")
                     result
                 }
+                // R6：缓存预览只是导入时的前 20,000 字符，不是完整正文。打开尝试已真实
+                // 失败（文件缺失 / provider 权限丢失 / 打开抛错）或本就没有源引用时，
+                // 必须把真实原因抛给现有错误展示链，绝不能因 reader_preview 非空就
+                // 返回成功的 ReaderLoadedBook——否则截断内容会被当整本书继续保存进度。
+                // 只有打开真实成功后的流式路径（fullText 天然为 null）才允许沿用预览兜底。
                 val result = loadAttempt?.getOrNull()
-                val fullText = result?.fullText
+                    ?: throw loadAttempt?.exceptionOrNull()
+                        ?: IllegalArgumentException("本书暂无可阅读的正文（需重新导入或同步下载）")
+                val fullText = result.fullText
                     ?: bookContentDao.getByBook(bookId)?.reader_preview
                     ?: ""
-                val streamingDocument = result?.takeIf { it.isStreaming }?.document
+                val streamingDocument = result.takeIf { it.isStreaming }?.document
                 if (fullText.isBlank() && streamingDocument == null) {
-                    throw loadAttempt?.exceptionOrNull()
-                        ?: IllegalArgumentException("本书暂无可阅读的正文（需重新导入或同步下载）")
+                    throw IllegalArgumentException("本书暂无可阅读的正文（需重新导入或同步下载）")
                 }
 
                 // ── P0 优化：在 IO 线程预检测章节，避免 ReaderScreen 组合时同步阻塞主线程 ──

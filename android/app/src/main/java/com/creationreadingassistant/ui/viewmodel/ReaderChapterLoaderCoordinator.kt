@@ -36,6 +36,12 @@ internal class ReaderChapterLoaderCoordinator {
         persistProgress: Boolean = true,
         chapterReadRepository: ChapterReadRepository,
         epubRepository: EpubRepository,
+        /**
+         * CRA-READER-DISPATCH-ORDER-MINIMAL-v6：本次章节导航在**派发边界**取好的事件序号
+         * （见 `ReaderProgressSaveOrder`）。随章切换落库一起交给持久入口，
+         * 使慢完成的旧章加载不能覆盖它之后的精确位置保存。
+         */
+        saveOrder: Long,
     ) {
         chapterLoadJob?.cancel()
         val gen = chapterLoadGeneration.incrementAndGet()
@@ -65,7 +71,12 @@ internal class ReaderChapterLoaderCoordinator {
                     } else {
                         ((chapterIndex + 1).toFloat() / epub.book.chapters.size) * 100f
                     }
-                    epubRepository.saveProgress(bookId, chapterIndex, percent)
+                    epubRepository.saveProgress(
+                        bookId = bookId,
+                        chapterIndex = chapterIndex,
+                        percent = percent,
+                        order = saveOrder,
+                    )
                 }
             } catch (_: CancellationException) {
                 // stale load, ignore

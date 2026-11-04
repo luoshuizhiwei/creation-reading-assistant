@@ -78,4 +78,11 @@ data class ReaderScreenCallbacks(
     val hasReturnableTarget: Boolean = false,
     /** 返回阅读处：与顶栏 Back / 系统 Back 复用同一个 LIFO 返回动作。 */
     val onTemporaryReturn: () -> Unit = {},
+    /**
+     * 189-A：reader 内笔记/批注条目「临时查看来源」——入参是已构造好的 temporary route
+     * 字符串（`reader/{bookId}?sourceLocator=…&navigationMode=temporary`）。由 ReaderRoute
+     * 以 navController.navigate 落地，request/真实加载 commit/LIFO 返回链全部走既有
+     * temporary route 机械。null = 不提供该入口（宿主未注入）。
+     */
+    val onInspectSourceTemporarily: ((String) -> Unit)? = null,
 )

@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -170,6 +171,9 @@ val TOP_LEVEL_ROUTES = listOf(
     TopLevelRoute.Profile,
 )
 
+/** reader 域 route 前缀（`reader/{bookId}` pattern 截掉查询串后以此开头；见 AppNavHost 注册）。 */
+internal const val READER_ROUTE_PREFIX = "reader/"
+
 /**
  * Bottom-bar icons always reserve the indicator height. Without this, selecting a tab changes
  * the column's measured height and makes its label move vertically.
@@ -186,10 +190,27 @@ fun AppNavigation() {
     // 持有唯一实例，跨 reader route 存活、进程重启即重置，不绑定单个 ReaderViewModel。
     val temporaryNavigation: TemporaryReadingNavigationViewModel = hiltViewModel()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
+    // 显示用 route 保留既有 Home fallback（底栏与返回键行为不变）。
     val currentRoute = navBackStackEntry?.destination?.route ?: TopLevelRoute.Home.route
     val routeBase = currentRoute.substringBefore('?')
+    // F1：会话结束判据只认真实非 null 的 back stack entry 与其真实 destination.route。
+    // Activity 重建/首帧尚未恢复导航状态时 entry 为 null，这不是用户离开 reader，
+    // 不得借用底栏显示用的 Home fallback 去结束会话（会误清跨重建存活的真实临时栈）。
+    val realBackStackRoute = navBackStackEntry?.destination?.route
     // 只在五个顶层目的地显示底栏；home/*、profile/* 等真实二级路由全部隐藏。
     val showBottomBar = TOP_LEVEL_ROUTES.any { it.route == routeBase }
+
+    // 120-v1 来源上下文边界：导航离开 reader 域即结束阅读会话——清 active/临时栈/在途与已提交
+    // 请求身份，保留 normalReading 持久指针。此后从阅读器外（如全局搜索）发起的临时查阅没有
+    // 「返回阅读处」目标，返回交还导航回退到真实来源页；不再凭历史普通阅读指针认定来源是阅读器
+    // （阅读器内发起的临时查阅不受影响：会话期间 active 非空，压栈返回语义不变）。
+    // effect key 取真实 route（含 null）：null 仅表示导航状态尚未恢复，effect 不结束会话；
+    // 真实 route 变化时才裁决，reader→非reader 的正常离开仍在此结束会话。
+    LaunchedEffect(realBackStackRoute) {
+        if (realBackStackRoute != null && !realBackStackRoute.startsWith(READER_ROUTE_PREFIX)) {
+            temporaryNavigation.endReaderSession()
+        }
+    }
 
     BackHandler(enabled = showBottomBar && routeBase != TopLevelRoute.Home.route) {
         navController.navigate(TopLevelRoute.Home.route) {

@@ -3,14 +3,39 @@ package com.creationreadingassistant.feature.sync
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import com.creationreadingassistant.data.local.dao.BookCategoryDao
+import com.creationreadingassistant.data.local.dao.BookDao
+import com.creationreadingassistant.data.local.dao.BookTagDao
+import com.creationreadingassistant.data.local.dao.CategoryDao
+import com.creationreadingassistant.data.local.dao.ChapterReadDao
+import com.creationreadingassistant.data.local.dao.HighlightDao
+import com.creationreadingassistant.data.local.dao.InspirationDao
+import com.creationreadingassistant.data.local.dao.NoteDao
+import com.creationreadingassistant.data.local.dao.ReadingProgressDao
+import com.creationreadingassistant.data.local.dao.ReadingSessionDao
+import com.creationreadingassistant.data.local.dao.ShelfBookDao
+import com.creationreadingassistant.data.local.dao.ShelfDao
+import com.creationreadingassistant.data.local.dao.TagDao
+import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.domain.model.SyncEnvelope
 import com.creationreadingassistant.feature.log.AppLog
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -1184,5 +1209,1267 @@ class LocalZipBackupTest {
         assertEquals("旧目标必须逐字节保留", oldBody, dst.readText())
         assertNoRestoreResidue(booksDir)
         assertNoRestoreTmpLeft()
+    }
+
+    // ── N1-repair-v1：整次导入的持久中断状态 ──────────────────────────────
+    // 目标风险：DB 事务提交后、书籍文件复制完成前进程被杀，会留下「DB 已是备份世界、
+    // 文件仍是新旧混合」的现场；重启后必须能识别该现场，且导出不得把混合状态扩散。
+
+    /**
+     * 真实风险：DB 已提交 + 文件复制中断 ⇒ 状态必须**持久**留下 db_committed，
+     * 且**全新实例**（新进程/重启）只凭磁盘就能识别为未完成。
+     */
+    @Test
+    fun `interruptedAfterDbCommitLeavesDurableStateReadableByNewInstance`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("OLD")
+
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        val backup = subject(jsonBridge)
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("N1 注入：文件复制中断") }
+
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW BYTES")
+
+        val ctx = fakeContext()
+        val result = runCatching { backup.importZip(ctx, mockk<Uri>()) }
+        assertTrue("注入的中断必须上抛", result.isFailure)
+
+        // 全新实例读磁盘：这正是「重启后能识别」的唯一依据。
+        val state = LocalZipRestoreStateStore().read(ctx)
+        assertTrue("中断后必须留下持久状态", state != null)
+        assertEquals(
+            "DB 已提交、文件未复制完必须记为 db_committed",
+            LocalZipRestoreState.STAGE_DB_COMMITTED,
+            state!!.stage,
+        )
+        assertFalse("未完成状态不得被当成完成", state.isComplete)
+        assertTrue("失败摘要必须可观察", state.failureSummary.orEmpty().contains("文件复制中断"))
+        assertEquals("旧目标必须逐字节保留", "OLD", dst.readText())
+    }
+
+    /**
+     * 真实风险：状态本身写不进去时，绝不能带着「缺失归属」继续执行 DB 事务与文件换入。
+     * 断言：begin 失败即中止，JsonBridge 从未被调用，书籍文件分毫未动。
+     */
+    @Test
+    fun `stateWriteFailureStopsBeforeDbImportAndTouchesNothing`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("OLD-MUST-SURVIVE")
+
+        // 确定性制造状态落盘失败：状态文件路径被同名目录占用。
+        File(filesDir, LocalZipRestoreStateStore.STATE_FILE_NAME).mkdirs()
+
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "ZIP-NEW-BYTES")
+
+        val result = runCatching { subject(jsonBridge).importZip(fakeContext(), mockk<Uri>()) }
+
+        assertTrue("状态落盘失败必须上抛（fail-closed）", result.isFailure)
+        coVerify(exactly = 0) { jsonBridge.importFromString(any(), any(), any()) }
+        assertEquals("不得在无归属记录的情况下改动书籍文件", "OLD-MUST-SURVIVE", dst.readText())
+        assertNoRestoreResidue(booksDir)
+        assertNoRestoreTmpLeft()
+    }
+
+    /** 成功导入必须关闭完成标记：新实例读到 null，不能被误报成中断。 */
+    @Test
+    fun `completedImportClearsStateAndIsNotReportedAsInterrupted`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("OLD")
+
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW BYTES")
+
+        val ctx = fakeContext()
+        subject().importZip(ctx, mockk<Uri>())
+
+        assertEquals("NEW BYTES", dst.readText())
+        assertNull(
+            "完成后新实例不得再看到未完成状态",
+            LocalZipRestoreStateStore().read(ctx),
+        )
+    }
+
+    /**
+     * 真实风险：未完成状态下导出会把「DB 与文件不一致」扩散进下一份备份。
+     * 断言导出被**明确拒绝**，且拒绝路径不删除、不改名任何既有文件。
+     */
+    @Test
+    fun `exportIsBlockedWhileRestoreUnfinishedAndDeletesNothing`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val book = File(booksDir, "b1/content.txt")
+        book.parentFile!!.mkdirs()
+        book.writeText("USER BYTES")
+
+        val ctx = fakeContext()
+        val store = LocalZipRestoreStateStore()
+        var state = store.begin(ctx, "content://backup.zip", 1L)
+        store.markStage(ctx, state, LocalZipRestoreState.STAGE_DB_COMMITTED, 2L)
+
+        val result = runCatching { subject().exportZip(ctx, mockk<Uri>()) }
+
+        val failure = result.exceptionOrNull()
+        assertTrue("未完成状态下导出必须被阻止", failure is IllegalStateException)
+        val message = failure!!.message.orEmpty()
+        assertTrue("说明必须给出重试指引：$message", message.contains("导入整包备份"))
+        assertTrue("说明必须点明混合状态风险：$message", message.contains("不一致"))
+        assertTrue("被阻止的导出不得删除用户文件", book.isFile)
+        assertEquals("USER BYTES", book.readText())
+        assertEquals("被阻止的导出不得写出任何 ZIP 内容", 0L, zipFile.length())
+    }
+
+    /**
+     * 真实风险：状态文件损坏时若按「无操作」处理，会放过混合状态；若按文件名清理，
+     * 又会误删用户文件。断言：损坏 ⇒ 保守按未完成（阻止导出），且一个字节都不动。
+     */
+    @Test
+    fun `corruptStateBlocksExportWithoutDeletingUserFiles`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val book = File(booksDir, "b1/content.txt")
+        book.parentFile!!.mkdirs()
+        book.writeText("USER BYTES")
+        File(filesDir, LocalZipRestoreStateStore.STATE_FILE_NAME).writeText("{ 截断")
+
+        val ctx = fakeContext()
+        val result = runCatching { subject().exportZip(ctx, mockk<Uri>()) }
+
+        assertTrue("损坏状态必须保守阻止导出", result.isFailure)
+        assertTrue("用户文件不得被删除", book.isFile)
+        assertEquals("USER BYTES", book.readText())
+    }
+
+    /**
+     * 重试收敛：中断后用**同一份 ZIP** 再导入一次必须自愈（全量重写 + 版本感知跳过），
+     * 且完成后状态被清除——不依赖任何整库回滚。
+     */
+    @Test
+    fun `retryAfterInterruptionConvergesAndClearsState`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("OLD")
+
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "BACKUP BYTES")
+
+        val ctx = fakeContext()
+        val backup = subject()
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("第一次：复制中断") }
+        assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+        assertFalse(
+            "第一次中断后应留下未完成状态",
+            LocalZipRestoreStateStore().read(ctx)!!.isComplete,
+        )
+
+        // 重试：复用既有 journal 与 staging 逻辑，不做任何额外回滚。
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        backup.importZip(ctx, mockk<Uri>())
+
+        assertEquals("重试后必须收敛到备份字节", "BACKUP BYTES", dst.readText())
+        assertNull("收敛完成后状态必须被清除", LocalZipRestoreStateStore().read(ctx))
+        assertNoRestoreResidue(booksDir)
+        assertNoRestoreTmpLeft()
+    }
+
+    /** 失败摘要必须落盘（可观察），且记录失败不得把 db_committed 阶段降级。 */
+    @Test
+    fun `failureSummaryIsRecordedForInterruptedImport`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        File(booksDir, "b1/content.txt").also { it.parentFile!!.mkdirs(); it.writeText("OLD") }
+
+        val backup = subject()
+        val root = java.io.IOException("底层写失败")
+        backup.fileCopyOperation = { _, _ -> throw root }
+
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW")
+
+        val ctx = fakeContext()
+        runCatching { backup.importZip(ctx, mockk<Uri>()) }
+
+        val state = LocalZipRestoreStateStore().read(ctx)!!
+        assertEquals(LocalZipRestoreState.STAGE_DB_COMMITTED, state.stage)
+        val summary = state.failureSummary.orEmpty()
+        assertTrue("摘要必须含主异常类型：$summary", summary.contains("IOException"))
+        assertTrue("摘要必须含原始 message：$summary", summary.contains("底层写失败"))
+    }
+
+    /**
+     * 漏洞 1 校验：首次 DB 提交后正文未复制，第二次重试时即使真实 merge 因版本相等报告 skippedBookContentPaths，
+     * 待修目标正文依然不能被跳过，必须收敛复制并关闭未完成状态。
+     */
+    @Test
+    fun `sameZipRetryDoesNotSkipPendingTargetWhenMergeReportsSkipped`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        // 首次模拟：正文不存在（或未复制完成）
+
+        writeZip("backup.json" to "{\"books\":[{\"id\":\"b1\"}]}", "books/b1/content.txt" to "NEW CONTENT")
+
+        val ctx = fakeContext()
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+
+        val backup = subject(jsonBridge)
+        // 第一次导入：复制阶段失败
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("首次文件复制中断") }
+        assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+
+        val unfinishedState = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull(unfinishedState)
+        assertEquals(LocalZipRestoreState.STAGE_DB_COMMITTED, unfinishedState!!.stage)
+        assertTrue(unfinishedState.pendingTargets.containsKey("b1/content.txt"))
+
+        // 第二次重试：模拟真实的严格大于策略（由于首次已提交 DB，本地版本等于备份版本，merge 将其判定为跳过）
+        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+            val callback = thirdArg<(ImportMergeResult) -> Unit>()
+            callback(ImportMergeResult(skippedBookContentPaths = listOf(dst.absolutePath)))
+        }
+
+        // 恢复正常文件复制
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        backup.importZip(ctx, mockk<Uri>())
+
+        // 验证：尽管 merge 报告跳过，但属于待修目标且磁盘未就位，重试依然完成了复制并清除了状态！
+        assertTrue("正文文件必须被补齐写入", dst.isFile)
+        assertEquals("NEW CONTENT", dst.readText())
+        assertNull("收敛完成后状态必须被清除", LocalZipRestoreStateStore().read(ctx))
+    }
+
+    /**
+     * 漏洞 2 校验：A 中断后选择不含 A 目标的合法 B（或空备份），B 完成不能消除 A 的未完成保护，导出仍被阻断。
+     */
+    @Test
+    fun `unfinishedAIsPreservedWhenDifferentZipBIsImportedAndExportRemainsBlocked`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val fileA = File(booksDir, "a/content.txt")
+        fileA.parentFile!!.mkdirs()
+
+        // 准备备份 A
+        writeZip("backup.json" to "{\"name\":\"A\"}", "books/a/content.txt" to "A CONTENT")
+        val ctx = fakeContext()
+        val backup = subject()
+
+        // 导入 A 中断
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("A 中断") }
+        assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+        assertFalse(fileA.exists())
+
+        val stateAfterA = LocalZipRestoreStateStore().read(ctx)!!
+        assertFalse(stateAfterA.isComplete)
+
+        // 准备不同内容的合法备份 B（仅包含 b，不含 a）
+        writeZip("backup.json" to "{\"name\":\"B\"}", "books/b/content.txt" to "B CONTENT")
+        val fileB = File(booksDir, "b/content.txt")
+
+        // 导入 B
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        backup.importZip(ctx, mockk<Uri>())
+
+        // 验证：B 成功复制了 b，但 A 的未完成目标依然被守护，状态仍为未完成！
+        assertTrue("B 的文件已复制", fileB.isFile)
+        val stateAfterB = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull("状态绝不能被清除", stateAfterB)
+        assertFalse("A 未收敛，状态依然不是完成态", stateAfterB!!.isComplete)
+        assertTrue("A 的目标仍在 unresolvedTargets 守护中", stateAfterB.unresolvedTargets.containsKey("a/content.txt"))
+
+        // 导出仍被阻断
+        val exportResult = runCatching { backup.exportZip(ctx, mockk<Uri>()) }
+        assertTrue("由于 A 的未完成保护依然存在，导出必须被阻断", exportResult.isFailure)
+    }
+
+    /**
+     * 漏洞 3 校验：可控交错测试。ZIP 导入与导出使用服务层互斥锁，导出在状态检查后导入启动，无法穿插执行，不产生混合导出。
+     */
+    @Test
+    fun `concurrentExportAndImportAreMutexedPreventingMixedExport`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val b1 = File(booksDir, "b1/content.txt").also { it.parentFile!!.mkdirs(); it.writeText("INITIAL") }
+
+        val ctx = fakeContext()
+        val backup = subject()
+
+        var exportPaused = true
+        var importAttemptFinished = false
+
+        backup.onExportCheckFinished = {
+            while (exportPaused) {
+                delay(10)
+            }
+        }
+
+        // 启动导出协程
+        val exportJob = launch(Dispatchers.IO) {
+            backup.exportZip(ctx, mockk<Uri>())
+        }
+
+        // 稍等以确保 exportZip 已经获取互斥锁并停在 onExportCheckFinished
+        delay(50)
+
+        // 准备另一个备份包并启动导入
+        val zipFileB = temp.newFile("import_b.zip")
+        ZipOutputStream(zipFileB.outputStream()).use { zos ->
+            zos.putNextEntry(ZipEntry("backup.json"))
+            zos.write("{}".toByteArray(Charsets.UTF_8))
+            zos.closeEntry()
+            zos.putNextEntry(ZipEntry("books/b1/content.txt"))
+            zos.write("MODIFIED BY IMPORT".toByteArray(Charsets.UTF_8))
+            zos.closeEntry()
+        }
+        val cr = ctx.contentResolver
+        every { cr.openInputStream(any()) } answers { zipFileB.inputStream() }
+
+        val importJob = launch(Dispatchers.IO) {
+            backup.importZip(ctx, mockk<Uri>())
+            importAttemptFinished = true
+        }
+
+        delay(50)
+        assertFalse("在导出持有锁期间，并发导入必须被阻塞排队，不得插队执行", importAttemptFinished)
+
+        // 释放导出
+        exportPaused = false
+        exportJob.join()
+        importJob.join()
+
+        assertTrue("导出与导入在互斥串行化后均能完成", importAttemptFinished)
+    }
+
+    /**
+     * 漏洞 4 校验：半写 staging 在创建前可靠记录归属日志（verified=false）。
+     * 中断产生未校验 staging，重启/新实例重试时安全清理该残片且不误换入，导出绝不包含该 staging 残片。
+     */
+    @Test
+    fun `tornStagingInterruptionLeavesJournaledResidueCleanedOnRetryAndExcludedFromExport`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt").also { it.parentFile!!.mkdirs(); it.writeText("ORIGINAL") }
+
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW COMPLETE CONTENT")
+        val ctx = fakeContext()
+        val backup = subject()
+
+        // 模拟半写中断：写入部分内容后抛出异常中断
+        backup.fileCopyOperation = { input, output ->
+            output.write("HALF-WRITTEN".toByteArray(Charsets.UTF_8))
+            output.flush()
+            throw java.io.IOException("半写中断")
+        }
+
+        assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+        assertEquals("原文件保持不变", "ORIGINAL", dst.readText())
+
+        // 此时通过新实例重试
+        val newBackup = subject()
+        newBackup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        newBackup.importZip(ctx, mockk<Uri>())
+
+        assertEquals("重试后收敛到完整内容", "NEW COMPLETE CONTENT", dst.readText())
+        assertNull(LocalZipRestoreStateStore().read(ctx))
+
+        // 执行导出，验证导出的 ZIP 绝无任何 staging 残片
+        newBackup.exportZip(ctx, mockk<Uri>())
+        val entries = listZipEntries()
+        assertTrue("导出的 ZIP 包含正文", entries.contains("books/b1/content.txt"))
+        assertFalse("导出的 ZIP 绝不得包含任何 staging 残片", entries.any { it.contains(".staging") })
+    }
+
+    /**
+     * 漏洞 5 校验 (1)：deleteRecursively 返回 false 被准确检测为失败，且落盘于 failureSummary，不误清状态。
+     */
+    @Test
+    fun `deleteRecursivelyReturnsFalseIsRecordedInFailureSummaryAndLeavesStateUnfinished`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        File(booksDir, "b1/content.txt").also { it.parentFile!!.mkdirs(); it.writeText("OLD") }
+
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW")
+        val ctx = fakeContext()
+        val backup = subject()
+
+        // 注入 deleteRecursively 返回 false
+        backup.deleteRecursivelyOperation = { false }
+
+        val result = runCatching { backup.importZip(ctx, mockk<Uri>()) }
+        assertTrue("deleteRecursively 返回 false 必须判定为失败", result.isFailure)
+
+        val state = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull("清理失败不得误清状态", state)
+        val summary = state!!.failureSummary.orEmpty()
+        assertTrue("失败摘要必须包含 deleteRecursively 返回 false：$summary", summary.contains("deleteRecursively 返回 false"))
+    }
+
+    /**
+     * 漏洞 5 校验 (2)：deleteRecursively 抛出 IOException 时，作为 suppressed 挂载到主异常上，并完整记录于 failureSummary。
+     */
+    @Test
+    fun `deleteRecursivelyThrowsIOExceptionIsAddedAsSuppressedAndRecordedInSummary`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        File(booksDir, "b1/content.txt").also { it.parentFile!!.mkdirs(); it.writeText("OLD") }
+
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW")
+        val ctx = fakeContext()
+        val backup = subject()
+
+        val mainError = java.io.IOException("正文复制失败")
+        backup.fileCopyOperation = { _, _ -> throw mainError }
+        backup.deleteRecursivelyOperation = { throw java.io.IOException("清理临时目录失败IO") }
+
+        val result = runCatching { backup.importZip(ctx, mockk<Uri>()) }
+        assertTrue(result.isFailure)
+
+        val thrown = result.exceptionOrNull()!!
+        assertEquals("主异常不得被覆盖", "正文复制失败", thrown.message)
+        assertTrue("清理异常必须被挂载为 suppressed", thrown.suppressed.any { it.message?.contains("清理临时目录失败IO") == true })
+
+        val state = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull(state)
+        val summary = state!!.failureSummary.orEmpty()
+        assertTrue("摘要必须包含主异常：$summary", summary.contains("正文复制失败"))
+        assertTrue("摘要必须包含 suppressed 清理异常：$summary", summary.contains("清理临时目录失败IO"))
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  N1-repair-v3 反例（四条路径的真实失败对照）
+    // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * 反例1a：DB 已提交新记录、正文仍是旧内容（长度不同），同 ZIP 重试。
+     *
+     * v2 缺陷：重试逻辑只检查 `!dstFile.isFile`——文件存在（内容错误）就不从 skipped 移除，
+     * merge 报告 skipped 后正文永远停留在旧内容。
+     * v3 修复：重试时校验内容一致性（SHA-256），内容不符才保留 skipped，否则强制重写。
+     */
+    @Test
+    fun `N1v3_W1a_sameZipRetryWithWrongContentDifferentLengthReCopies`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("OLD") // 3 bytes
+
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW CONTENT") // 11 bytes
+
+        val ctx = fakeContext()
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        val backup = subject(jsonBridge)
+
+        // 第一次导入：文件复制阶段中断
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("首次文件复制中断") }
+        assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+        assertEquals("中断后旧正文必须保留", "OLD", dst.readText())
+
+        // 第二次重试：merge 因等版本报告 skipped
+        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+            thirdArg<(ImportMergeResult) -> Unit>()(
+                ImportMergeResult(skippedBookContentPaths = listOf(dst.absolutePath)),
+            )
+        }
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        backup.importZip(ctx, mockk<Uri>())
+
+        assertEquals("重试必须把正文补齐为备份内容（不能因文件存在而跳过）", "NEW CONTENT", dst.readText())
+        assertNull("收敛后状态必须清除", LocalZipRestoreStateStore().read(ctx))
+    }
+
+    /**
+     * 反例1b：旧正文与备份内容**长度相同但内容不同**，同 ZIP 重试。
+     *
+     * v2 缺陷：验证只比长度——长度相同就认为已就位，内容错误不可观察。
+     * v3 修复：验证用 SHA-256 内容指纹，长度相同内容不同也能识别。
+     */
+    @Test
+    fun `N1v3_W1b_sameZipRetryWithWrongContentSameLengthReCopies`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("OLDD") // 4 bytes
+
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEWW") // 4 bytes, same length
+
+        val ctx = fakeContext()
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        val backup = subject(jsonBridge)
+
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("首次文件复制中断") }
+        assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+
+        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+            thirdArg<(ImportMergeResult) -> Unit>()(
+                ImportMergeResult(skippedBookContentPaths = listOf(dst.absolutePath)),
+            )
+        }
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        backup.importZip(ctx, mockk<Uri>())
+
+        assertEquals("长度相同但内容不同时也必须重写", "NEWW", dst.readText())
+        assertNull(LocalZipRestoreStateStore().read(ctx))
+    }
+
+    /**
+     * 反例2：DB 导入返回后、markDbCommitted 落盘前中断。
+     *
+     * 模拟方式：直接用 store.begin() 写出 STAGE_STARTED + 空 pending + 空指纹的持久状态
+     * （这正是 DB 已提交但 markDbCommitted 未调用时的磁盘现场），**不用异常触发 finally**。
+     * 随后同 ZIP 重试，merge 报告 skipped——v2 因 pending 为空不触发重试补偿，正文停留旧内容。
+     */
+    @Test
+    fun `N1v3_W2_durableStartedStateWithEmptyPendingReCopiesOnRetry`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("OLD")
+
+        val ctx = fakeContext()
+        // 直接写出中断后的持久状态：STAGE_STARTED、空 pending、空指纹
+        LocalZipRestoreStateStore().begin(ctx, "content://backup.zip", 1000L)
+
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW CONTENT")
+
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+            thirdArg<(ImportMergeResult) -> Unit>()(
+                ImportMergeResult(skippedBookContentPaths = listOf(dst.absolutePath)),
+            )
+        }
+        val backup = subject(jsonBridge)
+        backup.importZip(ctx, mockk<Uri>())
+
+        assertEquals("DB 已提交但正文未就位时重试必须补齐", "NEW CONTENT", dst.readText())
+        assertNull(LocalZipRestoreStateStore().read(ctx))
+    }
+
+    /**
+     * 反例3a：备份 A 中断后导入备份 B（同路径、版本较低）。
+     *
+     * v2 缺陷：isSameBackupRetry 因 pendingTargets 非空而对**任何**备份为真；
+     * clear 只检查 isFile——文件存在（旧内容）就清状态，A 的义务被消除。
+     * v3 修复：isSameBackupRetry 只按指纹判定；clear 校验内容指纹，内容不符不清状态。
+     */
+    @Test
+    fun `N1v3_W3a_backupBLowerVersionDoesNotOverwriteAndPreservesAObligation`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("ORIGINAL")
+
+        // 导入 A：DB 提交、文件复制中断
+        writeZip("backup.json" to "{\"name\":\"A\"}", "books/b1/content.txt" to "A CONTENT")
+        val ctx = fakeContext()
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        val backup = subject(jsonBridge)
+
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("A 中断") }
+        assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+        assertEquals("ORIGINAL", dst.readText())
+
+        // 导入 B：同路径、版本较低 → merge 报告 skipped
+        writeZip("backup.json" to "{\"name\":\"B\"}", "books/b1/content.txt" to "B CONTENT")
+        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+            thirdArg<(ImportMergeResult) -> Unit>()(
+                ImportMergeResult(skippedBookContentPaths = listOf(dst.absolutePath)),
+            )
+        }
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        backup.importZip(ctx, mockk<Uri>())
+
+        assertEquals("B 版本较低不得覆盖", "ORIGINAL", dst.readText())
+        val state = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull("A 的义务未完成，状态不得清除", state)
+        assertFalse("状态不得为完成态", state!!.isComplete)
+        assertTrue("A 的目标仍在 unresolvedTargets 守护中", state.unresolvedTargets.containsKey("b1/content.txt"))
+    }
+
+    /**
+     * 反例3b：backup.json 相同但正文内容不同 → 必须识别为不同内容身份。
+     *
+     * v2 缺陷：backupFingerprint 只 hash backup.json——两份 backup.json 都是 "{}" 但正文不同的
+     * 备份被视为同一备份重试，A 的义务被 B 静默消除。
+     * v3 修复：backupFingerprint 覆盖正文内容指纹，同 backup.json 不同正文判为不同备份。
+     */
+    @Test
+    fun `N1v3_W3b_sameBackupJsonButDifferentContentIsNotSameBackupRetry`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("ORIGINAL")
+
+        // 导入 A：backup.json="{}", 正文="A CONTENT"
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "A CONTENT")
+        val ctx = fakeContext()
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        val backup = subject(jsonBridge)
+
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("A 中断") }
+        assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+
+        // 导入 B：backup.json="{}"（相同），正文="B CONTENT"（不同）
+        writeZip("backup.json" to "{}", "books/b1/content.txt" to "B CONTENT")
+        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+            thirdArg<(ImportMergeResult) -> Unit>()(
+                ImportMergeResult(skippedBookContentPaths = listOf(dst.absolutePath)),
+            )
+        }
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        backup.importZip(ctx, mockk<Uri>())
+
+        val state = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull("A 的义务未完成，状态不得被 B 清除", state)
+        assertFalse("状态不得为完成态", state!!.isComplete)
+        assertTrue("A 的目标仍在 unresolvedTargets 守护中", state.unresolvedTargets.containsKey("b1/content.txt"))
+    }
+
+    /**
+     * 反例4：半写 staging 残片存在且 delete 返回 false。
+     *
+     * v2 缺陷：recoverCrashResidues 对 verified=false 条目调用 stagingFile.delete() 但不检查返回值，
+     * 无论删除是否成功都 remaining.remove(entry)——归属日志被剪掉，残片成为无归属文件，
+     * 后续导出会把残片当普通资产打包。
+     * v3 修复：delete 返回 false 时保留归属条目，staging 仍在 stagingRels 中被导出过滤。
+     */
+    @Test
+    fun `N1v3_W4_tornStagingDeleteFailureKeepsJournalEntryAndExcludesFromExport`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("ORIGINAL")
+
+        // 预置中断现场：半写 staging + 归属日志（verified=false）
+        val stagingName = "content.txt.restore-1234567890123.staging"
+        val stagingFile = File(booksDir, "b1/$stagingName")
+        stagingFile.parentFile!!.mkdirs()
+        stagingFile.writeText("HALF-WRITTEN")
+        journalFile(booksDir).writeText(
+            """[{"rel":"b1/content.txt","backup":"content.txt.restore-backup-1234567890123","staging":"$stagingName","verified":"false"}]""",
+        )
+
+        val ctx = fakeContext()
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        coEvery { jsonBridge.exportToString(any()) } returns "{}"
+
+        val backup = subject(jsonBridge)
+        // 注入 staging 删除失败
+        backup.fileDeleteOperation = { _ -> false }
+
+        // 导出触发 recoverCrashResidues
+        backup.exportZip(ctx, mockk<Uri>())
+
+        // 归属日志条目必须保留
+        val journalAfter = readJournalRaw(booksDir)
+        assertNotNull("删除失败时归属日志不得被剪掉", journalAfter)
+        assertTrue("归属日志必须保留条目：$journalAfter", journalAfter!!.contains("b1/content.txt"))
+
+        // staging 残片不得出现在导出 ZIP 中
+        val entries = listZipEntries()
+        assertFalse("导出绝不得包含 staging 残片", entries.any { it.contains(".staging") })
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  N1-repair-v4 反例（四条失败路径红测）
+    // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * N1-v4 路径 1 (P1)：本地严格较新 → 导入缺 backup.json 的坏 ZIP 留下 started 空身份 → 导入低版本合法 ZIP。
+     *
+     * 预期：DB 和正文必须同时保持较新内容；不允许空指纹意味着"全部源目标都可覆盖"。
+     * 本地严格较新正文绝不能被低版本正文覆盖！
+     */
+    @Test
+    fun `N1v4_P1_strictlyNewerProtectedAgainstEmptyFingerprintRetry`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        val newerContent = "LOCAL_STRICTLY_NEWER_CONTENT_V2"
+        dst.writeText(newerContent)
+
+        val ctx = fakeContext()
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        val backup = subject(jsonBridge)
+
+        // 1. 尝试导入缺 backup.json 的坏 ZIP
+        writeZip("books/other.txt" to "OTHER")
+        val badZipResult = runCatching { backup.importZip(ctx, mockk<Uri>()) }
+        assertTrue("坏 ZIP 必须导入失败", badZipResult.isFailure)
+
+        val stateAfterBad = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull("坏 ZIP 会留下 started 状态", stateAfterBad)
+        assertEquals("坏 ZIP 状态为 started", LocalZipRestoreState.STAGE_STARTED, stateAfterBad!!.stage)
+        assertEquals("坏 ZIP 留下空指纹", "", stateAfterBad.backupFingerprint)
+
+        // 2. 接着导入低版本合法 ZIP（正文内容为 OLD，JsonBridge 合并时判定本地严格较新而跳过）
+        writeZip(
+            "backup.json" to "{\"schemaVersion\":1}",
+            "books/b1/content.txt" to "OLD_BACKUP_CONTENT_V1",
+        )
+
+        // 模拟真实 JsonBridge：因为本地严格较新（例如本地 revision=5，备份 revision=1），将 dst 加入 skipped 和 strictlyNewer
+        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+            val callback = thirdArg<(ImportMergeResult) -> Unit>()
+            callback(
+                ImportMergeResult(
+                    acceptedBookIds = emptySet(),
+                    skippedBookContentPaths = listOf(dst.absolutePath),
+                    strictlyNewerBookContentPaths = listOf(dst.absolutePath),
+                ),
+            )
+        }
+
+        backup.importZip(ctx, mockk<Uri>())
+
+        // 核心断言：本地严格较新的正文绝对不能被覆盖！
+        assertEquals(
+            "本地严格较新的正文必须保留，空指纹绝不得把严格较新文件强制重写！",
+            newerContent,
+            dst.readText(),
+        )
+    }
+
+    /**
+     * N1-v4 路径 2 (P2)：A 提交后正文未完成 → 导入不含该目标的 B → 返回原 A：必须验证回到 A 成功收敛。
+     */
+    @Test
+    fun `N1v4_P2_abaConvergence`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val fileA = File(booksDir, "a/content.txt")
+        fileA.parentFile!!.mkdirs()
+        val fileB = File(booksDir, "b/content.txt")
+        fileB.parentFile!!.mkdirs()
+
+        val ctx = fakeContext()
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        val backup = subject(jsonBridge)
+
+        // 1. 导入 A：包含 a/content.txt。DB 提交成功，但文件复制中断
+        writeZip("backup.json" to "{\"schemaVersion\":1,\"name\":\"A\"}", "books/a/content.txt" to "CONTENT_A")
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("A 复制中断") }
+        assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+        assertFalse("A 正文未落盘", fileA.exists())
+
+        // 2. 导入 B：包含 b/content.txt，不含 a。B 导入成功
+        writeZip("backup.json" to "{\"schemaVersion\":1,\"name\":\"B\"}", "books/b/content.txt" to "CONTENT_B")
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+            val callback = thirdArg<(ImportMergeResult) -> Unit>()
+            callback(ImportMergeResult(acceptedBookIds = setOf("b")))
+        }
+        backup.importZip(ctx, mockk<Uri>())
+        assertTrue("B 正文已就位", fileB.isFile)
+        val stateAfterB = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull(stateAfterB)
+        assertFalse("A 未完成，B 之后整个状态仍未完成", stateAfterB!!.isComplete)
+        assertTrue("A 的目标仍在 unresolvedTargets 中", stateAfterB.unresolvedTargets.containsKey("a/content.txt"))
+
+        // 3. 再次导入原 A：回到 A。由于之前 A 已入库，merge 将 a 判定为 equal (skipped)
+        writeZip("backup.json" to "{\"schemaVersion\":1,\"name\":\"A\"}", "books/a/content.txt" to "CONTENT_A")
+        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+            val callback = thirdArg<(ImportMergeResult) -> Unit>()
+            // 因为 A 之前已经写入过 DB，本次判断为 equal 版本并进入 skipped
+            callback(
+                ImportMergeResult(
+                    acceptedBookIds = emptySet(),
+                    skippedBookContentPaths = listOf(fileA.absolutePath),
+                ),
+            )
+        }
+
+        backup.importZip(ctx, mockk<Uri>())
+
+        // 核心断言：回到原 A 必须成功补偿复制 a/content.txt，且状态完全收敛清除！
+        assertTrue("回到 A 后 a/content.txt 必须被补齐写入", fileA.isFile)
+        assertEquals("CONTENT_A", fileA.readText())
+        val finalState = LocalZipRestoreStateStore().read(ctx)
+        assertNull("A 成功收敛后，未完成状态必须被完全清除", finalState)
+    }
+
+    /**
+     * N1-v4 路径 4 (P2)：复制半写失败且 staging 删除返回 false：覆盖复制 finally 分支，保留归属日志。
+     */
+    @Test
+    fun `N1v4_P2_copyWithStagingFinallyDeleteFailurePreservesJournal`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("ORIGINAL_CONTENT")
+
+        writeZip("backup.json" to "{\"schemaVersion\":1}", "books/b1/content.txt" to "NEW_CONTENT")
+        val ctx = fakeContext()
+        val backup = subject()
+
+        // 模拟半写中断（verified 仍为 false）
+        backup.fileCopyOperation = { _, output ->
+            output.write("HALF_DATA".toByteArray(Charsets.UTF_8))
+            throw java.io.IOException("半写中断")
+        }
+        // 模拟 finally 中 staging 删除返回 false（例如文件被系统独占或只读）
+        backup.fileDeleteOperation = { false }
+
+        val result = runCatching { backup.importZip(ctx, mockk<Uri>()) }
+        assertTrue("导入半写必须失败", result.isFailure)
+
+        // 核心断言：在 copyWithStaging 的 finally 执行后，因为 staging 依然残留在磁盘且删除失败，
+        // 归属日志绝不能被删除！必须保留该条目的归属记录！
+        val journalRaw = readJournalRaw(booksDir)
+        assertNotNull("删除失败时归属日志文件必须存在", journalRaw)
+        assertTrue(
+            "归属日志必须保留该 staging 的归属记录以守护残片：$journalRaw",
+            journalRaw!!.contains("b1/content.txt") && journalRaw.contains(".staging"),
+        )
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  N1-repair-v5 反例（正文身份与旧状态完成判定）
+    // ════════════════════════════════════════════════════════════════════════
+
+    /**
+     * 反例1（P1）：A 的 JSON 已提交、正文复制失败留下 hash(A正文) 义务。
+     * 随后导入 JSON 相同、同路径但正文为 B 的 ZIP。真实 JsonBridge 返回 equal 分类。
+     *
+     * v4 缺陷：isEqualRel 单独授权补偿，B 正文写入，A 义务被同路径剪除，导出放行。
+     * v5 修复：存在冲突义务时 equal 不得单独授权；A 义务保留，导出阻断。
+     *
+     * 关键：使用真实 JsonBridge 合并分类（受控 DAO），不 mock ImportMergeResult。
+     */
+    @Test
+    fun `N1v5_P1_equalClassificationDoesNotBypassContentIdentity`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("ORIGINAL")
+
+        val ctx = fakeContext()
+        val backup = subject(realJsonBridge(ctx, dst.absolutePath))
+
+        // 1. 导入 A：同版本 book，正文 "A CONTENT"。真实 JsonBridge 返回 equal。
+        //    文件复制中断，留下 hash(A CONTENT) 义务。
+        writeZip(
+            "backup.json" to backupJson(bookId = "b1", revision = 2, updatedAt = "2026-01-01T00:00:00Z"),
+            "books/b1/content.txt" to "A CONTENT",
+        )
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("A 复制中断") }
+        assertTrue("A 导入必须失败（文件复制中断）", runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+
+        val stateAfterA = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull("A 中断后状态必须存在", stateAfterA)
+        assertFalse("A 状态不得为完成", stateAfterA!!.isComplete)
+        assertTrue("A 的 pendingTargets 必须包含 b1/content.txt", stateAfterA.pendingTargets.containsKey("b1/content.txt"))
+
+        // 2. 导入 B：同 JSON、同路径、同版本，但正文为 "B CONTENT"。
+        //    真实 JsonBridge 仍返回 equal（DB 版本相等）。
+        writeZip(
+            "backup.json" to backupJson(bookId = "b1", revision = 2, updatedAt = "2026-01-01T00:00:00Z"),
+            "books/b1/content.txt" to "B CONTENT",
+        )
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        backup.importZip(ctx, mockk<Uri>())
+
+        // 核心断言：equal 只说明 DB 版本相等，不证明正文身份。
+        // B 正文身份不同于 A 义务，不得写入；A 义务必须保留，状态不得完成。
+        assertEquals(
+            "equal 不得单独授权不同正文身份写入：本地正文必须保持 ORIGINAL",
+            "ORIGINAL",
+            dst.readText(),
+        )
+        val stateAfterB = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull("A 义务必须保留，状态不得被清除", stateAfterB)
+        assertFalse("状态不得为完成（A 义务未收敛）", stateAfterB!!.isComplete)
+        assertTrue(
+            "A 的义务仍需在 unresolvedTargets 或 pendingTargets 中",
+            stateAfterB.unresolvedTargets.containsKey("b1/content.txt") ||
+                stateAfterB.pendingTargets.containsKey("b1/content.txt"),
+        )
+    }
+
+    // ── N1-repair-v6：组合重试路径的统一冲突义务保护 ─────────────────────
+    // v5 只把冲突挂在 equalAuthorized 上；空指纹、最近一次指纹相同、路径相同三条
+    // OR 仍可单独授权。以下四条用例覆盖 Codex 复核点名的三条可达路径与正向收敛。
+
+    /** 读取当前状态里 rel 的义务值（unresolved 优先，其次 pending）。 */
+    private fun obligationOf(state: LocalZipRestoreState?, rel: String): String? =
+        state?.let { it.unresolvedTargets[rel] ?: it.pendingTargets[rel] }
+
+    /**
+     * 导出是否**因未完成状态**被阻止。
+     *
+     * 必须区分「被状态守卫阻止」与「其它原因导致的失败」——否则在真实 JsonBridge
+     * （relaxed DAO）下导出本就可能因其它原因失败，断言会退化成空断言。
+     */
+    private suspend fun exportBlockedByUnfinishedState(
+        backup: LocalZipBackup,
+        ctx: Context,
+    ): Boolean = runCatching { backup.exportZip(ctx, mockk<Uri>()) }
+        .exceptionOrNull()?.message?.contains("上次整包恢复未完成") == true
+
+    /**
+     * 组合路径 1：A 正文复制中断 → B（同 JSON 不同正文）→ **再选择同一 B**。
+     * 两次 B 都不得写入冲突正文、消除 A 义务或放行导出。
+     * v5 会在第二次 B 经 isSameFingerprintCandidate 绕过（本用例在 v5 上失败）。
+     */
+    @Test
+    fun `N1v6_C1_aToBToBDoesNotWriteConflictingContentOrDischargeObligation`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("ORIGINAL")
+
+        val ctx = fakeContext()
+        val backup = subject(realJsonBridge(ctx, dst.absolutePath))
+        val json = backupJson(bookId = "b1", revision = 2, updatedAt = "2026-01-01T00:00:00Z")
+
+        // 1) A：正文 "A CONTENT"，文件复制中断 → 落盘 sha("A CONTENT") 义务
+        writeZip("backup.json" to json, "books/b1/content.txt" to "A CONTENT")
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("A 复制中断") }
+        assertTrue("A 导入必须失败", runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+        val obligationAfterA = obligationOf(LocalZipRestoreStateStore().read(ctx), "b1/content.txt")
+        assertNotNull("A 义务必须落盘", obligationAfterA)
+
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+
+        // 2) 第一次 B（同 JSON、同路径、不同正文）
+        writeZip("backup.json" to json, "books/b1/content.txt" to "B CONTENT")
+        backup.importZip(ctx, mockk<Uri>())
+        assertEquals("第一次 B 不得写入冲突正文", "ORIGINAL", dst.readText())
+        assertEquals(
+            "第一次 B 不得消除 A 义务",
+            obligationAfterA,
+            obligationOf(LocalZipRestoreStateStore().read(ctx), "b1/content.txt"),
+        )
+
+        // 3) 第二次 B：同一份 B 再选一次（指纹相同 + 路径属继承义务）
+        backup.importZip(ctx, mockk<Uri>())
+        assertEquals("第二次 B 同样不得写入冲突正文", "ORIGINAL", dst.readText())
+        val afterB2 = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull("第二次 B 后 A 义务必须仍在", afterB2)
+        assertFalse("状态不得被清成完成", afterB2!!.isComplete)
+        assertEquals(
+            "A 义务内容不得被 B 的 SHA 替换",
+            obligationAfterA,
+            obligationOf(afterB2, "b1/content.txt"),
+        )
+        assertTrue(
+            "导出必须被未完成状态阻止（而非其它原因）",
+            exportBlockedByUnfinishedState(backup, ctx),
+        )
+    }
+
+    /**
+     * 组合路径 2：A 中断 → 缺 backup.json 的坏 ZIP（begin 已用**空指纹**继承 A 义务）→ B。
+     * 空指纹不得解除 A 的冲突保护（v5 经 isStartedEmptyFingerprint 绕过，本用例在 v5 上失败）。
+     */
+    @Test
+    fun `N1v6_C2_emptyFingerprintFromBadZipDoesNotDischargeObligation`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("ORIGINAL")
+
+        val ctx = fakeContext()
+        val backup = subject(realJsonBridge(ctx, dst.absolutePath))
+        val json = backupJson(bookId = "b1", revision = 2, updatedAt = "2026-01-01T00:00:00Z")
+
+        writeZip("backup.json" to json, "books/b1/content.txt" to "A CONTENT")
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("A 复制中断") }
+        assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+        val obligationAfterA = obligationOf(LocalZipRestoreStateStore().read(ctx), "b1/content.txt")
+        assertNotNull(obligationAfterA)
+
+        // 坏 ZIP：只有 books/，没有 backup.json → 校验失败，但 begin 已用空指纹接管
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        writeZip("books/b1/content.txt" to "BAD ZIP CONTENT")
+        assertTrue("坏 ZIP 必须被拒绝", runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+        val afterBad = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull("坏 ZIP 后状态必须仍在", afterBad)
+        assertTrue("坏 ZIP 必须留下空指纹现场", afterBad!!.backupFingerprint.isEmpty())
+        assertEquals(
+            "空指纹现场必须仍守护 A 义务",
+            obligationAfterA,
+            obligationOf(afterBad, "b1/content.txt"),
+        )
+
+        // B：同 JSON 不同正文 → 空指纹不得解除冲突保护
+        writeZip("backup.json" to json, "books/b1/content.txt" to "B CONTENT")
+        backup.importZip(ctx, mockk<Uri>())
+        assertEquals("空指纹不得授权写入 B 的冲突正文", "ORIGINAL", dst.readText())
+        val afterB = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull("A 义务必须保留", afterB)
+        assertFalse("状态不得被清成完成", afterB!!.isComplete)
+        assertEquals("A 义务内容不得被替换", obligationAfterA, obligationOf(afterB, "b1/content.txt"))
+        assertTrue(
+            "导出必须被未完成状态阻止（而非其它原因）",
+            exportBlockedByUnfinishedState(backup, ctx),
+        )
+    }
+
+    /**
+     * 组合路径 3：legacy 长度义务 → B → 再选择 B。
+     * 不得把未知来源的长度义务替成 B 的 SHA 并清除（v5 第二次 B 经同指纹分支替换，本用例在 v5 上失败）。
+     */
+    @Test
+    fun `N1v6_C3_legacyLengthObligationIsNotReplacedByRepeatedB`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("ORIGINAL")
+
+        val ctx = fakeContext()
+        // 播种旧版本遗留的长度义务（非 64 位十六进制 → isLegacyLength）
+        val store = LocalZipRestoreStateStore()
+        val seeded = store.begin(ctx, "legacy-state", 1L)
+        store.markDbCommitted(
+            context = ctx,
+            state = seeded,
+            backupFingerprint = "",
+            pendingTargets = mapOf("b1/content.txt" to "12345"),
+            nowMillis = 2L,
+        )
+
+        val backup = subject(realJsonBridge(ctx, dst.absolutePath))
+        val json = backupJson(bookId = "b1", revision = 2, updatedAt = "2026-01-01T00:00:00Z")
+
+        // 第一次 B
+        writeZip("backup.json" to json, "books/b1/content.txt" to "B CONTENT")
+        backup.importZip(ctx, mockk<Uri>())
+        assertEquals("长度义务不得授权写入 B 的正文", "ORIGINAL", dst.readText())
+        assertEquals(
+            "legacy 长度义务不得被替换",
+            "12345",
+            obligationOf(LocalZipRestoreStateStore().read(ctx), "b1/content.txt"),
+        )
+
+        // 第二次 B（同指纹）
+        backup.importZip(ctx, mockk<Uri>())
+        assertEquals("第二次 B 同样不得写入", "ORIGINAL", dst.readText())
+        val afterB2 = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull("legacy 义务必须仍在", afterB2)
+        assertTrue(
+            "未知来源的长度义务不得被 B 的 SHA 替换并清除",
+            obligationOf(afterB2, "b1/content.txt") == "12345",
+        )
+        assertTrue(
+            "导出必须被未完成状态阻止（而非其它原因）",
+            exportBlockedByUnfinishedState(backup, ctx),
+        )
+    }
+
+    /**
+     * 组合路径 4：上述阻断后重新选择**匹配原义务的 A** —— 可靠 SHA 义务应能补齐正文、收敛状态。
+     * 防止统一守卫把正当的 A→B→A 补偿路径一并堵死。
+     */
+    @Test
+    fun `N1v6_C4_reselectingMatchingAConvergesAfterBlockedRetries`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("ORIGINAL")
+
+        val ctx = fakeContext()
+        val convergedBook = BookEntity(
+            id = "b1", title = "测试书", format = "txt",
+            revision = 2, updated_at = "2026-01-01T00:00:00Z",
+            local_content_path = dst.absolutePath,
+        )
+        val backup = subject(realJsonBridge(ctx, dst.absolutePath, exportBooks = listOf(convergedBook)))
+        val json = backupJson(bookId = "b1", revision = 2, updatedAt = "2026-01-01T00:00:00Z")
+
+        writeZip("backup.json" to json, "books/b1/content.txt" to "A CONTENT")
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("A 复制中断") }
+        assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+
+        // B 两次，均被阻断
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        writeZip("backup.json" to json, "books/b1/content.txt" to "B CONTENT")
+        backup.importZip(ctx, mockk<Uri>())
+        backup.importZip(ctx, mockk<Uri>())
+        assertEquals("B 不得写入", "ORIGINAL", dst.readText())
+        assertTrue(
+            "阻断期间导出必须被未完成状态阻止",
+            exportBlockedByUnfinishedState(backup, ctx),
+        )
+
+        // 重新选择匹配义务的原 A
+        writeZip("backup.json" to json, "books/b1/content.txt" to "A CONTENT")
+        backup.importZip(ctx, mockk<Uri>())
+
+        assertEquals("重新选择原 A 必须补齐正文", "A CONTENT", dst.readText())
+        assertNull("A 义务收敛后状态必须清除", LocalZipRestoreStateStore().read(ctx))
+        assertFalse(
+            "收敛后不得再以未完成状态阻止导出",
+            exportBlockedByUnfinishedState(backup, ctx),
+        )
+
+        // ── N1-test-hardening-v7：门禁解除后必须能完成**真实导出**（而非仅"门禁解除"）──
+        // 真实 JsonBridge.buildExport + 真实 ZIP 打包；随后打开实际输出核对内容。
+        runCatching { backup.exportZip(ctx, mockk<Uri>()) }
+            .onFailure { throw AssertionError("收敛后真实导出必须成功：${it.message}", it) }
+
+        // 打开实际输出 ZIP：backup.json 可解析、含恢复的书与正文
+        val bodies = readZipEntryBodies()
+        assertTrue("ZIP 必须含 backup.json", bodies.containsKey("backup.json"))
+        assertTrue("ZIP 必须含恢复的正文 books/b1/content.txt", bodies.containsKey("books/b1/content.txt"))
+        val parsed = Json { ignoreUnknownKeys = true }.parseToJsonElement(bodies.getValue("backup.json")).jsonObject
+        val booksArr = parsed["books"]!!.jsonArray
+        assertEquals("导出必须且只含恢复的那本书", 1, booksArr.size)
+        assertEquals(
+            "导出的书必须是 b1",
+            "b1",
+            booksArr[0].jsonObject["payload"]!!.jsonObject["id"]!!.jsonPrimitive.content,
+        )
+        assertEquals(
+            "ZIP 内正文必须等于收敛后的字节",
+            "A CONTENT",
+            bodies.getValue("books/b1/content.txt"),
+        )
+    }
+
+    /**
+     * N1-test-hardening-v7（正式回归）：**真实 accepted 分类**下的继承冲突义务保护。
+     *
+     * 与 C1–C4 的区别：C1–C4 的 local/remote 固定同 revision（真实 JsonBridge 判为
+     * equal）。本用例让 B 携带**更高 revision**，经真实 [JsonBridge.importFromString]
+     * 走 accepted 分支（`bookDao.upsert(revision=3)` 可核），随后断言：
+     * 冲突正文不得写入、hash(A) 义务不得被 hash(B) 替换或剪除、状态仍未完成、
+     * 导出明确因「上次整包恢复未完成」被阻止。
+     *
+     * 分类证据（不靠注释）：`coVerify { bookDao.upsert(withArg { it.revision == 3 }) }`
+     * 证明 B 确实经真实合并走到 accepted 分支（accepted ⇒ upsert）。
+     * 预期在 v5 生产上失败（accepted 曾授权冲突正文复制），在 v6 生产上通过。
+     */
+    @Test
+    fun `N1v7_C5_acceptedConflictingVersionKeepsObligationAndBlocksExport`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        val dst = File(booksDir, "b1/content.txt")
+        dst.parentFile!!.mkdirs()
+        dst.writeText("ORIGINAL")
+
+        val ctx = fakeContext()
+        val backup = subject(realJsonBridge(ctx, dst.absolutePath))
+        val jsonA = backupJson(bookId = "b1", revision = 2, updatedAt = "2026-01-01T00:00:00Z")
+        val jsonB = backupJson(bookId = "b1", revision = 3, updatedAt = "2026-02-01T00:00:00Z")
+
+        // 1) A（rev2，与本地 equal）：正文复制中断 → 落盘 hash("A CONTENT") 义务
+        writeZip("backup.json" to jsonA, "books/b1/content.txt" to "A CONTENT")
+        backup.fileCopyOperation = { _, _ -> throw java.io.IOException("A 复制中断") }
+        assertTrue("A 导入必须失败", runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
+        val obligationAfterA = obligationOf(LocalZipRestoreStateStore().read(ctx), "b1/content.txt")
+        assertNotNull("A 义务必须落盘", obligationAfterA)
+
+        // 2) B（rev3 > 本地 rev2）：真实 JsonBridge 必须**接受**（upsert revision=3 可核）
+        backup.fileCopyOperation = { input, output -> input.copyTo(output) }
+        writeZip("backup.json" to jsonB, "books/b1/content.txt" to "B CONTENT")
+        backup.importZip(ctx, mockk<Uri>())
+        // 分类证据：真实合并把 B 的 payload 写进 DAO（accepted ⇒ upsert，revision=3）
+        coVerify(atLeast = 1) {
+            (backingBookDao ?: throw AssertionError("realJsonBridge 未暴露 BookDao")).upsert(
+                withArg { book -> require(book.revision == 3) { "B 必须以 revision=3 接受，实际 ${book.revision}" } },
+            )
+        }
+
+        // accepted 分类**不得**授权写入冲突正文
+        assertEquals("accepted 分类不得写入冲突正文", "ORIGINAL", dst.readText())
+        val afterB = LocalZipRestoreStateStore().read(ctx)
+        assertNotNull("状态不得被清除", afterB)
+        assertFalse("A 义务未收敛，状态不得为完成", afterB!!.isComplete)
+        assertEquals(
+            "A 义务不得被 hash(B) 替换",
+            obligationAfterA,
+            obligationOf(afterB, "b1/content.txt"),
+        )
+        assertTrue(
+            "A 的义务仍须在 unresolvedTargets 或 pendingTargets 中守护",
+            afterB.unresolvedTargets.containsKey("b1/content.txt") ||
+                afterB.pendingTargets.containsKey("b1/content.txt"),
+        )
+        assertTrue(
+            "导出必须明确因未完成状态被阻止",
+            exportBlockedByUnfinishedState(backup, ctx),
+        )
+    }
+
+    /** C4/C5 共用：realJsonBridge 内部创建的 BookDao mock 引用（分类证据用）。 */
+    private var backingBookDao: BookDao? = null
+
+    /**
+     * 构造真实 JsonBridge（受控 DAO），local 书与 remote 同版本 → 真实 equal 分类。
+     *
+     * [exportBooks] 非空时补齐 [JsonBridge.buildExport] 所需的全部 DAO Flow/查询夹具
+     * （N1-test-hardening-v7）：books=exportBooks，其余集合为空——使收敛后的
+     * `exportZip` 走**真实 buildExport**（导出夹具仅是测试准备，生产导出门禁未动）。
+     */
+    private fun realJsonBridge(
+        ctx: Context,
+        localContentPath: String,
+        exportBooks: List<BookEntity>? = null,
+    ): JsonBridge {
+        val bookDao = mockk<BookDao>(relaxed = true).also { backingBookDao = it }
+        val inspirationDao = mockk<InspirationDao>(relaxed = true)
+        val progressDao = mockk<ReadingProgressDao>(relaxed = true)
+        val sessionDao = mockk<ReadingSessionDao>(relaxed = true)
+        val noteDao = mockk<NoteDao>(relaxed = true)
+        val highlightDao = mockk<HighlightDao>(relaxed = true)
+        val tagDao = mockk<TagDao>(relaxed = true)
+        val categoryDao = mockk<CategoryDao>(relaxed = true)
+        val shelfDao = mockk<ShelfDao>(relaxed = true)
+        val bookTagDao = mockk<BookTagDao>(relaxed = true)
+        val bookCategoryDao = mockk<BookCategoryDao>(relaxed = true)
+        val shelfBookDao = mockk<ShelfBookDao>(relaxed = true)
+        val chapterReadDao = mockk<ChapterReadDao>(relaxed = true)
+
+        // 事务桩：直接执行 block（JVM 可测，不依赖真实 Room）
+        coEvery { bookDao.runInTransaction(any()) } coAnswers { firstArg<suspend () -> Unit>().invoke() }
+        coEvery { noteDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { highlightDao.observeAllActive() } returns flowOf(emptyList())
+
+        // local 书：revision=2, updatedAt 与 remote 相同 → equal 分类
+        val localBook = BookEntity(
+            id = "b1", title = "测试书", format = "txt",
+            revision = 2, updated_at = "2026-01-01T00:00:00Z",
+            local_content_path = localContentPath,
+        )
+        coEvery { bookDao.getByIds(any()) } returns listOf(localBook)
+
+        // N1-test-hardening-v7：buildExport 所需 Flow/查询夹具（仅当调用方声明要真实导出）
+        if (exportBooks != null) {
+            coEvery { bookDao.observeAllActive() } returns flowOf(exportBooks)
+            coEvery { inspirationDao.observeAllActive() } returns flowOf(emptyList())
+            coEvery { progressDao.observeAllActive() } returns flowOf(emptyList())
+            coEvery { sessionDao.observeAllActive() } returns flowOf(emptyList())
+            coEvery { tagDao.getAllActive() } returns emptyList()
+            coEvery { categoryDao.getAllActive() } returns emptyList()
+            coEvery { shelfDao.getAllActive() } returns emptyList()
+            coEvery { bookTagDao.getAllActive() } returns emptyList()
+            coEvery { bookCategoryDao.getAllActive() } returns emptyList()
+            coEvery { shelfBookDao.getAllActive() } returns emptyList()
+            coEvery { chapterReadDao.getAll() } returns emptyList()
+        }
+
+        return JsonBridge(
+            bookDao, inspirationDao, progressDao, sessionDao,
+            noteDao, highlightDao, tagDao, categoryDao, shelfDao,
+            bookTagDao, bookCategoryDao, shelfBookDao, chapterReadDao,
+            Dispatchers.Unconfined,
+        )
+    }
+
+    /** 构造含单本书籍的 LocalExport JSON（用于 backup.json）。 */
+    private fun backupJson(
+        bookId: String = "b1",
+        revision: Int = 2,
+        updatedAt: String = "2026-01-01T00:00:00Z",
+    ): String {
+        val json = Json { ignoreUnknownKeys = true }
+        val book = BookEntity(id = bookId, title = "测试书", format = "txt", revision = revision, updated_at = updatedAt)
+        val envelope = SyncEnvelope(
+            id = bookId, type = "book", revision = revision,
+            deviceId = "remote-device", updatedAt = updatedAt, deletedAt = null, payload = book,
+        )
+        val export = LocalExport(
+            schemaVersion = 1,
+            exportedAt = "2026-08-05T00:00:00Z",
+            deviceId = "test-device",
+            books = listOf(envelope),
+            inspirations = emptyList(),
+            progress = emptyList(),
+            sessions = emptyList(),
+        )
+        return json.encodeToString(LocalExport.serializer(), export)
     }
 }

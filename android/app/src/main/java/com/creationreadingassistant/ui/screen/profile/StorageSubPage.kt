@@ -107,6 +107,8 @@ internal fun StorageSubPage(
     var showDangerDialog by remember { mutableStateOf(false) }
     // 全库搜索索引重建同样会重置增量游标并后台重扫全书，与诊断页保持同一道二次确认
     var showRebuildIndexConfirm by remember { mutableStateOf(false) }
+    // §6.9 停止索引构建二次确认
+    var showCancelIndexConfirm by remember { mutableStateOf(false) }
 
     val cacheBudget = 100 * 1024 * 1024L
 
@@ -370,13 +372,17 @@ internal fun StorageSubPage(
                                     val indexed = indexProgress.indexedBooks
                                     val pct = if (total > 0) ((indexed.toFloat() / total) * 100f).toInt().coerceIn(0, 100) else 0
                                     Text(
-                                        if (indexProgress.isRunning) {
-                                            "后台构建中：$indexed / $total 本 ($pct%)"
-                                        } else {
-                                            "覆盖度：已索引 $indexed / $total 本"
+                                        when {
+                                            indexProgress.isRunning ->
+                                                "后台构建中：$indexed / $total 本 ($pct%)"
+                                            // 已排队 / 等待重试：没有任何协程在扫书，但确实有一次构建在等
+                                            indexProgress.isQueued ->
+                                                "已排队，等待后台构建：$indexed / $total 本 ($pct%)"
+                                            else ->
+                                                "覆盖度：已索引 $indexed / $total 本"
                                         },
                                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                        color = if (indexProgress.isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = if (indexProgress.isRunning || indexProgress.isQueued) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
                             }
@@ -392,6 +398,24 @@ internal fun StorageSubPage(
                                 modifier = Modifier.height(34.dp),
                             ) {
                                 Text("重建索引", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                            }
+                            // §6.9-v3 在跑**或已排队**都给停止入口：排队/等待重试阶段
+                            // 此前没有任何入口，用户只能干等一次自己无法取消的构建。
+                            if (indexProgress.canCancel) {
+                                OutlinedButton(
+                                    onClick = {
+                                        haptic(HapticFeedbackType.TextHandleMove)
+                                        showCancelIndexConfirm = true
+                                    },
+                                    shape = PillShape,
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                                    modifier = Modifier.height(34.dp),
+                                ) {
+                                    Text(
+                                        if (indexProgress.isRunning) "停止" else "撤下排队",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    )
+                                }
                             }
                         }
 
@@ -682,6 +706,17 @@ internal fun StorageSubPage(
             onConfirm = {
                 showRebuildIndexConfirm = false
                 onAction(ProfileAction.RebuildSearchIndex)
+            },
+        )
+    }
+    // §6.9-v3 停止索引构建二次确认（在跑与排队共用同一条真实动作分发）
+    if (showCancelIndexConfirm) {
+        SearchIndexCancelConfirmDialog(
+            queued = !indexProgress.isRunning && indexProgress.isQueued,
+            onDismiss = { showCancelIndexConfirm = false },
+            onConfirm = {
+                showCancelIndexConfirm = false
+                onAction(ProfileAction.CancelSearchIndex)
             },
         )
     }

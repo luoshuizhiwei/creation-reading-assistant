@@ -142,6 +142,143 @@ class InspirationMaterialOpsTest {
         assertTrue(merged.excerpts.isEmpty())
     }
 
+    // ── 嵌套合并（R4：聚合卡再次参与合并不丢结构化来源） ────────────────
+
+    /** 真实生产路径形状：聚合卡 C 的 payload 只有 excerpts、source 为 null。 */
+    private fun aggregatedCardPayload(
+        vararg excerpts: InspirationSourceInfo,
+    ) = InspirationPayloadData(
+        tags = listOf("卡标签"),
+        categoryIds = listOf("c-card"),
+        excerpts = excerpts.toList(),
+    )
+
+    @Test
+    fun `nested merge keeps structured sources of an aggregated card`() {
+        // A、B 合成卡 C；C 与原始摘录 D 再次合并
+        val a = sourceInfo(bookId = "b1", bookTitle = "书一", excerpt = "摘录A", locatorJson = """{"lo":10}""")
+        val b = sourceInfo(bookId = "b2", bookTitle = "书二", excerpt = "摘录B")
+        val d = sourceInfo(bookId = "b3", bookTitle = "书三", excerpt = "摘录D", locatorJson = """{"lo":30}""")
+        val cardC = aggregatedCardPayload(a, b)
+
+        val merged = mergedMaterialPayload(listOf(cardC, InspirationPayloadData(source = d)), tags = emptyList(), categoryIds = emptyList())
+
+        // C 的全部结构化来源 A/B 与 D 都保留，顺序为 C 的 source 槽位（无）→ C.excerpts → D
+        assertEquals(listOf(a, b, d), merged.excerpts)
+        // 聚合卡自身的 tags/categoryIds 进入并集
+        assertEquals(listOf("卡标签"), merged.tags)
+        assertEquals(listOf("c-card"), merged.categoryIds)
+    }
+
+    @Test
+    fun `nested merge of two aggregated cards keeps both excerpt lists in order`() {
+        val a = sourceInfo(bookId = "b1", bookTitle = "书一", excerpt = "摘录A", locatorJson = """{"lo":10}""")
+        val b = sourceInfo(bookId = "b2", bookTitle = "书二", excerpt = "摘录B")
+        val c = sourceInfo(bookId = "b3", bookTitle = "书三", excerpt = "摘录C")
+        val d = sourceInfo(bookId = "b4", bookTitle = "书四", excerpt = "摘录D", locatorJson = """{"lo":40}""")
+        val card1 = aggregatedCardPayload(a, b)
+        val card2 = aggregatedCardPayload(c, d)
+
+        val merged = mergedMaterialPayload(listOf(card1, card2), tags = emptyList(), categoryIds = emptyList())
+
+        // 两张聚合卡的摘录按输入顺序逐条保留，locator 原样
+        assertEquals(listOf(a, b, c, d), merged.excerpts)
+    }
+
+    @Test
+    fun `nested merge consumes source slot and excerpts of the same input in order`() {
+        // source 与 excerpts 同时存在的输入：source 槽位在前，excerpts 随后
+        val ownSource = sourceInfo(bookId = "b0", bookTitle = "卡自身", excerpt = "自身摘录", locatorJson = """{"lo":1}""")
+        val nestedA = sourceInfo(bookId = "b1", bookTitle = "书一", excerpt = "嵌套A")
+        val nestedB = sourceInfo(bookId = "b2", bookTitle = "书二", excerpt = "嵌套B")
+        val d = sourceInfo(bookId = "b3", bookTitle = "书三", excerpt = "摘录D")
+        val hybrid = InspirationPayloadData(
+            tags = listOf("混合"),
+            source = ownSource,
+            excerpts = listOf(nestedA, nestedB),
+        )
+
+        val merged = mergedMaterialPayload(listOf(hybrid, InspirationPayloadData(source = d)), tags = emptyList(), categoryIds = emptyList())
+
+        assertEquals(listOf(ownSource, nestedA, nestedB, d), merged.excerpts)
+        assertEquals(listOf("混合"), merged.tags)
+    }
+
+    @Test
+    fun `nested merge keeps same-text excerpts with different locators`() {
+        // 去重口径 = InspirationSourceInfo 完整数据类精确相等（与导出侧合同一致）；
+        // 相同摘录文字但 locator 不同 = 不同位置，必须保留两条
+        val atPage1 = sourceInfo(bookId = "b1", bookTitle = "书一", excerpt = "相同文字", locatorJson = """{"lo":11}""")
+        val atPage2 = sourceInfo(bookId = "b1", bookTitle = "书一", excerpt = "相同文字", locatorJson = """{"lo":22}""")
+        val card = aggregatedCardPayload(atPage1, atPage2)
+
+        val merged = mergedMaterialPayload(listOf(card), tags = emptyList(), categoryIds = emptyList())
+
+        assertEquals(listOf(atPage1, atPage2), merged.excerpts)
+    }
+
+    @Test
+    fun `nested merge dedupes only exactly equal source infos preserving first occurrence`() {
+        // source 槽位与 excerpts 里完整相等的条目按既有精确相等口径去重，保首次出现顺序；
+        // 不同条目（即使同书同摘录文字、仅 locator 不同）不合并
+        val a = sourceInfo(bookId = "b1", bookTitle = "书一", excerpt = "摘录A", locatorJson = """{"lo":10}""")
+        val b = sourceInfo(bookId = "b2", bookTitle = "书二", excerpt = "摘录B")
+        val card1 = InspirationPayloadData(source = a, excerpts = listOf(a, b, a))
+        val card2 = InspirationPayloadData(excerpts = listOf(b, a))
+
+        val merged = mergedMaterialPayload(listOf(card1, card2), tags = emptyList(), categoryIds = emptyList())
+
+        assertEquals(listOf(a, b), merged.excerpts)
+    }
+
+    @Test
+    fun `nested merge keeps mergedInto and adoptions of inputs out of card payload`() {
+        // 原条目归档/恢复语义由 ViewModel 维护；合并 payload 不继承 mergedInto/adoptions，
+        // 但 tags/categoryIds 并集仍保序
+        val adopted = sourceInfo(bookId = "b1", bookTitle = "书一", excerpt = "摘录A")
+        val cardC = InspirationPayloadData(
+            tags = listOf("甲", "乙"),
+            categoryIds = listOf("c1", "c2"),
+            adoptions = listOf(InspirationAdoptionRecord("text", "去向", null, "2026-10-13T00:00:00Z")),
+            excerpts = listOf(adopted),
+            mergedInto = "other-card",
+        )
+
+        val merged = mergedMaterialPayload(
+            listOf(cardC, InspirationPayloadData(tags = listOf("乙", "丙"), categoryIds = listOf("c2", "c3"))),
+            tags = listOf("丁"),
+            categoryIds = emptyList(),
+        )
+
+        assertTrue(merged.adoptions.isEmpty())
+        assertNull(merged.mergedInto)
+        assertEquals(listOf("丁", "甲", "乙", "丙"), merged.tags)
+        assertEquals(listOf("c1", "c2", "c3"), merged.categoryIds)
+        // 已被归档的输入不因 mergedInto 被排除：其结构化摘录仍进入新卡
+        assertEquals(listOf(adopted), merged.excerpts)
+    }
+
+    @Test
+    fun `nested merge payload round trips with field order intact`() {
+        // 序列化读回：excerpts 字段值与顺序一致（字段级对照，不重排不重建）
+        val a = sourceInfo(bookId = "b1", bookTitle = "书一", excerpt = "摘录A", locatorJson = """{"lo":10}""")
+        val d = sourceInfo(bookId = "b3", bookTitle = "书三", excerpt = "摘录D")
+        val cardC = aggregatedCardPayload(a)
+        val merged = mergedMaterialPayload(listOf(cardC, InspirationPayloadData(source = d)), tags = listOf("t"), categoryIds = listOf("c"))
+
+        val encoded = json.encodeToString(InspirationPayloadData.serializer(), merged)
+        val decoded = json.decodeFromString<InspirationPayloadData>(encoded)
+
+        assertEquals(merged, decoded)
+        assertEquals(merged.excerpts, decoded.excerpts)
+        assertEquals(a, decoded.excerpts[0])
+        assertEquals(d, decoded.excerpts[1])
+        assertEquals("""{"lo":10}""", decoded.excerpts[0].locatorJson)
+        // 序列化文本里 excerpts 逐条快照字段按声明顺序出现（bookId 在 bookTitle 前）
+        val firstEntry = encoded.substringAfter("\"excerpts\":[{").substringBefore("}")
+        assertTrue(firstEntry.indexOf("\"bookId\"") in 0 until firstEntry.indexOf("\"bookTitle\""))
+    }
+
     // ── 回顾管线 ─────────────────────────────────────────────────────────
 
     @Test

@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.creationreadingassistant.data.ai.AiClient
 import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.InspirationVariantEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.InspirationRepository
+import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.SettingsStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
@@ -15,7 +17,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -66,6 +70,12 @@ data class InspirationDraft(
     val status: String,
     val tags: List<String>,
     val source: InspirationSourceInfo?,
+    /**
+     * 任务93-v1-A：编辑器选中的分类 id。
+     * null = 用户没有动过分类，保存时原样保留旧 `payload.categoryIds`（草稿默认空列表
+     * 不得清空旧值）；空列表 = 用户明确清空。
+     */
+    val categoryIds: List<String>? = null,
 )
 
 /** 灵感列表加载状态：由 repository flow 第一次真实 emission 驱动，Route 不再自行猜测 firstLoad。 */
@@ -76,12 +86,40 @@ sealed interface InspirationItemsState {
     }
 }
 
+/**
+ * 来源书籍列表的显式加载状态。
+ *
+ * 不能再用 `emptyList()` 同时表示「尚未首发」和「已加载且为空」：
+ * - [Loading]：上游尚未首发（或尚未订阅），不得据此宣称缺书；
+ * - [Loaded]：已真实收到一次快照；[Loaded.books] 为空是确定的空库；
+ * - [Failed]：仓储读取失败；不得静默降级为空库或缺书成功。
+ */
+sealed interface BookListState {
+    data object Loading : BookListState
+    data class Loaded(val books: List<BookEntity>) : BookListState
+    data class Failed(val message: String?) : BookListState
+}
+
+/**
+ * 任务93-v1-A：灵感分类目录的显式加载状态。
+ *
+ * 与 [BookListState] 同一口径：Loading 不得当成“没有分类”，Failed 不得静默降级为空目录；
+ * 编辑器据此避免在字典未就绪时把旧分类误判为无效。
+ */
+sealed interface CategoryListState {
+    data object Loading : CategoryListState
+    data class Loaded(val categories: List<CategoryEntity>) : CategoryListState
+    data class Failed(val message: String?) : CategoryListState
+}
+
 @HiltViewModel
 class InspirationViewModel @Inject constructor(
     private val inspirationRepository: InspirationRepository,
     private val bookRepository: BookRepository,
     private val aiClient: AiClient,
     private val settings: SettingsStore,
+    /** 任务93-v1-A：活动分类目录来源（只读；不写书籍分类关系）。 */
+    private val taxonomyRepository: TaxonomyRepository,
 ) : ViewModel() {
     private val payloadCache = object : LinkedHashMap<String, InspirationPayloadData>(128, 0.75f, true) {
         override fun removeEldestEntry(
@@ -103,8 +141,35 @@ class InspirationViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InspirationItemsState.Loading)
 
-    val books: StateFlow<List<BookEntity>> = bookRepository.observeBooks()
+    val booksState: StateFlow<BookListState> = bookRepository.observeBooks()
+        .map<List<BookEntity>, BookListState> { BookListState.Loaded(it) }
+        .catch { failure ->
+            // 显式暴露读取失败：绝不把异常降级成 emptyList 或“缺书成功”。
+            emit(BookListState.Failed(failure.message))
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BookListState.Loading)
+
+    /**
+     * 兼容既有消费方（如首页灵感详情/编辑器）的书籍列表投影。
+     *
+     * 只透出真实 `Loaded` 快照：Loading/Failed 不产生新的空库值（失败时保留上一次
+     * 真实快照；从未成功加载时才是初始空列表）。需要区分加载/失败/确定空库的调用方
+     * 必须消费 [booksState]，不得再以本投影推断来源书缺失。
+     */
+    val books: StateFlow<List<BookEntity>> = booksState
+        .mapNotNull { state -> (state as? BookListState.Loaded)?.books }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * 任务93-v1-A：灵感分类目录（只读复用 TaxonomyRepository 的活动分类）。
+     *
+     * 失败时显式 Failed，不降级成“没有分类”；编辑器在 Loading/Failed 时不会改动已选 id，
+     * 因此旧分类不会因为字典暂不可用被清掉。
+     */
+    val categoriesState: StateFlow<CategoryListState> = taxonomyRepository.observeCategories()
+        .map<List<CategoryEntity>, CategoryListState> { list -> CategoryListState.Loaded(list) }
+        .catch { failure -> emit(CategoryListState.Failed(failure.message)) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CategoryListState.Loading)
 
     /** 灵感列表排序方式（持久化到 DataStore，对照网页 INSPIRATION_SORT_KEY）。 */
     val inspirationSort: StateFlow<String> = settings.inspirationSort
@@ -189,6 +254,9 @@ class InspirationViewModel @Inject constructor(
 
     fun tagsOf(entity: InspirationEntity): List<String> = parsePayload(entity).tags
 
+    /** 任务93-v1-A：该灵感保存的分类 id（顺序即保存顺序）。 */
+    fun categoryIdsOf(entity: InspirationEntity): List<String> = parsePayload(entity).categoryIds
+
     fun sourceOf(entity: InspirationEntity): InspirationSourceInfo? = parsePayload(entity).source
 
     /** R5-I1/I2：详情页消费的完整 payload（采用去向 + 聚合摘录 + 来源定位）。 */
@@ -202,13 +270,17 @@ class InspirationViewModel @Inject constructor(
         if (existing == null) {
             _pendingSavedIds.update { it + id }
         }
-        // 编辑器只拥有 tags / source 两个字段；采用去向（R5-I1）、聚合摘录（R5-I2）与
-        // 归档去向由详情页与合并流程维护。编辑保存必须从既有 payload 继承这些字段，
-        // 否则「只改一个标题」会静默清空素材卡的摘录/采用记录。
+        // 编辑器只拥有 tags / source / categoryIds 三个字段（分类仅在用户动过时接管）；
+        // 采用去向（R5-I1）、聚合摘录（R5-I2）与归档去向由详情页与合并流程维护。
+        // 编辑保存必须从既有 payload 继承这些字段，否则「只改一个标题」会静默清空
+        // 素材卡的摘录/采用记录，或把用户没碰过的分类清掉。
         val previous = existing?.let { parsePayload(it) }
         val payload = InspirationPayloadData(
             tags = draft.tags,
-            categoryIds = previous?.categoryIds ?: emptyList(),
+            categoryIds = resolveDraftCategoryIds(
+                draftIds = draft.categoryIds,
+                previousIds = previous?.categoryIds ?: emptyList(),
+            ),
             source = draft.source,
             adoptions = previous?.adoptions ?: emptyList(),
             excerpts = previous?.excerpts ?: emptyList(),

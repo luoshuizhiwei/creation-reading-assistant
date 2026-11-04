@@ -57,10 +57,13 @@ import java.util.zip.ZipOutputStream
  *    · 恢复 rename 成功的既有行为回归（成功回滚路径不受本次改动影响）；
  *    · 恢复失败信息可从**调用方实际捕获的异常及其 cause 链**寻得（不固定对象身份、不只查注入实例），
  *      并写入 AppLog 诊断记录。
+ * 10. **CRA-ROLLBACK-WIP-RECONCILE-v2**：守卫前移到 fresh-source 解析之前（残留现场不得先落
+ *     `.importing`）；fresh-source 不可读时失败且不退回旧副本；建立备份与恢复复制的兜底分支
+ *     改为**逐字节核对**（短写与等长错字节都拒绝），核对通过后才删 target / backup；
+ *     正常路径核对通过后照常完成。
  *
  * **本片之后仍然失去的分支覆盖（不得声称已覆盖）**：
- * 「长度相同但内容不同」的损坏备份不会被 `require` 拦下（只比长度）；
- * `require` 通过之后、`target.delete()` 之前进程被杀（无 fsync）。两者均未覆盖。
+ * `require` 通过之后、`target.delete()` 之前进程被杀（无 fsync）。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class EpubRepositoryReplaceTest {
@@ -399,6 +402,99 @@ class EpubRepositoryReplaceTest {
         assertTrue("backup 文件必须不存在", !backup.exists())
 
         // 7. 关键断言：阅读记录零写入，内存缓存清除
+        coVerify(exactly = 0) { readingProgressDao.upsert(any()) }
+        assertNull("失败后内存缓存中不得残留该书", repository.cached(bookId))
+    }
+
+    // ===== CRA-ROLLBACK-WIP-RECONCILE-v3：fresh 解析成功后的失败也必须清理本次 .importing =====
+    // EpubParser 只清理「解析阶段」的失败；parse 成功返回后，替换流程的后续失败
+    // （建立备份 / DAO 持久化 / 回滚）都发生在 EpubRepository，validatedFile
+    // （<id>.importing）的清理义务随之转移到 replaceStoredEpub 全程。
+    // v2 只在成功路径删除 validatedFile —— 以下两条用例在 v2 实现上为红。
+
+    @Test
+    fun `replaceStoredEpub removes the fresh landing copy when the backup cannot be established`() = runTest {
+        val bookId = "epub_b3_landing_backup_fail"
+        val targetDir = File(tempFolder.root, "books/epub").also { it.mkdirs() }
+        val target = File(targetDir, "$bookId.epub")
+        createValidEpubFile(target, title = "旧版目标内容", bodyText = "旧版正文必须存活")
+        val oldTargetBytes = target.readBytes()
+
+        val newSourceFile = File(tempFolder.newFolder(), "valid_new.epub")
+        createValidEpubFile(newSourceFile, title = "新版目标内容", bodyText = "新版正文数据")
+        val newUri = mockUri(newSourceFile, "content://books/landing_backup_fail.epub")
+
+        // 注入「建立备份」失败：rename 失败 + 兜底复制中断（真实写出残缺 backup 后抛错）
+        fileOps.renameResult = false
+        fileOps.copyBehavior = { source, dest ->
+            dest.outputStream().use { it.write(source.readBytes().copyOf(source.length().toInt() / 2)) }
+            throw IOException("模拟备份建立失败")
+        }
+
+        var caught: Throwable? = null
+        try {
+            repository.replaceStoredEpub(existingBook(bookId, "old_hash"), newUri, "valid_new.epub")
+        } catch (e: Throwable) {
+            caught = e
+        }
+        assertTrue(
+            "注入的 IOException 必须向上传播，caught=${caught?.javaClass?.name}: ${caught?.message}",
+            caught is IOException && caught !is AssertionError && caught.message == "模拟备份建立失败",
+        )
+        assertTrue("必须真的进入过回退复制分支", fileOps.copyCalls >= 1)
+
+        // 失败后现场：旧 target 逐字节存活、残缺 backup 与 staging 清掉
+        assertTrue("旧 target 必须依然存在", target.exists())
+        assertArrayEquals("旧 target 必须逐字节完好", oldTargetBytes, target.readBytes())
+        assertTrue("残缺 backup 必须被清除", !File(targetDir, "$bookId.backup").exists())
+        assertTrue("staging 必须被清除", !File(targetDir, "$bookId.repairing").exists())
+
+        // 本任务的关键断言：fresh 解析成功后落下的来源临时副本（<派生id>.importing，
+        // 派生自 selectedUri）也必须清理 —— 按后缀全目录断言，不点名具体派生路径。
+        val leftoverImporting1 = targetDir.listFiles { f -> f.name.endsWith(".importing") }.orEmpty()
+        assertTrue(
+            "fresh 解析落下的来源临时副本必须在备份建立失败后清理，实际残留：${leftoverImporting1.map { it.name }}",
+            leftoverImporting1.isEmpty(),
+        )
+        coVerify(exactly = 0) { bookDao.update(any()) }
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+    }
+
+    @Test
+    fun `replaceStoredEpub removes the fresh landing copy when the database write fails`() = runTest {
+        val bookId = "epub_b3_landing_dao_fail"
+        val targetDir = File(tempFolder.root, "books/epub").also { it.mkdirs() }
+        val target = File(targetDir, "$bookId.epub")
+        createValidEpubFile(target, title = "旧版目标内容", bodyText = "旧版正文必须被恢复")
+        val oldTargetBytes = target.readBytes()
+
+        val newSourceFile = File(tempFolder.newFolder(), "valid_new.epub")
+        createValidEpubFile(newSourceFile, title = "新版目标内容", bodyText = "新版正文数据")
+        val newUri = mockUri(newSourceFile, "content://books/landing_dao_fail.epub")
+
+        coEvery { bookDao.update(any()) } throws RuntimeException("模拟数据库写失败")
+
+        var caught: Throwable? = null
+        try {
+            repository.replaceStoredEpub(existingBook(bookId, "old_hash"), newUri, "valid_new.epub")
+        } catch (e: Throwable) {
+            caught = e
+        }
+        assertTrue(
+            "持久化失败必须向上抛出 RuntimeException，caught=${caught?.javaClass?.name}",
+            caught is RuntimeException && caught !is AssertionError && caught.message == "模拟数据库写失败",
+        )
+
+        assertTrue("target 必须依然存在", target.exists())
+        assertArrayEquals("target 必须逐字节恢复为旧副本内容", oldTargetBytes, target.readBytes())
+        assertTrue("staging 必须不存在", !File(targetDir, "$bookId.repairing").exists())
+        assertTrue("backup 必须不存在", !File(targetDir, "$bookId.backup").exists())
+
+        val leftoverImporting2 = targetDir.listFiles { f -> f.name.endsWith(".importing") }.orEmpty()
+        assertTrue(
+            "fresh 解析落下的来源临时副本必须在 DAO 失败后清理，实际残留：${leftoverImporting2.map { it.name }}",
+            leftoverImporting2.isEmpty(),
+        )
         coVerify(exactly = 0) { readingProgressDao.upsert(any()) }
         assertNull("失败后内存缓存中不得残留该书", repository.cached(bookId))
     }
@@ -1306,5 +1402,206 @@ class EpubRepositoryReplaceTest {
         coVerify(exactly = 0) { bookDao.upsert(any()) }
         coVerify(exactly = 0) { readingProgressDao.upsert(any()) }
         assertNull("失败后内存缓存中不得残留该书", repository.cached(bookId))
+    }
+
+    // ===== CRA-ROLLBACK-WIP-RECONCILE-v2：守卫前移 / fresh-source 失败语义 / 逐字节核对 =====
+
+    /**
+     * **守卫前移**：残留 backup 存在时，守卫必须在 fresh-source 解析**之前**拒绝。
+     *
+     * 守卫旧位置在 parse 之后：同 URI 时 parse 的派生 id 与 bookId 重合，会在
+     * books/epub/ 下先落下 `<id>.importing` 新来源副本，随后才被守卫拒绝 ——
+     * 残留现场叠上一个本次产生的孤儿副本。修复后拒绝必须发生在任何来源读取之前。
+     */
+    @Test
+    fun `replaceStoredEpub rejects residue before fresh-source parse leaves any importing copy`() = runTest {
+        val uriString = "content://books/guard_same_source.epub"
+        val bookId = "epub_" + uriString.hashCode().toString(36)
+        val (target, oldBytes) = seedExistingTarget(bookId)
+        val dir = target.parentFile!!
+        val backup = File(dir, "$bookId.backup").also { it.writeBytes(byteArrayOf(5, 5, 5)) }
+
+        // 关键：来源 URI 不可读。若守卫仍在 parse 之后，会先抛「无法读取来源」
+        // 而不是残留拒绝，且可能在派生路径留下 .importing —— 两种偏差都会暴露旧位置。
+        val unreadableUri = mockk<Uri>()
+        every { unreadableUri.toString() } returns uriString
+        every { resolver.openInputStream(unreadableUri) } throws IOException("模拟来源不可读")
+
+        var caught: Throwable? = null
+        try {
+            repository.replaceStoredEpub(existingBook(bookId, "old_hash"), unreadableUri, "same.epub")
+        } catch (e: Throwable) {
+            caught = e
+        }
+
+        assertTrue("残留存在时必须以残留拒绝收场，caught=$caught", caught is IllegalStateException)
+        assertTrue(
+            "错误消息必须可识别为残留拒绝",
+            caught?.message?.contains("未完成的替换残留") == true,
+        )
+        assertTrue("守卫必须在读取来源之前拒绝：不得残留 .importing", !File(dir, "$bookId.importing").exists())
+        assertTrue("旧 target 必须逐字节保留", target.exists() && oldBytes.contentEquals(target.readBytes()))
+        assertTrue("残留 backup 必须原样保留", backup.exists() && backup.readBytes().contentEquals(byteArrayOf(5, 5, 5)))
+        assertTrue("不得残留 staging", !File(dir, "$bookId.repairing").exists())
+        coVerify(exactly = 0) { bookDao.update(any()) }
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+        coVerify(exactly = 0) { readingProgressDao.upsert(any()) }
+    }
+
+    /**
+     * **fresh-source 失败不得退回旧副本**：来源 URI 不可读时替换必须失败，
+     * 旧 target 字节原样保留、无 `.importing` 残留、DAO 零写（S04 §9-1/§9-4 合同）。
+     *
+     * EpubParser 已被真实调用（同 URI 派生 id 与 target 重合），因此本用例钉住的是
+     * 「fresh-source 模式禁用本地兜底 + 失败清理本次副本」的端到端语义。
+     */
+    @Test
+    fun `replaceStoredEpub fails without falling back to old copy when source is unreadable`() = runTest {
+        val uriString = "content://books/unreadable_source.epub"
+        val bookId = "epub_" + uriString.hashCode().toString(36)
+        val (target, oldBytes) = seedExistingTarget(bookId)
+        val dir = target.parentFile!!
+
+        val unreadableUri = mockk<Uri>()
+        every { unreadableUri.toString() } returns uriString
+        every { resolver.openInputStream(unreadableUri) } throws IOException("模拟来源不可读·fresh")
+
+        var caught: Throwable? = null
+        try {
+            repository.replaceStoredEpub(existingBook(bookId, "old_hash"), unreadableUri, "same.epub")
+        } catch (e: Throwable) {
+            caught = e
+        }
+
+        assertTrue(
+            "来源不可读必须失败，且不得退回旧副本冒充新来源，caught=$caught",
+            caught is Exception && caught !is AssertionError,
+        )
+        assertTrue("旧 target 必须逐字节保留", target.exists() && oldBytes.contentEquals(target.readBytes()))
+        assertTrue("失败后不得残留 .importing", !File(dir, "$bookId.importing").exists())
+        assertTrue("不得残留 staging", !File(dir, "$bookId.repairing").exists())
+        assertTrue("不得产生 backup", !File(dir, "$bookId.backup").exists())
+        coVerify(exactly = 0) { bookDao.update(any()) }
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+        coVerify(exactly = 0) { readingProgressDao.upsert(any()) }
+        assertNull("失败后内存缓存中不得残留该书", repository.cached(bookId))
+    }
+
+    /**
+     * **建立备份：等长错字节**。S04 阻断①的另一半：`copyTo(backup)` 正常返回、
+     * 长度与 target 完全相同、但**内容**不同 —— 只比长度的校验拦不下它，
+     * 修复前 `target.delete()` 会删掉唯一完好的旧正文，让坏字节上位。
+     * 修复后必须逐字节核对失败即拒绝，target 逐字节存活。
+     */
+    @Test
+    fun `replaceStoredEpub rejects equal-length corrupted backup copy by byte comparison`() = runTest {
+        val bookId = "epub_fallback_copy_corrupted"
+        val (target, oldBytes) = seedExistingTarget(bookId)
+        assertTrue("前置条件：旧副本长度必须大于 1 字节", oldBytes.size > 1)
+
+        fileOps.renameResult = false
+        fileOps.copyBehavior = { source, dest ->
+            // 等长 + 首字节翻转：长度校验的盲区，逐字节核对是唯一闸门
+            val corrupted = source.readBytes().copyOf()
+            corrupted[0] = (corrupted[0] + 1).toByte()
+            dest.outputStream().use { it.write(corrupted) }
+        }
+
+        val newSource = File(tempFolder.newFolder(), "new.epub")
+        createValidEpubFile(newSource, title = "新版", bodyText = "新版正文")
+        val newUri = mockUri(newSource, "content://books/new.epub")
+
+        var caught: Throwable? = null
+        try {
+            repository.replaceStoredEpub(existingBook(bookId, "old_hash"), newUri, "new.epub")
+        } catch (e: Throwable) {
+            caught = e
+        }
+
+        assertTrue(
+            "等长错字节的备份必须被逐字节核对拦下，实际=${caught?.let { "${it::class.simpleName}: ${it.message}" }}",
+            caught is IllegalArgumentException &&
+                caught.message?.contains("备份旧副本时文件不完整") == true,
+        )
+        assertTrue("必须尝试过 renameTo，实际=${fileOps.renameCalls}", fileOps.renameCalls >= 1)
+        assertEquals("必须恰好走一次回退复制", 1, fileOps.copyCalls)
+        assertTrue("旧 target 必须依然存在", target.exists())
+        assertArrayEquals("等长坏备份绝不得覆盖完好旧副本", oldBytes, target.readBytes())
+        assertTrue("被拒绝的坏 backup 必须被清除", !File(target.parentFile, "$bookId.backup").exists())
+        assertTrue("staging 必须被清除", !File(target.parentFile, "$bookId.repairing").exists())
+        coVerify(exactly = 0) { bookDao.update(any()) }
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+        assertNull("失败后内存缓存中不得残留该书", repository.cached(bookId))
+    }
+
+    /**
+     * **恢复复制：等长错字节**。S04 阻断②的另一半：恢复 `copyTo(backup→target)` 正常
+     * 返回、长度与 backup 相同、但内容不同 —— 修复前 `backup.delete()` 会删掉唯一完整
+     * 旧字节。修复后必须核对失败 ⇒ 不删 backup、挂 suppressed、主异常不被顶替。
+     */
+    @Test
+    fun `replaceStoredEpub keeps full backup when restore copy returns equal-length corrupted bytes`() = runTest {
+        val bookId = "epub_restore_copy_corrupted"
+        val (target, oldBytes, daoError) = seedRestoreFailure(bookId) { source, dest, bytes ->
+            // 等长 + 首字节翻转：长度核对无效，逐字节核对是删 backup 前的唯一闸门
+            val corrupted = source.readBytes().copyOf()
+            corrupted[0] = (corrupted[0] + 1).toByte()
+            dest.outputStream().use { it.write(corrupted) }
+        }
+        val backup = File(target.parentFile, "$bookId.backup")
+        val newSource = File(tempFolder.newFolder(), "new.epub")
+        createValidEpubFile(newSource, title = "新版", bodyText = "新版正文")
+        val newUri = mockUri(newSource, "content://books/new.epub")
+
+        var caught: Throwable? = null
+        try {
+            repository.replaceStoredEpub(existingBook(bookId, "old_hash"), newUri, "new.epub")
+        } catch (e: Throwable) {
+            caught = e
+        }
+
+        assertEquals("恢复复制必须恰好调用一次", 1, fileOps.copyCalls)
+        assertTrue(
+            "原始 DAO 异常必须向上传播，caught=${caught?.javaClass?.name}: ${caught?.message}",
+            caught is RuntimeException && caught !is AssertionError && caught.message == daoError.message,
+        )
+        val suppressed = daoError.suppressed
+        assertTrue(
+            "逐字节核对失败必须以 suppressed 保留，实际=${suppressed.joinToString { "${it::class.simpleName}:${it.message}" }}",
+            suppressed.any { it.message?.contains("回滚恢复不完整") == true },
+        )
+        assertTrue("等长错字节时 backup 必须保留", backup.exists())
+        assertArrayEquals("backup 必须仍含完整旧字节", oldBytes, backup.readBytes())
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+        coVerify(exactly = 0) { readingProgressDao.upsert(any()) }
+        assertNull("失败后内存缓存中不得残留该书", repository.cached(bookId))
+    }
+
+    /**
+     * **正常路径的核对无害性**：回退复制完整落盘时，逐字节核对必须通过、
+     * 随后才删旧 target，替换照常完成且零残留 —— 证明新闸门不误伤 happy path。
+     */
+    @Test
+    fun `replaceStoredEpub deletes old target only after byte verification passes on happy path`() = runTest {
+        val bookId = "epub_verify_then_delete_ok"
+        val (target, oldBytes) = seedExistingTarget(bookId)
+
+        fileOps.renameResult = false // 强制走 copyTo 兜底，让「核对通过后才删 target」被执行
+
+        val newSource = File(tempFolder.newFolder(), "new.epub")
+        createValidEpubFile(newSource, title = "核对新版", bodyText = "逐字节核对通过后的新正文")
+        val newUri = mockUri(newSource, "content://books/new.epub")
+
+        val result = repository.replaceStoredEpub(existingBook(bookId, "old_hash"), newUri, "new.epub")
+
+        assertTrue("必须尝试过 renameTo，实际=${fileOps.renameCalls}", fileOps.renameCalls >= 1)
+        assertEquals("必须恰好走一次回退复制", 1, fileOps.copyCalls)
+        assertEquals("原书 ID 必须保持不变", bookId, result.id)
+        assertEquals("新书标题应解析自新文件", "核对新版", result.title)
+        assertTrue("新副本必须已落位", target.isFile && target.length() > 0L)
+        assertFalse("旧内容必须已被新内容取代", oldBytes.contentEquals(target.readBytes()))
+        assertTrue("成功后不得残留 backup", !File(target.parentFile, "$bookId.backup").exists())
+        assertTrue("成功后不得残留 staging", !File(target.parentFile, "$bookId.repairing").exists())
+        coVerify(exactly = 1) { bookDao.update(any()) }
     }
 }

@@ -59,6 +59,8 @@ internal fun ReaderContentHostMarkdownBranch(
         val blocksAreGlobal = (s.markdownDocument as? MarkdownDocument)?.isWholeDocumentParse == true
         // 解析坐标 → 全书坐标的基准：整本解析 = 0（已是全局）；流式逐章 = chapterBase。
         val blockGlobalBase = if (blocksAreGlobal) 0 else s.chapterBase
+        val renderCanonicalText = (s.markdownDocument as? MarkdownDocument)
+            ?.renderCanonicalText(s.chapterIndex) ?: markdownBlock.chapter.canonicalText
         val searchHits = s.searchHitRangeAbs?.let { abs ->
             markdownScrollSearchHits(
                 chapter = markdownBlock.chapter,
@@ -99,7 +101,7 @@ internal fun ReaderContentHostMarkdownBranch(
         ) {
             MarkdownPersistentHighlights.projectPersistentHighlights(
                 units = markdownUnits,
-                canonicalText = markdownBlock.chapter.canonicalText,
+                canonicalText = renderCanonicalText,
                 highlights = s.highlights.mapNotNull { h ->
                     val start = parseLocatorOffset(h.locator_json) ?: return@mapNotNull null
                     val length = highlightSourceLength(h.payload, h.text.length)
@@ -167,7 +169,7 @@ internal fun ReaderContentHostMarkdownBranch(
                     val unitHighlights = persistentHighlights[MarkdownUnitVisualPolicy.unitKey(unit)].orEmpty()
                     RenderMarkdownUnit(
                         unit = unit,
-                        canonicalText = markdownBlock.chapter.canonicalText,
+                        canonicalText = renderCanonicalText,
                         fontSize = settings.readerSettings.fontSize,
                         lineHeight = settings.readerSettings.lineHeight,
                         paperFg = settings.paperFg,

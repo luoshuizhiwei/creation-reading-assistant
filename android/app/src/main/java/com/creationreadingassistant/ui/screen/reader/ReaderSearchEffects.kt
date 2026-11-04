@@ -137,6 +137,7 @@ private class ComposeSearchHitNavigationSink(
     private val searchScrollFocusRequestState: MutableState<SearchScrollFocusRequest?>,
     private val goToChapter: (Int) -> Unit,
     private val onLoadChapterBlocks: suspend (String, Int) -> List<DocBlock>,
+    private val sessionPositionGuard: ReaderSessionPositionGuard?,
 ) : SearchHitNavigationSink {
     override val bookKey: String get() = bookId
     override val currentChapterIndex: Int get() = chapterIndexState.intValue
@@ -145,7 +146,12 @@ private class ComposeSearchHitNavigationSink(
         pagedJumpRequest.value = absoluteOffset
     }
 
-    override suspend fun scrollToUnit(unitIndex: Int) = plainListState.scrollToItem(unitIndex)
+    override suspend fun scrollToUnit(unitIndex: Int) {
+        if (unitIndex != plainListState.firstVisibleItemIndex || plainListState.firstVisibleItemScrollOffset != 0) {
+            sessionPositionGuard?.recordNavigation()
+        }
+        plainListState.scrollToItem(unitIndex)
+    }
 
     override fun publishScrollFocus(request: SearchScrollFocusRequest) {
         searchScrollFocusRequestState.value = request
@@ -176,6 +182,7 @@ internal fun buildSearchHitNavigation(
     markdownBlocksGlobal: Boolean,
     goToChapter: (Int) -> Unit,
     onLoadChapterBlocks: suspend (String, Int) -> List<DocBlock>,
+    sessionPositionGuard: ReaderSessionPositionGuard? = null,
 ): SearchHitNavigationExecutor = SearchHitNavigationExecutor(
     session = session,
     sink = ComposeSearchHitNavigationSink(
@@ -186,6 +193,7 @@ internal fun buildSearchHitNavigation(
         searchScrollFocusRequestState = searchScrollFocusRequestState,
         goToChapter = goToChapter,
         onLoadChapterBlocks = onLoadChapterBlocks,
+        sessionPositionGuard = sessionPositionGuard,
     ),
     chaptered = chaptered,
     pagerEngineOn = pagerEngineOn,

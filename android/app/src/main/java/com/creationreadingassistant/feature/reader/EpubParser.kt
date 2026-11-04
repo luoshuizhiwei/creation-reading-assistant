@@ -52,8 +52,21 @@ object EpubParser {
      *                       不传则按完整 Uri 字符串派生，同一来源会派生出同一个 id。
      * @param requireFreshSource **本次必须读取并校验「来源 URI 的当前字节」**，
      *                           禁止复用任何已存在的内部副本。替换正文时必须为 true。
+     *                           true 时无论是否可回退，都从来源 URI 读取；公共 [parse]
+     *                           会为复制、解析及失败清理整个生命周期持闸。
      */
     suspend fun parse(
+        context: Context,
+        uri: Uri,
+        expectedBookId: String? = null,
+        fallbackLocalPath: String? = null,
+        requireFreshSource: Boolean = false,
+    ): EpubBook = EpubSwapGate.withGate {
+        parseUnderSwapGate(context, uri, expectedBookId, fallbackLocalPath, requireFreshSource)
+    }
+
+    /** Caller must hold [EpubSwapGate]; used by replacement's validate/promote/reparse sequence. */
+    internal suspend fun parseUnderSwapGate(
         context: Context,
         uri: Uri,
         expectedBookId: String? = null,
@@ -82,7 +95,9 @@ object EpubParser {
             else -> epubFile
         }
 
-        if (!reuseExisting) {
+        // 来源字节落盘段（CRA-ROLLBACK-WIP-RECONCILE-v3 折为局部 suspend lambda 以便按模式取闸；
+        // 行为逐字保留）。失败时清理本次产生的 staging 与 landing，绝不触碰复用路径的既有副本。
+        val landingCopy: suspend () -> Unit = {
             // 新鲜来源模式一律落到 staging：它绝不能覆盖 epubFile，
             // 因为 epubFile 此刻可能正是等待被替换、且唯一完好的旧正文。
             val dest = landing ?: epubFile
@@ -135,6 +150,15 @@ object EpubParser {
                 landing?.takeIf { it !== staging }?.delete()
                 throw e
             }
+        }
+        if (!reuseExisting) {
+            // CRA-ROLLBACK-WIP-RECONCILE-v3：落位段写入 <id>.importing（普通模式还会
+            // 改写 epubFile），与替换流程共用同一组按书 id 确定路径的文件 ——
+            // 普通模式必须入 [EpubSwapGate]，否则「打开未落盘的书 / 迁移」与
+            // 「替换正文」并发时会互相删掉对方的落盘文件。公共 parse 入口全程持闸：
+            // 替换流程使用 parseUnderSwapGate 避免非重入 Mutex 再入，契约见
+            // requireFreshSource 的 KDoc。
+            landingCopy()
         }
         // 新鲜来源模式下解析的是 staging（尚未提升为正式内部副本）；
         // 其余情况解析的是 epubFile。
@@ -209,7 +233,9 @@ object EpubParser {
         } finally {
             // 先关句柄（释放 Windows 上的文件锁），再清理。
             zip.close()
-            if (parseFailed) discardLanding(landing, staging)
+            if (parseFailed) {
+                discardLanding(landing, staging)
+            }
         }
     }
 

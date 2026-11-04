@@ -29,9 +29,14 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -50,6 +55,8 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * ShelfImporter 导入管线状态机测试。
@@ -485,7 +492,7 @@ class ShelfImporterTest {
     @Test
     fun `repair succeeds for matching txt replacement`() = runTest {
         stubTxtContent("b.txt", "替换正文")
-        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt")
+        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("替换正文"))
         coEvery { bookDao.upsert(any()) } returns Unit
         coEvery { bookDao.runInTransaction(any()) } returns Unit
 
@@ -565,6 +572,7 @@ class ShelfImporterTest {
 
         stubTxtContent(fileName, newContent)
         coEvery { bookDao.getById(any()) } returns book(bookId, format = "txt", fileName = fileName)
+            .copy(content_hash = md5Hex(newContent))
         stubRunInTransactionExecuting()
         coEvery { bookContentDao.upsert(any()) } returns Unit
         coEvery { bookFileDao.upsert(any()) } returns Unit
@@ -627,6 +635,7 @@ class ShelfImporterTest {
 
         stubTxtContent(fileName, "本次新正文")
         coEvery { bookDao.getById(any()) } returns book(bookId, format = "txt", fileName = fileName)
+            .copy(content_hash = md5Hex("本次新正文"))
         coEvery { historyStore.addEntry(any()) } returns Unit
 
         val msg = importer.repairFile(bookId, uri(fileName))
@@ -669,6 +678,7 @@ class ShelfImporterTest {
 
         stubTxtContent(fileName, "本次新正文")
         coEvery { bookDao.getById(any()) } returns book(bookId, format = "txt", fileName = fileName)
+            .copy(content_hash = md5Hex("本次新正文"))
         coEvery { historyStore.addEntry(any()) } returns Unit
 
         val msg = importer.repairFile(bookId, uri(fileName))
@@ -733,6 +743,7 @@ class ShelfImporterTest {
 
         stubTxtContent(fileName, newContent)
         coEvery { bookDao.getById(any()) } returns book(bookId, format = "txt", fileName = fileName)
+            .copy(content_hash = md5Hex(newContent))
         stubRunInTransactionExecuting()
         coEvery { bookContentDao.upsert(any()) } returns Unit
         coEvery { bookFileDao.upsert(any()) } returns Unit
@@ -810,14 +821,14 @@ class ShelfImporterTest {
             }
             val brokenCopy = File(tempFolder.newFolder(), "broken.txt").apply { writeBytes(ByteArray(0)) }
             coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt")
-                .copy(local_content_path = brokenCopy.absolutePath)
+                .copy(local_content_path = brokenCopy.absolutePath, content_hash = md5Hex("正文"))
             coEvery { bookDao.runInTransaction(any()) } returns Unit
             coEvery { bookDao.upsert(any()) } returns Unit
             coEvery { bookContentDao.upsert(any()) } returns Unit
             coEvery { bookFileDao.upsert(any()) } returns Unit
             coEvery { historyStore.addEntry(any()) } returns Unit
             coEvery { sourceIndex.snapshot() } returns listOf(
-                sourceRef(sizeBytes = 999L, lastModifiedMillis = 1_000L).copy(contentHash = "old_valid_hash")
+                sourceRef(sizeBytes = 999L, lastModifiedMillis = 1_000L).copy(contentHash = md5Hex("正文"))
             )
 
             val result = importer.refreshFromSource("b1")
@@ -856,6 +867,7 @@ class ShelfImporterTest {
             every { resolver.query(any(), any(), any(), any(), any()) } returns
                 cursor("b.txt", 33L * 1024 * 1024)
             coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt")
+                .copy(content_hash = md5Hex(newContent))
             coEvery { bookDao.runInTransaction(any()) } returns Unit
             coEvery { bookContentDao.upsert(any()) } returns Unit
             coEvery { bookFileDao.upsert(any()) } returns Unit
@@ -875,6 +887,263 @@ class ShelfImporterTest {
         } finally {
             unmockkStatic(DocumentsContract::class)
         }
+    }
+
+    // ===== 按来源一键刷新（M-BUG-03 第二阶段） =====
+
+    // ===== 重新定位：文件替换/回滚的阶段语义（CRA-RESELECT-ROLLBACK-FIX-v1/v2/v3 已验套件，
+    //      CRA-ROLLBACK-WIP-RECONCILE-v1 并入；与上方 WIP 用例互为双口径覆盖） =====
+    // 缺陷：暂存复制发生在旧目标备份**之前**，catch 无条件 internalFile.delete()。
+    // 复制阶段失败时旧目标仍原地未动，却会被删掉且没有 backup 可恢复。
+
+    /** 预置旧正文文件，返回 (文件, 原始字节)。 */
+    private fun seedOldTxt(bookId: String, name: String, content: String): Pair<File, ByteArray> {
+        val dir = File(File(tempFolder.root, "books"), bookId).also { it.mkdirs() }
+        val f = File(dir, name).also { it.writeText(content) }
+        return f to f.readBytes()
+    }
+
+    @Test
+    fun `reselect txt keeps old content when provider cannot open the selected file`() = runTest {
+        val (oldFile, oldBytes) = seedOldTxt("b1", "b.txt", "旧正文-必须保留")
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("b.txt", 10L)
+        every { resolver.openInputStream(any()) } throws IOException("注入：无法打开所选文件")
+        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt")
+        coEvery { historyStore.addEntry(any()) } returns Unit
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("必须报修复失败：$msg", msg.contains("修复失败"))
+        assertTrue("旧正文文件必须仍然存在", oldFile.isFile)
+        assertArrayEquals("尚未触碰旧目标时失败不得删除它", oldBytes, oldFile.readBytes())
+    }
+
+    @Test
+    fun `reselect txt keeps old content when staging copy fails midway`() = runTest {
+        val (oldFile, oldBytes) = seedOldTxt("b1", "b.txt", "旧正文-必须保留")
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("b.txt", 10L)
+        every { resolver.openInputStream(any()) } answers {
+            var served = 0
+            object : ByteArrayInputStream("新正文内容".toByteArray()) {
+                override fun read(b: ByteArray, off: Int, len: Int): Int {
+                    if (served++ == 0) return super.read(b, off, len)
+                    throw IOException("注入：复制中途失败")
+                }
+            }
+        }
+        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt")
+        coEvery { historyStore.addEntry(any()) } returns Unit
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("必须报修复失败：$msg", msg.contains("修复失败"))
+        assertArrayEquals("复制中途失败（旧目标未动）不得删除旧正文", oldBytes, oldFile.readBytes())
+    }
+
+    @Test
+    fun `reselect txt keeps old content when the backup cannot be established`() = runTest {
+        val (oldFile, oldBytes) = seedOldTxt("b1", "b.txt", "旧正文-必须保留")
+        // 备份路径被非空目录占用：backup.delete() 删不掉、renameTo 失败、copyTo 抛错
+        val backupPath = File(oldFile.parentFile, "b.txt.backup").also { it.mkdirs() }
+        File(backupPath, "occupied").writeText("x")
+        stubTxtContent("b.txt", "新正文内容")
+        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("新正文内容"))
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("必须报修复失败：$msg", msg.contains("修复失败"))
+        assertArrayEquals("备份建立失败时旧正文必须原样保留", oldBytes, oldFile.readBytes())
+    }
+
+    @Test
+    fun `reselect txt rolls back the file and rethrows on cancellation`() = runTest {
+        val (oldFile, oldBytes) = seedOldTxt("b1", "b.txt", "旧正文-必须保留")
+        stubTxtContent("b.txt", "新正文内容")
+        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("新正文内容"))
+        coEvery { bookDao.runInTransaction(any()) } throws kotlinx.coroutines.CancellationException("注入：取消")
+
+        val thrown = runCatching { importer.repairFile("b1", uri("b.txt")) }.exceptionOrNull()
+
+        assertTrue("取消必须原样上抛：$thrown", thrown is kotlinx.coroutines.CancellationException)
+        assertArrayEquals("取消也必须回滚文件到旧字节", oldBytes, oldFile.readBytes())
+    }
+
+    @Test
+    fun `reselect txt restores old content when the database write fails after the swap`() = runTest {
+        val (oldFile, oldBytes) = seedOldTxt("b1", "b.txt", "旧正文-必须保留")
+        stubTxtContent("b.txt", "新正文内容")
+        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("新正文内容"))
+        coEvery { bookDao.runInTransaction(any()) } throws IllegalStateException("注入：DB 写入失败")
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("必须报修复失败：$msg", msg.contains("修复失败"))
+        assertArrayEquals("新目标已安装后失败必须恢复旧字节", oldBytes, oldFile.readBytes())
+    }
+
+    @Test
+    fun `reselect txt replaces bytes and leaves no residue on the happy path`() = runTest {
+        val (oldFile, _) = seedOldTxt("b1", "b.txt", "旧正文")
+        stubTxtContent("b.txt", "新正文内容")
+        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("新正文内容"))
+        coEvery { bookDao.runInTransaction(any()) } returns Unit
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertEquals("《书b1》正文已修复", msg)
+        assertEquals("正常成功路径必须换成新正文", "新正文内容", oldFile.readText())
+        assertFalse("成功后不得留下 backup 残留", File(oldFile.parentFile, "b.txt.backup").exists())
+        assertFalse("成功后不得留下 staging 残留", File(oldFile.parentFile, "b.txt.repairing").exists())
+    }
+
+    // ===== 既有 backup 残留保护（CRA-RESELECT-ROLLBACK-FIX-v2） =====
+    // 上次中断后 target 可能缺失，`<name>.backup` 可能是唯一保存旧正文的文件。
+    // 修复前入口无条件 backup.delete()：再次执行会先毁掉这份唯一的旧字节。
+
+    @Test
+    fun `reselect txt refuses replacement when a leftover backup is the only copy of the old text`() = runTest {
+        val dir = File(File(tempFolder.root, "books"), "b1").also { it.mkdirs() }
+        val target = File(dir, "b.txt")
+        val backup = File(dir, "b.txt.backup").also { it.writeText("唯一旧正文") }
+        val backupBytes = backup.readBytes()
+        assertFalse("前置：target 必须缺失", target.exists())
+
+        stubTxtContent("b.txt", "新正文内容")
+        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("新正文内容"))
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("必须明确报失败：$msg", msg.contains("修复失败"))
+        assertTrue("错误必须说明是遗留备份挡住替换：$msg", msg.contains("备份"))
+        assertTrue("残留 backup 必须保留", backup.isFile)
+        assertArrayEquals("backup 是唯一旧正文，字节必须原样保留", backupBytes, backup.readBytes())
+        assertFalse("拒绝替换时不得写出目标", target.exists())
+        coVerify(exactly = 0) { bookDao.runInTransaction(any()) }
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+        coVerify(exactly = 0) { bookContentDao.upsert(any()) }
+        coVerify(exactly = 0) { bookFileDao.upsert(any()) }
+    }
+
+    @Test
+    fun `reselect txt refuses when both the target and a leftover backup exist`() = runTest {
+        val (target, targetBytes) = seedOldTxt("b1", "b.txt", "当前正文")
+        val backup = File(target.parentFile, "b.txt.backup").also { it.writeText("更旧的正文") }
+        val backupBytes = backup.readBytes()
+
+        stubTxtContent("b.txt", "新正文内容")
+        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("新正文内容"))
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("必须明确报失败：$msg", msg.contains("修复失败"))
+        assertArrayEquals("target 不得被覆盖", targetBytes, target.readBytes())
+        assertTrue("残留 backup 不得被删除", backup.isFile)
+        assertArrayEquals("残留 backup 字节不得被改写", backupBytes, backup.readBytes())
+        coVerify(exactly = 0) { bookDao.runInTransaction(any()) }
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+    }
+
+    /**
+     * N1—CRA-RESELECT-ROLLBACK-FIX-v3：backup 位被**非空目录**（含哨兵文件）占住时，
+     * 入口守卫 `backup.isFile` 漏判 → 拒绝不发生。修复后：任何同名 backup 残留即拒绝，
+     * target/backup 目录内字节不变、DB 未写、错误信息可观察（说明是备份残留）。
+     */
+    @Test
+    fun `reselect txt refuses when the leftover backup is a non-empty directory`() = runTest {
+        val (target, targetBytes) = seedOldTxt("b1", "b.txt", "当前正文-目录残留场景")
+        val backupDir = File(target.parentFile, "b.txt.backup").also { it.mkdirs() }
+        val sentinel = File(backupDir, "sentinel-old-bytes").also { it.writeText("目录内旧字节哨兵") }
+
+        stubTxtContent("b.txt", "新正文内容")
+        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("新正文内容"))
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("backup 为目录时必须明确拒绝替换：$msg", msg.contains("修复失败"))
+        assertTrue("错误必须可观察（说明是备份残留挡住替换）：$msg", msg.contains("备份"))
+        assertArrayEquals("target 不得被覆盖", targetBytes, target.readBytes())
+        assertTrue("backup 目录必须原样保留", backupDir.isDirectory)
+        assertEquals("哨兵文件必须原样保留", "目录内旧字节哨兵", sentinel.readText())
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+        coVerify(exactly = 0) { bookContentDao.upsert(any()) }
+    }
+
+    @Test
+    fun `reselect txt refuses when only the backup directory remains and no target exists`() = runTest {
+        val dir = File(File(tempFolder.root, "books"), "b1").also { it.mkdirs() }
+        val backupDir = File(dir, "b.txt.backup").also { it.mkdirs() }
+        val sentinel = File(backupDir, "sentinel-only-copy").also { it.writeText("目录内唯一旧副本哨兵") }
+        val target = File(dir, "b.txt")
+        assertFalse("前置：target 必须缺失", target.exists())
+
+        stubTxtContent("b.txt", "新正文内容")
+        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("新正文内容"))
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("backup 目录残留时必须拒绝替换：$msg", msg.contains("修复失败"))
+        assertTrue("错误必须可观察：$msg", msg.contains("备份"))
+        assertFalse("拒绝替换时不得写出目标", target.exists())
+        assertTrue("backup 目录必须原样保留", backupDir.isDirectory)
+        assertEquals("哨兵文件必须原样保留", "目录内唯一旧副本哨兵", sentinel.readText())
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+        coVerify(exactly = 0) { bookContentDao.upsert(any()) }
+    }
+
+    @Test
+    fun `reselect txt keeps the backup and reports the original failure when the rollback itself fails`() = runTest {
+        val (target, oldBytes) = seedOldTxt("b1", "b.txt", "旧正文-必须保留")
+        val backup = File(target.parentFile, "b.txt.backup")
+        stubTxtContent("b.txt", "新正文内容")
+        coEvery { bookDao.getById(any()) } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("新正文内容"))
+        coEvery { bookDao.runInTransaction(any()) } answers {
+            // 注入：新正文已装上、回滚之前，目标位被非空目录占住 → 既删不掉也复位不回去
+            target.delete()
+            target.mkdirs()
+            File(target, "blocked").writeText("x")
+            throw IllegalStateException("注入：DB 写入失败")
+        }
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("必须报告主异常而不是恢复异常：$msg", msg.contains("注入：DB 写入失败"))
+        assertFalse("回滚失败不得提示恢复成功：$msg", msg.contains("已修复"))
+        assertTrue("恢复失败必须保留 backup", backup.isFile)
+        assertArrayEquals("恢复失败不得丢掉 backup 里的旧字节", oldBytes, backup.readBytes())
+    }
+
+    @Test
+    fun `reselect txt installs content when no previous target exists`() = runTest {
+        val dir = File(File(tempFolder.root, "books"), "b9").also { it.mkdirs() }
+        val target = File(dir, "b.txt")
+        assertFalse("前置：target 必须缺失", target.exists())
+        stubTxtContent("b.txt", "首次正文")
+        coEvery { bookDao.getById(any()) } returns book("b9", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("首次正文"))
+        coEvery { bookDao.runInTransaction(any()) } returns Unit
+
+        val msg = importer.repairFile("b9", uri("b.txt"))
+
+        assertEquals("《书b9》正文已修复", msg)
+        assertEquals("首次安装必须写入目标", "首次正文", target.readText())
+        assertFalse("不得留下 backup 残留", File(dir, "b.txt.backup").exists())
+        assertFalse("不得留下 staging 残留", File(dir, "b.txt.repairing").exists())
+    }
+
+    @Test
+    fun `reselect txt removes only the newly written target when the first install fails`() = runTest {
+        val dir = File(File(tempFolder.root, "books"), "b10").also { it.mkdirs() }
+        val target = File(dir, "b.txt")
+        assertFalse("前置：target 必须缺失", target.exists())
+        stubTxtContent("b.txt", "首次正文")
+        coEvery { bookDao.getById(any()) } returns book("b10", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("首次正文"))
+        coEvery { bookDao.runInTransaction(any()) } throws IllegalStateException("注入：DB 写入失败")
+
+        val msg = importer.repairFile("b10", uri("b.txt"))
+
+        assertTrue("必须报修复失败：$msg", msg.contains("修复失败"))
+        assertTrue("必须保留主异常文本：$msg", msg.contains("注入：DB 写入失败"))
+        assertFalse("首次安装失败后不得留下目标残留", target.exists())
+        assertFalse("不得留下 backup 残留", File(dir, "b.txt.backup").exists())
     }
 
     // ===== 按来源一键刷新（M-BUG-03 第二阶段） =====
@@ -905,7 +1174,9 @@ class ShelfImporterTest {
         try {
             every { DocumentsContract.buildDocumentUri(any(), any()) } returns uriMock("content://source/doc")
             stubTxtContent("b.txt", "替换正文")
-            coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt")
+            // CRA-D2-RELINK-IDENTITY-FIX-v3：身份门只限定重新关联，不限定 refresh。
+            // 恢复旧语义：旧哈希 ≠ 新内容时刷新仍成功，基线推进到新观测值。
+            coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("旧正文，与替换正文不同"))
             coEvery { bookDao.runInTransaction(any()) } returns Unit
             // 基线停在导入时的旧观测值（1 字节）→ 检测层会持续报「可更新」。
             coEvery { sourceIndex.snapshot() } returns listOf(
@@ -1064,7 +1335,7 @@ class ShelfImporterTest {
         try {
             every { DocumentsContract.buildDocumentUri(any(), any()) } returns uriMock("content://source/doc")
             stubTxtContent("b.txt", "替换正文")
-            coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt")
+            coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("替换正文"))
             coEvery { bookDao.runInTransaction(any()) } returns Unit
             coEvery { sourceIndex.snapshot() } returns listOf(sourceRef(sizeBytes = 1L, lastModifiedMillis = 1_000L))
 
@@ -1125,7 +1396,7 @@ class ShelfImporterTest {
         try {
             every { DocumentsContract.buildDocumentUri(any(), any()) } returns uriMock("content://source/doc")
             stubTxtContent("b.txt", "替换正文")
-            coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt")
+            coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("替换正文"))
             coEvery { bookDao.runInTransaction(any()) } returns Unit
             coEvery { sourceIndex.snapshot() } returns listOf(sourceRef(sizeBytes = 1L))
 
@@ -1150,7 +1421,7 @@ class ShelfImporterTest {
         try {
             every { DocumentsContract.buildDocumentUri(any(), any()) } returns uriMock("content://source/doc")
             stubTxtContent("b.txt", "全新正文内容")
-            coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt")
+            coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("全新正文内容"))
             coEvery { bookDao.runInTransaction(any()) } returns Unit
             // 旧基线带有陈旧的 contentHash
             coEvery { sourceIndex.snapshot() } returns listOf(
@@ -1200,6 +1471,7 @@ class ShelfImporterTest {
             coEvery { bookFileDao.upsert(any()) } returns Unit
             coEvery { historyStore.addEntry(any()) } returns Unit
             coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt")
+                .copy(content_hash = md5Hex(content))
             coEvery { bookDao.runInTransaction(any()) } returns Unit
             // 旧基线存在有效时间戳 987654321L
             coEvery { sourceIndex.snapshot() } returns listOf(
@@ -1234,6 +1506,7 @@ class ShelfImporterTest {
             coEvery { bookFileDao.upsert(any()) } returns Unit
             coEvery { historyStore.addEntry(any()) } returns Unit
             coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt")
+                .copy(content_hash = md5Hex("正文"))
             coEvery { bookDao.runInTransaction(any()) } returns Unit
             coEvery { sourceIndex.snapshot() } returns listOf(
                 sourceRef(sizeBytes = 10L, lastModifiedMillis = 1000L)
@@ -1372,7 +1645,9 @@ class ShelfImporterTest {
             val newContentBytes = newContent.toByteArray()
             val expectedHash = SourceFingerprint.md5Hex(newContentBytes)
             stubTxtContent("b.txt", newContent)
-            val oldHash = "old_stale_hash_from_v1"
+            // CRA-D2-RELINK-IDENTITY-FIX-v3：身份门只限定重新关联，不限定 refresh。
+            // 恢复旧语义：旧哈希 ≠ 新内容时刷新仍成功，books.content_hash 推进到新文件 MD5。
+            val oldHash = md5Hex("旧内容，与全新 TXT 正文内容不同")
             coEvery { bookDao.getById("b1") } returns BookEntity(
                 id = "b1",
                 title = "测试书",
@@ -1392,12 +1667,11 @@ class ShelfImporterTest {
             val result = importer.refreshFromSource("b1")
 
             assertTrue("result=$result", result is SourceRefreshResult.Success)
-            // 核心断言：books.content_hash 必须更新为新文件的 MD5，不能保留旧的 oldHash
+            // 核心断言：books.content_hash 必须为新文件 MD5（旧哈希已被推进，不再保留）。
+            assertNotEquals("新哈希必须不同于旧哈希", oldHash, expectedHash)
             coVerify(exactly = 1) {
                 bookDao.upsert(match { entity ->
-                    entity.id == "b1" &&
-                        entity.content_hash == expectedHash &&
-                        entity.content_hash != oldHash
+                    entity.id == "b1" && entity.content_hash == expectedHash
                 })
             }
         } finally {
@@ -1419,7 +1693,9 @@ class ShelfImporterTest {
             every { resolver.openInputStream(any()) } answers { ByteArrayInputStream(newContentBytes) }
             every { resolver.takePersistableUriPermission(any(), any()) } returns Unit
             coEvery { historyStore.addEntry(any()) } returns Unit
-            val oldHash = "stale_md_hash"
+            // CRA-D2-RELINK-IDENTITY-FIX-v3：身份门只限定重新关联，不限定 refresh。
+            // 恢复旧语义：旧哈希 ≠ 新内容时刷新仍成功。
+            val oldHash = md5Hex("旧内容，与全新 MD 正文内容不同")
             coEvery { bookDao.getById("b1") } returns BookEntity(
                 id = "b1",
                 title = "测试 MD 书",
@@ -1441,11 +1717,10 @@ class ShelfImporterTest {
             val result = importer.refreshFromSource("b1")
 
             assertTrue("result=$result", result is SourceRefreshResult.Success)
+            assertNotEquals("新哈希必须不同于旧哈希", oldHash, expectedHash)
             coVerify(exactly = 1) {
                 bookDao.upsert(match { entity ->
-                    entity.id == "b1" &&
-                        entity.content_hash == expectedHash &&
-                        entity.content_hash != oldHash
+                    entity.id == "b1" && entity.content_hash == expectedHash
                 })
             }
         } finally {
@@ -1463,7 +1738,9 @@ class ShelfImporterTest {
             val newContentBytes = newContent.toByteArray()
             val expectedHash = SourceFingerprint.md5Hex(newContentBytes)
             stubTxtContent("b.txt", newContent)
-            val oldHash = "stale_old_hash"
+            // CRA-D2-RELINK-IDENTITY-FIX-v3：身份门只限定重新关联，不限定 refresh。
+            // 恢复旧语义：旧哈希 ≠ 新内容时刷新仍成功，且 books/source_refs 哈希一致推进。
+            val oldHash = md5Hex("旧内容，与小文件一致性测试内容不同")
             coEvery { bookDao.getById("b1") } returns BookEntity(
                 id = "b1",
                 title = "一致性测试书",
@@ -1482,6 +1759,7 @@ class ShelfImporterTest {
             val result = importer.refreshFromSource("b1")
 
             assertTrue("result=$result", result is SourceRefreshResult.Success)
+            assertNotEquals("新哈希必须不同于旧哈希", oldHash, expectedHash)
             val capturedBooks = mutableListOf<BookEntity>()
             coVerify(exactly = 1) { bookDao.upsert(capture(capturedBooks)) }
             val bookHash = capturedBooks.firstOrNull()?.content_hash
@@ -1522,6 +1800,522 @@ class ShelfImporterTest {
             coVerify(exactly = 0) { bookDao.upsert(any()) }
         } finally {
             unmockkStatic(DocumentsContract::class)
+        }
+    }
+
+    // ===== CRA-D2-RELINK-IDENTITY-FIX-v2：重新关联的内容身份门（staging 字节校验） =====
+    //
+    // 合同（任务书 §四/§五）：以实际准备换入的 staging 字节为身份校验对象，在旧正文
+    // 备份/替换之前完成；同内容放行（bookId/用户记录保留）；内容明确不同拒绝；
+    // UNKNOWN（任一侧哈希不可得）明确拒绝，绝不静默放行；校验/读取失败保留旧资产；
+    // 同 URI 两次读取不同内容不能绕过门禁；普通 Duplicate 与软删除语义不变。
+
+    /** 独立于 stubTxtContent 的内容 stub：显式控制 query 返回的 size（哈希门依赖它）。 */
+    private fun stubRepairContent(name: String, content: String) {
+        val size = content.toByteArray().size
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor(name, size.toLong())
+        every { resolver.openInputStream(any()) } answers { ByteArrayInputStream(content.toByteArray()) }
+        every { resolver.takePersistableUriPermission(any(), any()) } returns Unit
+        coEvery { bookDao.upsert(any()) } returns Unit
+        coEvery { bookContentDao.upsert(any()) } returns Unit
+        coEvery { bookFileDao.upsert(any()) } returns Unit
+        coEvery { historyStore.addEntry(any()) } returns Unit
+    }
+
+    private fun md5Hex(content: String): String =
+        java.security.MessageDigest.getInstance("MD5").digest(content.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+
+    /** 让 bookDao.runInTransaction 真正执行回调块，使内部 upsert 可被 coVerify 捕获。 */
+    private fun stubRunInTransactionExecutingV2() {
+        coEvery { bookDao.runInTransaction(any()) } coAnswers {
+            @Suppress("UNCHECKED_CAST")
+            val block = args[0] as (suspend () -> Unit)
+            block()
+        }
+    }
+
+    @Test
+    fun `repair accepts same-content staging bytes and keeps bookId and metadata`() = runTest {
+        // 同内容：staging 字节哈希 == existing.content_hash → 换入，bookId/元数据不变。
+        // runInTransaction 真执行回调，逐字段验证 upsert 收到的实体。
+        val originalHash = md5Hex("原书正文")
+        coEvery { bookDao.getById(any()) } returns book(
+            "b1", format = "txt", fileName = "b.txt",
+        ).copy(content_hash = originalHash)
+        stubRunInTransactionExecutingV2()
+        stubRepairContent("b.txt", "原书正文")
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertEquals("《书b1》正文已修复", msg)
+        coVerify(exactly = 1) {
+            bookDao.upsert(
+                match {
+                    // bookId 与用户元数据逐字段保留；content_status 恢复 available
+                    it.id == "b1" && it.title == "书b1" && it.format == "txt" &&
+                        it.content_hash == originalHash && it.content_status == "available"
+                },
+            )
+        }
+        // staging 已被清理，不留残留
+        assertFalse(
+            "staging 必须清理",
+            File(tempFolder.root, "books/b1/reselect-staging.txt").exists(),
+        )
+    }
+
+    @Test
+    fun `repair rejects different-content file and leaves original state untouched`() = runTest {
+        // 内容明确不同（同格式同扩展名）：拒绝，旧正文/DB 状态不变，无 staging 残留。
+        coEvery { bookDao.getById(any()) } returns book(
+            "b1", format = "txt", fileName = "b.txt",
+        ).copy(content_hash = md5Hex("旧正文"))
+        val internalFile = seedExistingInternalCopy("b1", "b.txt", "旧正文")
+        val oldBytes = internalFile.readBytes()
+        stubRepairContent("b.txt", "完全不同的新内容")
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("必须给出明确失败原因，msg=$msg", msg.contains("修复失败"))
+        assertTrue("失败原因必须说明内容不一致，msg=$msg", msg.contains("内容与原书不一致"))
+        assertTrue("旧正文文件必须仍然存在", internalFile.exists())
+        assertArrayEquals("旧正文必须逐字节保持原样", oldBytes, internalFile.readBytes())
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+        coVerify(exactly = 0) { bookDao.runInTransaction(any()) }
+        coVerify(exactly = 0) { bookContentDao.upsert(any()) }
+        coVerify(exactly = 0) { bookFileDao.upsert(any()) }
+        assertFalse("不得残留 staging", File(internalFile.parentFile, "b.txt.repairing").exists())
+        assertFalse("不得残留 backup", File(internalFile.parentFile, "b.txt.backup").exists())
+        assertFalse("身份门的 staging 必须清理", File(internalFile.parentFile, "reselect-staging.txt").exists())
+    }
+
+    @Test
+    fun `repair rejects UNKNOWN identity when existing hash is missing`() = runTest {
+        // UNKNOWN：existing.content_hash 为 null（历史数据/大文件策略）→ 明确拒绝，不放行。
+        coEvery { bookDao.getById(any()) } returns book(
+            "b1", format = "txt", fileName = "b.txt",
+        ) // content_hash 默认 null
+        val internalFile = seedExistingInternalCopy("b1", "b.txt", "旧正文")
+        val oldBytes = internalFile.readBytes()
+        stubRepairContent("b.txt", "新正文内容")
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("UNKNOWN 必须拒绝，msg=$msg", msg.contains("修复失败"))
+        assertTrue("拒绝原因必须说明无法确认身份，msg=$msg", msg.contains("无法确认"))
+        assertTrue("旧正文文件必须仍然存在", internalFile.exists())
+        assertArrayEquals("旧正文必须逐字节保持原样", oldBytes, internalFile.readBytes())
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+        coVerify(exactly = 0) { bookDao.runInTransaction(any()) }
+    }
+
+    @Test
+    fun `repair rejects when staging copy fails and keeps old assets`() = runTest {
+        // 读取/暂存失败：不进入任何替换，旧正文与 DB 原样。
+        coEvery { bookDao.getById(any()) } returns book(
+            "b1", format = "txt", fileName = "b.txt",
+        ).copy(content_hash = md5Hex("旧正文"))
+        val internalFile = seedExistingInternalCopy("b1", "b.txt", "旧正文")
+        val oldBytes = internalFile.readBytes()
+        // 身份门 staging 阶段就失败：来源流抛 IOException
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("b.txt", 4L)
+        every { resolver.openInputStream(any()) } throws java.io.IOException("模拟读取失败")
+        coEvery { historyStore.addEntry(any()) } returns Unit
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("读取失败必须反馈，msg=$msg", msg.contains("修复失败"))
+        assertTrue("旧正文文件必须仍然存在", internalFile.exists())
+        assertArrayEquals("旧正文必须逐字节保持原样", oldBytes, internalFile.readBytes())
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+        coVerify(exactly = 0) { bookDao.runInTransaction(any()) }
+        coVerify(exactly = 0) { bookContentDao.upsert(any()) }
+        assertFalse("不得残留身份门 staging", File(internalFile.parentFile, "reselect-staging.txt").exists())
+        assertFalse("不得残留替换 staging", File(internalFile.parentFile, "b.txt.repairing").exists())
+    }
+
+    @Test
+    fun `same-uri returning different bytes cannot bypass the identity gate`() = runTest {
+        // 同 URI 脱节防护：身份门读取的是第一次复制进 staging 的字节；换入复用同一
+        // staging 文件。provider 两次打开返回不同内容时，换入字节仍与校验字节一致。
+        val firstContent = "原书正文"
+        val secondContent = "中途被换掉的内容"
+        coEvery { bookDao.getById(any()) } returns book(
+            "b1", format = "txt", fileName = "b.txt",
+        ).copy(content_hash = md5Hex(firstContent))
+        val size = firstContent.toByteArray().size
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("b.txt", size.toLong())
+        val streams = java.util.concurrent.atomic.AtomicInteger(0)
+        every { resolver.openInputStream(any()) } answers {
+            if (streams.getAndIncrement() == 0) {
+                ByteArrayInputStream(firstContent.toByteArray())
+            } else {
+                ByteArrayInputStream(secondContent.toByteArray())
+            }
+        }
+        every { resolver.takePersistableUriPermission(any(), any()) } returns Unit
+        coEvery { bookDao.upsert(any()) } returns Unit
+        coEvery { bookContentDao.upsert(any()) } returns Unit
+        coEvery { bookFileDao.upsert(any()) } returns Unit
+        coEvery { historyStore.addEntry(any()) } returns Unit
+        stubRunInTransactionExecutingV2()
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        // 第一次流（身份门 staging）= 原书正文 → SAME 放行；换入复用 staging 字节，
+        // 第二次 URI 读取（不同内容）根本没有发生——替换不再打开原 URI。
+        assertEquals("《书b1》正文已修复", msg)
+        val installed = File(tempFolder.root, "books/b1/b.txt")
+        assertTrue("换入副本必须存在", installed.exists())
+        assertArrayEquals("换入字节必须等于已校验的 staging 字节", firstContent.toByteArray(), installed.readBytes())
+        assertNotEquals("不得换入第二次读取的内容", secondContent, installed.readText())
+        // 来源流只被打开一次（身份门 staging），替换阶段零次
+        assertEquals(1, streams.get())
+    }
+
+    @Test
+    fun `duplicate import semantics unchanged for same content`() = runTest {
+        // 普通导入 Duplicate 语义不变：同 content_hash 命中去重 → 不重复导入、不重新关联。
+        val sameHash = md5Hex("重复内容")
+        shelfBooks.value = listOf(
+            book("existing-1", format = "txt", fileName = "dup.txt").copy(content_hash = sameHash),
+        )
+        stubTxtContent("dup.txt", "重复内容")
+
+        importer.importFiles(listOf(uri("dup.txt")))
+
+        val batch = importer.importBatch.value
+        assertEquals(1, batch.completed)
+        assertEquals(1, batch.duplicates)
+        assertEquals(0, batch.succeeded)
+        coVerify(exactly = 1) {
+            historyStore.addEntry(match { it.isDuplicate && it.status == "duplicate" })
+        }
+        // 去重路径不得触发任何重新关联式 DB 写入
+        coVerify(exactly = 0) { bookDao.runInTransaction(any()) }
+    }
+
+    @Test
+    fun `repair does not revive records unseen by the active-book dao filter`() = runTest {
+        // 软删除语义：BookDao.getById（deleted_at IS NULL，源码 :59）查不到的记录一律
+        // 「书籍记录不存在」。JVM 无 Room 基建，真实 SQL 过滤由 DAO 源码合同保证，
+        // 此处锁定 repairFileTyped 对 getById==null 的行为：不写任何 DB、不复活、明确反馈。
+        // 真实 Room 记录级验证留给最小设备/仪器后续合同（见报告未覆盖项）。
+        coEvery { bookDao.getById(any()) } returns null
+
+        val msg = importer.repairFile("deleted-1", uri("b.txt"))
+
+        assertEquals("书籍记录不存在", msg)
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+        coVerify(exactly = 0) { bookDao.runInTransaction(any()) }
+    }
+
+    // ===== CRA-D2-RELINK-IDENTITY-FIX-v3：三缺陷定向回归 =====
+
+    /**
+     * 缺陷1：staging 文件名 `reselect-staging.<format>` 与真实正文同名时，
+     * v2 实现先 delete 再写（校验前删真实正文），finally 又删除安装后的正文。
+     *
+     * v3 修复：staging 移入自有子目录 `books/<id>/.reselect-staging/<uuid>.<format>`，
+     * 不与任何真实正文同名，finally 只删自有 staging。
+     */
+    @Test
+    fun `repair preserves real content file named reselect-staging txt`() = runTest {
+        val realContent = "真实正文，绝不能被删除"
+        val realFile = seedExistingInternalCopy("b1", "reselect-staging.txt", realContent)
+        val realBytes = realFile.readBytes()
+        coEvery { bookDao.getById(any()) } returns book(
+            "b1", format = "txt", fileName = "reselect-staging.txt",
+        ).copy(content_hash = md5Hex(realContent))
+        stubRepairContent("reselect-staging.txt", realContent)
+        stubRunInTransactionExecutingV2()
+
+        val msg = importer.repairFile("b1", uri("reselect-staging.txt"))
+
+        assertEquals("SAME 内容必须修复成功，msg=$msg", "《书b1》正文已修复", msg)
+        assertTrue("真实正文文件必须仍然存在", realFile.exists())
+        assertArrayEquals("真实正文必须逐字节保持原样", realBytes, realFile.readBytes())
+        val stagingDir = File(tempFolder.root, "books/b1/.reselect-staging")
+        assertFalse(
+            "staging 子目录必须清理",
+            stagingDir.exists() && stagingDir.listFiles()?.isNotEmpty() == true,
+        )
+    }
+
+    /**
+     * 缺陷3：staging 复制写部分字节后抛异常 —— v2 helper 无自身失败清理，
+     * 半截 staging 文件残留（调用方 finally 从未进入）。
+     *
+     * v3 修复：helper 在自身失败路径清理本操作实际创建的文件。
+     */
+    @Test
+    fun `partial staging copy failure cleans up this operation residue`() = runTest {
+        val oldContent = "旧正文"
+        val internalFile = seedExistingInternalCopy("b1", "b.txt", oldContent)
+        val oldBytes = internalFile.readBytes()
+        coEvery { bookDao.getById(any()) } returns book(
+            "b1", format = "txt", fileName = "b.txt",
+        ).copy(content_hash = md5Hex(oldContent))
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("b.txt", 100L)
+        every { resolver.openInputStream(any()) } answers { PartialThenFailStream(10) }
+        coEvery { historyStore.addEntry(any()) } returns Unit
+
+        val msg = importer.repairFile("b1", uri("b.txt"))
+
+        assertTrue("部分复制失败必须反馈，msg=$msg", msg.contains("修复失败"))
+        assertFalse(
+            "不得残留半截 staging 文件（v2 路径）",
+            File(tempFolder.root, "books/b1/reselect-staging.txt").exists(),
+        )
+        val stagingDir = File(tempFolder.root, "books/b1/.reselect-staging")
+        assertFalse(
+            "不得残留 staging 子目录内容（v3 路径）",
+            stagingDir.exists() && stagingDir.listFiles()?.isNotEmpty() == true,
+        )
+        assertTrue("旧正文必须仍然存在", internalFile.exists())
+        assertArrayEquals("旧正文必须逐字节保持原样", oldBytes, internalFile.readBytes())
+        coVerify(exactly = 0) { bookDao.upsert(any()) }
+        coVerify(exactly = 0) { bookDao.runInTransaction(any()) }
+    }
+
+    /**
+     * EPUB 接缝：staging 移到自有子目录后，replaceStoredEpub 收到的 file URI 仍指向
+     * 已校验的 staging 字节，EPUB 换入路径不受影响。
+     *
+     * v2 REPORT 声称"既有测试已经证明 EPUB 成功 repair"，但实际无对应用例 —— 本测试补齐。
+     */
+    @Test
+    fun `epub repair SAME content succeeds via replaceStoredEpub seam`() = runTest {
+        val epubBytes = epubZipMagic + "EPUB-CONTENT".toByteArray()
+        val epubHash = SourceFingerprint.md5Hex(epubBytes)
+        coEvery { bookDao.getById(any()) } returns book(
+            "b1", format = "epub", fileName = "b.epub",
+        ).copy(content_hash = epubHash)
+        seedExistingInternalCopy("b1", "b.epub", "旧EPUB正文")
+        val size = epubBytes.size
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("b.epub", size.toLong())
+        every { resolver.openInputStream(any()) } answers { ByteArrayInputStream(epubBytes) }
+        every { resolver.takePersistableUriPermission(any(), any()) } returns Unit
+        coEvery { bookDao.upsert(any()) } returns Unit
+        coEvery { bookFileDao.upsert(any()) } returns Unit
+        coEvery { historyStore.addEntry(any()) } returns Unit
+        val cachedPath = File(tempFolder.root, "books/epub/b1.epub")
+            .also { it.parentFile?.mkdirs() }.absolutePath
+        coEvery { epubRepository.replaceStoredEpub(any(), any(), any()) } returns EpubBook(
+            id = "b1", title = "书b1", author = null, chapters = emptyList(),
+            localUri = "file://cached-book", cachedEpubPath = cachedPath,
+        )
+
+        val msg = importer.repairFile("b1", uri("b.epub"))
+
+        assertEquals("EPUB SAME 内容必须修复成功，msg=$msg", "《书b1》正文已修复", msg)
+        coVerify(exactly = 1) { epubRepository.replaceStoredEpub(any(), any(), any()) }
+        val stagingDir = File(tempFolder.root, "books/b1/.reselect-staging")
+        assertFalse(
+            "不得残留 staging 子目录内容",
+            stagingDir.exists() && stagingDir.listFiles()?.isNotEmpty() == true,
+        )
+    }
+
+    // ===== CRA-D2-RELINK-IDENTITY-FIX-v4：同书并发互斥与原子创建 =====
+    //
+    // 缺口：repairFile 与 refreshFromSource 对同书共用 .repairing/.backup 路径，
+    // 无同书互斥；stageSelectedBytesForRepair 用 outputStream() 创建-or-截断，
+    // 非原子排他创建。以下 5 条用例补能抓住缺口的红，修到绿。
+
+    /** 并发测试公共 stub：A=repairFile(SAME) 用 content://books/b.txt，B=refresh 用 content://source/doc。 */
+    private fun stubConcurrentRepairAndRefresh(
+        originalContent: String,
+        refreshContent: String,
+    ) {
+        seedExistingInternalCopy("b1", "b.txt", originalContent)
+        coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt")
+            .copy(content_hash = md5Hex(originalContent))
+        coEvery { sourceIndex.snapshot() } returns listOf(sourceRef())
+        every { DocumentsContract.buildDocumentUri(any(), any()) } returns uriMock("content://source/doc")
+        every { resolver.query(any(), any(), any(), any(), any()) } answers {
+            val u = args[0] as Uri
+            if (u.toString() == "content://source/doc")
+                cursor("b.txt", refreshContent.toByteArray().size.toLong())
+            else
+                cursor("b.txt", originalContent.toByteArray().size.toLong())
+        }
+        every { resolver.openInputStream(any()) } answers {
+            val u = args[0] as Uri
+            if (u.toString() == "content://source/doc")
+                ByteArrayInputStream(refreshContent.toByteArray())
+            else
+                ByteArrayInputStream(originalContent.toByteArray())
+        }
+        every { resolver.takePersistableUriPermission(any(), any()) } returns Unit
+        coEvery { bookDao.upsert(any()) } returns Unit
+        coEvery { bookContentDao.upsert(any()) } returns Unit
+        coEvery { bookFileDao.upsert(any()) } returns Unit
+        coEvery { historyStore.addEntry(any()) } returns Unit
+        coEvery { sourceIndex.record(any()) } returns Unit
+    }
+
+    /**
+     * 同书 SAME relink(A) 与 changed-content refresh(B) 并发：B 必须等待 A 完整结束。
+     *
+     * v3 缺口：A 在 runInTransaction 挂起时已创建 .backup；B 无锁直接进入 reselectPlainText，
+     * 撞 backup 残留守卫而失败。v4 用同书 Mutex 串行化：B 等 A 完整结束后才进入，
+     * backup 已被 A 清理，B 成功换入自己的刷新字节。
+     */
+    @Test
+    fun `concurrent same-book repair and refresh are serialized`() = runTest(UnconfinedTestDispatcher()) {
+        mockkStatic(DocumentsContract::class)
+        try {
+            val originalContent = "原书正文"
+            val refreshContent = "刷新后正文"
+            stubConcurrentRepairAndRefresh(originalContent, refreshContent)
+
+            val aBarrier = CompletableDeferred<Unit>()
+            val txCount = AtomicInteger(0)
+            coEvery { bookDao.runInTransaction(any()) } coAnswers {
+                @Suppress("UNCHECKED_CAST")
+                val block = args[0] as (suspend () -> Unit)
+                if (txCount.incrementAndGet() == 1) { aBarrier.await(); block() } else block()
+            }
+
+            val a = async { importer.repairFile("b1", uri("b.txt")) }
+            // A 已跑到 runInTransaction 并在 aBarrier 挂起；.backup 已存在
+            val b = async { importer.refreshFromSource("b1") }
+            // 无锁：B 直接进入 reselectPlainText，撞 backup 守卫失败
+            // 有锁：B 在 Mutex 上等待，不进入 reselectPlainText
+
+            aBarrier.complete(Unit)
+            val aMsg = a.await()
+            val bResult = b.await()
+
+            assertEquals("A 应成功: $aMsg", "《书b1》正文已修复", aMsg)
+            assertTrue("B 应成功（等待 A 完成后刷新）: $bResult", bResult is SourceRefreshResult.Success)
+            val finalFile = File(tempFolder.root, "books/b1/b.txt")
+            assertEquals("最终文件应为 B 的刷新内容", refreshContent, finalFile.readText())
+        } finally {
+            unmockkStatic(DocumentsContract::class)
+        }
+    }
+
+    /**
+     * A 失败回滚不影响 B：A 的 runInTransaction 抛 DB 异常，回滚恢复旧正文；
+     * B 等 A 释放锁后进入，backup 已被 A 的回滚消费/清理，B 成功换入刷新字节。
+     */
+    @Test
+    fun `concurrent first failure rollback does not affect second`() = runTest(UnconfinedTestDispatcher()) {
+        mockkStatic(DocumentsContract::class)
+        try {
+            val originalContent = "原书正文"
+            val refreshContent = "刷新后正文"
+            stubConcurrentRepairAndRefresh(originalContent, refreshContent)
+
+            val aBarrier = CompletableDeferred<Unit>()
+            val txCount = AtomicInteger(0)
+            coEvery { bookDao.runInTransaction(any()) } coAnswers {
+                @Suppress("UNCHECKED_CAST")
+                val block = args[0] as (suspend () -> Unit)
+                if (txCount.incrementAndGet() == 1) { aBarrier.await(); throw RuntimeException("DB 写入失败") }
+                else block()
+            }
+
+            val a = async { importer.repairFile("b1", uri("b.txt")) }
+            val b = async { importer.refreshFromSource("b1") }
+
+            aBarrier.complete(Unit)
+            val aMsg = a.await()
+            val bResult = b.await()
+
+            assertTrue("A 应失败: $aMsg", aMsg.contains("修复失败"))
+            assertTrue("B 应成功（A 回滚不影响 B）: $bResult", bResult is SourceRefreshResult.Success)
+            val finalFile = File(tempFolder.root, "books/b1/b.txt")
+            assertEquals("最终文件应为 B 的刷新内容", refreshContent, finalFile.readText())
+        } finally {
+            unmockkStatic(DocumentsContract::class)
+        }
+    }
+
+    /**
+     * 原子排他创建：staging 路径已存在另一操作的文件时，不得截断/覆盖。
+     *
+     * v3 缺口：stagedFile.outputStream() 是 create-or-truncate，静默覆盖预存在文件。
+     * v4 用 createNewFile() —— 返回 false 即抛，预存在文件逐字节保留。
+     */
+    @Test
+    fun `staging file creation is atomic and preserves unknown-owned file`() = runTest {
+        val bookId = "b1"
+        val fileName = "b.txt"
+        val originalContent = "原书正文"
+        seedExistingInternalCopy(bookId, fileName, originalContent)
+        coEvery { bookDao.getById(any()) } returns book(bookId, format = "txt", fileName = fileName)
+            .copy(content_hash = md5Hex(originalContent))
+        stubRepairContent(fileName, originalContent)
+        stubRunInTransactionExecutingV2()
+
+        val fixedUuid = UUID.fromString("00000000-0000-0000-0000-000000000001")
+        mockkStatic(UUID::class)
+        every { UUID.randomUUID() } returns fixedUuid
+
+        val stagingDir = File(tempFolder.root, "books/$bookId/.reselect-staging").also { it.mkdirs() }
+        val stagedFile = File(stagingDir, "$fixedUuid.txt")
+        val preExistingBytes = "OTHER_OPERATION_BYTES".toByteArray()
+        stagedFile.writeBytes(preExistingBytes)
+
+        val msg = importer.repairFile(bookId, uri(fileName))
+
+        assertTrue("必须报修复失败: $msg", msg.contains("修复失败"))
+        assertArrayEquals("不得截断/覆盖其他操作的暂存文件", preExistingBytes, stagedFile.readBytes())
+
+        unmockkStatic(UUID::class)
+    }
+
+    /**
+     * 取消不遗留锁：A 持锁在 barrier 挂起时被 cancel，锁必须在 finally 释放，
+     * 后续 B 能正常进入并完成。
+     */
+    @Test
+    fun `cancellation releases lock and allows subsequent operation`() = runTest(UnconfinedTestDispatcher()) {
+        mockkStatic(DocumentsContract::class)
+        try {
+            val originalContent = "原书正文"
+            val refreshContent = "刷新后正文"
+            stubConcurrentRepairAndRefresh(originalContent, refreshContent)
+
+            val aBarrier = CompletableDeferred<Unit>()
+            val txCount = AtomicInteger(0)
+            coEvery { bookDao.runInTransaction(any()) } coAnswers {
+                @Suppress("UNCHECKED_CAST")
+                val block = args[0] as (suspend () -> Unit)
+                if (txCount.incrementAndGet() == 1) { aBarrier.await(); block() } else block()
+            }
+
+            val aJob = launch { importer.repairFile("b1", uri("b.txt")) }
+            // A 持锁并在 aBarrier 挂起
+            aJob.cancel()
+            aJob.join()
+            // A 已取消，锁应在 withLock finally 释放
+
+            val bResult = importer.refreshFromSource("b1")
+            assertTrue("B 应成功（取消不遗留锁）: $bResult", bResult is SourceRefreshResult.Success)
+        } finally {
+            unmockkStatic(DocumentsContract::class)
+        }
+    }
+
+    /** 先写指定字节数再抛 IOException，模拟复制中途失败（非 open 立即失败）。 */
+    private class PartialThenFailStream(private val bytesBeforeFail: Int) : InputStream() {
+        private var written = 0
+        override fun read(): Int {
+            if (written >= bytesBeforeFail) throw IOException("模拟复制中途失败")
+            written++
+            return 0x41
+        }
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            if (written >= bytesBeforeFail) throw IOException("模拟复制中途失败")
+            val n = minOf(len, bytesBeforeFail - written)
+            java.util.Arrays.fill(b, off, off + n, 0x41.toByte())
+            written += n
+            return n
         }
     }
 }

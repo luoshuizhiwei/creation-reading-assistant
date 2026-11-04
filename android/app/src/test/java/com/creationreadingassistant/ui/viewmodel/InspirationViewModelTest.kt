@@ -12,6 +12,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import com.creationreadingassistant.data.repository.TaxonomyRepository
 import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
@@ -83,6 +84,9 @@ class InspirationViewModelTest {
             bookRepository = bookRepository,
             aiClient = aiClient,
             settings = settings,
+            taxonomyRepository = mockk<TaxonomyRepository>(relaxed = true).also { repo ->
+                every { repo.observeCategories() } returns flowOf(emptyList())
+            },
         )
     }
 
@@ -155,6 +159,9 @@ class InspirationViewModelTest {
             bookRepository = bookRepository,
             aiClient = aiClient,
             settings = settings,
+            taxonomyRepository = mockk<TaxonomyRepository>(relaxed = true).also { repo ->
+                every { repo.observeCategories() } returns flowOf(emptyList())
+            },
         )
 
         val job = launch { vm.itemsState.collect { } }
@@ -175,6 +182,9 @@ class InspirationViewModelTest {
             bookRepository = bookRepository,
             aiClient = aiClient,
             settings = settings,
+            taxonomyRepository = mockk<TaxonomyRepository>(relaxed = true).also { repo ->
+                every { repo.observeCategories() } returns flowOf(emptyList())
+            },
         )
 
         assertTrue("订阅前为 Loading", vm.itemsState.value is InspirationItemsState.Loading)
@@ -205,6 +215,9 @@ class InspirationViewModelTest {
             bookRepository = bookRepository,
             aiClient = aiClient,
             settings = settings,
+            taxonomyRepository = mockk<TaxonomyRepository>(relaxed = true).also { repo ->
+                every { repo.observeCategories() } returns flowOf(emptyList())
+            },
         )
 
         val job = launch { vm.itemsState.collect { } }

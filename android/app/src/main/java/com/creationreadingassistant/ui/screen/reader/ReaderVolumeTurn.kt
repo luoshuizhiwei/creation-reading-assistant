@@ -82,6 +82,7 @@ internal fun readerVolumeKeyTurn(
     scope: CoroutineScope,
     plainListState: LazyListState,
     epubListState: LazyListState? = null,
+    sessionPositionGuard: ReaderSessionPositionGuard? = null,
 ): Boolean {
     val activeScrollState = if (epubBook != null || markdownDocument != null) {
         epubListState ?: plainListState
@@ -104,6 +105,7 @@ internal fun readerVolumeKeyTurn(
     when (plan) {
         is ReaderVolumeTurnPlan.Paged -> pagedHardwareTurnRequest.value = plan.direction
         is ReaderVolumeTurnPlan.Scroll -> scope.launch {
+            sessionPositionGuard?.recordNavigation()
             val amount = activeScrollState.layoutInfo.viewportSize.height * 0.88f * plan.direction
             activeScrollState.animateScrollBy(amount)
         }

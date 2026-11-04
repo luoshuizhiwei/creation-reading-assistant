@@ -16,9 +16,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.feature.reader.locator.LocatorCodec
 import com.creationreadingassistant.ui.navigation.readerTemporaryRouteForSource
+import com.creationreadingassistant.ui.viewmodel.BookListState
+import com.creationreadingassistant.ui.viewmodel.CategoryListState
 import com.creationreadingassistant.ui.viewmodel.InspirationItemsState
 import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
 import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
+import com.creationreadingassistant.ui.viewmodel.inspirationCategoryFilterOptions
 import kotlinx.coroutines.launch
 
 @Composable
@@ -33,8 +36,15 @@ internal fun InspirationRoute(
     val itemsState by viewModel.itemsState.collectAsStateWithLifecycle()
     val pendingSavedIds by viewModel.pendingSavedIds.collectAsStateWithLifecycle()
     val items = (itemsState as? InspirationItemsState.Loaded)?.items ?: emptyList()
-    val books by viewModel.books.collectAsStateWithLifecycle()
+    val booksState by viewModel.booksState.collectAsStateWithLifecycle()
+    val categoriesState by viewModel.categoriesState.collectAsStateWithLifecycle()
     val sortMode by viewModel.inspirationSort.collectAsStateWithLifecycle()
+    // 活动分类目录（只读字典投影）；Loading/Failed 时不伪造空目录给编辑器做删除依据。
+    val availableCategories: List<Pair<String, String>> =
+        (categoriesState as? CategoryListState.Loaded)
+            ?.categories
+            ?.map { it.id to it.name }
+            ?: emptyList()
 
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -63,10 +73,22 @@ internal fun InspirationRoute(
     val tagsOf: (InspirationEntity) -> List<String> = remember(viewModel) {
         { viewModel.tagsOf(it) }
     }
+    val categoryIdsOf: (InspirationEntity) -> List<String> = remember(viewModel) {
+        { viewModel.categoryIdsOf(it) }
+    }
 
-    val filtered = remember(items, state.query, state.typeFilter, state.statusFilter, sortMode) {
+    val filtered = remember(
+        items, state.query, state.typeFilter, state.statusFilter, state.categoryFilter, sortMode,
+    ) {
         val needle = state.query.trim().lowercase()
-        filterAndSortItems(items, needle, state.typeFilter, state.statusFilter, sortMode, sourceOf, tagsOf)
+        filterAndSortItems(
+            items, needle, state.typeFilter, state.statusFilter, state.categoryFilter,
+            sortMode, sourceOf, tagsOf, categoryIdsOf,
+        )
+    }
+    // 列表只展示条目里真实出现过的分类（含已不在活动目录的旧 id，名称回退为不可用标签）。
+    val categoryOptions = remember(items, availableCategories) {
+        inspirationCategoryFilterOptions(items.map { categoryIdsOf(it) }, availableCategories)
     }
     val availableStatuses = remember(items) {
         val counts = items.groupingBy { it.status ?: "inbox" }.eachCount()
@@ -196,8 +218,16 @@ internal fun InspirationRoute(
             is InspirationAction.UpdateStatusFilter ->
                 state = state.copy(statusFilter = action.status)
 
+            is InspirationAction.UpdateCategoryFilter ->
+                state = state.copy(categoryFilter = action.categoryId)
+
             InspirationAction.ResetFilter ->
-                state = state.copy(query = "", typeFilter = "all", statusFilter = "all")
+                state = state.copy(
+                    query = "",
+                    typeFilter = "all",
+                    statusFilter = "all",
+                    categoryFilter = "all",
+                )
 
             is InspirationAction.ChangeSort -> {
                 viewModel.setInspirationSort(action.value)
@@ -217,12 +247,22 @@ internal fun InspirationRoute(
                     message("这条灵感没有关联来源书籍。")
                     return
                 }
-                val book = books.firstOrNull { it.id == src.bookId }
-                if (book == null) {
-                    message("来源书籍已不可用，这条灵感仍会保留。")
-                } else {
-                    // 真跳转：打开来源书（阅读器按已存进度续读定位）
-                    onOpenBook(book.id)
+                when (val bookState = booksState) {
+                    BookListState.Loading ->
+                        message("来源书籍信息加载中，请稍后再试。")
+
+                    is BookListState.Failed ->
+                        message("无法确认来源书籍状态，请稍后再试。")
+
+                    is BookListState.Loaded -> {
+                        val book = bookState.books.firstOrNull { it.id == src.bookId }
+                        if (book == null) {
+                            message("来源书籍已不可用，这条灵感仍会保留。")
+                        } else {
+                            // 真跳转：打开来源书（阅读器按已存进度续读定位）
+                            onOpenBook(book.id)
+                        }
+                    }
                 }
             }
 
@@ -236,12 +276,21 @@ internal fun InspirationRoute(
                     chapterIndex = locator?.chapterIndex,
                     charOffset = locator?.charOffset,
                 )
+                val bookState = booksState
                 when {
                     route == null -> {
                         message("这条摘录没有可用的精确定位。")
-                        action.bookId.takeIf { books.any { b -> b.id == it } }?.let(onOpenBook)
+                        if (bookState is BookListState.Loaded) {
+                            bookState.books.firstOrNull { it.id == action.bookId }
+                                ?.let { onOpenBook(it.id) }
+                        }
                     }
-                    books.none { it.id == action.bookId } ->
+                    bookState is BookListState.Loading ->
+                        message("来源书籍信息加载中，暂不能精确定位。")
+                    bookState is BookListState.Failed ->
+                        message("无法确认来源书籍状态，暂不能精确定位。")
+                    bookState is BookListState.Loaded &&
+                        bookState.books.none { it.id == action.bookId } ->
                         message("来源书籍已删除，摘录内容仍保留。")
                     else -> onOpenRoute(route)
                 }
@@ -345,7 +394,10 @@ internal fun InspirationRoute(
         InspirationScreen(
             state = state,
             items = items,
-            books = books,
+            booksState = booksState,
+            categoriesState = categoriesState,
+            availableCategories = availableCategories,
+            categoryOptions = categoryOptions,
             filteredItems = filtered,
             availableTypes = availableTypes,
             typeCounts = typeCounts,

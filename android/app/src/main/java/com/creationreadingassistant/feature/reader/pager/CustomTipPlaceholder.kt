@@ -147,8 +147,15 @@ enum class CustomTipPlaceholder(
 
             // 10. 总进度%
             if (result.contains("{ReadProgress}")) {
-                val total = source?.totalChars ?: 0
-                val percent = if (total <= 0) 0f else (absOffset * 100f / total).coerceIn(0f, 100f)
+                // 任务90-v1：EPUB 的 absOffset 是估算章长的混合坐标，而分页控制器已把
+                // 校准后的百分比放进 PageInfo。页脚直接消费同一口径，避免与落库/书架
+                // 百分比分叉；TXT/MD 章节长度非估算，保留原有显示计算逐字不变。
+                val percent = if (source?.chapterLengthsAreEstimated == true) {
+                    pageInfo.progressPercent.coerceIn(0f, 100f)
+                } else {
+                    val total = source?.totalChars ?: 0
+                    if (total <= 0) 0f else (absOffset * 100f / total).coerceIn(0f, 100f)
+                }
                 result = result.replace("{ReadProgress}", "%.1f%%".format(percent))
             }
 

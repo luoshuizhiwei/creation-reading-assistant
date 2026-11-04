@@ -31,6 +31,15 @@ import org.junit.Test
 class SearchIndexRepositorySearchTest {
 
     private class FakeSearchTermDao : SearchTermDao {
+        var bookActive: (String) -> Boolean = { true }
+        override suspend fun upsertAllIfBookActive(rows: List<SearchTermRow>): Boolean {
+            val id = rows.firstOrNull()?.book_id ?: return false
+            if (!bookActive(id)) return false
+            upsertAll(rows)
+            return true
+        }
+        override suspend fun countActiveBook(bookId: String): Int = if (bookActive(bookId)) 1 else 0
+
         val rows = mutableListOf<SearchTermRow>()
         override suspend fun upsertAll(rows: List<SearchTermRow>) { this.rows += rows }
         override suspend fun deleteByBook(bookId: String) { rows.removeIf { it.book_id == bookId } }
@@ -44,6 +53,15 @@ class SearchIndexRepositorySearchTest {
     }
 
     private class FakeSearchIndexCoverageDao : SearchIndexCoverageDao {
+        var bookActive: (String) -> Boolean = { true }
+        override suspend fun upsertAllIfBookActive(rows: List<SearchIndexCoverageRow>): Boolean {
+            val id = rows.firstOrNull()?.book_id ?: return false
+            if (!bookActive(id)) return false
+            upsertAll(rows)
+            return true
+        }
+        override suspend fun countActiveBook(bookId: String): Int = if (bookActive(bookId)) 1 else 0
+
         val rows = mutableListOf<SearchIndexCoverageRow>()
         override suspend fun upsertAll(rows: List<SearchIndexCoverageRow>) {
             for (r in rows) {

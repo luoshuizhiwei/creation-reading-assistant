@@ -97,4 +97,155 @@ class ReaderTemporaryBackTest {
         assertFalse(vmForBack.hasReturnableTarget)
         assertFalse(vmForButton.hasReturnableTarget)
     }
+
+    // ── 207-r2：未提交（失败/取消）route 的返回目标 = 还原已提交会话，不消费合法栈 ──
+    // 背景：临时查阅 route 以 launchSingleTop 进入时，Navigation 2.5.1 会替换栈顶同 destination
+    // 的旧 reader entry；被替换的原 reader 不在 NavController 返回栈内，未提交 route 若交还
+    // popBackStack 会退到 reader 域外。生产契约：把协调器仍持有的已提交会话还原为导航路径。
+
+    /** 207-r2 辅助：经真实请求生命周期把 T1 提交进会话（登记 → 加载成功 → commit）。 */
+    private fun commitTemporary(vm: TemporaryReadingNavigationViewModel, bookId: String, offset: Int): Long {
+        val requestId = vm.requestTemporaryInspection(target(bookId, offset))
+        assertNotNull(requestId)
+        assertTrue(vm.commitPendingInspection(requestId!!, bookId))
+        return requestId
+    }
+
+    @Test
+    fun `uncommitted second-level request restores committed session without consuming stack`() {
+        val vm = coordinatorWithNormalReading()
+        commitTemporary(vm, "book-b", 200) // T1 真实提交：active=B，LIFO=[A]
+        // T2 只登记未提交（加载失败/取消）。
+        val pendingT2 = vm.requestTemporaryInspection(target("book-c", 300))
+        assertNotNull(pendingT2)
+
+        val route = temporaryReturnRouteStep(
+            ReaderNavigationMode.TEMPORARY,
+            vm,
+            currentDestination = target("book-c", 300),
+            ownedRequestId = pendingT2,
+        )
+
+        // 还原目标是已提交会话 T1（book-b），且栈非空 → 继续以临时模式呈现。
+        assertNotNull(route)
+        assertTrue(route!!.startsWith("reader/book-b?sourceLocator="))
+        assertTrue(route.contains("navigationMode=temporary"))
+        assertEquals(200, decodeSourceLocatorFromRoute(route)?.legacyOffset)
+        // 关键：LIFO 与已提交会话分毫不动 —— 未提交 route 无权推进协调器。
+        assertTrue(vm.hasReturnableTarget)
+        assertEquals(1, vm.state.value.temporaryReturnStack.size)
+        assertEquals("book-b", vm.state.value.active?.bookId)
+        // 本 route 的在途请求已按 ownedRequestId 作废。
+        assertNull(vm.pendingInspection.value)
+    }
+
+    @Test
+    fun `uncommitted first-level pending failure restores normal reading route`() {
+        val vm = coordinatorWithNormalReading() // active=A，LIFO=[]
+        val pendingT1 = vm.requestTemporaryInspection(target("book-b", 200))
+        assertNotNull(pendingT1)
+
+        val route = temporaryReturnRouteStep(
+            ReaderNavigationMode.TEMPORARY,
+            vm,
+            currentDestination = target("book-b", 200),
+            ownedRequestId = pendingT1,
+        )
+
+        // 栈空 → 还原为普通阅读处 route（不带 navigationMode），普通阅读位置仍是 A。
+        assertNotNull(route)
+        assertTrue(route!!.startsWith("reader/book-a?sourceLocator="))
+        assertFalse(route.contains("navigationMode="))
+        assertEquals(100, decodeSourceLocatorFromRoute(route)?.legacyOffset)
+        assertFalse(vm.hasReturnableTarget)
+        assertEquals("book-a", vm.state.value.active?.bookId)
+        assertNull(vm.pendingInspection.value)
+    }
+
+    @Test
+    fun `cancelled pending request restores committed session after explicit abandon`() {
+        val vm = coordinatorWithNormalReading()
+        commitTemporary(vm, "book-b", 200)
+        val pendingT2 = vm.requestTemporaryInspection(target("book-c", 300))
+        assertNotNull(pendingT2)
+        // 取消路径：返回前请求先被显式作废（生产上等价的 onDispose 边界）。
+        assertTrue(vm.abandonPendingInspection(pendingT2!!))
+
+        val route = temporaryReturnRouteStep(
+            ReaderNavigationMode.TEMPORARY,
+            vm,
+            currentDestination = target("book-c", 300),
+            ownedRequestId = pendingT2,
+        )
+
+        // 作废后按请求身份仍判未提交 → 同样还原已提交会话，不消费合法栈。
+        assertNotNull(route)
+        assertTrue(route!!.startsWith("reader/book-b?sourceLocator="))
+        assertTrue(route.contains("navigationMode=temporary"))
+        assertTrue(vm.hasReturnableTarget)
+        assertEquals(1, vm.state.value.temporaryReturnStack.size)
+    }
+
+    @Test
+    fun `uncommitted route without committed session returns null for external entry`() {
+        // 外部入口（如「我的→阅读笔记」经 readerTemporaryRouteForSource 直进临时查阅）：
+        // 协调器无已提交会话（active=null），被压住的栈内前一项是真实来源页 → 返回 null 交还导航回退。
+        val vm = TemporaryReadingNavigationViewModel()
+        val pendingT1 = vm.requestTemporaryInspection(target("book-b", 200))
+        assertNotNull(pendingT1)
+
+        val route = temporaryReturnRouteStep(
+            ReaderNavigationMode.TEMPORARY,
+            vm,
+            currentDestination = target("book-b", 200),
+            ownedRequestId = pendingT1,
+        )
+
+        assertNull(route)
+        assertNull(vm.pendingInspection.value)
+        assertFalse(vm.hasReturnableTarget)
+    }
+
+    @Test
+    fun `committed request through owned identity keeps consuming LIFO`() {
+        // 回归保护：真正提交过的 route 仍走既有 LIFO 合同（消费一层）。
+        val vm = coordinatorWithNormalReading()
+        val committedT1 = commitTemporary(vm, "book-b", 200)
+
+        val route = temporaryReturnRouteStep(
+            ReaderNavigationMode.TEMPORARY,
+            vm,
+            currentDestination = target("book-b", 200),
+            ownedRequestId = committedT1,
+        )
+
+        assertNotNull(route)
+        assertTrue(route!!.startsWith("reader/book-a?sourceLocator="))
+        assertFalse(route.contains("navigationMode="))
+        assertFalse(vm.hasReturnableTarget)
+        assertEquals("book-a", vm.state.value.active?.bookId)
+    }
+
+    @Test
+    fun `late result of abandoned request never commits to newer session`() {
+        // 迟到结果不得提交到更新会话：T2 取消并还原后，其结果此刻才到达。
+        val vm = coordinatorWithNormalReading()
+        commitTemporary(vm, "book-b", 200)
+        val pendingT2 = vm.requestTemporaryInspection(target("book-c", 300))
+        assertNotNull(pendingT2)
+        vm.abandonPendingInspection(pendingT2!!)
+
+        val route = temporaryReturnRouteStep(
+            ReaderNavigationMode.TEMPORARY,
+            vm,
+            currentDestination = target("book-c", 300),
+            ownedRequestId = pendingT2,
+        )
+        assertNotNull(route)
+
+        // 迟到的提交必须被协调器按请求身份拒绝，且不得改变会话/栈。
+        assertFalse(vm.commitPendingInspection(pendingT2, "book-c"))
+        assertEquals("book-b", vm.state.value.active?.bookId)
+        assertEquals(1, vm.state.value.temporaryReturnStack.size)
+    }
 }

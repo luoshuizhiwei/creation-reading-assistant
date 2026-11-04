@@ -29,6 +29,7 @@ class ReaderContentHostSelectionCallbacksTest {
             showNotice = {},
             onSearchScrollFocusRequestConsumed = {},
             onPersistProgress = {},
+            onPlainTextUserScrollInput = {},
         )
 
     @Test

@@ -48,6 +48,7 @@ import kotlinx.coroutines.delay
 @Suppress("LongParameterList")
 @Composable
 internal fun ReaderRuntimeEffects(
+    sessionPositionGuard: ReaderSessionPositionGuard? = null,
     chapterFadeKey: Int,
     chapterFade: Animatable<Float, AnimationVector1D>,
     readerSettings: ReaderSettings,
@@ -162,6 +163,7 @@ internal fun ReaderRuntimeEffects(
                 elapsedNanos = elapsed,
             )
             if (pixels <= 0) continue
+            if (state.canScrollForward) sessionPositionGuard?.recordNavigation()
             state.scrollBy(pixels.toFloat())
             if (!state.canScrollForward) {
                 autoPagingActiveState.value = false

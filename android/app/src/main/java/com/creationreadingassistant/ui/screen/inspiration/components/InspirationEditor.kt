@@ -50,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.ui.screen.inspiration.InspirationAction
 import com.creationreadingassistant.ui.screen.inspiration.STATUS_OPTIONS
@@ -63,6 +64,91 @@ import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.viewmodel.InspirationDraft
 import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
 import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
+import com.creationreadingassistant.ui.viewmodel.unknownCategoryLabel
+
+/**
+ * 编辑器保存时的来源解析（任务94-v1）。
+ *
+ * 编辑器只暴露 bookId / locationLabel / excerpt 三个来源输入；章节、进度、locator
+ * 与书名/作者快照都不在界面上。旧实现无条件重建 `InspirationSourceInfo`，导致
+ * 「只改分类」保存时 chapterTitle / progressPercent / locatorJson 被清空、书籍字典
+ * 未加载时书名/作者也会丢。
+ *
+ * 规则：
+ * 1. 三个输入与预填值完全一致 → 原样复用 `original`（完整保留所有字段，含 locator）；
+ * 2. 用户确实改了输入、且仍是同一本书 → 只覆盖被编辑的字段，位置元数据继续保留；
+ * 3. 换到另一本书（或原本没有来源）→ 不继承旧书的章节/进度/locator，避免把旧定位
+ *    盲目搬到新书或新位置；
+ * 4. 三个输入都被清空 → 来源整体移除（沿用旧行为）。
+ */
+internal fun resolveEditorSource(
+    original: InspirationSourceInfo?,
+    sourceBookId: String,
+    sourceLocation: String,
+    sourceExcerpt: String,
+    selectedBook: BookEntity?,
+): InspirationSourceInfo? {
+    val originalBookId = original?.bookId
+    val inputsUnchanged = sourceBookId == (originalBookId ?: "") &&
+        sourceLocation == (original?.locationLabel ?: "") &&
+        sourceExcerpt == (original?.excerpt ?: "")
+    if (inputsUnchanged) return original
+
+    val hasAnyInput = sourceBookId.isNotBlank() ||
+        sourceLocation.isNotBlank() ||
+        sourceExcerpt.isNotBlank()
+    if (!hasAnyInput) return null
+
+    val newBookId = sourceBookId.ifBlank { null }
+    val sameBook = original != null && originalBookId != null && originalBookId == newBookId
+    return InspirationSourceInfo(
+        bookId = newBookId,
+        bookTitle = selectedBook?.title?.takeIf { it.isNotBlank() }
+            ?: (if (sameBook) original?.bookTitle else null),
+        bookAuthor = selectedBook?.author?.takeIf { it.isNotBlank() }
+            ?: (if (sameBook) original?.bookAuthor else null),
+        chapterTitle = if (sameBook) original?.chapterTitle else null,
+        locationLabel = sourceLocation.trim().ifBlank { null },
+        progressPercent = if (sameBook) original?.progressPercent else null,
+        excerpt = sourceExcerpt.trim().ifBlank { null },
+        locatorJson = if (sameBook) original?.locatorJson else null,
+    )
+}
+
+/**
+ * 由编辑器状态生成保存草稿。真实 UI 的保存按钮走同一函数，避免测试另写一份镜像逻辑。
+ * `categoryIds = null` 表示用户没动过分类（ViewModel 保留旧值）；空列表表示明确清空。
+ */
+internal fun buildEditorDraft(
+    id: String,
+    title: String,
+    body: String,
+    type: String,
+    status: String,
+    tagsInput: String,
+    sourceBookId: String,
+    sourceLocation: String,
+    sourceExcerpt: String,
+    selectedBook: BookEntity?,
+    originalSource: InspirationSourceInfo?,
+    selectedCategories: List<String>,
+    categoriesTouched: Boolean,
+): InspirationDraft = InspirationDraft(
+    id = id,
+    title = title.trim(),
+    body = body,
+    type = type,
+    status = status,
+    tags = parseTagInput(tagsInput),
+    source = resolveEditorSource(
+        original = originalSource,
+        sourceBookId = sourceBookId,
+        sourceLocation = sourceLocation,
+        sourceExcerpt = sourceExcerpt,
+        selectedBook = selectedBook,
+    ),
+    categoryIds = if (categoriesTouched) selectedCategories else null,
+)
 
 /**
  * 灵感编辑器页内容。不创建 Scaffold，不创建顶栏。
@@ -76,6 +162,10 @@ internal fun InspirationEditor(
     viewModel: InspirationViewModel,
     onAction: (InspirationAction) -> Unit,
     modifier: Modifier = Modifier,
+    /** 任务93-v1-A：活动分类目录（id to 名称）；仅用于展示与选择，不写书籍分类关系。 */
+    availableCategories: List<Pair<String, String>> = emptyList(),
+    categoriesLoading: Boolean = false,
+    categoriesFailed: Boolean = false,
 ) {
     val spec = LocalComponentSpec.current
     val books by viewModel.books.collectAsStateWithLifecycle()
@@ -93,15 +183,25 @@ internal fun InspirationEditor(
     var sourceBookId by remember(editorKey) { mutableStateOf(src0?.bookId ?: "") }
     var sourceLocation by remember(editorKey) { mutableStateOf(src0?.locationLabel ?: "") }
     var sourceExcerpt by remember(editorKey) { mutableStateOf(src0?.excerpt ?: "") }
+    // 任务93-v1-A：分类预填自 payload.categoryIds（不依赖目录是否已加载）。
+    // categoriesTouched=false 时保存传 null，ViewModel 原样保留旧 id；
+    // 只有用户点过分类胶囊才接管，空列表即“明确清空”。
+    val categories0 = existing?.let { viewModel.categoryIdsOf(it) } ?: emptyList()
+    var selectedCategories by remember(editorKey) { mutableStateOf(categories0) }
+    var categoriesTouched by remember(editorKey) { mutableStateOf(false) }
     var error by remember(editorKey) { mutableStateOf("") }
 
     // 脏判定基线必须随 editorKey 一起重置，否则切换条目后会把「新条目 vs 旧基线」误判为已修改。
     val initialSignature = remember(editorKey) {
-        listOf(title, body, type, status, tagsInput, sourceBookId, sourceLocation, sourceExcerpt)
-            .joinToString("|")
+        listOf(
+            title, body, type, status, tagsInput, sourceBookId, sourceLocation, sourceExcerpt,
+            selectedCategories.joinToString(","), categoriesTouched.toString(),
+        ).joinToString("|")
     }
-    val signature = listOf(title, body, type, status, tagsInput, sourceBookId, sourceLocation, sourceExcerpt)
-        .joinToString("|")
+    val signature = listOf(
+        title, body, type, status, tagsInput, sourceBookId, sourceLocation, sourceExcerpt,
+        selectedCategories.joinToString(","), categoriesTouched.toString(),
+    ).joinToString("|")
 
     LaunchedEffect(signature) {
         onAction(InspirationAction.EditorSetDirty(signature != initialSignature))
@@ -119,26 +219,22 @@ internal fun InspirationEditor(
             return
         }
         error = ""
-        val sourceInfo =
-            if (sourceBookId.isNotBlank() || sourceLocation.isNotBlank() || sourceExcerpt.isNotBlank()) {
-                InspirationSourceInfo(
-                    bookId = sourceBookId.ifBlank { null },
-                    bookTitle = selectedBook?.title,
-                    bookAuthor = selectedBook?.author,
-                    locationLabel = sourceLocation.trim().ifBlank { null },
-                    excerpt = sourceExcerpt.trim().ifBlank { null },
-                )
-            } else null
         val isNew = existing == null
         val id = existing?.id ?: java.util.UUID.randomUUID().toString()
-        val draft = InspirationDraft(
+        val draft = buildEditorDraft(
             id = id,
-            title = title.trim(),
+            title = title,
             body = body,
             type = type,
             status = status,
-            tags = parseTagInput(tagsInput),
-            source = sourceInfo,
+            tagsInput = tagsInput,
+            sourceBookId = sourceBookId,
+            sourceLocation = sourceLocation,
+            sourceExcerpt = sourceExcerpt,
+            selectedBook = selectedBook,
+            originalSource = src0,
+            selectedCategories = selectedCategories,
+            categoriesTouched = categoriesTouched,
         )
         viewModel.saveInspiration(draft)
         onAction(InspirationAction.EditorSaved(newId = id, wasNew = isNew))
@@ -293,6 +389,24 @@ internal fun InspirationEditor(
                         }
                     }
                 }
+
+                // 任务93-v1-A：分类选择（复用活动分类目录，ID 存入 payload.categoryIds）。
+                Spacer(Modifier.height(12.dp))
+                FieldLabel("分类")
+                CategorySelector(
+                    selectedIds = selectedCategories,
+                    available = availableCategories,
+                    loading = categoriesLoading,
+                    failed = categoriesFailed,
+                    onToggle = { id ->
+                        categoriesTouched = true
+                        selectedCategories = if (id in selectedCategories) {
+                            selectedCategories - id
+                        } else {
+                            selectedCategories + id
+                        }
+                    },
+                )
             }
         }
 
@@ -423,4 +537,109 @@ private fun FieldLabel(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(bottom = 4.dp),
     )
+}
+
+/**
+ * 任务93-v1-A：灵感分类选择器（复用活动分类目录）。
+ *
+ * - 目录加载中/失败时只显示状态，不把已保存分类标成不可用，也不删除任何 id；
+ * - 目录为空时给明确空态，沿用书架的分类管理，不另建管理系统；
+ * - 已保存但不在目录中的旧 id 仍显示为「不可用分类」，用户可点按明确移除。
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CategorySelector(
+    selectedIds: List<String>,
+    available: List<Pair<String, String>>,
+    loading: Boolean,
+    failed: Boolean,
+    onToggle: (String) -> Unit,
+) {
+    val labelStyle = MaterialTheme.typography.labelSmall
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(modifier = Modifier.fillMaxWidth()) {
+        when {
+            loading -> Text("分类目录加载中…", style = labelStyle, color = muted)
+            failed -> Text("分类目录暂不可用；已保存的分类不会被清除。", style = labelStyle, color = muted)
+            available.isEmpty() && selectedIds.isEmpty() ->
+                Text("还没有可选分类。可先在书架的分类管理中创建。", style = labelStyle, color = muted)
+        }
+        if (!loading && !failed && available.isNotEmpty()) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(top = 6.dp),
+            ) {
+                available.forEach { (id, name) ->
+                    val selected = id in selectedIds
+                    Surface(
+                        onClick = { onToggle(id) },
+                        shape = PillShape,
+                        color = if (selected) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
+                        },
+                        border = BorderStroke(
+                            LocalComponentSpec.current.hairlineBorderWidth,
+                            if (selected) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                            } else {
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            },
+                        ),
+                    ) {
+                        Text(
+                            name,
+                            style = labelStyle.copy(
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            ),
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                muted
+                            },
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+            }
+        }
+        if (!loading && !failed) {
+            val availableIds = available.mapTo(HashSet()) { it.first }
+            val unknownIds = selectedIds.filterNot { it in availableIds }
+            if (unknownIds.isNotEmpty()) {
+                Text(
+                    "以下分类已不在分类目录中，仍会保留；点按可移除。",
+                    style = labelStyle,
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    unknownIds.forEach { id ->
+                        Surface(
+                            onClick = { onToggle(id) },
+                            shape = PillShape,
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                            border = BorderStroke(
+                                LocalComponentSpec.current.hairlineBorderWidth,
+                                MaterialTheme.colorScheme.error.copy(alpha = 0.4f),
+                            ),
+                        ) {
+                            Text(
+                                unknownCategoryLabel(id),
+                                style = labelStyle,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

@@ -18,6 +18,7 @@ import com.creationreadingassistant.feature.annotations.AnnotationType
 import com.creationreadingassistant.feature.sync.PairingManager
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.ConflictStrategy
+import com.creationreadingassistant.data.repository.FullRebuildLaunch
 import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.repository.StatsRepository
 import com.creationreadingassistant.data.repository.SyncOptions
@@ -28,8 +29,10 @@ import com.creationreadingassistant.data.settings.SyncPrefsStore
 import com.creationreadingassistant.feature.sync.JsonBridge
 import com.creationreadingassistant.feature.sync.LegadoReadingProgressImporter
 import com.creationreadingassistant.feature.sync.LocalZipBackup
+import com.creationreadingassistant.feature.sync.LocalZipRestoreState
 import com.creationreadingassistant.feature.sync.WebDavBackup
 import com.creationreadingassistant.feature.sync.WebDavConfigStore
+import com.creationreadingassistant.ui.screen.profile.ProfileAction
 import com.creationreadingassistant.data.ai.AiClient
 import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
@@ -327,6 +330,23 @@ class ProfileViewModel @Inject constructor(
     private val _zipStatus = MutableStateFlow<String?>(null)
     val zipStatus: StateFlow<String?> = _zipStatus
 
+    /**
+     * 上一次整包恢复的**持久**状态（N1-repair-v1）。
+     *
+     * 与 [zipStatus] 的区别：后者是一次性的内存提示（Snackbar 用完即弃），本状态
+     * 从磁盘读取，**新实例**（重启、重进「我的」页）也能看到「上次恢复未完成」，
+     * 因此中断说明不能只挂在 Toast 上。`null` = 无未完成操作。
+     */
+    private val _zipRestoreState = MutableStateFlow<LocalZipRestoreState?>(null)
+    val zipRestoreState: StateFlow<LocalZipRestoreState?> = _zipRestoreState.asStateFlow()
+
+    /** 从磁盘刷新整包恢复中断状态（进入「我的」页时调用，跨实例可见）。 */
+    fun refreshZipRestoreState(context: Context) {
+        _zipRestoreState.value = runCatching { localZipBackup.readRestoreState(context) }
+            .onFailure { AppLog.w("ZipBackup", "读取整包恢复状态失败：${it.message}") }
+            .getOrNull()
+    }
+
     // ---- 配对 / 同步 ----
     private val _config = MutableStateFlow<SyncConfigStore.Config?>(configStore.config)
     val config: StateFlow<SyncConfigStore.Config?> = _config.asStateFlow()
@@ -410,6 +430,7 @@ class ProfileViewModel @Inject constructor(
             runCatching { localZipBackup.exportZip(context, uri) }
                 .onSuccess { _zipStatus.value = "整包导出成功"; AppLog.event("ZipBackup", "导出成功") }
                 .onFailure { _zipStatus.value = "整包导出失败：${it.message}"; AppLog.e("ZipBackup", it.message ?: "未知错误") }
+            refreshZipRestoreState(context)
         }
     }
 
@@ -419,6 +440,7 @@ class ProfileViewModel @Inject constructor(
             runCatching { localZipBackup.importZip(context, uri) }
                 .onSuccess { _zipStatus.value = "整包导入成功"; AppLog.event("ZipBackup", "导入成功") }
                 .onFailure { _zipStatus.value = "整包导入失败：${it.message}"; AppLog.e("ZipBackup", it.message ?: "未知错误") }
+            refreshZipRestoreState(context)
         }
     }
 
@@ -511,15 +533,91 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch(ioDispatcher) {
             runCatching {
                 searchIndexRepository.triggerFullRebuildNow(searchIndexScheduler)
-            }.onSuccess {
-                AppLog.event("SearchIndex", "用户触发全库索引重建（置脏 + 立即唤起）")
-                onDone("已重置索引进度，后台将立即分批重建全库；期间搜索结果可能暂时不全。")
+            }.onSuccess { launch ->
+                AppLog.event("SearchIndex", "用户触发全库索引重建（结果=$launch）")
+                // 反馈必须如实：取消与重置/排队的先后不同，用户看到的结果也不同。
+                onDone(
+                    when (launch) {
+                        FullRebuildLaunch.RESET_QUEUED ->
+                            "已重置索引进度，后台将立即分批重建全库；期间搜索结果可能暂时不全。"
+
+                        FullRebuildLaunch.RESET_NOT_QUEUED ->
+                            "索引进度已重置到起点，但你随后取消了这次构建，因此没有重新排队；" +
+                                "下次冷启动或再次点击重建时会从头扫描。"
+
+                        FullRebuildLaunch.SKIPPED_CANCELLED ->
+                            "重建未执行：取消请求先于重置到达，扫描断点与已建索引行原样保留。"
+
+                        // 穷举：新增分支时编译期就会报错，不会退化成「假装已重置」
+                    },
+                )
             }.onFailure {
                 AppLog.e("SearchIndex", "重建搜索索引失败：${it.message}")
                 onDone("重建失败：${it.message ?: "未知错误"}")
             }
         }
     }
+
+    /**
+     * 真实动作分发入口（CRA-SEARCH-INDEX-CANCEL-CONTROL-v3）：
+     * `ProfileRoute` 的 Compose `when` 与 JVM 定向测试共用**这一份**分发逻辑 ——
+     * 不另建测试专用转发，也不复制分支。收口范围刻意只到搜索索引两个动作：
+     * 其余 `ProfileAction` 仍由 `ProfileRoute` 原样处理，不把整张 when 表搬进 ViewModel。
+     */
+    internal fun handleProfileAction(action: ProfileAction, onDone: (String) -> Unit = {}) {
+        when (action) {
+            ProfileAction.RebuildSearchIndex -> rebuildSearchIndex(onDone)
+            ProfileAction.CancelSearchIndex -> cancelSearchIndex(onDone)
+            else -> Unit
+        }
+    }
+
+    /**
+     * CRA-SEARCH-INDEX-CANCEL-CONTROL-v1：取消后台索引构建（S1「可取消」用户入口）。
+     *
+     * 与 [rebuildSearchIndex] 相对：重建**重置游标从头扫**，取消**只停止当前构建并保留断点**。
+     * 反馈文案严格按实际状态给出，**绝不把取消说成索引完成**：
+     * - 确有构建在跑 → 「已请求停止…」，并按 [CancelIndexingResult.anchorPreserved] 决定是否
+     *   能说「断点保留」—— 若全量重建已经把游标重置到起点，就必须如实说「下次从头扫描」；
+     * - 只有排队中的构建 → 撤下排队，同样如实反馈；
+     * - 本来就没在跑也没排队 → 「当前没有正在进行的后台索引构建」（不谎报成功取消）。
+     *
+     * 取消后再次触发（冷启动 / 周期任务 / [rebuildSearchIndex]）分别走既有续建与
+     * 显式全量重建语义，本方法不改写它们的行为。
+     */
+    fun cancelSearchIndex(onDone: (String) -> Unit = {}) {
+        viewModelScope.launch(ioDispatcher) {
+            runCatching {
+                searchIndexRepository.cancelIndexing()
+            }.onSuccess { result ->
+                AppLog.event("SearchIndex", "用户取消后台索引构建（$result）")
+                onDone(
+                    when {
+                        result.resetPending -> "重置正在提交；已请求停止后续索引构建，扫描断点以提交结果为准。"
+                        !result.stoppedSomething -> "当前没有正在进行的后台索引构建。"
+                        result.wasRunning -> "已请求停止索引构建；" + anchorSentence(result.anchorPreserved)
+                        else -> "已撤下排队中的索引构建；" + anchorSentence(result.anchorPreserved)
+                    },
+                )
+            }.onFailure {
+                AppLog.e("SearchIndex", "取消索引构建失败：${it.message}")
+                onDone("取消失败：${it.message ?: "未知错误"}")
+            }
+        }
+    }
+
+    /**
+     * 断点保留与否的措辞：重置已经提交时**不得**声称「断点保留」。
+     *
+     * 注意「已建好的索引行」和「扫描游标」是两回事 —— 全量重建只重置游标、不删索引行，
+     * 所以这句话永远可以承诺前者，但只有 [anchorPreserved] 为真时才能承诺后者。
+     */
+    private fun anchorSentence(anchorPreserved: Boolean): String =
+        if (anchorPreserved) {
+            "已完成的章节与扫描断点保留，下次将从此处继续。"
+        } else {
+            "已建好的索引行保留，但扫描进度已在全量重建时重置到起点，下次将从头扫描。"
+        }
 
     fun syncNow(autoDownloadBooks: Boolean = true) {
         viewModelScope.launch(ioDispatcher) {

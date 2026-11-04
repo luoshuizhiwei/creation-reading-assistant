@@ -147,6 +147,13 @@ fun resolveTemporaryReturnRoute(
     temporaryNavigation.returnFromTemporaryInspection()
     val stillTemporary = temporaryNavigation.state.value.temporaryReturnStack.isNotEmpty()
     if (returnTarget == null) return null
+    if (!stillTemporary) {
+        com.creationreadingassistant.ui.screen.reader.TemporaryReturnSaveGuard.arm(
+            bookId = returnTarget.bookId,
+            returnOffset = returnTarget.locator.legacyOffset,
+            chapterIndex = returnTarget.locator.chapterIndex,
+        )
+    }
     return if (stillTemporary) readerTemporaryRoute(returnTarget) else readerReturnRoute(returnTarget)
 }
 

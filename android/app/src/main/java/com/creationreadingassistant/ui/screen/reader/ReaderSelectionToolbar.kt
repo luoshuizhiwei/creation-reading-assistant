@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.testTag
 import com.creationreadingassistant.data.settings.SelectionActionSettings
 import com.creationreadingassistant.data.settings.SelectionActions
 import com.creationreadingassistant.ui.screen.reader.sheets.HIGHLIGHT_COLORS
@@ -122,6 +123,19 @@ internal fun selectionToolbarActions(
     return primaryDefs.map { SelectionToolbarActionSpec(it.id, it.label) } to
         moreDefs.map { SelectionToolbarActionSpec(it.id, it.label) }
 }
+
+/**
+ * 80-v2-A 最小语义接缝：选区工具条微条上「本轮真实选中文本」的语义标识。
+ *
+ * 现有语义不足以定位该节点：本文件唯一的 `semantics` 是高亮色块的
+ * `contentDescription = "高亮颜色 $colorName"`；微条 `Text` 既无 contentDescription
+ * 也无 testTag，容器 `ReaderPanelSurface` 同样没有标识。而微条是 `maxLines = 1` +
+ * `Ellipsis`，结构上永远短于整页正文，因此「在语义树里取最长文本」必然取到页面正文
+ * 而不是选区（80-v1 的取材错误正是这样产生的）。
+ *
+ * 仅用于自动化唯一定位，不影响渲染、无障碍朗读或布局。
+ */
+internal const val SELECTION_TOOLBAR_EXCERPT_TAG = "selection-toolbar-excerpt"
 
 /** Snapshot the selection before clearing it so the search field never receives an empty query. */
 internal fun readerSelectionSearchActions(selectedText: String): List<ReaderAction> = listOf(
@@ -208,7 +222,11 @@ internal fun SelectionToolbar(
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
+                    // 80-v2-A：唯一标识「本轮真实选区」节点，供自动化在保存前取值。
+                    // 纯身份标识，不改变文本、截断策略、无障碍语义或布局权重。
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag(SELECTION_TOOLBAR_EXCERPT_TAG),
                 )
             }
 

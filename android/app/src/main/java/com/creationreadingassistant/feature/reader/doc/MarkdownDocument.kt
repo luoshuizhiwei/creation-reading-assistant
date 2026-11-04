@@ -477,6 +477,13 @@ class MarkdownDocument private constructor(
         return listOf(DocBlock.Markdown(chapter))
     }
 
+    /** Text carrier matching the canonical coordinates preserved by [blocks].
+     * Whole-document units use global ranges; streamed units use chapter-local ranges.
+     * [text] remains chapter-local for progress, search and TTS consumers.
+     */
+    fun renderCanonicalText(chapterIndex: Int): String =
+        if (fullText != null) wholeBookChapter?.canonicalText.orEmpty() else text(chapterIndex)
+
     override fun text(chapterIndex: Int): String {
         val blocks = blocks(chapterIndex)
         return blocks.filterIsInstance<DocBlock.Markdown>()

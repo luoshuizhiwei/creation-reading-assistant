@@ -32,6 +32,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
@@ -95,7 +97,6 @@ class ShelfImporter @Inject constructor(
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     private val indexRefreshCoordinator: SearchIndexBookRefreshCoordinator,
 ) {
-
 
     /**
      * 当前书架上的书籍列表（用于重复导入检测），由 ViewModel 在使用前注入最新值来源。
@@ -278,7 +279,9 @@ class ShelfImporter @Inject constructor(
         }
         val uri = sourceDocumentUriOf(ref, root?.treeUri, rootDocumentId)
             ?: return SourceRefreshResult.NoSourceRef
-        val outcome = repairFileTyped(bookId, uri)
+        // CRA-D2-RELINK-IDENTITY-FIX-v3：refresh 不执行身份门 —— 刷新允许内容变化，
+        // 身份门只限定重新关联（repairFile）。恢复 v1 既有 refresh 语义。
+        val outcome = repairFileTyped(bookId, uri, enforceIdentityGate = false)
         if (!outcome.ok) return SourceRefreshResult.Failed(outcome.message)
         refreshSourceBaseline(ref, uri)
         // 正文替换成功后，异步重建该书的搜索索引（S04-2）。
@@ -293,14 +296,20 @@ class ShelfImporter @Inject constructor(
      *
      * 内部用 [RepairOutcome] 传递类型化成败，对外的裸 String 契约由 [repairFile] 负责。
      */
-    private suspend fun repairFileTyped(bookId: String, uri: Uri): RepairOutcome {
-        val existing = withContext(ioDispatcher) { bookDao.getById(bookId) }
-        if (existing == null) return RepairOutcome(false, "书籍记录不存在")
+    private suspend fun repairFileTyped(bookId: String, uri: Uri, enforceIdentityGate: Boolean = true): RepairOutcome =
+        bookRepairMutex(bookId).withLock {
+            // CRA-D2-RELINK-IDENTITY-FIX-v4：同书互斥。
+            // repairFile 与 refreshFromSource 都经此入口；同一 bookId 的并发请求在此串行化，
+            // 避免共享 .repairing/.backup 路径与 staging 目录被并发覆盖。
+            // EPUB 路径再进 EpubSwapGate（全局 Mutex），锁序：bookRepairMutex → EpubSwapGate，
+            // 永不反向，无死锁。
+            val existing = withContext(ioDispatcher) { bookDao.getById(bookId) }
+            if (existing == null) return@withLock RepairOutcome(false, "书籍记录不存在")
         val taskId = "repair-${UUID.randomUUID()}"
         _importTasks.value = (_importTasks.value + ImportTaskUi(taskId, "修复中", "开始修复", "processing"))
             .sortedByDescending { it.createdAt }
             .take(50)
-        return try {
+        try {
             // uriFileName / uriSize / 解析 / 读文件 全部属于 I/O，必须切到 IO 线程
             val resolved = withContext(ioDispatcher) {
                 val fileName = uriFileName(uri)
@@ -312,10 +321,49 @@ class ShelfImporter @Inject constructor(
                     )
                 }
                 val fileSize = uriSize(uri)
-                when (format) {
-                    "epub" -> reselectEpub(existing, uri, taskId)
-                    "txt", "md" -> reselectPlainText(existing, uri, taskId, format)
-                    else -> throw IllegalArgumentException("不支持的格式：$format")
+                // CRA-D2-RELINK-IDENTITY-FIX-v2：以**实际准备换入的 staging 字节**为身份校验对象。
+                //
+                // v1 缺陷（Codex 核查 2026-10-07）：先对 URI 算一次哈希、再重新打开 URI 复制换入，
+                // 两次读取之间 provider 可能返回不同字节（同 URI 脱节），且 UNKNOWN 放行违反
+                // 「无法可靠确认则拒绝」合同。
+                //
+                // 本修复：
+                // 1. 先把所选 URI **流式**复制到统一 staging 文件（64KB 块，不整文件读入内存）；
+                // 2. 对 staging 文件计算 MD5 —— 校验对象就是后续要换入的字节本身；
+                // 3. UNKNOWN（selectedHash 或 existing.content_hash 任一不可得）→ 明确拒绝；
+                //    同名/同扩展名/同大小绝不代替内容身份；
+                // 4. DIFFERENT → 明确拒绝，旧正文与 DB 状态不变；
+                // 5. SAME → staging 字节原样进入换入流程（TXT/MD 直接复用该文件；EPUB 以其
+                //    file URI 交 replaceStoredEpub，其内部再复制的字节与已校验 staging 一致）；
+                // 6. 全部判定发生在旧正文 backup/替换之前；拒绝/失败路径删除 staging，零残留。
+                val stagedFile = stageSelectedBytesForRepair(bookId, uri, format)
+                try {
+                    val selectedHash = computeFileHash(stagedFile)
+                    val existingHash = existing.content_hash
+                    if (enforceIdentityGate) {
+                        if (selectedHash == null || existingHash == null) {
+                            // UNKNOWN：无法可靠确认身份 —— 停止并反馈，不静默放行
+                            throw IllegalArgumentException(
+                                "无法确认所选文件的内容身份（缺少可靠的内容哈希），已停止重新关联；" +
+                                    "旧正文、阅读位置和笔记均未修改"
+                            )
+                        }
+                        if (selectedHash != existingHash) {
+                            // DIFFERENT：内容明确不同，拒绝重新关联，保留原数据
+                            throw IllegalArgumentException(
+                                "所选文件内容与原书不一致，无法重新关联；旧正文、阅读位置和笔记均未修改"
+                            )
+                        }
+                    }
+                    // SAME（门放行）或 refresh（不执行门）：以已校验的 staging 字节换入
+                    when (format) {
+                        "epub" -> reselectEpub(existing, uri, taskId, stagedFile)
+                        "txt", "md" -> reselectPlainText(existing, uri, taskId, format, stagedFile)
+                        else -> throw IllegalArgumentException("不支持的格式：$format")
+                    }
+                } finally {
+                    // staging 归本次操作所有：换入成功（已被搬走/复制）或失败都必须清理
+                    stagedFile.delete()
                 }
                 ResolvedImport(existing, format, fileSize, fileName)
             }
@@ -916,11 +964,63 @@ class ShelfImporter @Inject constructor(
         return book
     }
 
-    private suspend fun reselectEpub(existing: BookEntity, uri: Uri, taskId: String) {
+    /**
+     * CRA-D2-RELINK-IDENTITY-FIX-v2：把所选 URI 的**当前字节**流式复制到统一 staging 文件，
+     * 供身份校验与后续换入共用（校验对象 = 实际换入字节）。
+     *
+     * - 64KB 块流式复制，不整文件读入内存；
+     * - staging 名固定为 `reselect-staging.<format>`，与 reselectPlainText 的 `<name>.repairing`
+     *   及 backup 残留守卫互不冲突（它不属于任何目标文件名，也不触发 backup 存在性拒绝）；
+     * - 复制失败/为空即抛出：调用方的 finally 负责删除 staging，不进入任何替换。
+     */
+    private suspend fun stageSelectedBytesForRepair(
+        bookId: String,
+        uri: Uri,
+        format: String,
+    ): java.io.File {
+        val stagingDir = java.io.File(context.filesDir, "books/$bookId/.reselect-staging").also { it.mkdirs() }
+        val stagedFile = java.io.File(stagingDir, "${UUID.randomUUID()}.$format")
+        // CRA-D2-RELINK-IDENTITY-FIX-v4：原子排他创建。
+        // 旧实现 stagedFile.outputStream() 是 create-or-truncate：若文件已存在（极端碰撞/残留），
+        // 会静默截断别人正在写的文件。createNewFile() 是原子谓词：当且仅当文件不存在时创建并返回 true。
+        // 文件已存在 → 抛异常，绝不覆盖；且因 ownedByUs=false，catch 不删别人拥有的文件。
+        var ownedByUs = false
+        withContext(ioDispatcher) {
+            try {
+                if (!stagedFile.createNewFile()) {
+                    throw IllegalStateException("暂存文件已存在，拒绝覆盖：${stagedFile.name}")
+                }
+                ownedByUs = true
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    stagedFile.outputStream().use { out ->
+                        val buf = ByteArray(64 * 1024)
+                        while (true) {
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            out.write(buf, 0, n)
+                        }
+                    }
+                } ?: throw IllegalStateException("无法打开所选文件")
+                require(stagedFile.length() > 0L) { "所选文件内容为空" }
+            } catch (e: Throwable) {
+                // CRA-D2-RELINK-IDENTITY-FIX-v3/v4：仅清理本操作实际创建的文件。
+                // createNewFile 失败（文件已存在）→ ownedByUs=false → 不删别人拥有的文件。
+                if (ownedByUs) stagedFile.delete()
+                throw e
+            }
+        }
+        return stagedFile
+    }
+
+    private suspend fun reselectEpub(existing: BookEntity, uri: Uri, taskId: String, stagedFile: java.io.File) {
         updateTask(taskId, "正在解析 EPUB 结构")
         val fileName = uriFileName(uri)
         updateTask(taskId, "正在安全替换本地副本")
-        val parsed = epubRepository.replaceStoredEpub(existing, uri, fileName)
+        // CRA-D2-RELINK-IDENTITY-FIX-v2：换入对象是**已校验的 staging 字节**（file URI），
+        // 不再从原 SAF URI 二次读取 —— 排除「同 URI 两次读取返回不同内容」绕过身份门的路径。
+        // replaceStoredEpub 内部的暂存/备份/提升/回滚机制原样保留（经 EpubSwapGate 串行）。
+        val stagedUri = Uri.fromFile(stagedFile)
+        val parsed = epubRepository.replaceStoredEpub(existing, stagedUri, fileName)
         val size = java.io.File(parsed.cachedEpubPath).length()
             .coerceIn(0L, Int.MAX_VALUE.toLong())
             .toInt()
@@ -940,7 +1040,13 @@ class ShelfImporter @Inject constructor(
         }
     }
 
-    private suspend fun reselectPlainText(existing: BookEntity, uri: Uri, taskId: String, format: String) {
+    private suspend fun reselectPlainText(
+        existing: BookEntity,
+        uri: Uri,
+        taskId: String,
+        format: String,
+        stagedFile: java.io.File,
+    ) {
         updateTask(taskId, "正在读取文件内容")
         val fileName = uriFileName(uri)
         val maxInlineBytes = 10 * 1024 * 1024
@@ -950,49 +1056,52 @@ class ShelfImporter @Inject constructor(
         val internalFile = java.io.File(internalDir, safeName)
         val staging = java.io.File(internalDir, "$safeName.repairing")
         val backup = java.io.File(internalDir, "$safeName.backup")
-        staging.delete()
-        // 崩溃残留守卫（第一道，最小范围）：同名 backup 已存在时**不得**删除、覆盖或自动恢复。
-        //
-        // 它的来源无法在本轮判定：
-        //   · 可能是上次进程被杀后**唯一完好的**正文（旧文件已挪进 backup、新文件尚未落位）；
-        //   · 也可能是上次已提交成功的**过期**副本（只差最后一步清理）。
-        // 仅凭 target 是否存在或长度**无法区分**这两种情况，因此一律停止本次替换并保留现场：
-        // 不删 backup、不动 target、不写 DB，让用户/后续工具去判断。
-        // 自动恢复状态机属独立设计（见 2026-09-24 设计稿），**不在本轮实现**。
+        // CRA-RESELECT-ROLLBACK-FIX-v2/v3：既有 backup 可能是上次中断后**唯一**保存旧正文的文件
+        // （那次中断恰好把目标位留成空缺）；残留也可能是文件或目录（中断的覆盖复制兜底
+        // 不同阶段形态不同）。**存在任何同名 backup 残留**即拒绝本次替换：不作归属猜测、
+        // 不盲删、不自动恢复，也不改写 target 或写 DB —— 把处理权交给用户。
         if (backup.exists()) {
-            // 提示语必须对**两种现场都成立**：target 存在（旧正文仍在）与 target 缺失
-            // （旧正文已挪进 backup）。故不能断言「原有文件已保留」—— target 缺失时并没有
-            // 这样一份文件，那样写会让用户误以为旧正文还在原处。
-            // 也不能暗示存在自助恢复入口，或引导用户删书/清备份（那正是销毁唯一副本的做法）。
             throw IllegalStateException(
                 "检测到未完成的替换残留（${backup.name}），本次替换已停止；" +
                     "旧正文若仍存在，则未被本次操作修改，残留备份已保留。" +
                     "重复重试不会自动恢复该备份",
             )
         }
-        // 阶段标记：catch 必须区分「旧副本根本没被动过」与「旧副本已挪走 / 新副本已落位」。
-        // 前者若执行 internalFile.delete()，会把用户**仅存**的正文删掉，而那时并没有 backup
-        // 可还原 —— 一次复制失败就等于永久丢正文（旧实现无条件 delete 的真实缺陷）。
-        var oldCopyMovedToBackup = false
-        var newCopyPromoted = false
+        staging.delete()
+        // CRA-RESELECT-ROLLBACK-FIX-v1：按「旧目标被触碰的程度」分阶段回滚。
+        // 修复前 catch 无条件 internalFile.delete()，而暂存复制发生在旧目标备份**之前**：
+        // 复制阶段就失败时旧目标原地未动、backup 尚未创建，却被删掉且无从恢复。
+        // CRA-RESELECT-ROLLBACK-FIX-v2：catch 只能清理**本次操作**确实可能留下的临时字节。
+        // 入口守卫已保证开始时 backup 位不存在，故此后在该位出现的文件只可能来自本次写入。
+        var swapStage = SWAP_UNTOUCHED
+        var backupMayHoldOurPartialBytes = false
+        var oldBytesParkedInBackup = false
         try {
             updateTask(taskId, "正在复制到应用存储")
-            context.contentResolver.openInputStream(uri)?.use { input ->
+            // CRA-D2-RELINK-IDENTITY-FIX-v2：staging 字节已在身份门校验，直接用**已校验的
+            // stagedFile** 落到 .repairing 位 —— 不再从原 SAF URI 二次读取（排除同 URI
+            // 两次读取返回不同内容绕过身份门的路径）。stagedFile 归 repairFileTyped 管理，
+            // 这里只复制其字节。
+            stagedFile.inputStream().use { input ->
                 staging.outputStream().use { out -> input.copyTo(out) }
-            } ?: throw IllegalStateException("无法打开文件")
+            }
             if (staging.length() <= 0L) throw IllegalStateException("文件内容为空")
             if (internalFile.exists()) {
                 if (!internalFile.renameTo(backup)) {
+                    // 覆盖复制兜底可能在本备份路径留下半成品：只这一份归本次操作所有
+                    backupMayHoldOurPartialBytes = true
                     internalFile.copyTo(backup, overwrite = true)
                     internalFile.delete()
                 }
-                oldCopyMovedToBackup = true
+                oldBytesParkedInBackup = true
+                swapStage = SWAP_BACKED_UP
             }
+            // 从这里起目标位会被写入（rename 失败时走覆盖复制的兜底，同样可能写坏目标）
+            swapStage = SWAP_TARGET_WRITTEN
             if (!staging.renameTo(internalFile)) {
                 staging.copyTo(internalFile, overwrite = true)
                 staging.delete()
             }
-            newCopyPromoted = true
             val size = internalFile.length()
                 .coerceIn(0L, Int.MAX_VALUE.toLong())
                 .toInt()
@@ -1040,21 +1149,16 @@ class ShelfImporter @Inject constructor(
             }
             backup.delete()
         } catch (error: Throwable) {
-            // 回滚必须按「走到哪一步」分流，而不是无条件删 internalFile：
-            //  - 旧副本未被挪动（复制 staging 阶段就失败）：internalFile 就是用户仅存的正文，
-            //    原样保留即可；此时不存在 backup，删了它没有任何东西能还原。
-            //  - 旧副本已挪进 backup：把 backup 还原回 internalFile；新副本若已落位，先删掉它。
-            //  - 原本没有旧副本（首次替换）：只清理本次落位的新副本，不留半截状态。
-            if (oldCopyMovedToBackup) {
-                if (newCopyPromoted) internalFile.delete()
-                if (backup.exists()) {
-                    if (!backup.renameTo(internalFile)) {
-                        backup.copyTo(internalFile, overwrite = true)
-                        backup.delete()
-                    }
+            when (swapStage) {
+                // 尚未触碰旧目标：旧字节原地不动，只清掉本次 copyTo 兜底可能留下的半成品
+                SWAP_UNTOUCHED -> if (backupMayHoldOurPartialBytes) backup.delete()
+                // 旧目标已安全移入 backup、目标位空缺：复位旧字节
+                SWAP_BACKED_UP -> restoreBackupOver(internalFile, backup, error)
+                // 新目标已（部分）安装：先删本次写入的新字节，再复位旧字节
+                else -> {
+                    internalFile.delete()
+                    if (oldBytesParkedInBackup) restoreBackupOver(internalFile, backup, error)
                 }
-            } else if (newCopyPromoted) {
-                internalFile.delete()
             }
             throw error
         } finally {
@@ -1062,6 +1166,29 @@ class ShelfImporter @Inject constructor(
         }
         runCatching {
             context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    /**
+     * 把 [backup] 复位到 [target]（CRA-RESELECT-ROLLBACK-FIX-v1 / v2）。
+     *
+     * 先 rename；跨平台失败时退回覆盖复制。恢复失败时**保留 backup 字节**供人工恢复，
+     * 并把恢复异常挂到主异常 [primary] 的 suppressed 上：调用方看到的仍是原始失败原因，
+     * 恢复失败也不会被吞掉，且本条路径绝不返回「恢复成功」。
+     */
+    private fun restoreBackupOver(target: java.io.File, backup: java.io.File, primary: Throwable) {
+        if (!backup.exists()) {
+            // 旧字节本应在此备份里却不存在 —— 这是恢复失败，不能静默当作「无需恢复」。
+            primary.addSuppressed(IllegalStateException("回滚失败：旧正文备份 ${backup.name} 已不存在"))
+            return
+        }
+        try {
+            if (!backup.renameTo(target)) {
+                backup.copyTo(target, overwrite = true)
+                backup.delete()
+            }
+        } catch (recovery: Throwable) {
+            primary.addSuppressed(recovery)
         }
     }
 
@@ -1193,8 +1320,33 @@ class ShelfImporter @Inject constructor(
     }
 
     private companion object {
+        /**
+         * CRA-D2-RELINK-IDENTITY-FIX-v4：同书修复互斥锁。
+         *
+         * ShelfImporter 非 @Singleton（每个 ViewModel 各持新实例），per-instance 锁无法
+         * 跨实例互斥。用 companion（进程级）ConcurrentHashMap<String, Mutex> 按 bookId 分桶：
+         * - 同书 repairFile / refreshFromSource 串行化，防止共用 .repairing/.backup 路径交叉写；
+         * - 不同书并行不受影响；
+         * - 锁边界覆盖 repairFileTyped 全程：实体读取 → staging → 身份校验 → 文件换入 →
+         *   DB 更新 → 失败回滚。
+         *
+         * 锁序：bookRepairMutex(bookId) → EpubSwapGate（reselectEpub → replaceStoredEpub
+         * → withGate）。EpubSwapGate 不回调 repairFileTyped，不会反向获取 bookRepairMutex，
+         * 故无死锁。EPUB 既有保护原样保留。
+         */
+        private val bookRepairLocks = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
+
+        /** 获取或创建指定书的修复互斥锁。 */
+        private fun bookRepairMutex(bookId: String): Mutex =
+            bookRepairLocks.computeIfAbsent(bookId) { Mutex() }
+
         /** 批量导入向 StateFlow 发射进度的最小间隔（毫秒），防连续重组风暴。 */
         const val BATCH_EMIT_THROTTLE_MS = 80L
+
+        /** 文件替换阶段（CRA-RESELECT-ROLLBACK-FIX-v1）。 */
+        const val SWAP_UNTOUCHED = 0
+        const val SWAP_BACKED_UP = 1
+        const val SWAP_TARGET_WRITTEN = 2
 
         /** 封面降采样目标最长边（px）：书架封面卡片足够清晰的最小尺寸。 */
         const val COVER_TARGET_EDGE_PX = 600

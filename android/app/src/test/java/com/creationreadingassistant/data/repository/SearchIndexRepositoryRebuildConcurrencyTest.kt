@@ -60,6 +60,15 @@ class SearchIndexRepositoryRebuildConcurrencyTest {
     }
 
     private class FakeSearchTermDao : SearchTermDao {
+        var bookActive: (String) -> Boolean = { true }
+        override suspend fun upsertAllIfBookActive(rows: List<SearchTermRow>): Boolean {
+            val id = rows.firstOrNull()?.book_id ?: return false
+            if (!bookActive(id)) return false
+            upsertAll(rows)
+            return true
+        }
+        override suspend fun countActiveBook(bookId: String): Int = if (bookActive(bookId)) 1 else 0
+
         val rows = mutableListOf<SearchTermRow>()
         val deleteByBookCalls = mutableListOf<String>()
         val upsertAllCalls = AtomicInteger(0)
@@ -87,6 +96,15 @@ class SearchIndexRepositoryRebuildConcurrencyTest {
     }
 
     private class FakeSearchIndexCoverageDao : SearchIndexCoverageDao {
+        var bookActive: (String) -> Boolean = { true }
+        override suspend fun upsertAllIfBookActive(rows: List<SearchIndexCoverageRow>): Boolean {
+            val id = rows.firstOrNull()?.book_id ?: return false
+            if (!bookActive(id)) return false
+            upsertAll(rows)
+            return true
+        }
+        override suspend fun countActiveBook(bookId: String): Int = if (bookActive(bookId)) 1 else 0
+
         val rows = mutableListOf<SearchIndexCoverageRow>()
         val upsertAllCalls = AtomicInteger(0)
         val deleteByBookCalls = mutableListOf<String>()
@@ -510,10 +528,18 @@ class SearchIndexRepositoryRebuildConcurrencyTest {
     }
 
     // =========================================================================
-    // 断言 B2：全量重建 stateDao 重置失败时回滚代次与释放所有权，不留静默坏态
+    // 断言 B2：全量重建 stateDao 重置失败时释放所有权、不留静默坏态
+    //
+    // ⚠️ 本用例的代次断言在 v2 之后被**有意改写过**，不是被放宽：
+    // v2 为关闭「回滚复活被取消的旧扫描」（CRA-SEARCH-INDEX-CANCEL-CONTROL-v2 缺陷 3）
+    // 把 `rollbackRebuild` 从「恢复旧 generation」改成「保持当前代次」，但**没有**同步
+    // 更新本用例 —— 于是本用例在 v2 候选中就是红的（v2 只归档了 CancelControl 的日志，
+    // 没跑过本定向类）。v3 保留那条决定（任务书：「不恢复旧 generation 使旧任务复活」），
+    // 因此这里把断言对齐到**现行合同**，其真正意图（失败必须释放执行权与锁、游标不动、
+    // 后续扫描不被死锁）一条都没少。
     // =========================================================================
     @Test
-    fun `full rebuild stateDao failure rolls back generation and releases lock`() = runTest {
+    fun `full rebuild stateDao failure releases lock without restoring the old generation`() = runTest {
         val harness = createHarness()
         harness.stateDao.set(
             SearchIndexStateRow(
@@ -537,8 +563,14 @@ class SearchIndexRepositoryRebuildConcurrencyTest {
         assertTrue("重置异常必须向外抛出", caught)
 
         // 核心断言：
-        // 1. 代次必须回滚，不能停留在失效的新代次上造成「新代次 + 旧游标」
-        assertEquals("重置失败时代次必须回滚", initialGen, harness.repo.getCurrentGeneration())
+        // 1. 代次**不得**退回旧值。一旦回退，取消期间推进过的代次就白推进了，
+        //    被取消的旧扫描会重新通过代次校验 ⇒ 迟到写入复活（v2 缺陷 3、v3 issue3）。
+        //    正确行为：保持已推进的当前代次，只清重建标记与活跃任务、释放执行权。
+        assertEquals(
+            "重置失败不得把代次退回旧值（那会让被取消的旧扫描复活）",
+            initialGen + 1,
+            harness.repo.getCurrentGeneration(),
+        )
         // 2. 游标保持为旧状态
         assertEquals("b1", harness.stateDao.get()?.last_scanned_book_id)
 
@@ -1077,6 +1109,86 @@ class SearchIndexRepositoryRebuildConcurrencyTest {
             nextResult == IndexSweepResult.COMPLETED || nextResult == IndexSweepResult.PROGRESSED,
         )
         assertNotNull("后续扫描必须真正写入游标", harness.stateDao.get())
+    }
+    // =========================================================================
+    // 101-v1：删除与在途索引提交的交错
+    // =========================================================================
+
+    @Test
+    fun `deleted book cannot receive late term or coverage rows from an in-flight sweep`() = runTest {
+        val active = java.util.concurrent.atomic.AtomicBoolean(true)
+        val book = BookEntity(id = "b1", title = "书本一", format = "txt", updated_at = "2026-01-01T00:00:00Z")
+        val harness = createHarness(books = listOf(book))
+        harness.termDao.bookActive = { active.get() }
+        harness.coverageDao.bookActive = { active.get() }
+        coEvery { harness.bookDao.countActive() } answers { if (active.get()) 1 else 0 }
+        coEvery { harness.bookDao.activeIds() } answers { if (active.get()) listOf(book.id) else emptyList() }
+        coEvery { harness.bookDao.getById(book.id) } answers { if (active.get()) book else null }
+
+        val reached = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        harness.repo.testHookBeforeWrite = { point, bookId ->
+            if (point == "term_tail" && bookId == book.id) {
+                reached.complete(Unit)
+                release.await()
+            }
+        }
+
+        val job = launch(Dispatchers.Default) { harness.repo.ensureIndexedIncremental() }
+        reached.await()
+
+        // 真实删除路径的清索引事务（BookRepository.applyDeletionLocked 内调用）已完成；
+        // 书已软删除，旧扫描仍持有删除前的活跃快照。
+        active.set(false)
+        harness.repo.deleteIndexForBook(book.id)
+        release.complete(Unit)
+        job.join()
+
+        assertTrue(
+            "已删除书不得被在途全库扫描回写 term 行",
+            harness.termDao.rows.none { it.book_id == book.id },
+        )
+        assertTrue(
+            "已删除书不得被在途全库扫描回写 coverage 行",
+            harness.coverageDao.rows.none { it.book_id == book.id },
+        )
+    }
+
+    @Test
+    fun `deleted book cannot receive late rows from a single-book index build`() = runTest {
+        val active = java.util.concurrent.atomic.AtomicBoolean(true)
+        val book = BookEntity(id = "b1", title = "书本一", format = "txt", updated_at = "2026-01-01T00:00:00Z")
+        val harness = createHarness(books = listOf(book))
+        harness.termDao.bookActive = { active.get() }
+        harness.coverageDao.bookActive = { active.get() }
+        coEvery { harness.bookDao.countActive() } answers { if (active.get()) 1 else 0 }
+        coEvery { harness.bookDao.activeIds() } answers { if (active.get()) listOf(book.id) else emptyList() }
+        coEvery { harness.bookDao.getById(book.id) } answers { if (active.get()) book else null }
+        val reached = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        harness.repo.testHookBeforeWrite = { point, bookId ->
+            if (point == "term_tail" && bookId == book.id) {
+                reached.complete(Unit)
+                release.await()
+            }
+        }
+        val job = launch(Dispatchers.Default) { harness.repo.indexSingleBook(book) }
+        reached.await()
+        active.set(false)
+        harness.repo.deleteIndexForBook(book.id)
+        release.complete(Unit)
+        job.join()
+        assertTrue("单本索引不得为已删书写 term", harness.termDao.rows.none { it.book_id == book.id })
+        assertTrue("单本索引不得为已删书写 coverage", harness.coverageDao.rows.none { it.book_id == book.id })
+    }
+
+    @Test
+    fun `active book still receives rows from single-book index build`() = runTest {
+        val book = BookEntity(id = "b1", title = "书本一", format = "txt", updated_at = "2026-01-01T00:00:00Z")
+        val harness = createHarness(books = listOf(book))
+        harness.repo.indexSingleBook(book)
+        assertTrue("活跃书必须正常写入 term", harness.termDao.rows.any { it.book_id == book.id })
+        assertTrue("活跃书必须正常写入 coverage", harness.coverageDao.rows.any { it.book_id == book.id })
     }
 }
 

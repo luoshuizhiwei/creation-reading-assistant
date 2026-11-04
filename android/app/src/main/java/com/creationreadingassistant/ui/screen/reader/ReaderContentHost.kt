@@ -20,6 +20,7 @@ import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
+import com.creationreadingassistant.feature.reader.pager.ScrollUnitContentLoader
 import com.creationreadingassistant.feature.reader.rules.ReplaceRule
 import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
@@ -103,6 +104,12 @@ internal data class ReaderContentSourceState(
     val showTts: Boolean,
     val tts: TtsEngineHost,
     val highlights: List<HighlightEntity>,
+    /**
+     * 滚动 TXT 正文加载状态观察接缝（CRA-JOINT-31-MERGE-FREEZE-ACCEPT-v2）：由 ReaderScreen
+     * 的 holders 持有、与恢复落位判定共用同一实例。放在 source 域是因为它的生命周期与
+     * 「当前正文源」一致（切源即 [ScrollUnitContentLoader.switchSource] 清缓存与状态）。
+     */
+    val scrollUnitContentLoader: ScrollUnitContentLoader,
     /** 搜索命中临时高亮（全书字符区间，含首不含尾）；null = 无当前命中。 */
     val searchHitRangeAbs: Pair<Int, Int>?,
     /**
@@ -146,6 +153,8 @@ internal data class ReaderContentHostCallbacks(
     val onAutoPagingFinished: () -> Unit,
     val onStopAutoPaging: () -> Unit,
     val onGoToChapter: (chapterIndex: Int) -> Unit,
+    /** Actual nonzero UserInput consumed by the ordinary scrolling TXT list. */
+    val onPlainTextUserScrollInput: () -> Unit,
     /** ack：ReaderContentHost 消费（或丢弃）搜索滚动聚焦请求后清除持久状态。 */
     val onSearchScrollFocusRequestConsumed: () -> Unit,
 )

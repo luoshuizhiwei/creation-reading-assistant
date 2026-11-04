@@ -7,6 +7,8 @@ import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -154,19 +156,37 @@ class NoteRepository @Inject constructor(
         )
     }
 
-    /** 高亮转灵感，不存在时为无操作。 */
+    /**
+     * 高亮转灵感，不存在时为无操作。
+     *
+     * payload 写入 `source`（InspirationPayloadData 的 InspirationSourceInfo 线格式）：
+     * 灵感详情与「回源」消费
+     * `payload.source` 的摘录与定位，仅靠实体提升列 `source_book_id` 无法替代 ——
+     * 旧实现写 `"{}"` 使转换后的灵感读不到原文摘录、也没有 locator 可精确回源。
+     * 数据层不依赖 ui 的 payload 模型，按本层既有的 buildJsonObject 合同组装
+     * （键名与 InspirationPayloadData/InspirationSourceInfo 一致）。
+     */
     suspend fun convertHighlightToInspiration(highlightId: String) {
         val h = highlightDao.getById(highlightId) ?: return
         val now = Instant.now().toString()
+        // 只写高亮上真实存在的来源信息；书名/作者不在本次输入内，不编造也不额外查库。
+        val source = buildJsonObject {
+            h.book_id.takeIf { it.isNotBlank() }?.let { put("bookId", it) }
+            h.chapter_title?.takeIf { it.isNotBlank() }?.let { put("chapterTitle", it) }
+            h.progress_percent?.let { put("progressPercent", it) }
+            h.text.takeIf { it.isNotBlank() }?.let { put("excerpt", it) }
+            h.locator_json?.takeIf { it.isNotBlank() }?.let { put("locatorJson", it) }
+        }
         inspirationDao.upsert(
             InspirationEntity(
                 id = java.util.UUID.randomUUID().toString(),
                 title = "高亮灵感：${h.text.take(24)}",
+                // 展示兼容不变：正文仍是「原文 ＋ 批注」；来源摘录只在 payload.source.excerpt
                 body = if (h.note.isNullOrBlank()) h.text else "${h.text}\n\n${h.note}",
                 type = "note",
                 status = "inbox",
                 source_book_id = h.book_id,
-                payload = "{}",
+                payload = buildJsonObject { put("source", source) }.toString(),
                 created_at = now,
                 device_id = null,
                 revision = 1,

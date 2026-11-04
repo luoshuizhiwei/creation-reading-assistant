@@ -93,6 +93,7 @@ internal fun buildReaderContentHostCallbacks(
     showNotice: (String) -> Unit,
     onSearchScrollFocusRequestConsumed: () -> Unit,
     onPersistProgress: () -> Unit,
+    onPlainTextUserScrollInput: () -> Unit,
 ): ReaderContentHostCallbacks {
     var lastPersistAt = 0L
     return ReaderContentHostCallbacks(
@@ -130,6 +131,7 @@ internal fun buildReaderContentHostCallbacks(
     },
     onStopAutoPaging = { onAutoPagingActiveChange(false) },
     onGoToChapter = { goToChapter(it) },
+    onPlainTextUserScrollInput = onPlainTextUserScrollInput,
     onSearchScrollFocusRequestConsumed = onSearchScrollFocusRequestConsumed,
 )
 }
@@ -645,7 +647,8 @@ internal fun buildReaderSheetHostCallbacks(
     },
     onCreateCategory = { name ->
         val id = "mobile-category-${UUID.randomUUID()}"
-        onAction(ReaderAction.CreateCategory(name))
+        // 69-v2-B：把同一 id 交给事件，弹层选中值与最终落库行保持一致。
+        onAction(ReaderAction.CreateCategory(id = id, name = name))
         id
     },
     onCreateTag = { name ->

@@ -93,6 +93,10 @@ internal fun InspirationList(
     statusFilter: String = "all",
     availableStatuses: List<Pair<String, String>> = emptyList(),
     statusCounts: Map<String, Int> = emptyMap(),
+    /** 任务93-v1-A：分类筛选 id（"all" 不过滤）与条目里真实出现的分类胶囊。 */
+    categoryFilter: String = "all",
+    categoryOptions: List<com.creationreadingassistant.ui.viewmodel.InspirationCategoryFilterOption> = emptyList(),
+    categoryNamesOf: (InspirationEntity) -> List<String> = { emptyList() },
     sortMode: String,
     showSkeleton: Boolean,
     sourceOf: (InspirationEntity) -> InspirationSourceInfo?,
@@ -110,7 +114,7 @@ internal fun InspirationList(
         false
     }
     val needle = run { "" }
-    val hasFilter = typeFilter != "all" || statusFilter != "all"
+    val hasFilter = typeFilter != "all" || statusFilter != "all" || categoryFilter != "all"
     val emptyKind: String? = if (filtered.isEmpty()) {
         when {
             !hasAny -> "empty"
@@ -151,10 +155,12 @@ internal fun InspirationList(
             ) {
                 SelectablePill(
                     text = "全部",
-                    selected = typeFilter == "all" && statusFilter == "all",
+                    selected = typeFilter == "all" && statusFilter == "all" &&
+                        categoryFilter == "all",
                     onClick = {
                         onAction(InspirationAction.UpdateTypeFilter("all"))
                         onAction(InspirationAction.UpdateStatusFilter("all"))
+                        onAction(InspirationAction.UpdateCategoryFilter("all"))
                     },
                 )
                 availableTypes.forEach { (value, label) ->
@@ -278,6 +284,38 @@ internal fun InspirationList(
             }
         }
 
+        // 任务93-v1-A：分类筛选导轨。只列条目里真实出现过的分类（旧 id 以不可用标签保留），
+        // 点击与关键词/类型/状态筛选按 AND 组合；再次点击已选分类回到全部分类。
+        if (categoryOptions.isNotEmpty() || categoryFilter != "all") {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = layout.pageHorizontal, vertical = 4.dp)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SelectablePill(
+                    text = "全部分类",
+                    selected = categoryFilter == "all",
+                    onClick = { onAction(InspirationAction.UpdateCategoryFilter("all")) },
+                )
+                categoryOptions.forEach { option ->
+                    SelectablePill(
+                        text = "${option.name} ${option.count}",
+                        selected = categoryFilter == option.id,
+                        onClick = {
+                            onAction(
+                                InspirationAction.UpdateCategoryFilter(
+                                    if (categoryFilter == option.id) "all" else option.id,
+                                ),
+                            )
+                        },
+                    )
+                }
+            }
+        }
+
         if (showSkeleton) {
             ListSkeleton(
                 modifier = Modifier
@@ -331,8 +369,11 @@ internal fun InspirationList(
             )
         } else {
             LazyColumn(
+                // 110修复：fillMaxSize 在 Column 内占满整高，把后置多选底部操作条挤成 0 高（109实测按钮 198x0）。
+                // 改为 weight(1f)+fillMaxWidth：列表占剩余空间，选择条获得固有高度。
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)
+                    .fillMaxWidth()
                     .padding(horizontal = layout.pageHorizontal),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -342,6 +383,7 @@ internal fun InspirationList(
                         item = item,
                         source = sourceOf(item),
                         tags = tagsOf(item),
+                        categories = categoryNamesOf(item),
                         selected = selectMode && item.id in selectedIds,
                         onOpen = {
                             if (selectMode) toggleSelected(item.id)
@@ -406,6 +448,7 @@ private fun InspirationRecordCard(
     item: InspirationEntity,
     source: InspirationSourceInfo?,
     tags: List<String>,
+    categories: List<String> = emptyList(),
     onOpen: () -> Unit,
     onMore: () -> Unit,
     entranceDelay: Int = 0,
@@ -545,6 +588,30 @@ private fun InspirationRecordCard(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
+                    }
+                }
+            }
+
+            // 任务93-v1-A：分类名称（与 # 标签区分，用主色容器显示）。
+            if (categories.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .padding(top = 10.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    categories.take(3).forEach { name ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                            shape = PillShape,
+                        ) {
+                            Text(
+                                name,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                            )
+                        }
                     }
                 }
             }

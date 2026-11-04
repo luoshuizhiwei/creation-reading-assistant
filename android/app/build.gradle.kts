@@ -98,8 +98,15 @@ android {
                         "CI 环境缺少 Android 发布签名（CRA_ANDROID_KEYSTORE_* 四个变量必须齐全），已中止 release 构建。",
                     )
                 }
-                signingConfig = signingConfigs.getByName("debug")
-                logger.lifecycle("⚠️ 未配置正式签名，使用 debug 密钥兜底签名；产物仅可用于本地验证，绝不可发布！")
+                val allowDebugFallback = providers.gradleProperty("craAllowDebugSigningFallback")
+                    .orNull?.toBoolean() ?: false
+                if (allowDebugFallback) {
+                    signingConfig = signingConfigs.getByName("debug")
+                    logger.lifecycle("⚠️ 未配置正式签名，已显式启用 debug 密钥兜底签名；产物仅可用于本地验证，绝不可发布！")
+                } else {
+                    signingConfig = null
+                    logger.lifecycle("⚠️ 未配置正式签名，产物为未签名 APK（app-release-unsigned.apk），不可正式分发！若需本地设备验证，可添加 -PcraAllowDebugSigningFallback=true。")
+                }
             }
         }
         create("qahost") {
@@ -109,7 +116,7 @@ android {
             // initWith(debug) 只拷贝构建属性、不继承 debugImplementation 依赖 ——
             // Compose 测试的 ComponentActivity test manifest 需在下方单独补 qahostImplementation。
             initWith(getByName("debug"))
-            applicationIdSuffix = ".qahost"
+            applicationIdSuffix = ".qahostj1persistv2"
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -236,9 +243,25 @@ dependencies {
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    // NB04 SAF 旅程：系统 DocumentsUI 驱动（仅 androidTest 类路径，产品 APK 不受影响）
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.hilt.android.testing)
+    // J1 联合门禁新增（最小依赖）：SyncRepositoryPersistenceTest 用进程内
+    // MockWebServer 作为受控桌面端，驱动真实 Retrofit/OkHttp 协议栈验证
+    // R1 同步合并修复的持久化事实。版本与主 okhttp 4.12.0 一致。
+    androidTestImplementation(libs.okhttp.mockwebserver)
+    // J1-v2 返修新增（最小依赖）：SyncConfigStore / DeviceInfoProvider 为 final 类
+    // 且经 SecurePrefs 触碰 AndroidKeyStore 默认主密钥与真实加密 prefs——仪器测试
+    // 用 mockk-android（1.13.12，与 JVM 侧 mockk 同版本）作测试替身隔离它们，
+    // 杜绝对 qahost 的 sync_config / cra_device_identity / 默认主密钥的任何读写。
+    androidTestImplementation("io.mockk:mockk-android:1.13.12") {
+        // mockk-android 传递引入 JVM-only 的 JUnit5 构件，其 META-INF/LICENSE.md
+        // 与 androidTest APK 内既有许可文件合并冲突；运行期不需要，按组排除。
+        exclude(group = "org.junit.jupiter")
+        exclude(group = "org.junit.platform")
+    }
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     // qahost 变体与 debug 不共享 debugImplementation（initWith 不继承 configuration），
     // 缺它则 Compose 测试无法在沙箱宿主内启动 ComponentActivity。

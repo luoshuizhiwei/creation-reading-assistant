@@ -1,6 +1,8 @@
 package com.creationreadingassistant.data.settings
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -51,11 +53,14 @@ private val KEY_SAVED_FILTERS = stringPreferencesKey("shelf_saved_filters")
 internal const val SAVED_VIEWS_MAX = 12
 
 @Singleton
-class ShelfSavedViewsStore @Inject constructor(
-    @ApplicationContext context: Context,
-    @ApplicationScope private val scope: CoroutineScope,
+class ShelfSavedViewsStore internal constructor(
+    private val ds: DataStore<Preferences>,
+    private val scope: CoroutineScope,
 ) {
-    private val ds = context.shelfSavedViewsDataStore
+    @Inject constructor(
+        @ApplicationContext context: Context,
+        @ApplicationScope scope: CoroutineScope,
+    ) : this(context.shelfSavedViewsDataStore, scope)
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 

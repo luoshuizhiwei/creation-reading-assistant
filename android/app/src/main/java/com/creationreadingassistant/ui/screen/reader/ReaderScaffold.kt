@@ -55,6 +55,7 @@ import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
+import com.creationreadingassistant.feature.reader.pager.ScrollUnitContentLoader
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
@@ -119,6 +120,12 @@ internal data class ReaderScreenMutableHolders(
     val settingsScopeState: MutableState<ReaderSettingsScope>,
     /** R3-X1：离线词典面板要查的词（打开面板前由选区动作写入）。 */
     val dictionaryWordState: MutableState<String>,
+    /**
+     * 滚动 TXT 正文加载状态观察接缝（CRA-JOINT-31-MERGE-FREEZE-ACCEPT-v2）：由
+     * [ReaderContentHostPlainTextBranch] 使用、由 [ReaderProgressEffects] 的恢复落位判定
+     * 观察，必须是**同一实例**，否则恢复侧看不到正文加载状态。
+     */
+    val scrollUnitContentLoader: ScrollUnitContentLoader,
 )
 
 /**
@@ -153,6 +160,10 @@ internal fun rememberReaderScreenMutableHolders(
     val settingsScopeState = remember(bid) { mutableStateOf(ReaderSettingsScope.BOOK) }
     // R3-X1：离线查词的目标词；面板关闭后不必清（下次打开会被新选区覆盖）
     val dictionaryWordState = remember(bid) { mutableStateOf("") }
+    // CRA-JOINT-31-MERGE-FREEZE-ACCEPT-v2：滚动 TXT 正文加载器按阅读器会话持有。
+    // 不按 bid remember —— 切书由正文分支的 switchSource(新 source) 清缓存与状态完成，
+    // 与原先「loader 随分支组合重建」的清理语义一致（状态按 source 身份过滤保留）。
+    val scrollUnitContentLoader = remember { ScrollUnitContentLoader() }
     return ReaderScreenMutableHolders(
         autoPagingActiveState = autoPagingActiveState,
         runtimeErrorState = runtimeErrorState,
@@ -166,6 +177,7 @@ internal fun rememberReaderScreenMutableHolders(
         searchScrollFocusRequestState = searchScrollFocusRequestState,
         settingsScopeState = settingsScopeState,
         dictionaryWordState = dictionaryWordState,
+        scrollUnitContentLoader = scrollUnitContentLoader,
     )
 }
 
@@ -240,6 +252,7 @@ internal fun ReaderScaffold(
     handleChromeAction: (ReaderChromeAction) -> Unit,
     computeLocatorJson: () -> String?,
     onPersistProgress: () -> Unit,
+    onPlainTextUserScrollInput: () -> Unit,
     inputs: ReaderScreenInputs,
     callbacks: ReaderScreenCallbacks,
     settingsVm: SettingsViewModel,
@@ -532,6 +545,7 @@ internal fun ReaderScaffold(
                                     highlights = highlights,
                                     searchHitRangeAbs = searchHitRangeAbs,
                                     searchScrollFocusRequest = holders.searchScrollFocusRequestState.value,
+                                    scrollUnitContentLoader = holders.scrollUnitContentLoader,
                                 ),
                             ),
                             callbacks = buildReaderContentHostCallbacks(
@@ -547,6 +561,7 @@ internal fun ReaderScaffold(
                                     holders.searchScrollFocusRequestState.value = null
                                 },
                                 onPersistProgress = onPersistProgress,
+                                onPlainTextUserScrollInput = onPlainTextUserScrollInput,
                             ),
                     )
                 }

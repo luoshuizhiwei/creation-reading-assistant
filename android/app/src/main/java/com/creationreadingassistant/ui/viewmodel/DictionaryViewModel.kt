@@ -8,6 +8,9 @@ import com.creationreadingassistant.feature.dictionary.DictionaryRepository
 import com.creationreadingassistant.feature.dictionary.InstalledDictionary
 import com.creationreadingassistant.feature.dictionary.StarDictImporter
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -81,8 +84,7 @@ internal fun dictionaryEmptyNotice(state: DictionaryUiState): String? {
  * 词库为空或查不到时都把**已安装词库列表**一并暴露出去：用户当场就能判断是该导入词库，
  * 还是该换一个词 —— 避免只显示「未找到」而让人以为是功能坏了。
  *
- * 所有仓储调用都经 `runCatching`：`viewModelScope` 里未捕获的异常会直接打穿到默认
- * 异常处理器并**终止进程**，一个损坏的词库文件不该让整个阅读器崩掉。
+ * 仓储读取失败显示明确提示；查词取消继续传播，旧请求不得覆盖当前词的结果。
  */
 @HiltViewModel
 internal class DictionaryViewModel @Inject constructor(
@@ -93,6 +95,8 @@ internal class DictionaryViewModel @Inject constructor(
     val state: StateFlow<DictionaryUiState> = _state
 
     private var lastQuery: String? = null
+    private var lookupJob: Job? = null
+    private var lookupGeneration = 0L
 
     fun refreshInstalled() {
         viewModelScope.launch {
@@ -106,6 +110,8 @@ internal class DictionaryViewModel @Inject constructor(
 
     fun lookup(word: String) {
         val key = word.trim()
+        val generation = ++lookupGeneration
+        lookupJob?.cancel()
         lastQuery = key.ifEmpty { null }
 
         if (key.isEmpty()) {
@@ -130,11 +136,12 @@ internal class DictionaryViewModel @Inject constructor(
             unreadableDictionaries = emptyList(),
             error = null,
         )
-        viewModelScope.launch {
-            runCatching {
+        lookupJob = viewModelScope.launch {
+            try {
                 val installed = repository.installed()
-                installed to repository.lookup(key)
-            }.onSuccess { (installed, outcome) ->
+                val outcome = repository.lookup(key)
+                ensureActive()
+                if (generation != lookupGeneration) return@launch
                 _state.value = _state.value.copy(
                     loading = false,
                     searched = true,
@@ -143,13 +150,17 @@ internal class DictionaryViewModel @Inject constructor(
                     unreadableDictionaries = outcome.unreadableDictionaries,
                     error = null,
                 )
-            }.onFailure { throwable ->
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                ensureActive()
+                if (generation != lookupGeneration) return@launch
                 _state.value = _state.value.copy(
                     loading = false,
                     searched = true,
                     results = emptyList(),
                     unreadableDictionaries = emptyList(),
-                    error = readFailureMessage(throwable),
+                    error = readFailureMessage(failure),
                 )
             }
         }

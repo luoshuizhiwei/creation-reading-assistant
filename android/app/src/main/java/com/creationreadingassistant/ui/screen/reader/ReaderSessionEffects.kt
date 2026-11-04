@@ -97,7 +97,14 @@ internal fun ReaderSessionEffects(
     jumpToPlainOffset: (Int) -> Unit,
     jumpToMarkdownOffset: (Int) -> Unit,
     persistCurrentProgress: () -> Unit,
+    /** CRA-READER-EXIT-SAVE-DRAIN-v1：lifecycle 防重复落库门（ReaderScreen 持有），透传给平台 Effects。 */
+    persistGate: ReaderLifecyclePersistGate,
     openTts: () -> Unit,
+    /**
+     * CRA-READER-SESSION-PROGRESS-GUARD-FIX-v1：本阅读会话的位置保护守卫实例
+     *（ReaderScreen 按会话持有），透传给 [ReaderProgressEffects]。
+     */
+    sessionPositionGuard: ReaderSessionPositionGuard,
 ) {
     // 状态袋解构（与原 ReaderScreen 局部取值一致）
     val screenState = inputs.screenState
@@ -235,6 +242,7 @@ internal fun ReaderSessionEffects(
             val consumed = readerVolumeKeyTurn(
                 -1, readerSettings, screenState.showTts, pagerEngineOn, pagedHardwareTurnRequest,
                 epubBook, markdownDocument, chapterIndex, goToChapter, scope, plainListState, epubListState,
+                sessionPositionGuard = if (temporaryInspection) null else sessionPositionGuard,
             )
             if (consumed) onAction(ReaderAction.PageTurn)
             consumed
@@ -243,6 +251,7 @@ internal fun ReaderSessionEffects(
             val consumed = readerVolumeKeyTurn(
                 1, readerSettings, screenState.showTts, pagerEngineOn, pagedHardwareTurnRequest,
                 epubBook, markdownDocument, chapterIndex, goToChapter, scope, plainListState, epubListState,
+                sessionPositionGuard = if (temporaryInspection) null else sessionPositionGuard,
             )
             if (consumed) onAction(ReaderAction.PageTurn)
             consumed
@@ -258,6 +267,10 @@ internal fun ReaderSessionEffects(
             )
         },
         onPersistProgress = persistCurrentProgress,
+        persistGate = persistGate,
+        // CRA-READER-SESSION-PROGRESS-GUARD-FIX-v1：本会话结束（组合销毁）时释放守卫状态；
+        // 由 ReaderPlatformEffects 保证在退出落库之后调用。
+        onReaderSessionEnded = { sessionPositionGuard.disarm() },
         controlsVisibleForAutoHide = controlsVisible,
         autoHideSeconds = readerSettings.autoHideSeconds,
         sheetOpenGuard = sheetOpenGuard,
@@ -316,9 +329,13 @@ internal fun ReaderSessionEffects(
         jumpToMarkdownOffset = jumpToMarkdownOffset,
         onLoadChapterBlocks = onLoadChapterBlocks,
         onExtractChapterText = onExtractChapterText,
+        // CRA-JOINT-31-MERGE-FREEZE-ACCEPT-v2：与正文分支共用同一 loader 实例。
+        scrollUnitContentLoader = holders.scrollUnitContentLoader,
         // R2-J1-I：透传 route 注入的真实 source 位置上报 seam（落到临时查阅协调器）。
         onSourcePositionChanged = callbacks.onSourcePositionChanged,
         temporaryInspection = temporaryInspection,
+        // CRA-READER-SESSION-PROGRESS-GUARD-FIX-v1：与退出落库共用同一会话守卫实例。
+        sessionPositionGuard = sessionPositionGuard,
     )
 
     // ── 书内搜索：统一 target 消费（命中选择 / 上一处 / 下一处）──────────
@@ -327,6 +344,7 @@ internal fun ReaderSessionEffects(
     // 分派全部集中在 ReaderSearchEffects.kt 的 SearchHitNavigationExecutor。
     SearchHitNavigationEffect(
         searchNav = buildSearchHitNavigation(
+            sessionPositionGuard = if (temporaryInspection) null else sessionPositionGuard,
             session = searchSession,
             bid = bid,
             chaptered = epubBook != null || markdownDocument != null,
@@ -345,6 +363,7 @@ internal fun ReaderSessionEffects(
 
     // ── 运行时 effect：章节淡入 / 护眼时间 / 焦点滚动 / TXT 规则 / 自动翻页 / 触感 ──
     ReaderRuntimeEffects(
+        sessionPositionGuard = if (temporaryInspection) null else sessionPositionGuard,
         chapterFadeKey = chapterFadeKey,
         chapterFade = chapterFade,
         readerSettings = readerSettings,
