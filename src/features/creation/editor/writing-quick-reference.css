@@ -243,6 +243,26 @@
   outline: 0;
 }
 
+/* BD-241（焦点可见 2.4.7）：这两个输入框的键盘环原先是静默没有的，本条把环自己画回来。
+ * 实测现场（1360×860 真窗、真键盘 Tab 到该行，/tmp/bd241-probe2.log）：
+ *   .writing-quick-search input 聚焦时 computed outline="none 0px"、box-shadow="none"；
+ *   命中该元素的规则按文档序两条——全局 `input:focus-visible`（表0 index-*.css #1114，
+ *   给 2px solid var(--accent-spine)）与本文件 `.writing-quick-search input`（表4
+ *   WritingDesk-*.css #58，给 outline: 0）。两边特异性都是 0-1-1 平手，平手看加载顺序，
+ *   而本文件随写作台懒加载分块、排在主包之后 ⇒ 全局环被压掉。
+ *   容器也不兜底：`label.writing-quick-search` 聚焦前后的 computed 逐字相同
+ *   （s=none、b=1px rgb(102,109,119)）——它没有 :focus-within 规则，所以不是「环由壳代持」，
+ *   是真的没有任何可见指示。这与 BD-240（概览最近编辑行）同一个形状。
+ * `outline: 0` 留在基础块：它要撤的是鼠标聚焦的默认环（点搜索框不该出现环），那个意图保留。
+ * 环画在同文件的 :focus-visible 上，与本块同分块、不再随加载顺序漂。偏移取 2px：搜索框
+ * 外壳内衬实测 6px 8px（见上方 BD-64 记录），环外扩 4px 仍在壳内、不被裁；字段输入自带
+ * 1px 边框且在 .writing-quick-detail{overflow:auto} 里，四周留白 12px 同样容得下。 */
+.writing-quick-search input:focus-visible,
+.writing-quick-field input:focus-visible {
+  outline: 2px solid var(--accent-spine);
+  outline-offset: 2px;
+}
+
 .writing-quick-body { display: grid; grid-template-rows: minmax(120px, 0.8fr) minmax(230px, 1.2fr); min-height: 0; }
 .writing-quick-list { min-height: 0; margin: 0; padding: 8px; overflow: auto; list-style: none; border-bottom: 1px solid var(--border-subtle); }
 /* 批次 BD-64（padding 7px 桶·速查列表行按钮）：7→8。7px 落 6/8 正中、就近不裁决 ⇒
