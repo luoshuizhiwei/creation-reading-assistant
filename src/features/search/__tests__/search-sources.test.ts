@@ -11,7 +11,7 @@ vi.mock("@/services/inspiration-service", () => ({
   listInspirations: vi.fn()
 }));
 
-import { creationSearchSource, inboxSearchSource, librarySearchSource, inspirationSearchSource, displayFileName } from "@/features/search/sources";
+import { creationSearchSource, inboxSearchSource, librarySearchSource, inspirationSearchSource, screenSearchSource, displayFileName } from "@/features/search/sources";
 import { sourcesForFilter, sortEntries, SOURCE_ORDER } from "@/features/search/aggregate";
 import * as creationService from "@/services/creation-service";
 import * as searchService from "@/services/search-service";
@@ -216,9 +216,9 @@ async function act0(): Promise<void> {
 }
 
 describe("统一搜索聚合", () => {
-  it("筛选 → 数据源映射完整（旧灵感已从全部结果摘除）", () => {
+  it("筛选 → 数据源映射完整（旧灵感已从全部结果摘除；页面导航只进全部）", () => {
     const cases: Array<[UnifiedSearchFilter, string[]]> = [
-      ["all", ["创作项目", "全局收件箱", "资料书库"]],
+      ["all", ["创作项目", "全局收件箱", "资料书库", "页面导航"]],
       ["project", ["创作项目"]],
       ["body", ["创作项目", "资料书库"]],
       ["card", ["创作项目"]],
@@ -230,8 +230,9 @@ describe("统一搜索聚合", () => {
     }
   });
 
-  it("排序按固定来源顺序：项目、章节、场景、卡片、收件箱、资料", () => {
+  it("排序按固定来源顺序：项目、章节、场景、卡片、收件箱、资料、页面导航", () => {
     const entries = [
+      { source: "screen" as const },
       { source: "inbox" as const },
       { source: "scene" as const },
       { source: "project" as const },
@@ -241,5 +242,64 @@ describe("统一搜索聚合", () => {
     ];
     sortEntries(entries);
     expect(entries.map((entry) => entry.source)).toEqual(SOURCE_ORDER);
+  });
+
+  /**
+   * BD-239（WCAG 2.4.5 多途径）：页面导航源 = 注册表登记的屏幕。
+   * 这一源不读盘，所以判据直接对着 registry 的数据说：屏幕名、副名、检索词、说明四通道，
+   * 每个词都必须命中；作用域只有「全部」。
+   */
+  describe("页面导航源（注册表屏幕）", () => {
+    it("命中屏幕主名并给出可换屏的 screen 意图", async () => {
+      const entries = await screenSearchSource.search({ keyword: "卡片库", limit: 50, filter: "all" });
+      expect(entries.map((entry) => [entry.source, entry.title, entry.intent.screen, entry.originLabel])).toEqual([
+        ["screen", "卡片库", "card-library", "一级导航"]
+      ]);
+      expect(entries[0].id).toBe("screen:card-library");
+    });
+
+    it("命中登记在 keywords 里的说法（这批词此前谁都没消费）", async () => {
+      const entries = await screenSearchSource.search({ keyword: "世界观", limit: 50, filter: "all" });
+      expect(entries.map((entry) => entry.intent.screen)).toContain("card-library");
+    });
+
+    it("多词要全部命中，只命中一部分不算命中", async () => {
+      const entries = await screenSearchSource.search({ keyword: "卡片库 不存在的词", limit: 50, filter: "all" });
+      expect(entries).toEqual([]);
+    });
+
+    it("空词与空白词不返回结果（不打开搜索就铺一排页面名）", async () => {
+      expect(await screenSearchSource.search({ keyword: "", limit: 50, filter: "all" })).toEqual([]);
+      expect(await screenSearchSource.search({ keyword: "   ", limit: 50, filter: "all" })).toEqual([]);
+    });
+
+    it("只在「全部」范围参与：scoped 搜索是找内容，不是找去处", async () => {
+      for (const filter of ["project", "body", "card", "inbox", "library"] as const) {
+        expect(await screenSearchSource.search({ keyword: "卡片库", limit: 50, filter })).toEqual([]);
+      }
+    });
+
+    it("八屏全部可被自己的主名搜到（多途径的账要逐屏成立，不是抽样）", async () => {
+      const screens = ["项目", "卡片库", "收件箱", "灵感中心", "书库", "资料阅读", "阅读统计", "设置"];
+      for (const label of screens) {
+        const entries = await screenSearchSource.search({ keyword: label, limit: 50, filter: "all" });
+        expect(entries.length, `${label} 搜不到去处`).toBeGreaterThan(0);
+        expect(entries.map((entry) => entry.intent.screen), `${label} 落点不符`).toContain(
+          label === "项目" ? "projects"
+            : label === "卡片库" ? "card-library"
+              : label === "收件箱" ? "inbox"
+                : label === "灵感中心" ? "inspiration"
+                  : label === "书库" ? "library"
+                    : label === "资料阅读" ? "reader"
+                      : label === "阅读统计" ? "stats"
+                        : "settings"
+        );
+      }
+    });
+
+    it("limit 生效：屏幕条目多时不越过上界", async () => {
+      const entries = await screenSearchSource.search({ keyword: "a", limit: 2, filter: "all" });
+      expect(entries.length).toBeLessThanOrEqual(2);
+    });
   });
 });

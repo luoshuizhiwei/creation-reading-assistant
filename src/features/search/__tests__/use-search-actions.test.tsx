@@ -60,7 +60,7 @@ vi.mock("@/services/reader-service", () => ({
   openEpub: vi.fn()
 }));
 
-import { useSearchActions } from "@/hooks/useSearchActions";
+import { useSearchActions, type OpenIntentResult } from "@/hooks/useSearchActions";
 import { useSearchStore } from "@/stores/search-store";
 import { useAppStore } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
@@ -318,6 +318,29 @@ describe("useSearchActions 导航意图", () => {
       await result.current.openIntent({ kind: "inspiration", inspirationId: "in1" });
     });
     expect(useAppStore.getState().screen).toBe("inspiration");
+  });
+
+  // BD-239（WCAG 2.4.5 多途径）：全局搜索的第二个落点类型——注册表登记的屏幕。
+  it("点击页面导航结果产生 screen 意图并换到那一屏", async () => {
+    useAppStore.setState({ screen: "projects", errors: [] });
+    const { result } = renderHook(() => useSearchActions());
+    let outcome: OpenIntentResult | undefined;
+    await act(async () => {
+      outcome = await result.current.openIntent({ kind: "screen", screen: "card-library" });
+    });
+    expect(outcome).toBe("navigated");
+    expect(useAppStore.getState().screen).toBe("card-library");
+  });
+
+  it("screen 意图没有目标屏幕时返回 invalid 且不换屏", async () => {
+    useAppStore.setState({ screen: "inbox", errors: [] });
+    const { result } = renderHook(() => useSearchActions());
+    let outcome: OpenIntentResult | undefined;
+    await act(async () => {
+      outcome = await result.current.openIntent({ kind: "screen" });
+    });
+    expect(outcome).toBe("invalid");
+    expect(useAppStore.getState().screen).toBe("inbox");
   });
 });
 

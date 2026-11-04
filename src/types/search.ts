@@ -1,14 +1,15 @@
 import type { ID } from "./common";
+import type { AppScreen } from "@/stores/app-store";
 
 /** 统一搜索的筛选维度（界面上的筛选按钮）。 */
 export type UnifiedSearchFilter = "all" | "project" | "body" | "card" | "inbox" | "library";
 
 /** 结果来源分组标识。 */
-export type UnifiedSearchSourceId = "project" | "chapter" | "scene" | "card" | "inbox" | "library" | "inspiration";
+export type UnifiedSearchSourceId = "project" | "chapter" | "scene" | "card" | "inbox" | "library" | "inspiration" | "screen";
 
 /** 点击结果后产生的结构化导航意图：UI 不直接耦合具体页面，由解释器执行。 */
 export interface SearchNavigateIntent {
-  kind: "project" | "chapter" | "scene" | "card" | "inbox" | "book" | "inspiration";
+  kind: "project" | "chapter" | "scene" | "card" | "inbox" | "book" | "inspiration" | "screen";
   projectId?: ID;
   chapterId?: ID;
   sceneId?: ID;
@@ -20,6 +21,8 @@ export interface SearchNavigateIntent {
   inspirationId?: ID;
   /** 收件箱结果携带的真实条目 ID；InboxPage 据此选中目标条目。 */
   inboxItemId?: ID;
+  /** 页面导航结果（BD-239 多途径）：目标应用级屏幕。 */
+  screen?: AppScreen;
 }
 
 /** 统一搜索的一条结果：来自任一数据源，附导航意图与来源标签。 */

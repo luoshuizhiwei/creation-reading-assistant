@@ -206,6 +206,14 @@ export function useSearchActions() {
           if (intent.inspirationId) useInspirationStore.getState().setSelectedId(intent.inspirationId);
           useAppStore.getState().setScreen("inspiration");
           return "navigated";
+        case "screen": {
+          // BD-239（WCAG 2.4.5 多途径）：全局搜索的第二条腿——注册表登记的屏幕本身可搜。
+          // 卡片库原先只有左栏一条途径，而屏幕名与 keywords 早就在 navigation registry 里
+          // 登记过（那份「同时喂侧栏、全局搜索、页面提示」的名单），这里把它接进同一解释器。
+          if (!intent.screen) return "invalid";
+          useAppStore.getState().setScreen(intent.screen);
+          return "navigated";
+        }
       }
     },
     [showToast]

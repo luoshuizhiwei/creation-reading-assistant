@@ -4,10 +4,12 @@ import {
 } from "@/services/creation-service";
 import { globalSearch } from "@/services/search-service";
 import { listInspirations } from "@/services/inspiration-service";
+import { NAV_REGISTRY } from "@/features/navigation/registry";
 import type {
   CreationSearchHit,
   InboxItem
 } from "@/types/creation";
+import type { AppScreen } from "@/stores/app-store";
 import type {
   SearchNavigateIntent,
   UnifiedSearchEntry,
@@ -215,5 +217,63 @@ export const inspirationSearchSource: SearchSource = {
         item.tags.some((tag) => tag.toLowerCase().includes(lower))
     );
     return matched.slice(0, limit).map(entryFromInspiration);
+  }
+};
+
+/**
+ * 页面导航源（BD-239，WCAG 2.4.5 多途径）：把「屏幕」本身变成可搜的东西。
+ *
+ * 摸底实测（/tmp/bd238-245.log）：卡片库只有左栏一条途径，全仓没有任何第二处指向它——
+ * 搜索里 card 命中的落点是项目内「设定卡」视图，不是跨项目总库。而 navigation/registry.ts
+ * 顶部一直写着「一条条目同时喂侧栏、全局搜索、页面提示」，实测每条 screen 条目带的
+ * keywords（"卡片 角色 地点 组织 设定 世界观" 这种）谁都没消费：设置检索只取 setting 条目，
+ * 统一搜索的源只有创作/收件箱/书库/旧灵感四类。也就是说注册表承诺的第二条通道早就设计好了
+ * 数据，只差接上。本批接上它，而不是在各屏工具条上到处加按钮——设定卡的工具条实测在
+ * **默认窗口 1360 宽下右余量 0px**（改前那一排正好贴到容器右缘 1344），任何内联新控件都会
+ * 把页头从 52px 撑成两行 98px（读数 /tmp/bd239-geo-before.log ↔ /tmp/bd239-geo-after2.log）。
+ *
+ * 口径与 searchSettings 同族：按词打分（项名 3 / 副名与检索词 2 / 说明 1），全部词都要命中。
+ * 只在「全部」范围里参与（scoped 搜索是找内容，不是找页面）；无 I/O，不读盘。
+ */
+export const screenSearchSource: SearchSource = {
+  id: "screen",
+  label: "页面导航",
+  async search({ keyword, limit, filter }) {
+    if (filter !== "all") return [];
+    const terms = keyword.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (terms.length === 0) return [];
+    const matched: Array<{ screen: AppScreen; label: string; tip: string; score: number }> = [];
+    for (const entry of NAV_REGISTRY) {
+      if (entry.type !== "screen" || !entry.screen) continue;
+      const haystacks: Array<[string, number]> = [
+        [entry.label.toLowerCase(), 3],
+        [(entry.hint ?? "").toLowerCase(), 2],
+        [(entry.keywords ?? "").toLowerCase(), 2],
+        [(entry.tip ?? "").toLowerCase(), 1]
+      ];
+      let score = 0;
+      let matchedAll = true;
+      for (const term of terms) {
+        const hit = haystacks.find(([text]) => text.includes(term));
+        if (!hit) {
+          matchedAll = false;
+          break;
+        }
+        score += hit[1];
+      }
+      if (!matchedAll) continue;
+      matched.push({ screen: entry.screen, label: entry.label, tip: entry.tip ?? entry.hint ?? "", score });
+    }
+    // 分数同值时保持注册表顺序（Array.prototype.sort 稳定），左栏在前的屏排在前面。
+    matched.sort((a, b) => b.score - a.score);
+    const max = limit > 0 ? limit : matched.length;
+    return matched.slice(0, max).map((item) => ({
+      id: `screen:${item.screen}`,
+      source: "screen" as UnifiedSearchSourceId,
+      title: item.label,
+      snippet: item.tip,
+      originLabel: "一级导航",
+      intent: { kind: "screen" as const, screen: item.screen }
+    }));
   }
 };

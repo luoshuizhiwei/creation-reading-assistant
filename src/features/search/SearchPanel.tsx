@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, BookOpen, FolderOpen, Inbox as InboxIcon, Library as LibraryIcon, PenLine, Search, Tags, X } from "lucide-react";
+import { AlertTriangle, BookOpen, Compass, FolderOpen, Inbox as InboxIcon, Library as LibraryIcon, PenLine, Search, Tags, X } from "lucide-react";
 import { useSearchActions } from "@/hooks/useSearchActions";
 import { useSearchStore } from "@/stores/search-store";
 import { SOURCE_ORDER } from "@/features/search/aggregate";
@@ -22,7 +22,9 @@ const GROUP_LABELS: Record<UnifiedSearchSourceId, string> = {
   card: "卡片",
   inbox: "收件箱",
   library: "资料书库",
-  inspiration: "旧灵感"
+  inspiration: "旧灵感",
+  // BD-239（WCAG 2.4.5）：与数据源 label 同词，组头与「来源不可用」提示不各说一套话。
+  screen: "页面导航"
 };
 
 const GROUP_ICONS: Record<UnifiedSearchSourceId, typeof PenLine> = {
@@ -32,7 +34,8 @@ const GROUP_ICONS: Record<UnifiedSearchSourceId, typeof PenLine> = {
   card: Tags,
   inbox: InboxIcon,
   library: BookOpen,
-  inspiration: InboxIcon
+  inspiration: InboxIcon,
+  screen: Compass
 };
 
 /** BD-129：弹层内可聚焦元素，Tab 环按它首尾成环（与 Dialog 同一口径）。 */
