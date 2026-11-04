@@ -5,6 +5,10 @@ import { useCreationActions } from "@/hooks/useCreationActions";
 import { useUIStore } from "@/stores/ui-store";
 import type { CardRelation, CardType, RelationType } from "@/types/creation";
 
+// BD-244（WCAG 3.3.1 错误识别）：错误元素的固定 id，出错控件用 aria-describedby 指到这里。
+// 形状照自家既有写法（CreateProjectWizard.tsx:205-210、ReplacePanel.tsx:227-228）。
+const RELATION_ERROR_ID = "relation-type-form-error";
+
 interface RelationTypeEditorProps {
   projectId: string;
   cardTypes: CardType[];
@@ -23,6 +27,19 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
   const [fromKinds, setFromKinds] = useState<string[]>([]);
   const [toKinds, setToKinds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // BD-244（WCAG 3.3.1 错误识别）：实测（/tmp/bd244-probe.log R1／R2）——正向填好、只留
+  // 反向空着，文案仍是那句「请填写正向名称和反向名称。」，把没出错的那格也点了名；
+  // 而且两个输入框都是 `invalid=- describedby=-`，读屏器停在被拦下的格子上听不到任何状态。
+  // 这里既把文案改成只点缺的那一项，也把错误程序化挂到对应控件上。
+  const [invalidIds, setInvalidIds] = useState<string[]>([]);
+  const showError = (message: string | null, targetIds: string[] = []) => {
+    setError(message);
+    setInvalidIds(message ? targetIds : []);
+  };
+  const ariaFor = (targetId: string) =>
+    invalidIds.includes(targetId)
+      ? { "aria-invalid": true, "aria-describedby": RELATION_ERROR_ID }
+      : { "aria-invalid": undefined, "aria-describedby": undefined };
   const [submitting, setSubmitting] = useState(false);
   const [editingType, setEditingType] = useState<RelationType | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -60,7 +77,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
     setReverseName("");
     setFromKinds([]);
     setToKinds([]);
-    setError(null);
+    showError(null);
     setConfirmingDeleteId(null);
   };
 
@@ -71,7 +88,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
     setReverseName(type.reverseName);
     setFromKinds(type.fromKinds);
     setToKinds(type.toKinds);
-    setError(null);
+    showError(null);
     setConfirmingDeleteId(null);
   };
 
@@ -86,7 +103,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
     // BD-199：预约记在点击即、await 前——删除成功后列表换血才有交接依据。
     pendingFocusRef.current = { key: type.id, order: relationTypes.map((item) => item.id) };
     setSubmitting(true);
-    setError(null);
+    showError(null);
     const ok = await actions.deleteRelationType({
       type: "relationType.delete",
       relationTypeId: type.id,
@@ -94,7 +111,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
     });
     setSubmitting(false);
     if (!ok) {
-      setError("删除关系类型失败，请刷新后重试。");
+      showError("删除关系类型失败，请刷新后重试。");
       return;
     }
     showToast({ tone: "success", title: "关系类型已删除" });
@@ -104,11 +121,22 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
   };
 
   const submit = async () => {
-    setError(null);
+    showError(null);
     const trimmedForward = forwardName.trim();
     const trimmedReverse = reverseName.trim();
     if (!trimmedForward || !trimmedReverse) {
-      setError("请填写正向名称和反向名称。");
+      // 缺哪项点哪项：两个都缺才说两句，只缺一个就别把没出错的那格也拖进来。
+      const missing: string[] = [];
+      const targets: string[] = [];
+      if (!trimmedForward) {
+        missing.push("正向名称");
+        targets.push("rte-forward-name");
+      }
+      if (!trimmedReverse) {
+        missing.push("反向名称");
+        targets.push("rte-reverse-name");
+      }
+      showError(`请填写${missing.join("和")}。`, targets);
       return;
     }
     setSubmitting(true);
@@ -133,7 +161,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
         });
     setSubmitting(false);
     if (!ok) {
-      setError(editingType ? "保存关系类型失败，请刷新后重试。" : "创建关系类型失败，请重试。");
+      showError(editingType ? "保存关系类型失败，请刷新后重试。" : "创建关系类型失败，请重试。");
       return;
     }
     if (editingType) {
@@ -210,8 +238,10 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
             <label className="cards-field-label">正向名称<span className="cards-required">*</span></label>
             <input
               className="cards-input"
+              id="rte-forward-name"
               aria-label="正向名称"
               aria-required="true"
+              {...ariaFor("rte-forward-name")}
               value={forwardName}
               onChange={(event) => setForwardName(event.target.value)}
               placeholder="如：师徒"
@@ -221,8 +251,10 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
             <label className="cards-field-label">反向名称<span className="cards-required">*</span></label>
             <input
               className="cards-input"
+              id="rte-reverse-name"
               aria-label="反向名称"
               aria-required="true"
+              {...ariaFor("rte-reverse-name")}
               value={reverseName}
               onChange={(event) => setReverseName(event.target.value)}
               placeholder="如：师父"
@@ -262,7 +294,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
               {cardTypes.length === 0 && <span className="cards-relations-empty">当前项目还没有卡片类型。</span>}
             </div>
           </div>
-          {error && <p className="cards-form-error" role="alert">{error}</p>}
+          {error && <p id={RELATION_ERROR_ID} className="cards-form-error" role="alert">{error}</p>}
     </Dialog>
   );
 }

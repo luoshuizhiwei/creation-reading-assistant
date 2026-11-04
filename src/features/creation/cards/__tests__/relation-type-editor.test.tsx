@@ -230,13 +230,32 @@ describe("RelationTypeEditor 自定义关系类型", () => {
     expect(command.toKinds).toBeUndefined();
   });
 
-  it("缺少正反名称时不提交", async () => {
+  // BD-244（WCAG 3.3.1 错误识别）：这一档只填了正向、空着反向，旧文案却仍是那句
+  // 「请填写正向名称和反向名称。」——把没出错的那格也点了名，等于没指认出错项
+  // （运行时实测 /tmp/bd244-probe.log R1／R2：两种失败态一字不差）。
+  it("只缺反向时只点反向的名，并把错误挂到反向那一格", async () => {
     render(<RelationTypeEditor projectId="p1" cardTypes={cardTypes} onClose={() => {}} />);
     fireEvent.change(screen.getByPlaceholderText("如：师徒"), { target: { value: "只有正向" } });
     fireEvent.click(screen.getByText("创建关系类型"));
 
-    await waitFor(() => expect(screen.getByText(/请填写正向名称和反向名称/)).toBeDefined());
+    await waitFor(() => expect(screen.getByText("请填写反向名称。")).toBeDefined());
     expect(actions.runStructure).not.toHaveBeenCalled();
+    const forward = screen.getByPlaceholderText("如：师徒");
+    const reverse = screen.getByPlaceholderText("如：师父");
+    expect(reverse.getAttribute("aria-invalid")).toBe("true");
+    expect(reverse.getAttribute("aria-describedby")).toBe("relation-type-form-error");
+    expect(screen.getByText("请填写反向名称。").id).toBe("relation-type-form-error");
+    expect(forward.getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("正反都缺时两项都点名、两格都挂错误", async () => {
+    render(<RelationTypeEditor projectId="p1" cardTypes={cardTypes} onClose={() => {}} />);
+    fireEvent.click(screen.getByText("创建关系类型"));
+
+    await waitFor(() => expect(screen.getByText("请填写正向名称和反向名称。")).toBeDefined());
+    expect(actions.runStructure).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText("如：师徒").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByPlaceholderText("如：师父").getAttribute("aria-invalid")).toBe("true");
   });
 
   it("BD-139：正反名称输入框以可见标签作可访问名", () => {

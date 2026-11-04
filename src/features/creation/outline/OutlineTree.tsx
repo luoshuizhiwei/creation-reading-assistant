@@ -100,6 +100,13 @@ function commandForPending(outline: CreationProjectOutline, pending: PendingOper
 function PromptDialog({ prompt, onCancel }: { prompt: PromptState; onCancel(): void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
+  // BD-244（WCAG 3.3.1 错误识别 + 3.3.3 纠错建议）：旧写法留空点「确定」或回车时直接
+  // `return`，一声不响。运行时实测（/tmp/bd244-probe2.log 的 N1／N1b 两档）：
+  // 「❗ 没有出现任何错误文本」、控件 `invalid=- describedby=-`、弹层还停在原地——
+  // 键盘用户按了回车什么都没发生，只能自己猜是名称不行还是按钮没点着。
+  // 对照自家既有形状（CreateProjectWizard.tsx:205／ReplacePanel.tsx:227）：
+  // 文案 + 控件侧 aria-invalid + aria-describedby → 错误元素 id，错误元素带 role="alert"。
+  const [emptyError, setEmptyError] = useState(false);
 
   // BD-132：Esc 原先只挂在输入框上（焦点一到「取消/确定」就失效），且没有 Tab 环与
   // 关闭后的焦点归还。统一交给 useModalKeyboard；输入框的 focus+select 仍留在下面。
@@ -117,7 +124,12 @@ function PromptDialog({ prompt, onCancel }: { prompt: PromptState; onCancel(): v
 
   const commit = () => {
     const title = inputRef.current?.value ?? "";
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      // 另账记档：「自定义章节编号」留空的原意是清除编号（submit 里 `text.trim() || undefined`），
+      // 眼下这条守卫依旧把它挡着——那是功能问题，本批不混进来，这里只保证「拦下了要说话」。
+      setEmptyError(true);
+      return;
+    }
     prompt.submit(title.trim());
   };
 
@@ -141,11 +153,19 @@ function PromptDialog({ prompt, onCancel }: { prompt: PromptState; onCancel(): v
             ref={inputRef}
             className="paper-input mt-3 h-8 w-full"
             aria-label={prompt.title}
+            aria-invalid={emptyError ? true : undefined}
+            aria-describedby={emptyError ? "outline-prompt-error" : undefined}
             defaultValue={prompt.defaultValue}
+            onChange={() => setEmptyError(false)}
             onKeyDown={(event) => {
               if (event.key === "Enter") commit();
             }}
           />
+          {emptyError && (
+            <p className="creation-field-error mt-1" id="outline-prompt-error" role="alert">
+              {`${prompt.title}不能为空，请填一个名字再提交。`}
+            </p>
+          )}
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="secondary" onClick={onCancel}>取消</Button>
             <Button onClick={commit}>确定</Button>

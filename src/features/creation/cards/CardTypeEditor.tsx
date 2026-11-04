@@ -20,6 +20,11 @@ const FIELD_KINDS: { value: CardFieldKind; label: string }[] = [
 
 const KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 
+// BD-244（WCAG 3.3.1 错误识别）：错误元素的固定 id——出错控件靠 aria-describedby
+// 指到这里，读屏器停在被拦下的那一格上就能听到原因。写法照自家既有形状
+// （CreateProjectWizard.tsx:205-210、ReplacePanel.tsx:227-228）。
+const CARD_TYPE_ERROR_ID = "card-type-form-error";
+
 interface DraftField {
   key: string;
   label: string;
@@ -101,6 +106,17 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
   const [name, setName] = useState("");
   const [fields, setFields] = useState<DraftField[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // BD-244：出错控件的 id（aria-describedby 指过去的那一格）。文案点名 + 程序化关联，
+  // 缺一样都算「错误没被识别出来」。
+  const [invalidId, setInvalidId] = useState<string | null>(null);
+  const showError = (message: string | null, targetId?: string) => {
+    setError(message);
+    setInvalidId(message ? targetId ?? null : null);
+  };
+  const ariaFor = (targetId: string) =>
+    invalidId === targetId
+      ? { "aria-invalid": true, "aria-describedby": CARD_TYPE_ERROR_ID }
+      : { "aria-invalid": undefined, "aria-describedby": undefined };
   const [submitting, setSubmitting] = useState(false);
   const [editingType, setEditingType] = useState<CardType | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -170,7 +186,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
     setEditingType(null);
     setName("");
     setFields([]);
-    setError(null);
+    showError(null);
     setConfirmingDeleteId(null);
   };
 
@@ -179,7 +195,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
     setEditingType(type);
     setName(type.name);
     setFields(type.fields.map(fieldToDraft));
-    setError(null);
+    showError(null);
     setConfirmingDeleteId(null);
   };
 
@@ -200,7 +216,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
     // BD-199：预约记在点击即、await 前——删除成功后列表换血才有交接依据。
     pendingFocusRef.current = { key: type.id, order: cardTypes.map((item) => item.id) };
     setSubmitting(true);
-    setError(null);
+    showError(null);
     const ok = await actions.deleteCardType({
       type: "cardType.delete",
       cardTypeId: type.id,
@@ -208,7 +224,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
     });
     setSubmitting(false);
     if (!ok) {
-      setError("删除卡片类型失败，请刷新后重试。");
+      showError("删除卡片类型失败，请刷新后重试。");
       return;
     }
     showToast({ tone: "success", title: "卡片类型已删除" });
@@ -218,27 +234,32 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
   };
 
   const submit = async () => {
-    setError(null);
+    showError(null);
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError("请填写类型名称。");
+      showError("请填写类型名称。", "cte-type-name");
       return;
     }
     const seenKeys = new Set<string>();
     const schema: CardFieldSchema[] = [];
-    for (const field of fields) {
+    for (let index = 0; index < fields.length; index += 1) {
+      const field = fields[index];
       const trimmedKey = field.key.trim();
       const trimmedLabel = field.label.trim();
+      // BD-244（WCAG 3.3.1）：每条文案都带「第 N 个字段」——N 就是行首那个可见的 #N 编号，
+      // 屏幕上的位置和读屏里念出来的名字对得上；同时把错误挂到真正出错的那一格上。
       if (!KEY_PATTERN.test(trimmedKey)) {
-        setError(`字段 key「${field.key}」必须为字母开头、仅含字母数字下划线的稳定标识。`);
+        showError(`第 ${index + 1} 个字段：字段 key「${field.key}」必须为字母开头、仅含字母数字下划线的稳定标识。`, `cte-field-key-${index}`);
         return;
       }
       if (!trimmedLabel) {
-        setError("每个字段都需要填写名称（label）。");
+        // 旧文案「每个字段都需要填写名称（label）。」——实测（/tmp/bd244-probe.log A1/A2）
+        // 把第 1 行和第 2 行的名称各留空一次，两次一字不差，等于什么都没指认。
+        showError(`第 ${index + 1} 个字段（key「${trimmedKey}」）还没填名称（label）。`, `cte-field-label-${index}`);
         return;
       }
       if (seenKeys.has(trimmedKey)) {
-        setError(`字段 key「${trimmedKey}」重复，请使用唯一标识。`);
+        showError(`第 ${index + 1} 个字段：字段 key「${trimmedKey}」重复，请使用唯一标识。`, `cte-field-key-${index}`);
         return;
       }
       seenKeys.add(trimmedKey);
@@ -247,14 +268,14 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
       if (field.kind === "select" || field.kind === "multiSelect") {
         const options = parseOptions(field.optionsText);
         if (options.length === 0) {
-          setError(`单选/多选字段「${trimmedLabel}」至少需要一个有效选项。`);
+          showError(`第 ${index + 1} 个字段：单选/多选字段「${trimmedLabel}」至少需要一个有效选项。`, `cte-field-options-${index}`);
           return;
         }
         entry.options = options;
       }
       const parsed = parseDefault(field);
       if (parsed.error) {
-        setError(parsed.error);
+        showError(parsed.error, `cte-field-default-${index}`);
         return;
       }
       if (parsed.value !== undefined) entry.defaultValue = parsed.value;
@@ -278,7 +299,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
         });
     setSubmitting(false);
     if (!ok) {
-      setError(editingType ? "保存卡片类型失败，请刷新后重试。" : "创建卡片类型失败，请重试。");
+      showError(editingType ? "保存卡片类型失败，请刷新后重试。" : "创建卡片类型失败，请重试。");
       return;
     }
     if (editingType) {
@@ -356,8 +377,10 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
             <label className="cards-field-label">类型名称<span className="cards-required">*</span></label>
             <input
               className="cards-input"
+              id="cte-type-name"
               aria-label="类型名称"
               aria-required="true"
+              {...ariaFor("cte-type-name")}
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="例如：功法、神兵"
@@ -410,11 +433,11 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
                 <div className="cte-field-grid">
                   <div className="cards-field">
                     <label className="cards-field-label">名称<span className="cards-required">*</span></label>
-                    <input className="cards-input" aria-label={`字段 ${index + 1} 名称`} aria-required="true" value={field.label} onChange={(e) => updateField(index, { label: e.target.value })} placeholder="字段显示名" />
+                    <input className="cards-input" id={`cte-field-label-${index}`} aria-label={`字段 ${index + 1} 名称`} aria-required="true" {...ariaFor(`cte-field-label-${index}`)} value={field.label} onChange={(e) => updateField(index, { label: e.target.value })} placeholder="字段显示名" />
                   </div>
                   <div className="cards-field">
                     <label className="cards-field-label">稳定 key<span className="cards-required">*</span></label>
-                    <input className="cards-input" aria-label={`字段 ${index + 1} 稳定 key`} aria-required="true" value={field.key} disabled={field.existing} onChange={(e) => updateField(index, { key: e.target.value })} placeholder="如 magic_name" />
+                    <input className="cards-input" id={`cte-field-key-${index}`} aria-label={`字段 ${index + 1} 稳定 key`} aria-required="true" {...ariaFor(`cte-field-key-${index}`)} value={field.key} disabled={field.existing} onChange={(e) => updateField(index, { key: e.target.value })} placeholder="如 magic_name" />
                   </div>
                   <div className="cards-field">
                     <label className="cards-field-label">类型</label>
@@ -430,7 +453,9 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
                     <label className="cards-field-label">选项（每行或逗号分隔）</label>
                     <textarea
                       className="cards-input cards-textarea"
+                      id={`cte-field-options-${index}`}
                       aria-label={`字段 ${index + 1} 选项`}
+                      {...ariaFor(`cte-field-options-${index}`)}
                       value={field.optionsText}
                       onChange={(e) => updateField(index, { optionsText: e.target.value })}
                       placeholder={"选项 A\n选项 B"}
@@ -441,11 +466,11 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
                   <div className="cards-field">
                     <label className="cards-field-label">默认值（可选）</label>
                     {field.kind === "number" ? (
-                      <input className="cards-input" type="number" aria-label={`字段 ${index + 1} 默认值`} value={field.defaultText} onChange={(e) => updateField(index, { defaultText: e.target.value })} placeholder="留空表示无默认" />
+                      <input className="cards-input" type="number" id={`cte-field-default-${index}`} aria-label={`字段 ${index + 1} 默认值`} {...ariaFor(`cte-field-default-${index}`)} value={field.defaultText} onChange={(e) => updateField(index, { defaultText: e.target.value })} placeholder="留空表示无默认" />
                     ) : field.kind === "date" ? (
-                      <input className="cards-input" type="date" aria-label={`字段 ${index + 1} 默认值`} value={field.defaultText} onChange={(e) => updateField(index, { defaultText: e.target.value })} />
+                      <input className="cards-input" type="date" id={`cte-field-default-${index}`} aria-label={`字段 ${index + 1} 默认值`} {...ariaFor(`cte-field-default-${index}`)} value={field.defaultText} onChange={(e) => updateField(index, { defaultText: e.target.value })} />
                     ) : (
-                      <input className="cards-input" aria-label={`字段 ${index + 1} 默认值`} value={field.defaultText} onChange={(e) => updateField(index, { defaultText: e.target.value })} placeholder="留空表示无默认" />
+                      <input className="cards-input" id={`cte-field-default-${index}`} aria-label={`字段 ${index + 1} 默认值`} {...ariaFor(`cte-field-default-${index}`)} value={field.defaultText} onChange={(e) => updateField(index, { defaultText: e.target.value })} placeholder="留空表示无默认" />
                     )}
                   </div>
                 )}
@@ -470,7 +495,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
               </div>
             ))}
           </div>
-          {error && <p className="cards-form-error" role="alert">{error}</p>}
+          {error && <p id={CARD_TYPE_ERROR_ID} className="cards-form-error" role="alert">{error}</p>}
     </Dialog>
   );
 }

@@ -116,7 +116,8 @@
     "audit:heading-order": "node scripts/audit-heading-order.mjs",
     "audit:copy-hygiene": "node scripts/audit-copy-hygiene.mjs",
     "audit:list-structure": "node scripts/audit-list-structure.mjs",
-    "audit:multiple-ways": "node scripts/audit-multiple-ways.mjs"
+    "audit:multiple-ways": "node scripts/audit-multiple-ways.mjs",
+    "audit:error-identification": "node scripts/audit-error-identification.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",
