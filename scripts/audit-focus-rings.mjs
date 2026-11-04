@@ -13,7 +13,10 @@
  * 判据（停靠点有指示 = 以下任一）：
  *  · outline 实线且宽度 ≥1px；
  *  · box-shadow 里带 `0 0 0 Npx` 纯环（本仓 §2.3 的替代形状，如 .pe-input:focus）；
- *  · 其他非 none 的 box-shadow（保守放行，红名单人工复核时再收紧）。
+ *  · 聚焦差分：同一元素 blur 前后 outline / box-shadow / border-color / background 任一项变化；
+ *  · 容器代持：往上三级祖先里出现「随聚焦才有」的环或换色，且该容器几何包住焦点元素、
+ *    面积 ≤8 倍（BD-241 收紧前这里是「有任意阴影就保守放行」，会把从不随聚焦变化的
+ *    常驻投影判绿——已摘除，见文件末 BD-241 段）。
  * 跳过 disabled 与 [tabindex="-1"] 的程序化着陆点（PageTransition 容器等——它们是
  *  WCAG 2.4.3 的落点，不是 Tab 序列成员；2.4.7 管的是键盘可聚焦序列）。
  *
@@ -58,6 +61,33 @@
  *    随写作台懒加载分块排在主包之后，与全局 `input:focus-visible` 同为 0-1-1 平手、
  *    平手输在加载顺序）——改前实测 outline="none 0px"、shadow=none、容器聚焦前后逐字相同，
  *    即彻底无指示；修在 writing-quick-reference.css，由该块自己画环。
+ *
+ * BD-242 收这一族的收尾账（不改产品，只补网）：上一批自记的三处欠账全走进来了——
+ *  · `弹层·命令面板`（Ctrl+P → `.creation-search-input`）与 `写作台·引用卡`（正文输入 `@`
+ *    → `.card-reference-input`）：两处都是 0-1-0 的 `outline: none`，输在特异度给全局元素级
+ *    规则，实测有 2px 实线环（/tmp/bd241-probe.log S3/S4，Tab 75／74 步命中），是绿面进网，
+ *    不是缺陷——但绿面不入网就等于没有牙齿，将来谁把全局那条改窄就没人报警。
+ *  · `弹层·写作速查·本项目字段`（`.writing-quick-field input`）：这一支上一批只有产品实测
+ *    （/tmp/bd241-probe4.log）覆盖到，常驻网里缺位——因为卡片字段要**先有一张卡并被选中**
+ *    才挂载。所以 createProject() 现在在建项目之后再建一张卡（设定卡 → 新建并关联 → 创建
+ *    卡片），本批停靠点由 781 增至 867（范围 28 → 31；三面各判 3／2／76 个且各自点名已判到，
+ *    /tmp/bd242-fr-run3.log）。
+ *  · 判据没动：这三面全走本体实线环直判，聚焦差分／容器代持分支在本批新增面上 0 次触发。
+ *  · 顺带把网自己的两处哑处修响（跑法教训，/tmp/bd242-fr-run1.log + /tmp/bd242-probe.log）：
+ *    ① 命令面板的 Tab 陷阱只兜「输入框↔关闭钮」两点，sweep 一 blur 起步就走到页尾，面板两处
+ *      Escape 处理都收不到键 ⇒ overlay scrim 常驻，把后面 5 个范围的点击全挡掉；改法是
+ *      resetFocus:false 起步 + Escape 与面板自带关闭钮双保险收尾。
+ *    ② 「跳过」原先只打一行就继续、整网照样 FOCUS_RING_OK——上面那次失效正好被这个形状
+ *      吞掉（831 个停靠点全绿、6 面根本没走）。现在跳过非零退出（FOCUS_RING_SKIP），并且
+ *      逐范围打印判定数：总停靠点看不出「范围名还在、走查已走空」，每面一行才看得出。
+ *    ③ 连带的第三个坑：上限不够深也是静默的。引用卡一站按 maxStops 60 走，把写作台自己的
+ *      60 个元素走了一遍就收工，而要点名的 `.card-reference-input` 排在真 Tab 序列第 76 位
+ *      （/tmp/bd242-three2.log 撞不到 vs /tmp/bd242-three3.log 上限 220 撞到）——范围名照打、
+ *      整网照绿，站却没进网。所以 sweep 新增 `mustSel`：每站点名一个「必须判到」的停靠点，
+ *      按 `document.activeElement.matches(sel)` 实配（不拿 id 字符串猜——速查面板那三支字段
+ *      输入既无 class 也无 aria-label，id 长成 `input.(无类名)[]`），判不到就抛、落进跳过名单。
+ *      本批三面各自点名：`.writing-quick-field input` / `.creation-search-input` /
+ *      `.card-reference-input`（引用卡一站的上限同步提到 220）。
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync } from "node:fs";
@@ -137,6 +167,16 @@ async function createProject() {
   await page.locator("input[placeholder='例如：500000']").first().fill("50000");
   await wizard.getByRole("button", { name: /创建项目/ }).click();
   await page.waitForTimeout(1200);
+  // BD-242：再建一张真卡片。写作速查面板的卡片字段族（`.writing-quick-field input`）
+  // 要「项目里有卡」且「该卡被选中」才挂载，上一批只靠独立产品实测覆盖，常驻网里缺位；
+  // 有了这张卡，速查面板的「本项目」页签才有可点的第一条。配方同 /tmp/bd241-probe4.cjs。
+  await workbenchView("设定卡", ".cards-page");
+  await page.getByRole("button", { name: /新建并关联/ }).first().click({ force: true });
+  await page.waitForTimeout(900);
+  await page.locator("input[placeholder='卡片主名称']").first().fill("焦点普查卡");
+  await page.waitForTimeout(200);
+  await page.getByRole("button", { name: "创建卡片" }).first().click({ force: true });
+  await page.waitForTimeout(1500);
 }
 
 /**
@@ -205,8 +245,12 @@ const bump = (kind) => tally.set(kind, (tally.get(kind) || 0) + 1);
 /**
  * @param judgeCurrentFirst BD-241：状态门后的停靠点（大纲行内改名态输入框）先判**当前**
  *   焦点元素再开始 Tab——这类元素 blur 即卸载，不进 Tab 序列就再也回不去。
+ * @param mustSel BD-242：这一站**点名要判到**的那个停靠点（CSS 选择器）。走查按 Tab 序列
+ *   走，走不到就只说明上限不够或条件挂载没解开——范围名照打、整网照绿，正是本批栽过的形状
+ *   （引用卡一站 maxStops 60 太浅，真停靠点在 76 位，那 60 站全是写作台自己的元素）。
+ *   判不到就抛，交给 tryScope 落进跳过名单 ⇒ FOCUS_RING_SKIP 非零退出。
  */
-async function sweep(label, { resetFocus = true, maxStops = 120, judgeCurrentFirst = false } = {}) {
+async function sweep(label, { resetFocus = true, maxStops = 120, judgeCurrentFirst = false, mustSel = null } = {}) {
   if (resetFocus) {
     await page.evaluate(() => document.activeElement?.blur?.());
     await page.waitForTimeout(120);
@@ -214,6 +258,10 @@ async function sweep(label, { resetFocus = true, maxStops = 120, judgeCurrentFir
   const seen = new Map();
   let stuck = 0;
   let last = null;
+  // BD-242：逐范围报判定数——总停靠点看不出「某一面静默缩水」（范围名还在、走查已走空），
+  // 每面一行才看得出。跑法上每行前缀两个空格，方便 grep '^  范围'。
+  let judged = 0;
+  let mustHit = false;
   for (let i = 0; i < maxStops; i += 1) {
     if (!(i === 0 && judgeCurrentFirst)) {
       await page.keyboard.press("Tab");
@@ -358,8 +406,17 @@ async function sweep(label, { resetFocus = true, maxStops = 120, judgeCurrentFir
     }
     seen.set(info.id, seen.has(info.id) ? "done" : "first");
     if (info.skip) continue;
+    // BD-242：这一站的点名停靠点判到了没有——按当前 activeElement 实配，不按 id 字符串猜
+    // （速查面板那三支字段输入根本没有 class、也没有 aria-label，id 长成 `input.(无类名)[]`，
+    // 拿字符串needle去撞必然撞空）。
+    if (mustSel && !mustHit) {
+      mustHit = await page.evaluate((s) => {
+        try { return !!document.activeElement?.matches?.(s); } catch { return false; }
+      }, mustSel);
+    }
     if (!seenAll.has(`${label}|${info.id}`)) {
       seenAll.add(`${label}|${info.id}`);
+      judged += 1;
       if (info.unmeasurable) unmeasurable.push(`${info.id}  [${label}]`);
       const kind = info.pixelProbe ? "range 像素差分"
         : info.unmeasurable ? "不可测（blur 即卸载）"
@@ -373,6 +430,8 @@ async function sweep(label, { resetFocus = true, maxStops = 120, judgeCurrentFir
       }
     }
   }
+  console.log(`  范围「${label}」判定 ${judged} 个停靠点${mustSel ? `（点名「${mustSel}」${mustHit ? "已判到" : "没判到"}）` : ""}。`);
+  if (mustSel && !mustHit) throw new Error(`点名停靠点「${mustSel}」没判到：上限不够深，或条件挂载没解开（judged=${judged}）`);
 }
 
 await createProject();
@@ -409,13 +468,20 @@ await sweep("弹层·写作速查", { maxStops: 60 });
 await page.keyboard.press("Control+Shift+k");
 await page.waitForTimeout(300);
 
-// —— BD-206：阅读器与向导弹层。开书失败的面逐个记跳过、不拖垮整网。——
+// —— BD-206：阅读器与向导弹层。开书失败的面逐个记跳过，不拖垮整网。——
+// BD-242 收紧：跳过**不再是哑的**——每跳过一面，本网末尾照样非零退出（FOCUS_RING_SKIP）。
+// 教训来自本批第一次跑法（/tmp/bd242-fr-run1.log）：命令面板没关干净，overlay 的 scrim 挡住
+// 后面 5 面的点击，六个范围静默跳过、整网却还是 FOCUS_RING_OK 831 个停靠点全绿——
+// 「没走到」被当成「走到了且是绿的」，正是这张网最坏的失效形状。
+const skipped = [];
 const tryScope = async (label, prep, opts) => {
   try {
     await prep();
     await sweep(label, opts);
   } catch (e) {
-    console.log(`跳过「${label}」：${String(e && e.message || e).split("\n")[0].slice(0, 120)}`);
+    const why = String(e && e.message || e).split("\n")[0].slice(0, 120);
+    skipped.push(`${label}：${why}`);
+    console.log(`跳过「${label}」：${why}`);
   }
 };
 
@@ -480,6 +546,56 @@ await tryScope("项目·大纲行内改名态", async () => {
   if (!(await page.locator(".outline-inline-edit input").count())) throw new Error("改名态未出现");
 }, { resetFocus: false, judgeCurrentFirst: true, maxStops: 8 });
 
+// —— BD-242：把上一批自记的三处欠账收进网里 ——
+// 速查面板的卡片字段族要「项目里有卡 + 该卡被选中」才挂载，createProject 现在补建了卡；
+// 命令面板与引用卡都是状态门后的弹层，前者 Ctrl+P、后者在正文输入 @ 触发。
+await tryScope("弹层·写作速查·本项目字段", async () => {
+  await workbenchView("写作", ".writing-desk");
+  await page.keyboard.press("Control+Shift+k");
+  await page.waitForTimeout(600);
+  await page.locator(".writing-quick-tabs button", { hasText: "本项目" }).first().click();
+  await page.waitForTimeout(400);
+  const first = page.locator(".writing-quick-list li > button").first();
+  await first.waitFor({ state: "visible", timeout: 10000 });
+  await first.click();
+  await page.waitForSelector(".writing-quick-field input", { timeout: 10000 });
+  await page.waitForTimeout(400);
+}, { maxStops: 140, mustSel: ".writing-quick-field input" });
+await page.keyboard.press("Control+Shift+k").catch(() => {});
+await page.waitForTimeout(300);
+
+await tryScope("弹层·命令面板", async () => {
+  await inWorkbench();
+  await page.keyboard.press("Control+p");
+  await page.waitForTimeout(600);
+  await page.waitForSelector(".creation-search-input", { timeout: 10000 });
+}, { maxStops: 40, resetFocus: false, mustSel: ".creation-search-input" });
+// 收尾两处都要，缺一不可（实测 /tmp/bd242-probe.log）：命令面板的 Tab 陷阱只在「输入框↔
+// 关闭钮」两点间，所以 sweep 必须**不 blur 起步**（resetFocus:false）——一 blur，第一下 Tab
+// 就落到页面序列头上，40 步走到页尾（实测停在大纲「收起卷」钮上），此时面板的 Escape 处理
+// （挂在输入框与关闭钮两处）都收不到键 ⇒ overlay 常驻，它的 scrim 把后面 5 个范围的点击
+// 全挡住，整网静默跳过还照样报绿。留住键盘模态后 Escape 落得进面板；再补点一次面板自己的
+// 关闭钮兜底，将来谁改了键位也不会退化成上面那个失效形状。
+await page.keyboard.press("Escape").catch(() => {});
+await page.locator(".creation-search-close").first().click().catch(() => {});
+await page.waitForTimeout(300);
+await tryScope("写作台·引用卡", async () => {
+  await workbenchView("写作", ".writing-desk");
+  await page.locator(".scene-editor-content").first().click();
+  await page.waitForTimeout(300);
+  // 正文里的 @ 是引用卡触发键（WritingDesk handleMentionTrigger）；字符会留在正文里，
+  // 普查跑在临时 profile 上，不脏真实工程。
+  await page.keyboard.type("@", { delay: 60 });
+  await page.waitForTimeout(700);
+  await page.waitForSelector(".card-reference-input", { timeout: 10000 });
+  // 上限必须比引用卡更深：真键盘 Tab 序列里引用卡输入排在 76 位（实测
+  // /tmp/bd242-three3.log），本站从写作台第 1 位起走——60 上限只走到写作台自己的元素就收工，
+  // 范围名照打、整网照绿，等于这一站没进网（BD-242 自己踩的第二个坑，见文件头）。
+}, { maxStops: 220, mustSel: ".card-reference-input" });
+// 引用卡的 Escape 挂在面板根节点上，sweep 走完焦点早就不在面板里了 ⇒ 点名关它自己的关闭钮。
+await page.locator(".card-reference-close").first().click().catch(() => {});
+await page.waitForTimeout(300);
+
 await tryScope("阅读器·TXT", async () => {
   await goto("资料阅读");
   await page.waitForSelector('.desktop-library-row[data-format="txt"]', { timeout: 15000 });
@@ -532,6 +648,16 @@ if (reds.size > 0) {
   for (const r of reds.values()) {
     console.log(`  - ${r.id}  [${r.where.join("、")}]  outline=${r.outline} shadow=${r.boxShadow}${r.pixelProbe ? ` ${r.pixelProbe}` : ""}${r.judgedBy ? ` ${r.judgedBy}` : ""}`);
   }
+  await app.close();
+  process.exit(1);
+}
+if (skipped.length) {
+  // BD-242：走不到的面**不算判过**。原先只打一行「跳过」就继续，整网仍报绿——本批第一趟
+  // 就是这么漏下 6 个范围（/tmp/bd242-fr-run1.log：831 个停靠点全绿、阅读器五面 + 引用卡
+  // 一面根本没走）。现在把跳过升成非零退出，常驻网里「没走到」和「走到了且是绿的」
+  // 必须是两种脸色。
+  console.log(`FOCUS_RING_SKIP：${skipped.length} 个范围根本没走到，逐个点名：`);
+  for (const s of skipped) console.log(`  - ${s}`);
   await app.close();
   process.exit(1);
 }

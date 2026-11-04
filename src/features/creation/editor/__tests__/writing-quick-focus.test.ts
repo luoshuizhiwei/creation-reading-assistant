@@ -106,3 +106,91 @@ describe("BD-241 焦点环普查的覆盖面与判据", () => {
     expect(census).toContain("不可测（blur 即卸载、拿不到离焦基线）");
   });
 });
+
+/**
+ * BD-242 收尾账：上一批自记的三处欠账——命令面板搜索框、写作台引用卡搜索框、速查面板的
+ * 卡片字段族——都量过（绿），但都没进常驻网。绿面不入网就等于没有牙齿：将来谁把全局
+ * `input:focus-visible` 那条改窄或改特异度，这三处要静默变红而无人报警。
+ * 三面各自的可达性条件也要钉住，否则下一批人会把「范围名还在、走查已静默跳过」当成判过。
+ */
+describe("BD-242 三面欠账进网：范围名 + 各自的解锁步骤", () => {
+  it("三个新范围名都在", () => {
+    for (const label of ["弹层·写作速查·本项目字段", "弹层·命令面板", "写作台·引用卡"]) {
+      expect(census, `缺范围「${label}」`).toContain(`"${label}"`);
+    }
+  });
+
+  it("速查卡片字段族要先有卡：种子流程建项目之后再建一张真卡片", () => {
+    expect(census).toContain("新建并关联");
+    expect(census).toContain("input[placeholder='卡片主名称']");
+    expect(census).toContain('"创建卡片"');
+  });
+
+  it("字段族还要在本项目页签里选中那张卡", () => {
+    expect(census).toContain('hasText: "本项目"');
+    expect(census).toContain(".writing-quick-list li > button");
+    expect(census).toContain(".writing-quick-field input");
+  });
+
+  it("命令面板走 Ctrl+P，引用卡走正文 @ —— 都是状态门后的输入框", () => {
+    expect(census).toContain('page.keyboard.press("Control+p")');
+    expect(census).toContain(".creation-search-input");
+    expect(census).toContain('page.locator(".scene-editor-content")');
+    expect(census).toContain('page.keyboard.type("@", { delay: 60 })');
+    expect(census).toContain(".card-reference-input");
+  });
+
+  it("三面都要收摊：弹层留着的 scrim 会挡住后面每一站的点击（BD-241 跑法教训）", () => {
+    const tail = census.slice(census.indexOf('await tryScope("弹层·写作速查·本项目字段"'));
+    const reader = tail.indexOf('await tryScope("阅读器·TXT"');
+    expect(reader, "三面必须排在阅读器范围之前").toBeGreaterThan(0);
+    const block = tail.slice(0, reader);
+    for (const label of ["弹层·写作速查·本项目字段", "弹层·命令面板", "写作台·引用卡"]) {
+      expect(block.indexOf(`await tryScope("${label}"`), `「${label}」不在三面块内`).toBeGreaterThanOrEqual(0);
+    }
+    // 三面各有关自己的收尾动作（按键或面板自带关闭钮）
+    expect(block).toContain('page.keyboard.press("Control+Shift+k")');
+    expect(block).toContain('page.keyboard.press("Escape")');
+    expect(block).toContain('page.locator(".creation-search-close")');
+    expect(block).toContain('page.locator(".card-reference-close")');
+  });
+
+  it("命令面板的 trap 只兜输入框↔关闭钮两点，sweep 必须不 blur 起步否则 Escape 落空、scrim 常驻", () => {
+    const seg = census.slice(census.indexOf('await tryScope("弹层·命令面板"'));
+    expect(seg, "命令面板必须 resetFocus:false 起步，把焦点留在 trap 里").toContain("resetFocus: false");
+  });
+
+  it("跳过不再是哑的：有范围没走到就非零退出", () => {
+    const code = census.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(code).toContain("FOCUS_RING_SKIP");
+    // 跳过点名数组必须在 tryScope 的 catch 里落账，否则退出码没有依据
+    expect(code).toMatch(/skipped\.push\(/);
+    // 且退出判定排在 FOCUS_RING_OK 之前——先报绿再报跳过等于没说
+    expect(code.indexOf("FOCUS_RING_SKIP")).toBeLessThan(code.indexOf("FOCUS_RING_OK"));
+  });
+
+  it("逐范围打印判定数：总停靠点看不出某一面走空", () => {
+    expect(census).toContain("个停靠点${");
+    expect(census).toMatch(/judged \+= 1;/);
+  });
+
+  /**
+   * 上限不够深同样是静默的：本批引用卡一站按 maxStops 60 走，把写作台自己的 60 个元素走完
+   * 就收工，而要点名的 `.card-reference-input` 排在真 Tab 序列第 76 位——范围名照打、整网照绿、
+   * 站却没进网（实测 /tmp/bd242-three2.log 撞不到、/tmp/bd242-three3.log 上限 220 才撞到）。
+   * 所以每站要能点名一个「必须判到」的停靠点，判不到就抛（抛进 tryScope ⇒ 记跳过 ⇒ 非零退出）。
+   */
+  it("每站可点名「必须判到」的停靠点，判不到就抛——上限太浅不算走到", () => {
+    const code = census.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(code).toMatch(/mustSel = null/);
+    expect(code).toMatch(/if \(mustSel && !mustHit\) throw/);
+    // 按 activeElement.matches(sel) 实配，不拿 id 字符串猜
+    expect(code).toMatch(/document\.activeElement\?\.matches\?\.\(s\)/);
+    // 三面各自点名（缺一条就等于那一面又回到「静默没走到」）
+    expect(census).toContain('mustSel: ".writing-quick-field input"');
+    expect(census).toContain('mustSel: ".creation-search-input"');
+    expect(census).toContain('mustSel: ".card-reference-input"');
+    // 引用卡一站的上限必须比停靠点位次深（实测第 76 位）
+    expect(census).toMatch(/maxStops: 220, mustSel: "\.card-reference-input"/);
+  });
+});
