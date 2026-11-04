@@ -1,4 +1,4 @@
-import  { useEffect, useRef, useState } from "react";
+import  { useEffect, useId, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -209,6 +209,17 @@ export function OutlineTree({
   const [impactBusy, setImpactBusy] = useState(false);
   const [impactPreview, setImpactPreview] = useState<StructurePreviewView | null>(null);
   const [impactError, setImpactError] = useState<string | null>(null);
+  // BD-246（WCAG 3.2.2 On Input）：这张树里有三颗「一改值就挂影响预览弹层」的下拉框
+  // （移卷 / 移章 / 编号模式）。弹层是上下文变更，而原生 <select> 在键盘下每按一次方向键
+  // 就 change 一次——实测（/tmp/bd246-probe7.log、probe8.log）第一次按方向键就被弹层接走：
+  // 模态 0→1、焦点从 select.outline-numbering-select 搬到弹层「关闭」钮，剩下的选项再也
+  // 浏览不了。弹层本身是产品的安全确认（不确认不写入），不能拆；F36 给的出路有两条
+  // （https://www.w3.org/TR/WCAG20-TECHS/F36.html）：加一个显式的「去/应用」钮，或者
+  // **事先说明**。行内那条塞不进去——实拍章节行右侧只剩 4px 余量、动作簇 205px/6 子项
+  // （/tmp/bd246-probe9.log），故走「事先说明」：下面这行常驻可见提示 + 那三颗 select 的
+  // aria-describedby，AT 用户在动手之前就能听到后果。（本仓有空间的那颗已经用「应用」钮
+  // 这个合规写法：CardBoard.tsx:325 批量状态。）
+  const adviceId = useId();
 
   // BD-220（BD-219 同族）：两步确认删除卷/章/场景后，节点整行卸载、焦点跌回
   // body（WCAG 2.4.3）。删除前按 DOM 顺序记下所有删除钮的节点键，结构刷新后把
@@ -505,6 +516,7 @@ export function OutlineTree({
         <select
           className="outline-move-select"
           aria-label={`把章节「${chapter.title}」移动到卷`}
+          aria-describedby={adviceId}
           value=""
           onChange={(event) => {
             if (event.target.value) void moveChapterToVolume(chapter, event.target.value);
@@ -523,6 +535,7 @@ export function OutlineTree({
       <select
         className="outline-numbering-select"
         aria-label={`章节「${chapter.title}」的编号模式`}
+        aria-describedby={adviceId}
         value={chapter.numbering}
         onChange={(event) => setNumbering(chapter, event.target.value as ChapterNumberingKind)}
       >
@@ -559,6 +572,7 @@ export function OutlineTree({
         <select
           className="outline-move-select"
           aria-label={`把场景「${scene.title}」移动到章节`}
+          aria-describedby={adviceId}
           value=""
           onChange={(event) => {
             if (event.target.value) void moveSceneToChapter(scene, event.target.value);
@@ -780,6 +794,9 @@ export function OutlineTree({
     <div className="outline-tree" ref={treeRef} tabIndex={-1}>
       <div className="outline-toolbar">
         <span className="outline-toolbar-label">大纲</span>
+        {/* BD-246：这行不是装饰——它就是那三颗下拉框的「事先说明」，见上面 adviceId 的注释。
+            复用现成的 .outline-page-hint 声明组（margin 0 / 12px / --paper-muted），不新增间距值。 */}
+        <p className="outline-page-hint" id={adviceId}>移卷、移章、改编号会先弹影响预览，确认后才写入。</p>
         <Button variant="outline" size="sm" className="shrink-0" onClick={() => void addVolume()}>
           <Plus size={12} /> 新建卷
         </Button>

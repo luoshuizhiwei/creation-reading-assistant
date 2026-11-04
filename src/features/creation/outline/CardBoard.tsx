@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, FileText } from "lucide-react";
 import { Button, Tabs } from "@/components/ui";
 import type {
@@ -70,6 +70,12 @@ export function CardBoard({
   const [preview, setPreview] = useState<StructurePreviewView | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
   const submittingRef = useRef(false);
+  // BD-246（WCAG 3.2.2 On Input）：与 OutlineTree.tsx:211 同族——卡板每枚卡上的「移章」
+  // 下拉框一改值就挂影响预览弹层（原生 select 键盘下每按一次方向键就 change 一次，第一次
+  // 按就被弹层接走）。弹层是「不确认不写入」的安全确认，不能拆；按 F36 走「事先说明」这条
+  // 出路：常驻可见提示 + aria-describedby。旁边那颗「批量状态」下拉框本来就有显式的
+  // 「应用」钮（本文件 :325），它不是这一族的形状，不动。
+  const adviceId = useId();
 
   /**
    * 统一的编辑事务包装：进入 busy、清除旧错误、执行回调。
@@ -195,6 +201,7 @@ export function CardBoard({
           <select
             className="card-board-move-select"
             aria-label={`把场景「${sceneTitle}」移动到章节`}
+            aria-describedby={adviceId}
             value=""
             onChange={(event) => {
               if (event.target.value) setPendingOp({ type: "sceneMove", sceneId, targetChapterId: event.target.value });
@@ -292,6 +299,9 @@ export function CardBoard({
     <div className="card-board">
       <div className="card-board-toolbar">
         <span className="outline-toolbar-label">卡片板</span>
+        {/* BD-246：常驻可见的「事先说明」，就是下面每枚卡上那颗「移章」下拉框的
+            aria-describedby 目标。复用现成的 .outline-page-hint 声明组，不新增间距值。 */}
+        <p className="outline-page-hint" id={adviceId}>移章会先弹影响预览，确认后才写入。</p>
         <Tabs<GroupMode>
           variant="pill"
           value={mode}

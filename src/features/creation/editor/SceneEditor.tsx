@@ -132,6 +132,15 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
   const onSelectionChangeRef = useRef(onSelectionChange);
   const onMentionTriggerRef = useRef(onMentionTrigger);
   const sceneIdRef = useRef<string | undefined>(undefined);
+  // BD-246（WCAG 3.2.2 On Input）：「块类型」下拉框原本一改值就 .focus() 把光标塞进正文，
+  // 于是焦点从控件搬走 = 换上下文。实测（/tmp/bd246-probe8.log）焦点从
+  // select.scene-block-select「块类型」跳到 div.tiptap.ProseMirror「场景正文编辑区」——
+  // 键盘用户按一次方向键就被请出下拉框，之后按的方向键改的是文档光标，四档块类型浏览不动了。
+  // 这条 ref 记下「按下这一刻正文本来有没有焦点」（mousedown 早于 blur，读到的是交互前的
+  // 真实状态）：正文里正打字的人选完块类型接着打字，写作流不变；纯键盘 Tab 到这颗下拉框的人
+  // 焦点留在原地，可以继续浏览。keydown 把上一条快照清掉，免得「先鼠标点过、再用键盘浏览」
+  // 时焦点又被抢走。
+  const blockWasEditingRef = useRef(false);
   onSaveRef.current = onSave;
   typewriterRef.current = typewriter;
   lineFocusRef.current = lineFocus;
@@ -389,7 +398,19 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
           <button className="scene-tool" type="button" onClick={() => redo(editor.state, editor.view.dispatch)} aria-label="重做" title="重做 (Ctrl+Y)"><Redo2 size={15} /></button>
         </span>
         <span className="scene-tool-group">
-          <select className="scene-block-select" value={activeBlock} onChange={(event) => editor.chain().focus().toggleNode(event.target.value, "paragraph").run()} aria-label="块类型">
+          {/* BD-246：见 blockWasEditingRef 的注释——只有正文原本有焦点时才把焦点交还。 */}
+          <select
+            className="scene-block-select"
+            value={activeBlock}
+            onMouseDown={() => { blockWasEditingRef.current = editor.isFocused; }}
+            onKeyDown={() => { blockWasEditingRef.current = false; }}
+            onChange={(event) => {
+              const chain = editor.chain();
+              if (blockWasEditingRef.current) chain.focus();
+              chain.toggleNode(event.target.value, "paragraph").run();
+            }}
+            aria-label="块类型"
+          >
             <option value="paragraph">段落</option>
             <option value="quoteLetter">引文信件</option>
             <option value="centeredText">居中文本</option>
