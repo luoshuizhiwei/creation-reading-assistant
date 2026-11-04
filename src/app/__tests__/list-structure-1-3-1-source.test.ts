@@ -164,7 +164,17 @@ describe("BD-234 结构与关系：大纲三级 ul/li、卡板列有名、概览
       "text-align: left;",
       "transition: background 0.15s ease, border-color 0.15s ease;"
     ]) expect(btnBlock).toContain(d);
-    expect(overviewCss).toContain(".overview-recent-item > button:hover,\n.overview-recent-item > button:focus-visible {");
+    // BD-240 把这一对 hover/focus 拆成两条：`:focus-visible` 那条要自己把键盘环画出来。
+    // 原来合在一起时，本块 `outline: none`（0-1-1）与全局 `button:focus-visible`（0-1-1）平手，
+    // 平手看加载顺序——概览是懒加载分块、排在 editorial-studio 之后，于是键盘环被静默压掉
+    // （现场 /tmp/bd240-probe.log：computed outline="none 0px" box-shadow="none"）。
+    // 填充与边框色的声明逐条保留在两支里，所以 hover 与 focus 的像素观感与拆之前一致。
+    expect(overviewCss).toContain(".overview-recent-item > button:hover {");
+    const focusBlock = blockOf(overviewCss, ".overview-recent-item > button:focus-visible");
+    expect(focusBlock).toContain("outline: 2px solid var(--accent-spine);");
+    expect(focusBlock).toContain("outline-offset: 2px;");
+    expect(focusBlock).toContain("background: var(--paper-panel, rgba(250, 245, 235, 0.85));");
+    expect(focusBlock).toContain("border-color: var(--copper-soft, rgba(138, 90, 43, 0.35));");
     expect(overviewCss).toContain("  .overview-recent-item > button {\n    grid-template-columns: 1fr auto;");
   });
 

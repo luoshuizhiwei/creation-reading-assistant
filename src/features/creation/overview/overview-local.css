@@ -237,8 +237,26 @@
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.overview-recent-item > button:hover,
+.overview-recent-item > button:hover {
+  background: var(--paper-panel, rgba(250, 245, 235, 0.85));
+  border-color: var(--copper-soft, rgba(138, 90, 43, 0.35));
+}
+
+/* BD-240（焦点可见 2.4.7）：环在这里自己画一遍，不再靠全局那条 `button:focus-visible`。
+ * 上面 `outline: none` 撤的是鼠标聚焦的默认环（鼠标点行不该出现环），但它同时把全局键盘环
+ * 一起压掉了——两边特异性都是 0-1-1（`.overview-recent-item > button` 对 `button:focus-visible`），
+ * 平手时看加载顺序，而本文件随概览懒加载分块、排在 editorial-studio 之后，于是键盘环静默消失。
+ * 实测现场（/tmp/bd240-probe.log，1360×900 真窗、真键盘 Tab 到该行）：
+ *   computed outline="none 0px" box-shadow="none"，命中规则三条——:focus-visible（全局，#550）、
+ *   button:focus-visible（全局，#1114）都给 2px solid --accent-spine，而
+ *   `.overview-recent-item > button`（OverviewPage-*.css#27，后加载）给 outline:none 收尾。
+ * 这条是 BD-234 把行样式整条从 `li.overview-recent-item` 下沉到 `> button` 时带出来的：
+ * 声明确实一字未改，但换元素等于换特异性——原来 li 上的 `outline: none` 是 0-1-0，压不过
+ * `[tabindex]:focus-visible`（0-1-1），键盘环活着；换成 0-1-1 的按钮后就平手了，平手输在顺序上。
+ * 同一形状改回 :focus-visible 自绘环，与本块同文件同分块，不再随加载顺序漂。 */
 .overview-recent-item > button:focus-visible {
+  outline: 2px solid var(--accent-spine);
+  outline-offset: 2px;
   background: var(--paper-panel, rgba(250, 245, 235, 0.85));
   border-color: var(--copper-soft, rgba(138, 90, 43, 0.35));
 }
