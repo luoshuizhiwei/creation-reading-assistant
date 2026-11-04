@@ -68,6 +68,7 @@ fun HomeInspirationSection(
     Column(modifier) {
         SectionHeader(
             title = stringResource(R.string.home_recent_inspiration),
+            compact = true,
             modifier = Modifier
                 .animateEnter(180, reducedMotion)
                 .testTag("inspiration-header"),

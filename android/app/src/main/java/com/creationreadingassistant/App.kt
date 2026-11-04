@@ -8,6 +8,7 @@ import com.creationreadingassistant.data.repository.SearchIndexRepository
 import com.creationreadingassistant.data.repository.SearchIndexScheduler
 import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.EpubSizeRepairTask
+import com.creationreadingassistant.ui.onboarding.ONBOARDING_PREFS
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -27,6 +28,9 @@ import java.io.File
 class App : Application() {
 
     companion object {
+        /** 启动接线（后台线程）的 logcat tag，便于过滤启动阶段失败。 */
+        private const val TAG_BOOT = "CRA-Boot"
+
         /** 启动轨迹写入系统 trace，绝不在首帧关键路径同步落盘。 */
         @JvmStatic
         internal fun trace(tag: String, msg: String) {
@@ -39,9 +43,17 @@ class App : Application() {
                 val dir = AppContextHolder.cacheDir ?: return@runCatching
                 val f = File(dir, "cra_fatal.log")
                 val ts = java.time.format.DateTimeFormatter
-                    .ofPattern("MM-dd HH:mm:ss", java.util.Locale.US)
+                    .ofPattern("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
                     .format(java.time.LocalDateTime.now())
-                f.appendText("==== $ts $prefix ====\n$stack\n\n")
+                val rt = Runtime.getRuntime()
+                val heapUsedMb = (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024)
+                val heapTotalMb = rt.totalMemory() / (1024 * 1024)
+                val heapMaxMb = rt.maxMemory() / (1024 * 1024)
+                val versionStr = AppContextHolder.appVersion ?: "unknown"
+                val deviceInfo = "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} " +
+                    "(Android ${android.os.Build.VERSION.RELEASE}, API ${android.os.Build.VERSION.SDK_INT}, App: $versionStr)"
+                val memInfo = "Heap: ${heapUsedMb}MB used / ${heapTotalMb}MB total (max ${heapMaxMb}MB)"
+                f.appendText("==== $ts $prefix ====\n$deviceInfo\n$memInfo\n$stack\n\n")
             }
         }
     }
@@ -51,6 +63,24 @@ class App : Application() {
         // 最早的代码执行点：先缓存 cacheDir 并安装未捕获处理器，
         // 覆盖 Hilt 初始化 / 类加载等最早期的崩溃。
         AppContextHolder.cacheDir = cacheDir
+        base?.let { ctx ->
+            runCatching {
+                val pInfo = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+                @Suppress("DEPRECATION")
+                val vCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    pInfo.longVersionCode
+                } else {
+                    pInfo.versionCode.toLong()
+                }
+                AppContextHolder.appVersion = "${pInfo.versionName} ($vCode)"
+            }
+            // 预热 app_prefs：首次 getSharedPreferences() 要创建 preferences 目录、stat
+            // 并解析 XML，在部分设备上实测 ~250ms（StrictMode DiskReadViolation）。
+            // 它原本发生在 MainActivity 的 Compose 组合期（isOnboardingCompleted()），
+            // 属首帧关键路径；这里提前到进程最早执行点 —— 与上面的 getPackageInfo
+            // 同一次磁盘预热窗口，把这份开销从「首帧前」挪到「窗口未显示时」。
+            runCatching { ctx.getSharedPreferences(ONBOARDING_PREFS, Context.MODE_PRIVATE) }
+        }
         installCrashHandler()
         trace("App", "attachBaseContext")
     }
@@ -99,26 +129,40 @@ class App : Application() {
                     .applyApplicationNightMode(this, mode)
             }
         }
-        // EPUB size 修复：进程级一次性懒启动任务（替代此前每个 ShelfViewModel 实例
-        // init 各自触发一次的重复执行）。
-        EntryPointAccessors.fromApplication(this, EpubRepairEntryPoint::class.java)
-            .epubSizeRepairTask()
-            .startOnce()
-        // 阅读目标提醒（P3.2 片 3）：注册渠道 + 对账 WorkManager 调度（内部异步，不阻塞首帧）
-        runCatching {
-            EntryPointAccessors.fromApplication(this, com.creationreadingassistant.feature.goal.GoalSchedulerEntryPoint::class.java)
-                .scheduler()
-                .start()
-        }
-        // 全文搜索索引（R2-S1）：注册一次性 + 每日周期 WorkManager 建索引任务。
-        // 修复：此前 SearchIndexScheduler 从未被任何生产代码调用，SearchIndexWorker 因此
-        // 从不入队，search_terms 恒为空 —— 全局搜索的「正文」通道始终没有数据可查，
-        // 界面会长期停在「全文索引尚未建立」。这里与 GoalScheduler 同款接线。
-        runCatching {
-            EntryPointAccessors.fromApplication(this, SearchIndexEntryPoint::class.java)
-                .searchIndexScheduler()
-                .start()
-        }
+        // 三项启动接线一律放到后台线程，不在主线程串行执行。
+        //
+        // 为什么必须这样：`EntryPointAccessors.fromApplication(...)` 会即时构建该 EntryPoint
+        // 的 Hilt 子图，连带构造 AppDatabase 单例，而 [DatabaseModule.provideDatabase] 里
+        // 会调用 [DatabaseSafetyNet.snapshotIfUpgrading] —— 版本升级那一次要把**整个库文件**
+        // 复制一份（本机实测库可达 319MB），在主线程上就是数秒级冻结。即使是普通启动，
+        // 这三步也各自带磁盘 I/O（WorkManager 库、通知渠道、文件头读取），StrictMode 在
+        // 真机上抓到了对应的 DiskReadViolation。
+        //
+        // 三项都是「发起即忘」的后台初始化，首帧不依赖它们完成：EPUB 修复是异步修复任务、
+        // 目标提醒只注册渠道并排期、搜索索引只入队 WorkManager。放到后台既不改变语义，
+        // 也把这段耗时从首帧关键路径上摘掉。
+        Thread({
+            runCatching {
+                EntryPointAccessors.fromApplication(this, EpubRepairEntryPoint::class.java)
+                    .epubSizeRepairTask()
+                    .startOnce()
+            }.onFailure { Log.w(TAG_BOOT, "EPUB 修复任务启动失败", it) }
+            // 阅读目标提醒（P3.2 片 3）：注册渠道 + 对账 WorkManager 调度
+            runCatching {
+                EntryPointAccessors.fromApplication(this, com.creationreadingassistant.feature.goal.GoalSchedulerEntryPoint::class.java)
+                    .scheduler()
+                    .start()
+            }.onFailure { Log.w(TAG_BOOT, "阅读目标调度启动失败", it) }
+            // 全文搜索索引（R2-S1）：入队一次性 + 每日周期 WorkManager 建索引任务。
+            // 修复：此前 SearchIndexScheduler 从未被任何生产代码调用，SearchIndexWorker 因此
+            // 从不入队，search_terms 恒为空 —— 全局搜索的「正文」通道始终没有数据可查，
+            // 界面会长期停在「全文索引尚未建立」。这里与 GoalScheduler 同款接线。
+            runCatching {
+                EntryPointAccessors.fromApplication(this, SearchIndexEntryPoint::class.java)
+                    .searchIndexScheduler()
+                    .start()
+            }.onFailure { Log.w(TAG_BOOT, "搜索索引调度启动失败", it) }
+        }, "cra-startup").start()
         trace("App", "onCreate end")
     }
 
@@ -133,9 +177,10 @@ class App : Application() {
     }
 }
 
-/** 在 attachBaseContext 时缓存 cacheDir，供 companion 静态日志使用。 */
+/** 在 attachBaseContext 时缓存 cacheDir 与应用版本，供 companion 静态日志使用。 */
 internal object AppContextHolder {
     var cacheDir: File? = null
+    var appVersion: String? = null
 }
 
 /** Application 级入口：获取进程级一次性任务实例，避免在 App 里直接注入依赖。 */

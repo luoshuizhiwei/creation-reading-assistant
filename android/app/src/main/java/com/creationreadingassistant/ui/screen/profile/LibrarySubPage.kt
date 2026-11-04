@@ -155,74 +155,72 @@ internal fun LibrarySubPage(
         scaffoldPadding = scaffoldPadding,
         modifier = Modifier.fillMaxSize(),
     ) {
-        // 1. 顶部操作与概览微岛
+        // 1. 顶部操作与概览：入口卡降为卡外标题行 + 一行弱化说明，
+        //    让列表首项（真正的主体内容）在第一屏就能看见。
         item(key = "library_overview_header") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    SubPageSectionTitle(
-                        title = "${typeName}管理",
-                        icon = typeIcon,
-                        iconTint = themeColor,
-                        trailing = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateEnter(reducedMotion = reducedMotion),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                SubPageSectionTitle(
+                    title = "${typeName}管理",
+                    icon = typeIcon,
+                    iconTint = themeColor,
+                    trailing = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (items.size > 1) {
+                                SelectablePill(
+                                    text = if (sorting) "完成排序" else "调整顺序",
+                                    selected = sorting,
+                                    onClick = { sorting = !sorting },
+                                )
+                            }
+                            // 新建微胶囊按钮
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = themeColor.copy(alpha = 0.12f),
+                                border = BorderStroke(0.8.dp, themeColor.copy(alpha = 0.35f)),
+                                modifier = Modifier.clickable {
+                                    haptic(HapticFeedbackType.TextHandleMove)
+                                    newName = ""
+                                    showCreateDialog = true
+                                },
                             ) {
-                                if (items.size > 1) {
-                                    SelectablePill(
-                                        text = if (sorting) "完成排序" else "调整顺序",
-                                        selected = sorting,
-                                        onClick = { sorting = !sorting },
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Add,
+                                        contentDescription = null,
+                                        tint = themeColor,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Text(
+                                        text = "新建",
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = themeColor,
                                     )
                                 }
-                                // 新建微胶囊按钮
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = themeColor.copy(alpha = 0.12f),
-                                    border = BorderStroke(0.8.dp, themeColor.copy(alpha = 0.35f)),
-                                    modifier = Modifier.clickable {
-                                        haptic(HapticFeedbackType.TextHandleMove)
-                                        newName = ""
-                                        showCreateDialog = true
-                                    },
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Add,
-                                            contentDescription = null,
-                                            tint = themeColor,
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                        Text(
-                                            text = "新建",
-                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                            color = themeColor,
-                                        )
-                                    }
-                                }
                             }
-                        },
-                    )
-
-                    Text(
-                        text = if (sorting) {
-                            "正在调整顺序：使用箭头微调前后位序，顺序将实时同步至书架"
-                        } else {
-                            "共 ${items.size} 项 · 归类整理书籍与阅读维度，点击条目可查看关联书目"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                        }
+                    },
+                )
+                Text(
+                    text = if (sorting) {
+                        "用箭头调整前后顺序，实时同步书架"
+                    } else {
+                        "共 ${items.size} 项 · 点击条目查看关联书籍"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 
@@ -361,20 +359,20 @@ internal fun LibrarySubPage(
                                 }
                             }
 
-                            // 展开微岛：分类色调调节与关联书籍列表
+                            // 展开区：分类色调调节与关联书籍列表
                             if (expanded && !sorting) {
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
                                 SectionDivider()
-                                Spacer(modifier = Modifier.height(10.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
 
                                 // 分类专属色调选择微岛
                                 if (page == ProfileSubPage.CATEGORIES) {
                                     Text(
                                         text = "专属色调",
-                                        style = MaterialTheme.typography.labelMedium,
+                                        style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     FlowRow(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -399,47 +397,32 @@ internal fun LibrarySubPage(
                                             )
                                         }
                                     }
-                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Spacer(modifier = Modifier.height(6.dp))
                                 }
 
                                 // 关联书籍列表展示
                                 val linkedIds = linkedBookIds[id] ?: emptyList()
                                 val linkedBooks = linkedIds.mapNotNull { bookMap[it] }
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    Text(
-                                        text = "关联书籍",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    if (linkedBooks.isNotEmpty()) {
-                                        Text(
-                                            text = "共 ${linkedBooks.size} 本",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                                        )
-                                    }
-                                }
+                                Text(
+                                    text = if (linkedBooks.isEmpty()) {
+                                        "关联书籍"
+                                    } else {
+                                        "关联书籍 ${linkedBooks.size} 本"
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
 
                                 Spacer(modifier = Modifier.height(6.dp))
 
                                 if (linkedBooks.isEmpty()) {
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f),
-                                        modifier = Modifier.fillMaxWidth(),
-                                    ) {
-                                        Text(
-                                            text = "暂无关联书籍，可前往书架或书籍详情页添加关联",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        )
-                                    }
+                                    Text(
+                                        text = "暂无关联书籍，可在书架添加",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                                        modifier = Modifier.padding(vertical = 4.dp),
+                                    )
                                 } else {
                                     FlowRow(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -463,53 +446,51 @@ internal fun LibrarySubPage(
                 }
             }
         } else {
-            // 空态微岛
+            // 空态：不再单独占一张卡，图标 + 一行说明 + 创建按钮直接落在页面上
             item(key = "library_empty_island") {
-                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                    Column(
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateEnter(reducedMotion = reducedMotion)
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 18.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(themeColor.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(themeColor.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = typeIcon,
-                                contentDescription = null,
-                                modifier = Modifier.size(24.dp),
-                                tint = themeColor,
-                            )
-                        }
-                        Text(
-                            text = "还没有任何${typeName}",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        Icon(
+                            imageVector = typeIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = themeColor,
                         )
-                        Text(
-                            text = "创建专属${typeName}，让全库图书管理更加井井有条",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Button(
-                            onClick = {
-                                haptic(HapticFeedbackType.TextHandleMove)
-                                newName = ""
-                                showCreateDialog = true
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = themeColor),
-                        ) {
-                            Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("立即创建$typeName")
-                        }
+                    }
+                    Text(
+                        text = "还没有任何${typeName}",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    )
+                    Text(
+                        text = "创建后可用于归类书籍",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(
+                        onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            newName = ""
+                            showCreateDialog = true
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = themeColor),
+                    ) {
+                        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("立即创建$typeName")
                     }
                 }
             }
@@ -621,7 +602,7 @@ internal fun LibrarySubPage(
             title = { Text("确认删除$typeName") },
             text = {
                 Text(
-                    text = "确定要删除「$name」吗？删除后关联的书籍文件与阅读记录均会完整保留。",
+                    text = "确定删除「$name」？书籍与阅读记录不受影响。",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             },

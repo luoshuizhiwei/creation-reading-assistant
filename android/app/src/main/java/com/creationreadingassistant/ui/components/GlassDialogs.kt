@@ -18,6 +18,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.creationreadingassistant.ui.theme.DialogShape
 import com.creationreadingassistant.ui.theme.LocalGlassPalette
 import com.creationreadingassistant.ui.theme.glassWindowBlur
+import com.creationreadingassistant.ui.window.LocalDialogSystemBarsEffect
 
 /**
  * 应用统一居中对话框。
@@ -43,7 +44,15 @@ fun AppAlertDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        confirmButton = confirmButton,
+        // M-BUG-11：对话框是**独立 Window**，不继承 Activity 窗口的系统栏策略——沉浸阅读时
+        // 弹出任何对话框（笔记编辑、删除确认…）都会让被隐藏的系统状态栏重新露出。
+        // 这里挂在 confirmButton 槽内：M3 AlertDialog 的按钮行恒定参与组合，且位于 Dialog
+        // 自己的窗口内，是能触达该窗口的稳定挂载点（title/text/icon 都可为空，不能用）。
+        // 未提供弹层策略时（非沉浸场景）该调用不做任何事，全应用其余弹层行为不变。
+        confirmButton = {
+            LocalDialogSystemBarsEffect()
+            confirmButton()
+        },
         modifier = modifier,
         dismissButton = dismissButton,
         icon = icon,

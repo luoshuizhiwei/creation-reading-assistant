@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ViewSidebar
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FontDownload
 import androidx.compose.material.icons.outlined.FormatColorText
 import androidx.compose.material.icons.outlined.FormatLineSpacing
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material.icons.outlined.SpaceBar
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -49,7 +52,6 @@ import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.feature.reader.ReaderFontManager
 import com.creationreadingassistant.ui.components.IconPedestal
-import com.creationreadingassistant.ui.components.SettingBrightnessRow
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
@@ -270,6 +272,87 @@ internal fun MicroFontPickerSection(
                 }
             }
         }
+
+        // 3. 已导入字体列表管理微面板
+        val installedFonts = remember(custom) { ReaderFontManager.listInstalledFonts(context) }
+        if (installedFonts.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    "已导入字体包 (${installedFonts.size})",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+                installedFonts.forEach { font ->
+                    val isSelected = font.path == custom
+                    Surface(
+                        onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            if (!isSelected) {
+                                ReaderFontManager.clearCache()
+                                onChange(settings.copy(customFontPath = font.path))
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        border = BorderStroke(0.5.dp, if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Outlined.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                }
+                                Text(
+                                    font.name,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            if (!isSelected) {
+                                IconButton(
+                                    onClick = {
+                                        haptic(HapticFeedbackType.TextHandleMove)
+                                        ReaderFontManager.deleteFont(font.path)
+                                        onChange(settings.copy())
+                                    },
+                                    modifier = Modifier.size(24.dp),
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Delete,
+                                        contentDescription = "删除字体",
+                                        tint = MaterialTheme.colorScheme.outline,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -277,7 +360,11 @@ internal fun MicroFontPickerSection(
  * 排版预览微岛卡片。
  */
 @Composable
-internal fun ReaderTypePreview(paper: ReaderPaperPalette, settings: ReaderSettings) {
+internal fun ReaderTypePreview(
+    paper: ReaderPaperPalette,
+    settings: ReaderSettings,
+    onResetDefaults: (() -> Unit)? = null,
+) {
     val size = settings.fontSize.coerceIn(12f, 40f)
     val lineHeightSp = (size * settings.lineHeight).sp
     val paragraphDp: Dp = with(LocalDensity.current) {
@@ -285,6 +372,12 @@ internal fun ReaderTypePreview(paper: ReaderPaperPalette, settings: ReaderSettin
     }
     val weight = if (settings.fontWeightBold) FontWeight.Bold else FontWeight.Normal
     val spec = LocalComponentSpec.current
+    val isRecommended = settings.fontSize == 18f &&
+        settings.lineHeight == 1.85f &&
+        settings.paragraphSpacing == 1.1f &&
+        settings.pageMargin == 16f &&
+        !settings.fontWeightBold
+
     Surface(
         shape = RoundedCornerShape(spec.islandRadius),
         color = paper.bg,
@@ -307,16 +400,50 @@ internal fun ReaderTypePreview(paper: ReaderPaperPalette, settings: ReaderSettin
                     style = MaterialTheme.typography.labelMedium,
                     color = paper.fgMuted,
                 )
-                Surface(
-                    shape = PillShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text(
-                        "${size.toInt()} 号 · ${if (settings.fontWeightBold) "粗体" else "常规"}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                    )
+                    if (!isRecommended && onResetDefaults != null) {
+                        val resetInteraction = remember { MutableInteractionSource() }
+                        Surface(
+                            onClick = onResetDefaults,
+                            shape = PillShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
+                            modifier = Modifier.bounceable(resetInteraction),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Restore,
+                                    contentDescription = "恢复推荐排版",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(12.dp),
+                                )
+                                Text(
+                                    "恢复推荐",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                    }
+                    Surface(
+                        shape = PillShape,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    ) {
+                        Text(
+                            "${size.toInt()} 号 · ${if (settings.fontWeightBold) "粗体" else "常规"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
                 }
             }
             Text(
@@ -344,7 +471,27 @@ internal fun TypographySettings(
     onChange: (ReaderSettings) -> Unit,
     paper: ReaderPaperPalette,
 ) = SettingsList {
-    item { ReaderTypePreview(paper, settings) }
+    item {
+        val context = LocalContext.current
+        val haptic = rememberHaptic(rememberReducedMotion())
+        ReaderTypePreview(
+            paper = paper,
+            settings = settings,
+            onResetDefaults = {
+                haptic(HapticFeedbackType.LongPress)
+                onChange(
+                    settings.copy(
+                        fontSize = 18f,
+                        lineHeight = 1.85f,
+                        paragraphSpacing = 1.1f,
+                        pageMargin = 16f,
+                        fontWeightBold = false,
+                    )
+                )
+                Toast.makeText(context, "已恢复官方推荐排版 (18号·1.85倍行距)", Toast.LENGTH_SHORT).show()
+            },
+        )
+    }
     item {
         MicroSettingsSection(
             icon = Icons.Outlined.TextFields,
@@ -373,14 +520,6 @@ internal fun TypographySettings(
                 checked = settings.fontWeightBold,
                 onCheckedChange = { onChange(settings.copy(fontWeightBold = it)) },
                 subtitle = "加重笔画黑度，提升弱光可读性",
-            )
-            MicroSectionDivider()
-            SettingBrightnessRow(
-                brightness = settings.brightness,
-                onBrightnessChange = { v ->
-                    onChange(settings.copy(brightness = v, lastFixedBrightness = if (v >= 0) v else settings.lastFixedBrightness))
-                },
-                fixedDefault = settings.lastFixedBrightness,
             )
         }
     }

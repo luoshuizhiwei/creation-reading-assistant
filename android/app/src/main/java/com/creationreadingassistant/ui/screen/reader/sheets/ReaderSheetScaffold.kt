@@ -29,13 +29,14 @@ internal fun ReaderSheetScaffold(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
+    maxHeightFraction: Float = 0.90f,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .fillMaxHeight(0.92f)
+            .fillMaxHeight(maxHeightFraction)
             // 系统导航栏已隐藏：只避开底部手势区（恒定，不随 transient swipe 跳动，
             // 三键导航下为 0，不产生空白系统栏）。
             .windowInsetsPadding(WindowInsets.mandatorySystemGestures)

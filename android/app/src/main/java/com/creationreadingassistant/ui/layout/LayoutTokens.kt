@@ -50,6 +50,16 @@ data class LayoutTokens(
     val cardPadding: Dp = 14.dp,
     /** 紧凑卡片内部 padding（如设置行的内嵌子控件）。 */
     val compactCardPadding: Dp = 12.dp,
+    /** 紧凑分组圆角半径（对齐 Legado MD3 的 SplicedCard 16dp 圆角）。 */
+    val compactGroupCornerRadius: Dp = 16.dp,
+    /** 紧凑章节级间距（从默认 20dp 紧凑至 12dp）。 */
+    val compactSectionGap: Dp = 12.dp,
+    /** 紧凑条目内容间距。 */
+    val compactContentGap: Dp = 8.dp,
+    /** 紧凑单行控件（标题+右侧开关/胶囊）行高，严格对齐 48dp 触控底线。 */
+    val compactSingleLineRowHeight: Dp = 48.dp,
+    /** 紧凑带辅助说明的设置行高（两行文字+右侧控件），从默认 64dp 压缩至 54dp。 */
+    val compactSupportingRowHeight: Dp = 54.dp,
     /** 网格（Shelf 等）格子之间的间距。 */
     val gridGap: Dp = 12.dp,
     /** 所有可点击/可交互行的最小高度，满足 48dp 触摸目标。 */
@@ -60,6 +70,8 @@ data class LayoutTokens(
     val supportingRowHeight: Dp = 64.dp,
     /** AppTopBar 内容区最小高度；状态栏 inset 会在此基础上额外撑高整体顶栏。 */
     val topBarHeight: Dp = 64.dp,
+    /** compact 档 AppTopBar（二级子页页头）内容区最小高度；仍高于 [minimumTouchTarget]。 */
+    val compactTopBarHeight: Dp = 52.dp,
     /**
      * Material3 NavigationBar 容器高度（不含上方发丝分隔线）。
      * 仅用于估算/断言；实际高度来自 AppNavigation 外层 Scaffold 的 innerPadding。
@@ -78,6 +90,23 @@ data class LayoutTokens(
 )
 
 val DefaultLayoutTokens = LayoutTokens()
+
+/**
+ * 「我的」二级子页专用紧凑档，经 `LocalLayoutTokens` 局部提供，不影响首页/书架/灵感/统计。
+ *
+ * 与 [DefaultLayoutTokens] 只差空间值：区块与行距收一档，行高压到 48dp 触控底线，
+ * 字号仍由 `settingsMetrics()` 决定，因此不会连带缩小正文。
+ * [topBarHeight] 保持 64dp（被 LayoutComponentsTest 断言），子页页头走 [compactTopBarHeight]。
+ */
+val CompactSettingsLayoutTokens = DefaultLayoutTokens.copy(
+    pageHorizontal = 14.dp,
+    pageVertical = 8.dp,
+    sectionGap = 12.dp,
+    contentGap = 8.dp,
+    cardPadding = 12.dp,
+    singleLineRowHeight = 48.dp,
+    supportingRowHeight = 54.dp,
+)
 
 val LocalLayoutTokens = staticCompositionLocalOf { DefaultLayoutTokens }
 

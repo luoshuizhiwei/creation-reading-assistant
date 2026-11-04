@@ -78,12 +78,14 @@ fun HomeContinueSection(
     onOpenBook: (BookEntity) -> Unit,
     onOpenContinueSheet: () -> Unit,
     onEmptyNavigateShelf: () -> Unit,
+    shelfBookCount: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val reducedMotion = rememberReducedMotion()
     Column(modifier) {
         SectionHeader(
             title = stringResource(R.string.home_continue),
+            compact = true,
             modifier = Modifier.animateEnter(60, reducedMotion),
             action = {
                 TextButton(
@@ -95,8 +97,14 @@ fun HomeContinueSection(
             },
         )
         if (continueBooks.isEmpty()) {
+            // 「没有继续阅读」有两种成因，文案不能共用一句：
+            // 书架为空要引导导入；书架有书但都没翻开过，说"书架还空着"是在否定用户已有的书。
             SectionEmptyHint(
-                text = "书架还空着，导入 TXT、Markdown 或 EPUB 开始本地阅读。",
+                text = if (shelfBookCount > 0) {
+                    "书架上的 $shelfBookCount 本都还没开始读，去挑一本。"
+                } else {
+                    "书架还空着，导入 TXT、Markdown 或 EPUB 开始本地阅读。"
+                },
                 actionText = "去书架",
                 onAction = onEmptyNavigateShelf,
                 modifier = Modifier

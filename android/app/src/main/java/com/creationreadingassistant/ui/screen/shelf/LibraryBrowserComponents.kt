@@ -13,24 +13,28 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -53,6 +57,7 @@ import com.creationreadingassistant.feature.library.RecognitionConfidence
 import com.creationreadingassistant.feature.library.RecognitionDecision
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SelectablePill
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.AppError
 import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.AppSuccess
@@ -187,72 +192,153 @@ internal fun LibraryRootSummaryCard(
     }
 }
 
-/** 顶部横向面包屑（方案 6.2：不照搬参考项目的底部路径栏）。 */
+/**
+ * 顶部路径导航条：显示当前路径并可上溯、可横向滚动（深层目录也能回溯到任意层级）。
+ *
+ * 位置：**列表顶部**。本轮曾按 MD3 参考样本移到过底部，真机验证后用户反馈
+ * 「底部路径不符合操作习惯」，已撤回 —— 原设计（方案 6.2）本就明确不照搬参考项目的
+ * 底部路径栏，这条决策是对的。
+ *
+ * 为什么不复用 [SectionCard]：它内部是 `Column(fillMaxWidth) + 纸纹 Box(fillMaxSize)`，
+ * 用于承载区块而非单行条 —— 实测在无高度约束的容器里会吃掉整屏高度约束、把路径文字
+ * 挤出可视区（真机复现）。这里直接画一条定高圆角条。
+ */
 @Composable
-internal fun LibraryBreadcrumb(
+internal fun LibraryPathBar(
     crumbs: List<LibraryCrumb>,
+    canGoUp: Boolean,
     onCrumbClick: (Int) -> Unit,
+    onGoUp: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     if (crumbs.isEmpty()) return
+    val haptic = rememberHaptic(rememberReducedMotion())
+    // 顶部路径导航条：轻量胶囊样式（与列表卡片同族），横向可滚以便深层目录回溯。
+    // 定高是必须的 —— 下层组件若用 fillMaxSize 铺底，在无高度约束的容器里会撑满整屏。
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(vertical = 2.dp),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(LocalLayoutTokens.current.relatedGap),
     ) {
-        crumbs.forEachIndexed { index, crumb ->
-            val isLast = index == crumbs.lastIndex
-            Text(
-                text = crumb.displayName.ifBlank { "书籍目录" },
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = if (isLast) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (isLast) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.primary,
-                maxLines = 1,
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .height(LocalLayoutTokens.current.minimumTouchTarget)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .border(
+                    0.5.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    RoundedCornerShape(12.dp),
+                )
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            crumbs.forEachIndexed { index, crumb ->
+                val isLast = index == crumbs.lastIndex
+                Text(
+                    text = crumb.displayName.ifBlank { "书籍目录" },
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (isLast) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (isLast) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 1,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .combinedClickableCompat(enabled = !isLast) {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            onCrumbClick(index)
+                        }
+                        .padding(horizontal = 5.dp, vertical = 4.dp),
+                )
+                if (!isLast) {
+                    Icon(
+                        Icons.Outlined.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(13.dp),
+                    )
+                }
+            }
+        }
+        if (canGoUp) {
+            // 上一级：与顶部返回箭头语义区分（顶部退出页面，这里只上溯一层目录）。
+            Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .combinedClickableCompat(enabled = !isLast) { onCrumbClick(index) }
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-            )
-            if (!isLast) {
+                    .size(LocalLayoutTokens.current.minimumTouchTarget)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f))
+                    .combinedClickableCompat {
+                        haptic(HapticFeedbackType.TextHandleMove)
+                        onGoUp()
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
                 Icon(
-                    Icons.Outlined.ChevronRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.size(14.dp),
+                    Icons.Outlined.KeyboardArrowUp,
+                    contentDescription = "上一级目录",
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(AppIconSize.Small),
                 )
             }
         }
     }
 }
 
-/** 排序选择器：名称 / 修改时间 / 大小。 */
+/** 排序选项的显示文案。与 [LibrarySortMode] 一一对应，UI 只从这里取词。 */
+internal fun librarySortLabel(mode: LibrarySortMode): String = when (mode) {
+    LibrarySortMode.ADDED_DESC -> "最近添加"
+    LibrarySortMode.NAME -> "名称"
+    LibrarySortMode.MODIFIED_DESC -> "修改时间"
+    LibrarySortMode.SIZE_DESC -> "大小"
+}
+
+/** 排序菜单的固定顺序：最近添加置首（用户最常按「刚放进去的」找书）。 */
+internal val LIBRARY_SORT_ORDER = listOf(
+    LibrarySortMode.ADDED_DESC,
+    LibrarySortMode.NAME,
+    LibrarySortMode.MODIFIED_DESC,
+    LibrarySortMode.SIZE_DESC,
+)
+
+/**
+ * 排序溢出菜单（对齐 legado-with-MD3 的顶栏排序下拉：每项带选中勾）。
+ *
+ * 从「列表内一行三个胶囊」改成菜单：排序是低频操作，常驻占一行会挤压列表首屏；
+ * 收到顶栏后列表能多显示一项，且四项（新增「最近添加」）也放得下。
+ *
+ * 注：「最近添加」与「修改时间」排序结果相同 —— SAF 不提供「加入文件夹时间」，
+ * 文件拷入时的修改时间即拷贝时间。保留两项是因为用户按不同心智检索，
+ * 这里不额外解释，避免菜单出现长说明文字。
+ */
 @Composable
-internal fun LibrarySortRow(
+internal fun LibrarySortMenu(
+    expanded: Boolean,
     sortMode: LibrarySortMode,
-    onSortModeChange: (LibrarySortMode) -> Unit,
+    onDismiss: () -> Unit,
+    onSelect: (LibrarySortMode) -> Unit,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text("排序", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        SelectablePill(
-            text = "名称",
-            selected = sortMode == LibrarySortMode.NAME,
-            onClick = { onSortModeChange(LibrarySortMode.NAME) },
-        )
-        SelectablePill(
-            text = "修改时间",
-            selected = sortMode == LibrarySortMode.MODIFIED_DESC,
-            onClick = { onSortModeChange(LibrarySortMode.MODIFIED_DESC) },
-        )
-        SelectablePill(
-            text = "大小",
-            selected = sortMode == LibrarySortMode.SIZE_DESC,
-            onClick = { onSortModeChange(LibrarySortMode.SIZE_DESC) },
-        )
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        LIBRARY_SORT_ORDER.forEach { mode ->
+            DropdownMenuItem(
+                text = { Text(librarySortLabel(mode)) },
+                onClick = { onSelect(mode) },
+                trailingIcon = {
+                    if (sortMode == mode) {
+                        Icon(
+                            Icons.Outlined.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(AppIconSize.Small),
+                        )
+                    }
+                },
+            )
+        }
     }
 }
 
@@ -495,7 +581,7 @@ internal fun LibraryRecognitionPanel(
                     if (state.isRunning) {
                         CircularProgressIndicator(modifier = Modifier.size(17.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
                     } else {
-                        Icon(Icons.Outlined.HelpOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(17.dp))
+                        Icon(Icons.AutoMirrored.Outlined.HelpOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(17.dp))
                     }
                 }
                 Spacer(Modifier.width(12.dp))
@@ -763,9 +849,9 @@ internal fun LibraryInfoBanner(
 }
 
 /**
- * 面包屑等轻量行使用的点击封装。
+ * 路径栏与列表行等轻量行使用的点击封装。
  *
- * 单独抽出来是为了让 [LibraryBreadcrumb] 与 [LibraryRowShell] 共享同一套抑制逻辑，
+ * 单独抽出来是为了让 [LibraryPathBar] 与 [LibraryRowShell] 共享同一套抑制逻辑，
  * 避免在文件级引入多处 `@OptIn(ExperimentalFoundationApi::class)`。
  */
 @OptIn(ExperimentalFoundationApi::class)

@@ -53,6 +53,14 @@ internal sealed interface ShelfAction {
     data object DismissDetailSheet : ShelfAction
     data class DeleteSingle(val bookId: String) : ShelfAction
 
+    // ========= 阅读状态动作（长按面板）=========
+    /** 标记为已读完（进度只升不降，不伪造最近阅读时间）。 */
+    data class MarkFinished(val bookId: String) : ShelfAction
+    /** 取消已读完，回到在读。 */
+    data class MarkReading(val bookId: String) : ShelfAction
+    /** 搁置本书（保留进度、时长、笔记与灵感）。 */
+    data class ShelveBook(val bookId: String) : ShelfAction
+
     // ========= 批量操作栏 =========
     data class BatchAddToShelf(val ids: Set<String>) : ShelfAction
     data class BatchSetCategory(val ids: Set<String>) : ShelfAction
@@ -62,6 +70,10 @@ internal sealed interface ShelfAction {
     data class BatchRequestDelete(val ids: Set<String>) : ShelfAction
     data class SelectBatchSheetKind(val kind: BatchSheetKind) : ShelfAction
     data object DismissBatchSheet : ShelfAction
+    /** 批量标记为已读完。 */
+    data class BatchMarkFinished(val ids: Set<String>) : ShelfAction
+    /** 批量取消已读完。 */
+    data class BatchMarkReading(val ids: Set<String>) : ShelfAction
 
     // ========= 分类学：批量分配 / 创建 / 移除标签 =========
     data class BatchApplyTaxonomy(val kind: BatchSheetKind, val id: String) : ShelfAction

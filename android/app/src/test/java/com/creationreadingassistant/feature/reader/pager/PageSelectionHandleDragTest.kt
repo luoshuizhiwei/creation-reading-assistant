@@ -60,12 +60,44 @@ class PageSelectionHandleDragTest {
         val lastRect = rects.last()
         assertEquals(firstRect.left, handles.left!!.x, eps)
         assertEquals((firstRect.top + firstRect.bottom) / 2f, handles.left!!.y, eps)
+        assertEquals(firstRect.top, handles.left!!.top, eps)
+        assertEquals(firstRect.bottom, handles.left!!.bottom, eps)
         assertEquals(lastRect.right, handles.right!!.x, eps)
         assertEquals((lastRect.top + lastRect.bottom) / 2f, handles.right!!.y, eps)
+        assertEquals(lastRect.top, handles.right!!.top, eps)
+        assertEquals(lastRect.bottom, handles.right!!.bottom, eps)
         // 左把手必须在右把手左边，且纵向落在页内
         assertTrue(handles.left!!.x < handles.right!!.x)
         assertTrue(handles.left!!.y >= page.lineTops.first() - eps)
         assertTrue(handles.right!!.y <= page.lineTops.last() + 1000f)
+    }
+
+    @Test
+    fun `isHandleHit validates asymmetric touch target`() {
+        val hX = 100f
+        val hY = 200f
+        val hRadius = 28f
+        val vUp = 24f
+        val vDown = 40f
+
+        // 1. 精确正中命中
+        assertTrue(PageSelection.isHandleHit(100f, 200f, hX, hY, hRadius, vUp, vDown))
+
+        // 2. 水平边界内 (dx <= 28f)
+        assertTrue(PageSelection.isHandleHit(127f, 200f, hX, hY, hRadius, vUp, vDown))
+        assertTrue(PageSelection.isHandleHit(73f, 200f, hX, hY, hRadius, vUp, vDown))
+        // 水平边界外
+        assertFalse(PageSelection.isHandleHit(129f, 200f, hX, hY, hRadius, vUp, vDown))
+        assertFalse(PageSelection.isHandleHit(71f, 200f, hX, hY, hRadius, vUp, vDown))
+
+        // 3. 向上边界 (dy <= 24f)
+        assertTrue(PageSelection.isHandleHit(100f, 177f, hX, hY, hRadius, vUp, vDown))
+        assertFalse(PageSelection.isHandleHit(100f, 175f, hX, hY, hRadius, vUp, vDown))
+
+        // 4. 向下非对称宽容度 (dy <= 40f)
+        assertTrue(PageSelection.isHandleHit(100f, 235f, hX, hY, hRadius, vUp, vDown))
+        assertTrue(PageSelection.isHandleHit(100f, 239f, hX, hY, hRadius, vUp, vDown))
+        assertFalse(PageSelection.isHandleHit(100f, 242f, hX, hY, hRadius, vUp, vDown))
     }
 
     @Test

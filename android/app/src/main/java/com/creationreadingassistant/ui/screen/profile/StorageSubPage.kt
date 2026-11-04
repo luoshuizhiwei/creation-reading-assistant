@@ -57,6 +57,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.R
+import com.creationreadingassistant.data.repository.OfflineBooksClearReport
+import com.creationreadingassistant.data.repository.OfflineBooksResidueClear
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
@@ -77,6 +79,8 @@ internal fun StorageSubPage(
     scaffoldPadding: PaddingValues,
 ) {
     val reducedMotion = rememberReducedMotion()
+    // 设置子页共用 Route 下发的列表状态：搜索命中项需要它来滚动定位
+    val settingsListState = rememberSettingsPageListState()
     val haptic = rememberHaptic(reducedMotion)
     val context = LocalContext.current
 
@@ -108,148 +112,151 @@ internal fun StorageSubPage(
 
     PageLazyColumn(
         scaffoldPadding = scaffoldPadding,
+        listState = settingsListState,
         modifier = Modifier.fillMaxSize(),
     ) {
         // 1. 存储占用 3 列独立微岛指标矩阵（正文缓存、字体资源、图片封面），采用分色大数字与微底座
         item(key = "storage-metrics-matrix") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    SubPageSectionTitle(
-                        title = "存储占用与资源分布",
-                        icon = Icons.Outlined.Analytics,
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        trailing = {
-                            Surface(
-                                shape = PillShape,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
-                            ) {
-                                Text(
-                                    "共 $totalBooks 本 · 已下 $downloadedCount 本",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                )
-                            }
-                        },
-                    )
-
-                    // 3 列独立微岛指标矩阵
-                    Row(
+        SettingsAnchor("storage-metrics-matrix") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        StorageMetricMicroCard(
-                            icon = Icons.Outlined.Storage,
-                            iconTint = Color(0xFF0284C7), // 天蓝
-                            value = formatBytes(cacheBytes),
-                            label = "正文缓存",
-                            subText = "$cachedCount 条缓存",
-                            modifier = Modifier.weight(1f),
+                        SubPageSectionTitle(
+                            title = "存储占用与资源分布",
+                            icon = Icons.Outlined.Analytics,
+                            iconTint = MaterialTheme.colorScheme.primary,
+                            trailing = {
+                                Surface(
+                                    shape = PillShape,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                                ) {
+                                    Text(
+                                        "共 $totalBooks 本 · 已下 $downloadedCount 本",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    )
+                                }
+                            },
                         )
-                        StorageMetricMicroCard(
-                            icon = Icons.Outlined.TextFields,
-                            iconTint = Color(0xFF8B5CF6), // 丁香紫
-                            value = formatBytes(fontsBytes),
-                            label = "字体资源",
-                            subText = "自定义字体库",
-                            modifier = Modifier.weight(1f),
-                        )
-                        StorageMetricMicroCard(
-                            icon = Icons.Outlined.Image,
-                            iconTint = Color(0xFFF59E0B), // 暖金
-                            value = formatBytes(indexBytes),
-                            label = "图片与索引",
-                            subText = "封面与检索库",
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
 
-                    // 缓存预算进度微导轨
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // 3 列独立微岛指标矩阵
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text(
-                                "正文缓存预算占用",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurface,
+                            StorageMetricMicroCard(
+                                icon = Icons.Outlined.Storage,
+                                iconTint = Color(0xFF0284C7), // 天蓝
+                                value = formatBytes(cacheBytes),
+                                label = "正文缓存",
+                                subText = "$cachedCount 条缓存",
+                                modifier = Modifier.weight(1f),
                             )
-                            Text(
-                                "${formatBytes(cacheBytes)} / 100 MB",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                ),
+                            StorageMetricMicroCard(
+                                icon = Icons.Outlined.TextFields,
+                                iconTint = Color(0xFF8B5CF6), // 丁香紫
+                                value = formatBytes(fontsBytes),
+                                label = "字体资源",
+                                subText = "自定义字体库",
+                                modifier = Modifier.weight(1f),
+                            )
+                            StorageMetricMicroCard(
+                                icon = Icons.Outlined.Image,
+                                iconTint = Color(0xFFF59E0B), // 暖金
+                                value = formatBytes(indexBytes),
+                                label = "图片与索引",
+                                subText = "封面与检索库",
+                                modifier = Modifier.weight(1f),
                             )
                         }
-                        LinearProgressIndicator(
-                            progress = { (cacheBytes.toFloat() / cacheBudget).coerceIn(0f, 1f) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(PillShape),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),
-                        )
-                        Text(
-                            "参考基线 100 MB；缓存仅用于加速即时排版计算，可放心清理，打开书籍时将自动重建。",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
 
-                    // 格式分布胶囊组
-                    if (formatCounts.isNotEmpty()) {
-                        SectionDivider()
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(
-                                "书库格式分布",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                        // 缓存预算进度微导轨
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                formatCounts.toSortedMap().forEach { (fmt, count) ->
-                                    val label = when (fmt.lowercase()) {
-                                        "txt" -> "TXT 纯文本"
-                                        "md" -> "Markdown 随笔"
-                                        "epub" -> "EPUB 电子书"
-                                        else -> fmt.uppercase()
-                                    }
-                                    val tint = when (fmt.lowercase()) {
-                                        "epub" -> Color(0xFF1967D2)
-                                        "txt" -> Color(0xFF059669)
-                                        "md" -> Color(0xFF7C3AED)
-                                        else -> MaterialTheme.colorScheme.primary
-                                    }
-                                    Surface(
-                                        shape = PillShape,
-                                        color = tint.copy(alpha = 0.1f),
-                                        border = BorderStroke(0.8.dp, tint.copy(alpha = 0.3f)),
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                Text(
+                                    "正文缓存预算占用",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "${formatBytes(cacheBytes)} / 100 MB",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            }
+                            LinearProgressIndicator(
+                                progress = { (cacheBytes.toFloat() / cacheBudget).coerceIn(0f, 1f) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(PillShape),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),
+                            )
+                            Text(
+                                "参考基线 100 MB；缓存仅用于加速即时排版计算，可放心清理，打开书籍时将自动重建。",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        // 格式分布胶囊组
+                        if (formatCounts.isNotEmpty()) {
+                            SectionDivider()
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    "书库格式分布",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    formatCounts.toSortedMap().forEach { (fmt, count) ->
+                                        val label = when (fmt.lowercase()) {
+                                            "txt" -> "TXT 纯文本"
+                                            "md" -> "Markdown 随笔"
+                                            "epub" -> "EPUB 电子书"
+                                            else -> fmt.uppercase()
+                                        }
+                                        val tint = when (fmt.lowercase()) {
+                                            "epub" -> Color(0xFF1967D2)
+                                            "txt" -> Color(0xFF059669)
+                                            "md" -> Color(0xFF7C3AED)
+                                            else -> MaterialTheme.colorScheme.primary
+                                        }
+                                        Surface(
+                                            shape = PillShape,
+                                            color = tint.copy(alpha = 0.1f),
+                                            border = BorderStroke(0.8.dp, tint.copy(alpha = 0.3f)),
                                         ) {
-                                            Text(
-                                                label,
-                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                            Text(
-                                                count.toString(),
-                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                                color = tint,
-                                            )
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            ) {
+                                                Text(
+                                                    label,
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                )
+                                                Text(
+                                                    count.toString(),
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                                    color = tint,
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -262,70 +269,8 @@ internal fun StorageSubPage(
 
         // 2. 清理缓存项卡片微岛化，右侧配置紧凑微胶囊清理按钮
         item(key = "storage-clean-cache-card") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFF0284C7).copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Outlined.CleaningServices,
-                                contentDescription = null,
-                                tint = Color(0xFF0284C7),
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                        Column {
-                            Text(
-                                "阅读器正文缓存",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                "含 EPUB 解压临时文件及排版分片；不影响进度与笔记",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-
-                    // 紧凑微胶囊清理按钮
-                    OutlinedButton(
-                        onClick = {
-                            haptic(HapticFeedbackType.TextHandleMove)
-                            onAction(ProfileAction.ClearReaderCache)
-                        },
-                        shape = PillShape,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                        modifier = Modifier.height(34.dp),
-                    ) {
-                        Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("清理缓存", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
-                    }
-                }
-            }
-        }
-
-        // 3. 全文搜索索引卡片：透明状态感知与全量重建
-        item(key = "storage-search-index-card") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
+        SettingsAnchor("storage-clean-cache-card") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -340,144 +285,212 @@ internal fun StorageSubPage(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFFBE185D).copy(alpha = 0.12f)),
+                                    .background(Color(0xFF0284C7).copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
-                                    Icons.Outlined.Search,
+                                    Icons.Outlined.CleaningServices,
                                     contentDescription = null,
-                                    tint = Color(0xFFBE185D),
+                                    tint = Color(0xFF0284C7),
                                     modifier = Modifier.size(20.dp),
                                 )
                             }
                             Column {
                                 Text(
-                                    "全文搜索倒排索引",
+                                    "阅读器正文缓存",
                                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
-                                val total = if (indexProgress.totalBooks > 0) indexProgress.totalBooks else totalBooks
-                                val indexed = indexProgress.indexedBooks
-                                val pct = if (total > 0) ((indexed.toFloat() / total) * 100f).toInt().coerceIn(0, 100) else 0
                                 Text(
-                                    if (indexProgress.isRunning) {
-                                        "后台构建中：$indexed / $total 本 ($pct%)"
-                                    } else {
-                                        "覆盖度：已索引 $indexed / $total 本"
-                                    },
+                                    "含 EPUB 解压临时文件及排版分片；不影响进度与笔记",
                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                    color = if (indexProgress.isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
 
-                        // 重建索引按钮（走二次确认，避免单击即重置全库索引游标）
+                        // 紧凑微胶囊清理按钮
                         OutlinedButton(
                             onClick = {
                                 haptic(HapticFeedbackType.TextHandleMove)
-                                showRebuildIndexConfirm = true
+                                onAction(ProfileAction.ClearReaderCache)
                             },
                             shape = PillShape,
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
                             modifier = Modifier.height(34.dp),
                         ) {
-                            Text("重建索引", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                            Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("清理缓存", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
                         }
                     }
+                }
+            }
+        }
 
-                    if (indexProgress.isRunning && indexProgress.totalBooks > 0) {
-                        LinearProgressIndicator(
-                            progress = { (indexProgress.indexedBooks.toFloat() / indexProgress.totalBooks).coerceIn(0f, 1f) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(PillShape),
-                            color = Color(0xFFBE185D),
-                            trackColor = Color(0xFFBE185D).copy(alpha = 0.12f),
+        // 3. 全文搜索索引卡片：透明状态感知与全量重建
+        item(key = "storage-search-index-card") {
+        SettingsAnchor("storage-search-index-card") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFFBE185D).copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Search,
+                                        contentDescription = null,
+                                        tint = Color(0xFFBE185D),
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        "全文搜索倒排索引",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    val total = if (indexProgress.totalBooks > 0) indexProgress.totalBooks else totalBooks
+                                    val indexed = indexProgress.indexedBooks
+                                    val pct = if (total > 0) ((indexed.toFloat() / total) * 100f).toInt().coerceIn(0, 100) else 0
+                                    Text(
+                                        if (indexProgress.isRunning) {
+                                            "后台构建中：$indexed / $total 本 ($pct%)"
+                                        } else {
+                                            "覆盖度：已索引 $indexed / $total 本"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                        color = if (indexProgress.isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+
+                            // 重建索引按钮（走二次确认，避免单击即重置全库索引游标）
+                            OutlinedButton(
+                                onClick = {
+                                    haptic(HapticFeedbackType.TextHandleMove)
+                                    showRebuildIndexConfirm = true
+                                },
+                                shape = PillShape,
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                                modifier = Modifier.height(34.dp),
+                            ) {
+                                Text("重建索引", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                            }
+                        }
+
+                        if (indexProgress.isRunning && indexProgress.totalBooks > 0) {
+                            LinearProgressIndicator(
+                                progress = { (indexProgress.indexedBooks.toFloat() / indexProgress.totalBooks).coerceIn(0f, 1f) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .clip(PillShape),
+                                color = Color(0xFFBE185D),
+                                trackColor = Color(0xFFBE185D).copy(alpha = 0.12f),
+                            )
+                        }
+
+                        Text(
+                            "用于全局正文搜索与精确跳转。若修改替换规则或发现搜索漏词，可重建索引；后台将分窗口扫描，不阻塞阅读。",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-
-                    Text(
-                        "用于全局正文搜索与精确跳转。若修改替换规则或发现搜索漏词，可重建索引；后台将分窗口扫描，不阻塞阅读。",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         }
 
         // 4. 危险清理操作（清空所有离线书籍）采用深红危险告警微岛，配 GlassAlertDialog 二次确认
         item(key = "storage-danger-zone-card") {
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.22f),
-                border = BorderStroke(0.9.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateEnter(reducedMotion = reducedMotion),
-            ) {
-                Row(
+        SettingsAnchor("storage-danger-zone-card") {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.22f),
+                    border = BorderStroke(0.9.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.45f)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                        .animateEnter(reducedMotion = reducedMotion),
                 ) {
                     Row(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.error.copy(alpha = 0.16f)),
-                            contentAlignment = Alignment.Center,
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            Icon(
-                                Icons.Outlined.WarningAmber,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(22.dp),
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.16f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Outlined.WarningAmber,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(22.dp),
+                                )
+                            }
+                            Column {
+                                Text(
+                                    "清空所有离线书籍资源",
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error,
+                                    ),
+                                )
+                                Text(
+                                    "清除已下载正文源文件以释放空间；书架条目与云端数据仍保留",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
-                        Column {
-                            Text(
-                                "清空所有离线书籍资源",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.error,
-                                ),
-                            )
-                            Text(
-                                "清除已下载正文源文件以释放空间；书架条目与云端数据仍保留",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
 
-                    // 紧凑危险微胶囊按钮
-                    Button(
-                        onClick = {
-                            haptic(HapticFeedbackType.TextHandleMove)
-                            showDangerDialog = true
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError,
-                        ),
-                        shape = PillShape,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                        modifier = Modifier.height(34.dp),
-                    ) {
-                        Icon(Icons.Outlined.DeleteForever, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            "清空离线",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        )
+                        // 紧凑危险微胶囊按钮
+                        Button(
+                            onClick = {
+                                haptic(HapticFeedbackType.TextHandleMove)
+                                showDangerDialog = true
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
+                            ),
+                            shape = PillShape,
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                            modifier = Modifier.height(34.dp),
+                        ) {
+                            Icon(Icons.Outlined.DeleteForever, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                "清空离线",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            )
+                        }
                     }
                 }
             }
@@ -485,53 +498,55 @@ internal fun StorageSubPage(
 
         // 4. 数据快照 (JSON)
         item(key = "storage-json-card") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    SubPageSectionTitle(
-                        title = "数据快照 (JSON)",
-                        icon = Icons.Outlined.Storage,
-                        iconTint = Color(0xFF4C626B),
-                    )
-                    Text(
-                        "导出会保存灵感、书库元数据、进度、阅读记录、笔记、标签、分类和同步账号信息；不会导出 AI Key、WebDAV 密码 / token 或设备私有路径。",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 17.sp,
-                    )
-                    Row(
+        SettingsAnchor("storage-json-card") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Button(
-                            onClick = {
-                                haptic(HapticFeedbackType.TextHandleMove)
-                                onAction(ProfileAction.Export)
-                            },
-                            shape = PillShape,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(42.dp),
+                        SubPageSectionTitle(
+                            title = "数据快照 (JSON)",
+                            icon = Icons.Outlined.Storage,
+                            iconTint = Color(0xFF4C626B),
+                        )
+                        Text(
+                            "导出会保存灵感、书库元数据、进度、阅读记录、笔记、高亮、标签、分类、书单、正文规则与来源引用；不会导出 AI Key、WebDAV 密码 / token 或设备私有路径。",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 17.sp,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("导出快照")
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                haptic(HapticFeedbackType.TextHandleMove)
-                                onAction(ProfileAction.Import)
-                            },
-                            shape = PillShape,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(42.dp),
-                        ) {
-                            Icon(Icons.Outlined.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("导入快照")
+                            Button(
+                                onClick = {
+                                    haptic(HapticFeedbackType.TextHandleMove)
+                                    onAction(ProfileAction.Export)
+                                },
+                                shape = PillShape,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(42.dp),
+                            ) {
+                                Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("导出快照")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    haptic(HapticFeedbackType.TextHandleMove)
+                                    onAction(ProfileAction.Import)
+                                },
+                                shape = PillShape,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(42.dp),
+                            ) {
+                                Icon(Icons.Outlined.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("导入快照")
+                            }
                         }
                     }
                 }
@@ -540,53 +555,55 @@ internal fun StorageSubPage(
 
         // 5. 完整离线包 (ZIP)
         item(key = "storage-zip-card") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    SubPageSectionTitle(
-                        title = stringResource(R.string.backup_zip_title),
-                        icon = Icons.Outlined.FolderZip,
-                        iconTint = Color(0xFF1967D2),
-                    )
-                    Text(
-                        stringResource(R.string.backup_zip_desc),
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 17.sp,
-                    )
-                    Row(
+        SettingsAnchor("storage-zip-card") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Button(
-                            onClick = {
-                                haptic(HapticFeedbackType.TextHandleMove)
-                                onAction(ProfileAction.ExportZip)
-                            },
-                            shape = PillShape,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(42.dp),
+                        SubPageSectionTitle(
+                            title = stringResource(R.string.backup_zip_title),
+                            icon = Icons.Outlined.FolderZip,
+                            iconTint = Color(0xFF1967D2),
+                        )
+                        Text(
+                            stringResource(R.string.backup_zip_desc),
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 17.sp,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.backup_zip_export))
-                        }
-                        OutlinedButton(
-                            onClick = {
-                                haptic(HapticFeedbackType.TextHandleMove)
-                                onAction(ProfileAction.ImportZip)
-                            },
-                            shape = PillShape,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(42.dp),
-                        ) {
-                            Icon(Icons.Outlined.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(stringResource(R.string.backup_zip_import))
+                            Button(
+                                onClick = {
+                                    haptic(HapticFeedbackType.TextHandleMove)
+                                    onAction(ProfileAction.ExportZip)
+                                },
+                                shape = PillShape,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(42.dp),
+                            ) {
+                                Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.backup_zip_export))
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    haptic(HapticFeedbackType.TextHandleMove)
+                                    onAction(ProfileAction.ImportZip)
+                                },
+                                shape = PillShape,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(42.dp),
+                            ) {
+                                Icon(Icons.Outlined.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.backup_zip_import))
+                            }
                         }
                     }
                 }
@@ -617,7 +634,9 @@ internal fun StorageSubPage(
             },
             text = {
                 Text(
-                    "此操作将清理本地下载的书籍正文文件并释放空间。书架目录、阅读进度、书签和笔记均会完整保留，后续若需阅读可随时重新下载。确认继续？",
+                    "此操作将清理本地下载的书籍正文文件并释放空间。书架目录、阅读进度、书签和笔记均会完整保留。" +
+                        "若检测到未完成替换的残留备份（可能是某本书仅存的正文），相关条目将被原样保留、不会被清理。" +
+                        "确认继续？",
                     style = MaterialTheme.typography.bodyMedium,
                     lineHeight = 20.sp,
                 )
@@ -626,12 +645,20 @@ internal fun StorageSubPage(
                 Button(
                     onClick = {
                         showDangerDialog = false
-                        // 清理应用内部下载目录与缓存
-                        runCatching {
-                            val booksDir = File(context.filesDir, "books")
-                            if (booksDir.exists()) booksDir.deleteRecursively()
+                        // 残留保护清理（不得误毁唯一残留备份）：含未完成替换/导入残留
+                        // （.backup/.repairing/.importing）的书籍条目整条保留——它们可能是
+                        // 该书仅存的正文；其余无残留条目照常清理。纯文件层操作，书架与
+                        // 数据库指针保持原样；报告自带与实际状态一致的说明文案，
+                        // 经既有 ShowMessage 通道上报（区分「完全未动 / 部分执行 / 完成」）。
+                        val report = runCatching {
+                            OfflineBooksResidueClear.clear(File(context.filesDir, "books"))
+                        }.getOrElse {
+                            // clear() 全程使用不抛异常的 File 操作；此分支纯防御，
+                            // 按完全未动报告，绝不虚报清理结果。
+                            OfflineBooksClearReport(rootUnreadable = true)
                         }
-                        onAction(ProfileAction.ClearReaderCache)
+                        onAction(ProfileAction.ShowMessage(report.userNotice()))
+                        onAction(ProfileAction.ClearReaderCacheNow)
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     shape = PillShape,

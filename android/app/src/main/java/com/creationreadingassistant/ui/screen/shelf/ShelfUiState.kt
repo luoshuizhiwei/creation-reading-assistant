@@ -40,6 +40,14 @@ internal data class ShelfUiState(
      */
     val contentUpdatedBookIds: Set<String> = emptySet(),
 
+    /**
+     * 新导入且尚未打开过的 bookId 集合（书卡「新」角标）。
+     *
+     * 与 [contentUpdatedBookIds] 同样是纯展示标签：不影响 [shelfBooks] 的排序与筛选。
+     * 排序仍由用户选的 [sortMode] 决定——默认「最近加入」已把新书放最前，
+     * 这里只负责让用户**看出**哪几本是刚加的。
+     */
+    val newBookIds: Set<String> = emptySet(),
 
     // ========= 视图 / 偏好（由 Route 初始化 + 持久化回写） =========
     val query: String = "",
@@ -92,6 +100,17 @@ internal data class ShelfUiState(
     /** 是否正在处理导入（顶部队列卡片开关）。 */
     val hasActiveImports: Boolean
         get() = auxiliary.importBatch.isRunning || auxiliary.importTasks.any { it.status == "processing" }
+
+    /**
+     * 状态分组条上的徽章计数。
+     *
+     * 由未筛选的 [shelfBooks] 全量算出，与 [filtered] 共用 [bookStatus] 口径，
+     * 因此「徽章写 30 本」与「点进去数出 30 本」必然一致。
+     * 不随搜索/格式/书单筛选变化——徽章表达的是「这个状态一共有多少本」。
+     */
+    val statusCounts: Map<ShelfStatusFilter, Int> by lazy(LazyThreadSafetyMode.NONE) {
+        shelfStatusCounts(shelfBooks, library.progressById)
+    }
 
     /** 文件可用性始终可筛选，因此高级筛选入口始终显示。 */
     val showFilterButton: Boolean

@@ -7,11 +7,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalViewConfiguration
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * 同一次轻点手势只允许一条路径触发中央切换的仲裁门。
@@ -178,6 +180,59 @@ internal fun Modifier.readerTextFieldCenterTapToToggle(
                 currentOnCenterTap()
             } finally {
                 gate.clear()
+            }
+        }
+    }
+}
+
+/**
+ * 附着在 readOnly BasicTextField 上的**长按位置旁听器**（S2，非消费式）。
+ *
+ * 目的：为"把首次选区收敛到一个词"提供锚点。中文没有空格，BasicTextField 长按时
+ * 给出的初始选区经常吞掉一整句（观感就是"一长按就全选"）。这里不跟它抢手势，
+ * 只是记下长按发生的位置，交给 [wordRangeAt] 在选区上报时收敛粒度。
+ *
+ * 与 [readerTextFieldCenterTapToToggle] 同一套原则：
+ * - **全程不调用 [PointerInputChange.consume]**：不吞掉 BasicTextField 自己的长按选字、
+ *   也不影响手柄拖动；本观察器是纯旁听，拿不到锚点时上层会原样保留原选区（优雅退化）。
+ * - 只有单指（第二根手指按下即放弃）；
+ * - 移动超过 touch slop 即放弃（那是滚动/拖选，不是长按）；
+ * - 手指完全静止、一个后续事件都不来时，用 [withTimeoutOrNull] 兜底，
+ *   到时即判定为长按，位置取按下点 —— 否则会永远等不到下一个事件。
+ *
+ * 需真机复核：长按阈值与 BasicTextField 自身选字的时序（谁先落地），
+ * 以及旁听是否确实没有影响手柄拖动。
+ */
+@Composable
+internal fun Modifier.readerTextFieldLongPressAnchor(
+    onLongPress: (Offset) -> Unit,
+): Modifier {
+    val currentOnLongPress by rememberUpdatedState(onLongPress)
+    val viewConfiguration = LocalViewConfiguration.current
+    return pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            val downId = down.id
+            val downPosition = down.position
+            val downTime = down.uptimeMillis
+            while (true) {
+                // 手指静止时不会有后续事件，必须靠超时兜底，否则长按永远判不出来。
+                val event = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                    awaitPointerEvent()
+                }
+                if (event == null) {
+                    currentOnLongPress(downPosition)
+                    break
+                }
+                // 第二根手指按下 → 放弃（只认单指）。
+                if (event.changes.any { it.id != downId && it.changedToDownIgnoreConsumed() }) break
+                val change = event.changes.firstOrNull { it.id == downId } ?: break
+                if (change.changedToUpIgnoreConsumed()) break
+                if ((change.position - downPosition).getDistance() > viewConfiguration.touchSlop) break
+                if (change.uptimeMillis - downTime > viewConfiguration.longPressTimeoutMillis) {
+                    currentOnLongPress(change.position)
+                    break
+                }
             }
         }
     }

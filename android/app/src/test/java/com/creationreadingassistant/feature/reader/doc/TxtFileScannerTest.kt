@@ -556,4 +556,30 @@ class TxtFileScannerTest {
             return skipped
         }
     }
+
+    @Test
+    fun `fastEncodedByteLength matches toByteArray exactly across encodings`() {
+        val testCases = listOf(
+            "" to "",
+            "Hello World" to "\n",
+            "第一章 远方的故事" to "\r\n",
+            "带有全角标点，！？以及空格 123" to "\n",
+            "生僻字符测试𠮷以及Emoji😀🎉" to "\r\n",
+            "混合中英文123ABCxyz，。《》" to "",
+        )
+        val charsets = listOf(
+            Charsets.UTF_8,
+            Charsets.UTF_16LE,
+            Charsets.UTF_16BE,
+            java.nio.charset.Charset.forName("GB18030"),
+        )
+
+        for (cs in charsets) {
+            for ((line, term) in testCases) {
+                val expected = (line + term).toByteArray(cs).size
+                val actual = TxtFileScanner.fastEncodedByteLength(line, term, cs)
+                assertEquals("编码 $cs 下 '$line' + '$term' 计算的字节长度必须与 toByteArray 严格一致", expected, actual)
+            }
+        }
+    }
 }

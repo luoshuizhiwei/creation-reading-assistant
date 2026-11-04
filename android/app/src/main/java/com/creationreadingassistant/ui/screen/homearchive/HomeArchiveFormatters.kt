@@ -104,14 +104,6 @@ internal fun formatDetailTime(value: String?): String {
     return zdt.format(DateTimeFormatter.ofPattern("yyyy年MM月dd日 HH:mm"))
 }
 
-internal fun formatReadingTime(value: Long): String {
-    val minutes = (value.coerceAtLeast(0L) / 60_000.0).roundToInt()
-    if (minutes <= 0) return "不足 1 分钟"
-    val hours = minutes / 60
-    val rest = minutes % 60
-    return if (hours > 0) "${hours}小时${rest}分钟" else "${minutes}分钟"
-}
-
 internal fun completedDateLabel(item: CompletedArchiveItem): String {
     val timestamp = item.progress.completed_at ?: return "已读完"
     val date = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate()

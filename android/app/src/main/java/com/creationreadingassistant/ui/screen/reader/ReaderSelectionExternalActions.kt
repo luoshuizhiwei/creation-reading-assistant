@@ -22,28 +22,53 @@ private const val WEB_QUERY_LIMIT = SelectionActions.MIN_WEB_QUERY_CHARS
 private const val DICTIONARY_QUERY_LIMIT = SelectionActions.MIN_DICT_QUERY_CHARS
 
 internal const val NOTICE_BLANK_SELECTION = "请先选择要查询的文字"
-internal const val NOTICE_OPENING_BROWSER = "正在打开浏览器…"
-internal const val NOTICE_OPENING_SYSTEM_DICT = "正在调用系统文字工具…"
-internal const val NOTICE_OPENING_ONLINE_DICT = "正在打开在线词典…"
-internal const val NOTICE_NO_BROWSER = "未找到可用浏览器"
-internal const val NOTICE_NO_DICT_OR_BROWSER = "未找到可用词典或浏览器"
+internal const val NOTICE_BROWSER_OPENED = "已打开浏览器"
+internal const val NOTICE_BROWSER_UNAVAILABLE = "未找到可用浏览器"
+internal const val NOTICE_SYSTEM_DICT_OPENED = "已调用系统文字工具"
+internal const val NOTICE_ONLINE_DICT_OPENED = "已打开在线词典"
 internal const val NOTICE_DICT_FALLBACK = "未找到词典应用，已用在线词典查询"
+internal const val NOTICE_DICT_OR_BROWSER_UNAVAILABLE = "未找到可用词典或浏览器"
+internal const val NOTICE_ONLINE_DICT_UNAVAILABLE = "无法打开在线词典，请确认系统浏览器可用"
 
-internal enum class ExternalActionKind {
-    BROWSER,
-    SYSTEM_DICTIONARY,
-    ONLINE_DICTIONARY,
+/**
+ * 浏览器通道的**最终结果**文案（S07-F4.1）。
+ *
+ * 旧实现先无条件提示「正在打开浏览器…」，拿到 `NO_HANDLER` 后再补一条失败 —— 用户在
+ * 一次什么都没发生的操作里连收两条互相矛盾的提示。现在提示只在结果确定后产生一条：
+ * 成功就是成功，失败就是失败，不存在「预报成功」的中间态。
+ */
+internal fun selectionBrowserResultNotice(result: SelectionExternalLaunchResult): String =
+    when (result) {
+        SelectionExternalLaunchResult.OPENED,
+        SelectionExternalLaunchResult.OPENED_WEB_FALLBACK,
+        -> NOTICE_BROWSER_OPENED
+
+        SelectionExternalLaunchResult.NO_HANDLER -> NOTICE_BROWSER_UNAVAILABLE
+    }
+
+/**
+ * 系统词典通道的最终结果文案：三段式判定的每一段都有**各自准确**的说法。
+ *
+ * 旧实现把「完全不可用」写成「未找到可用词典或浏览器」尚可接受，但同一套失败文案
+ * 也被在线词典通道复用 —— 后者会让用户去排查浏览器，而真正失败的是在线词典这一步。
+ */
+internal fun selectionSystemDictionaryResultNotice(
+    result: SelectionExternalLaunchResult,
+): String = when (result) {
+    SelectionExternalLaunchResult.OPENED -> NOTICE_SYSTEM_DICT_OPENED
+    SelectionExternalLaunchResult.OPENED_WEB_FALLBACK -> NOTICE_DICT_FALLBACK
+    SelectionExternalLaunchResult.NO_HANDLER -> NOTICE_DICT_OR_BROWSER_UNAVAILABLE
 }
 
-internal fun selectionExternalPreJumpNotice(kind: ExternalActionKind): String = when (kind) {
-    ExternalActionKind.BROWSER -> NOTICE_OPENING_BROWSER
-    ExternalActionKind.SYSTEM_DICTIONARY -> NOTICE_OPENING_SYSTEM_DICT
-    ExternalActionKind.ONLINE_DICTIONARY -> NOTICE_OPENING_ONLINE_DICT
-}
+/** 在线词典通道的最终结果文案：失败必须说「在线词典打不开」，不得借用浏览器文案。 */
+internal fun selectionOnlineDictionaryResultNotice(
+    result: SelectionExternalLaunchResult,
+): String = when (result) {
+    SelectionExternalLaunchResult.OPENED,
+    SelectionExternalLaunchResult.OPENED_WEB_FALLBACK,
+    -> NOTICE_ONLINE_DICT_OPENED
 
-internal fun selectionExternalFailureNotice(kind: ExternalActionKind): String = when (kind) {
-    ExternalActionKind.BROWSER, ExternalActionKind.ONLINE_DICTIONARY -> NOTICE_NO_BROWSER
-    ExternalActionKind.SYSTEM_DICTIONARY -> NOTICE_NO_DICT_OR_BROWSER
+    SelectionExternalLaunchResult.NO_HANDLER -> NOTICE_ONLINE_DICT_UNAVAILABLE
 }
 
 /**
@@ -98,12 +123,24 @@ internal fun Context.openSelectionInBrowser(
     template: String = SelectionActions.DEFAULT_BROWSER_TEMPLATE,
 ): SelectionExternalLaunchResult {
     val url = selectionBrowserUrl(text, template) ?: return SelectionExternalLaunchResult.NO_HANDLER
-    return if (startExternalActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))) {
+    return if (openHttpUrlWithBrowserChoice(url)) {
         SelectionExternalLaunchResult.OPENED
     } else {
         SelectionExternalLaunchResult.NO_HANDLER
     }
 }
+
+/**
+ * 以「可反悔」的方式打开 http(s) 链接。
+ *
+ * 为什么不能直接 `startActivity(ACTION_VIEW)`：部分国产 ROM（Mate70/HarmonyOS 实测）
+ * 会把 https 链接**静默解析**给系统「搜应用」，用户装了浏览器也轮不到弹选择框。
+ * `createChooser` 由系统自己枚举全部可解析应用（不受本包 `<queries>` 可见性过滤），
+ * 把选择权还给用户；个别 ROM 上 chooser 起不来时退回裸 ACTION_VIEW 兜底。
+ */
+internal fun Context.openHttpUrlWithBrowserChoice(url: String): Boolean =
+    startExternalActivity(Intent.createChooser(Intent(Intent.ACTION_VIEW, Uri.parse(url)), "选择浏览器")) ||
+        startExternalActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
 
 /**
  * 系统词典通道：优先把文字交给其它应用的文本处理动作（ACTION_PROCESS_TEXT），
@@ -142,20 +179,20 @@ internal fun Context.openSelectionInDictionary(
 
     val fallbackUrl = selectionDictionaryUrl(query, template)
         ?: return SelectionExternalLaunchResult.NO_HANDLER
-    return if (startExternalActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))) {
+    return if (openHttpUrlWithBrowserChoice(fallbackUrl)) {
         SelectionExternalLaunchResult.OPENED_WEB_FALLBACK
     } else {
         SelectionExternalLaunchResult.NO_HANDLER
     }
 }
 
-/** 在线词典通道：直接按模板打开浏览器，不做 ACTION_PROCESS_TEXT 探测。 */
+/** 在线词典通道：按模板打开网页词典，浏览器选择方式与「浏览器」入口一致。 */
 internal fun Context.openSelectionInOnlineDictionary(
     text: String,
     template: String = SelectionActions.DEFAULT_DICTIONARY_TEMPLATE,
 ): SelectionExternalLaunchResult {
     val url = selectionDictionaryUrl(text, template) ?: return SelectionExternalLaunchResult.NO_HANDLER
-    return if (startExternalActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))) {
+    return if (openHttpUrlWithBrowserChoice(url)) {
         SelectionExternalLaunchResult.OPENED_WEB_FALLBACK
     } else {
         SelectionExternalLaunchResult.NO_HANDLER
@@ -183,7 +220,10 @@ private fun Context.startExternalActivity(intent: Intent): Boolean {
 }
 
 /**
- * 选区浏览器查询调度器（包含空选区拦截、跳转前轻量提示与无 handler 明确失败提示）。
+ * 选区浏览器查询调度器（S07-F4.1：空选区拦截 + **结果确定后单条**提示）。
+ *
+ * 先启动再提示的旧形态会在 `NO_HANDLER` 时连发「正在打开浏览器…」和失败两条互相
+ * 矛盾的提示；现在 launcher 调用的结果决定**唯一**一条文案，绝不在结果未知时预报成功。
  */
 internal fun executeSelectionBrowser(
     selectedText: String,
@@ -196,10 +236,7 @@ internal fun executeSelectionBrowser(
         showNotice(blank)
         return
     }
-    showNotice(selectionExternalPreJumpNotice(ExternalActionKind.BROWSER))
-    if (launcher(selectedText, template) == SelectionExternalLaunchResult.NO_HANDLER) {
-        showNotice(selectionExternalFailureNotice(ExternalActionKind.BROWSER))
-    }
+    showNotice(selectionBrowserResultNotice(launcher(selectedText, template)))
 }
 
 internal fun Context.executeSelectionBrowser(
@@ -214,7 +251,11 @@ internal fun Context.executeSelectionBrowser(
 )
 
 /**
- * 选区词典查询调度器（离线/系统/在线三模式调度，包含空选区拦截、跳转前轻量提示与回退/失败明确提示）。
+ * 选区词典查询调度器（离线/系统/在线三模式调度；S07-F4.1：提示只在结果确定后发一条）。
+ *
+ * 三种模式各自的结果文案由 [selectionSystemDictionaryResultNotice] /
+ * [selectionOnlineDictionaryResultNotice] 决定：系统词典回退到在线词典要说清是回退，
+ * 在线词典失败不得借用浏览器文案。离线模式直接交给面板，不产生提示。
  */
 internal fun executeSelectionDictionary(
     selectedText: String,
@@ -233,13 +274,7 @@ internal fun executeSelectionDictionary(
                 showNotice(blank)
                 return
             }
-            showNotice(selectionExternalPreJumpNotice(ExternalActionKind.SYSTEM_DICTIONARY))
-            when (systemLauncher(selectedText, template)) {
-                SelectionExternalLaunchResult.OPENED -> Unit
-                SelectionExternalLaunchResult.OPENED_WEB_FALLBACK -> showNotice(NOTICE_DICT_FALLBACK)
-                SelectionExternalLaunchResult.NO_HANDLER ->
-                    showNotice(selectionExternalFailureNotice(ExternalActionKind.SYSTEM_DICTIONARY))
-            }
+            showNotice(selectionSystemDictionaryResultNotice(systemLauncher(selectedText, template)))
         }
         else -> {
             val blank = blankSelectionNotice(selectedText)
@@ -247,12 +282,7 @@ internal fun executeSelectionDictionary(
                 showNotice(blank)
                 return
             }
-            showNotice(selectionExternalPreJumpNotice(ExternalActionKind.ONLINE_DICTIONARY))
-            when (onlineLauncher(selectedText, template)) {
-                SelectionExternalLaunchResult.NO_HANDLER ->
-                    showNotice(selectionExternalFailureNotice(ExternalActionKind.ONLINE_DICTIONARY))
-                else -> Unit
-            }
+            showNotice(selectionOnlineDictionaryResultNotice(onlineLauncher(selectedText, template)))
         }
     }
 }

@@ -79,7 +79,9 @@ import com.creationreadingassistant.ui.navigation.readerTemporaryRouteForSource
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.LineArtBook
+import com.creationreadingassistant.ui.components.SearchResultCard
 import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.buildHighlighted
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.ListSkeleton
@@ -418,8 +420,12 @@ fun SearchScreen(
                             } else {
                                 results.books
                             }
-                            itemsIndexed(bookRows, key = { _, book -> "book-${book.id}" }) { index, book ->
-                                SearchResultRow(
+                            itemsIndexed(
+                                items = bookRows,
+                                key = { _, book -> "book-${book.id}" },
+                                contentType = { _, _ -> "search-book" },
+                            ) { index, book ->
+                                SearchResultCard(
                                     icon = Icons.Outlined.AutoStories,
                                     title = buildHighlighted(book.title, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "书籍",
@@ -437,11 +443,12 @@ fun SearchScreen(
                         }
                         if (tab == "all" || tab == "content") {
                             itemsIndexed(
-                                results.contentHits,
+                                items = results.contentHits,
                                 key = { _, hit -> "content-${hit.bookId}-${hit.textBasis.wire}" },
+                                contentType = { _, _ -> "search-content" },
                             ) { index, hit ->
                                 val bookTitle = results.bookTitles[hit.bookId]
-                                SearchResultRow(
+                                SearchResultCard(
                                     icon = Icons.AutoMirrored.Outlined.MenuBook,
                                     title = buildHighlighted(
                                         bookTitle ?: hit.bookId,
@@ -479,8 +486,12 @@ fun SearchScreen(
                             }
                         }
                         if (tab == "all" || tab == "inspirations") {
-                            itemsIndexed(results.inspirations, key = { _, insp -> "insp-${insp.id}" }) { index, insp ->
-                                SearchResultRow(
+                            itemsIndexed(
+                                items = results.inspirations,
+                                key = { _, insp -> "insp-${insp.id}" },
+                                contentType = { _, _ -> "search-inspiration" },
+                            ) { index, insp ->
+                                SearchResultCard(
                                     icon = Icons.Outlined.Lightbulb,
                                     title = buildHighlighted(insp.title, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "灵感",
@@ -497,9 +508,13 @@ fun SearchScreen(
                             }
                         }
                         if (tab == "all" || tab == "notes") {
-                            itemsIndexed(results.notes, key = { _, note -> "note-${note.id}" }) { index, note ->
+                            itemsIndexed(
+                                items = results.notes,
+                                key = { _, note -> "note-${note.id}" },
+                                contentType = { _, _ -> "search-note" },
+                            ) { index, note ->
                                 val source = note.book_id?.let { results.bookTitles[it] }?.let { "《$it》" }
-                                SearchResultRow(
+                                SearchResultCard(
                                     icon = Icons.Outlined.Description,
                                     title = buildHighlighted(note.title.ifBlank { note.body }, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "笔记",
@@ -516,9 +531,13 @@ fun SearchScreen(
                             }
                         }
                         if (tab == "all" || tab == "highlights") {
-                            itemsIndexed(results.highlights, key = { _, hl -> "highlight-${hl.id}" }) { index, hl ->
+                            itemsIndexed(
+                                items = results.highlights,
+                                key = { _, hl -> "highlight-${hl.id}" },
+                                contentType = { _, _ -> "search-highlight" },
+                            ) { index, hl ->
                                 val source = results.bookTitles[hl.book_id]?.let { "《$it》" }
-                                SearchResultRow(
+                                SearchResultCard(
                                     icon = Icons.Outlined.Highlight,
                                     title = buildHighlighted(hl.text.take(40), query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "高亮",
@@ -755,113 +774,3 @@ private fun CategoryFilterPill(
     }
 }
 
-@Composable
-private fun SearchResultRow(
-    icon: ImageVector,
-    title: AnnotatedString,
-    typeLabel: String,
-    typeColor: Color,
-    sourceLabel: String?,
-    snippet: String,
-    onClick: () -> Unit,
-    reducedMotion: Boolean = false,
-    entranceDelay: Int = 0,
-) {
-    val haptic = rememberHaptic(rememberReducedMotion())
-    SectionCard(
-        onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 5.dp)
-            .animateEnter(delayMillis = entranceDelay, reducedMotion = reducedMotion),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // 图标底座收敛到共享 IconPedestal（pedestalRadius + 发丝边）
-            IconPedestal(
-                icon = icon,
-                tint = typeColor,
-                size = 40.dp,
-                iconSize = 20.dp,
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(PillShape)
-                            .background(typeColor.copy(alpha = 0.1f))
-                            .padding(horizontal = 6.dp, vertical = 1.dp),
-                    ) {
-                        Text(
-                            text = typeLabel,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = typeColor,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                    sourceLabel?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-                if (snippet.isNotBlank()) {
-                    Text(
-                        text = snippet,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 16.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** 在文本中高亮匹配子串（SE3）。命中部分使用柔和底衬与主色加粗。 */
-private fun buildHighlighted(text: String, query: String, highlightColor: Color): AnnotatedString {
-    val keyword = query.trim()
-    if (keyword.isBlank()) return AnnotatedString(text)
-    val lower = text.lowercase()
-    val lowerKeyword = keyword.lowercase()
-    val builder = AnnotatedString.Builder()
-    var index = 0
-    while (index < text.length) {
-        val found = lower.indexOf(lowerKeyword, index)
-        if (found < 0) {
-            builder.append(text.substring(index))
-            break
-        }
-        if (found > index) builder.append(text.substring(index, found))
-        builder.pushStyle(
-            SpanStyle(
-                color = highlightColor,
-                fontWeight = FontWeight.Bold,
-                background = highlightColor.copy(alpha = 0.14f),
-            ),
-        )
-        builder.append(text.substring(found, (found + keyword.length).coerceAtMost(text.length)))
-        builder.pop()
-        index = found + keyword.length
-    }
-    return builder.toAnnotatedString()
-}

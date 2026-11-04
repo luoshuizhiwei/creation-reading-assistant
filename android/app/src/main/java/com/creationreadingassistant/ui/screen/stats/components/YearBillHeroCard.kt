@@ -1,14 +1,11 @@
 package com.creationreadingassistant.ui.screen.stats.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoStories
@@ -16,7 +13,6 @@ import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -24,18 +20,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.settings.DurationUnit
 import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.IslandCard
+import com.creationreadingassistant.ui.components.MetricMicroCard
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.stats.StatsUi
 import com.creationreadingassistant.ui.screen.stats.formatCompactDuration
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
-import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
@@ -43,24 +39,9 @@ import com.creationreadingassistant.ui.util.LocalDurationUnit
 import com.creationreadingassistant.ui.util.durationUnitToggle
 import java.time.LocalDate
 
-private data class YearBillMetricItem(
-    val icon: ImageVector,
-    val iconTint: Color,
-    val value: String,
-    val label: String,
-    val subtitle: String,
-    /**
-     * 只作用于主值文本的附加修饰符；**仅时长指标**传 [durationUnitToggle]。
-     *
-     * 用 `Modifier` 而非布尔开关：调用方自己决定挂什么，本组件不替调用方猜测
-     * 哪个指标是时长（"42 篇"、"3 天" 这类计数挂上去是错的）。
-     */
-    val valueModifier: Modifier = Modifier,
-)
-
 /**
  * 年度账单 Hero 卡：
- * - 顶部仪式感渐变横幅 + 年度总结金句；
+ * - 顶部仪式感渐变横幅 + 年度总结金句（独立重组作用域，数字动画期间完全跳过重组）；
  * - 2x2 纸墨微岛核心指标卡片，配 32dp 微彩底座与展示衬线数字；
  * - 仅当 StatsPeriod == YEAR 且有阅读数据时组合。
  */
@@ -73,7 +54,6 @@ internal fun YearBillHeroCard(
     val reducedMotion = rememberReducedMotion()
     val layout = LocalLayoutTokens.current
     val scheme = MaterialTheme.colorScheme
-
     val durationUnit = LocalDurationUnit.current
 
     // S15-F12-R1：主值、subtitle、金句必须来自**同一份原始时长**。
@@ -103,44 +83,6 @@ internal fun YearBillHeroCard(
         )
     }
 
-    val metrics = listOf(
-        YearBillMetricItem(
-            icon = Icons.Outlined.Timer,
-            iconTint = Color(0xFF2563EB),
-            value = cardDurationText,
-            label = "累计阅读",
-            // 副标题与主值同源同单位：DAYS 模式下不能一边写「1 天」一边写「30 小时」。
-            subtitle = "$cardDurationText $anchorYear",
-            // 年度账单 Hero 的唯一切换入口挂在「累计阅读」主值上。
-            //
-            // subtitle 与金句刻意不挂：它们与主值**同源同文**（同一个 cardDurationText /
-            // spoken），再挂就是同一语义的第二个、第三个入口，TalkBack 会在同一张卡里
-            // 读到三个同名的「切换时长显示单位」。
-            valueModifier = Modifier.durationUnitToggle(),
-        ),
-        YearBillMetricItem(
-            icon = Icons.Outlined.LocalFireDepartment,
-            iconTint = Color(0xFFF59E0B),
-            value = "$days 天",
-            label = "开卷天数",
-            subtitle = "全年坚持",
-        ),
-        YearBillMetricItem(
-            icon = Icons.Outlined.EmojiEvents,
-            iconTint = Color(0xFF10B981),
-            value = "$completed 本",
-            label = "读完书籍",
-            subtitle = "翻完最后一页",
-        ),
-        YearBillMetricItem(
-            icon = Icons.Outlined.AutoStories,
-            iconTint = Color(0xFF8B5CF6),
-            value = "$longest 天",
-            label = "最长连续",
-            subtitle = "不间断的记录",
-        ),
-    )
-
     IslandCard(
         modifier = modifier
             .fillMaxWidth()
@@ -148,130 +90,126 @@ internal fun YearBillHeroCard(
             .testTag("stats-year-bill-hero"),
         contentPadding = 0.dp,
     ) {
-        // 顶部仪式感渐变横幅 + 年度金句
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            scheme.primary.copy(alpha = 0.92f),
-                            scheme.primary.copy(alpha = 0.65f),
-                        ),
-                    ),
-                )
-                .padding(horizontal = layout.pageHorizontal, vertical = 18.dp),
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    IconPedestal(
-                        icon = Icons.Outlined.AutoStories,
-                        tint = Color.White,
-                        size = 28.dp,
-                        iconSize = 16.dp,
-                    )
-                    Text(
-                        "$anchorYear 年度阅读报告",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontFamily = DisplayFontFamily,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                    )
-                }
+        // 顶部仪式感渐变横幅 + 年度金句（独立重组边界，数字动画递增时自动跳过）
+        YearBillHeroBanner(
+            anchorYear = anchorYear,
+            headline = headline,
+            primaryColor = scheme.primary,
+            pageHorizontal = layout.pageHorizontal,
+        )
 
-                Text(
-                    text = "“ $headline ”",
-                    color = Color.White.copy(alpha = 0.90f),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontFamily = DisplayFontFamily,
-                    ),
-                )
-            }
-        }
-
-        // 2x2 纸墨微岛关键指标网格
+        // 2x2 纸墨微岛关键指标网格（静态声明，消灭动态 listOf 与 chunked(2) 堆内存抖动）
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            metrics.chunked(2).forEach { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    rowItems.forEach { item ->
-                        YearBillMicroCard(
-                            item = item,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                MetricMicroCard(
+                    icon = Icons.Outlined.Timer,
+                    iconTint = Color(0xFF2563EB),
+                    value = cardDurationText,
+                    label = "累计阅读",
+                    // 副标题与主值同源同单位：DAYS 模式下不能一边写「1 天」一边写「30 小时」。
+                    subtitle = "$cardDurationText $anchorYear",
+                    modifier = Modifier.weight(1f),
+                    // 年度账单 Hero 的唯一切换入口挂在「累计阅读」主值上。
+                    //
+                    // subtitle 与金句刻意不挂：它们与主值**同源同文**（同一个
+                    // cardDurationText / spoken），再挂就是同一语义的第二个、第三个入口，
+                    // TalkBack 会在同一张卡里读到三个同名的「切换时长显示单位」。
+                    valueModifier = Modifier.durationUnitToggle(),
+                )
+                MetricMicroCard(
+                    icon = Icons.Outlined.LocalFireDepartment,
+                    iconTint = Color(0xFFF59E0B),
+                    value = "$days 天",
+                    label = "开卷天数",
+                    subtitle = "全年坚持",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                MetricMicroCard(
+                    icon = Icons.Outlined.EmojiEvents,
+                    iconTint = Color(0xFF10B981),
+                    value = "$completed 本",
+                    label = "读完书籍",
+                    subtitle = "翻完最后一页",
+                    modifier = Modifier.weight(1f),
+                )
+                MetricMicroCard(
+                    icon = Icons.Outlined.AutoStories,
+                    iconTint = Color(0xFF8B5CF6),
+                    value = "$longest 天",
+                    label = "最长连续",
+                    subtitle = "不间断的记录",
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }
 }
 
+/** 顶部仪式感横幅：独立 Composable 边界，固化 Brush 渐变，避免每帧重复分配与重组。 */
 @Composable
-private fun YearBillMicroCard(
-    item: YearBillMetricItem,
+private fun YearBillHeroBanner(
+    anchorYear: Int,
+    headline: String,
+    primaryColor: Color,
+    pageHorizontal: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val spec = LocalComponentSpec.current
-    Surface(
-        modifier = modifier,
-        shape = spec.listItemShape,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(
-            spec.hairlineBorderWidth,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
-        ),
+    val gradientBrush = remember(primaryColor) {
+        Brush.horizontalGradient(
+            colors = listOf(
+                primaryColor.copy(alpha = 0.92f),
+                primaryColor.copy(alpha = 0.65f),
+            ),
+        )
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(brush = gradientBrush)
+            .padding(horizontal = pageHorizontal, vertical = 18.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 IconPedestal(
-                    icon = item.icon,
-                    tint = item.iconTint,
+                    icon = Icons.Outlined.AutoStories,
+                    tint = Color.White,
+                    size = 28.dp,
+                    iconSize = 16.dp,
                 )
                 Text(
-                    text = item.label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium,
+                    "$anchorYear 年度阅读报告",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontFamily = DisplayFontFamily,
+                        fontWeight = FontWeight.Bold,
+                    ),
                 )
             }
 
-            Spacer(Modifier.height(2.dp))
-
             Text(
-                text = item.value,
-                modifier = item.valueModifier,
-                style = MaterialTheme.typography.headlineSmall.copy(
+                text = "“ $headline ”",
+                color = Color.White.copy(alpha = 0.90f),
+                style = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.Bold,
                 ),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-            )
-
-            Text(
-                text = item.subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
     }

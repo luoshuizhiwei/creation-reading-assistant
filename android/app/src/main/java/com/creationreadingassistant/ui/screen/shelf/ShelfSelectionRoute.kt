@@ -322,7 +322,10 @@ internal fun ShelfSelectionRoute(
                     confirmButton = {
                         Button(
                             onClick = {
-                                selectedIds.forEach(viewModel::deleteBook)
+                                val idsToDelete = selectedIds.toList()
+                                if (idsToDelete.isNotEmpty()) {
+                                    viewModel.deleteBooks(idsToDelete)
+                                }
                                 confirmDeleteDialog = false
                                 selectedIds = emptySet()
                             },

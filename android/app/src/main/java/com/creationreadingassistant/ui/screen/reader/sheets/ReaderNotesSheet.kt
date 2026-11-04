@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.FileDownload
+import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Share
@@ -76,11 +77,11 @@ internal fun NotesSheet(
     onHighlightToInspiration: (HighlightEntity) -> Unit,
     onJumpToHighlight: (HighlightEntity) -> Unit,
     /**
-     * S07：笔记 / 书摘跳转（按注释类型分派 typed 目标）。
+     * 笔记 / 书签条目跳转（A01）。
      *
-     * 笔记 / 书摘小节里两类记录混排（书摘是 notes 表里 `kind == "bookmark"` 的行），
-     * 因此跳转方按 [noteAnnotationType] 分派 typed 目标**，而不是粗整固定一个
-     * BOOKMARK 类型 —— 旧实现误把书摘也叫 `onJumpToBookmark`，同一 rawId 跨表存在时
+     * 「笔记 / 书签」小节里两类记录混排（书签是 notes 表里 `kind == "bookmark"` 的行），
+     * 因此由**调用方按 [noteAnnotationType] 分派 typed 目标**，而不是给整段固定一个
+     * BOOKMARK 类型 —— 旧实现让普通笔记也走 `onJumpToBookmark`，同一 rawId 跨表存在时
      * 会跳到错误记录。
      */
     onJumpToNote: (NoteEntity) -> Unit,
@@ -135,10 +136,12 @@ internal fun NotesSheet(
     // R3-P1：删除高亮 / 笔记不可逆（高亮可能带着用户手写的批注），
     // 因此先把「删除」变成一次请求，用户确认后才下发回调。回调签名与命令通道保持不变。
     var pendingDelete by remember { mutableStateOf<NotesDeleteRequest?>(null) }
+    var quoteCardText by remember { mutableStateOf<String?>(null) }
     pendingDelete?.let { request ->
         DeleteAnnotationConfirmDialog(
             request = request,
             onConfirm = {
+                haptic(HapticFeedbackType.LongPress)
                 pendingDelete = null
                 when (request) {
                     is NotesDeleteRequest.Highlight -> onDeleteHighlight(request.entity)
@@ -172,6 +175,41 @@ internal fun NotesSheet(
                 ) {
                     val shareInteraction = remember { MutableInteractionSource() }
                     val exportInteraction = remember { MutableInteractionSource() }
+
+                    // 书摘卡片微胶囊
+                    val cardInteraction = remember { MutableInteractionSource() }
+                    Surface(
+                        onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            val pickText = highlights.firstOrNull()?.text
+                                ?: notes.firstOrNull { it.kind != "bookmark" }?.let { "${it.title}：${it.body}" }
+                                ?: "开卷有益，白首方悔读书迟。"
+                            quoteCardText = pickText
+                        },
+                        shape = PillShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)),
+                        modifier = Modifier.bounceable(cardInteraction),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Icon(
+                                Icons.Outlined.FormatQuote,
+                                contentDescription = "卡片",
+                                modifier = Modifier.size(13.dp),
+                                tint = MaterialTheme.colorScheme.secondary,
+                            )
+                            Text(
+                                "卡片",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.secondary,
+                            )
+                        }
+                    }
 
                     // 分享微胶囊
                     Surface(
@@ -239,6 +277,13 @@ internal fun NotesSheet(
             }
         },
     ) {
+        if (quoteCardText != null) {
+            QuoteCardDialog(
+                quoteText = quoteCardText!!,
+                bookTitle = bookTitle,
+                onDismiss = { quoteCardText = null },
+            )
+        }
         // 顶部“添加当前位置书签”按钮微岛化
         val addBookmarkInteraction = remember { MutableInteractionSource() }
         Surface(
@@ -300,7 +345,7 @@ internal fun NotesSheet(
                     createdAtOf = { it.created_at },
                 )
                 grouped.forEach { (chapter, items) ->
-                    item {
+                    item(contentType = "notes_section_header") {
                         NotesSectionHeader(
                             icon = Icons.AutoMirrored.Outlined.FormatListBulleted,
                             title = chapter?.takeIf { it.isNotBlank() } ?: "未分类",
@@ -308,7 +353,7 @@ internal fun NotesSheet(
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
-                    itemsIndexed(items, key = { _, h -> h.id }) { index, h ->
+                    itemsIndexed(items, key = { _, h -> h.id }, contentType = { _, _ -> "notes_highlight_card" }) { index, h ->
                         HighlightItemCard(
                             paper = paper,
                             highlight = h,
@@ -330,7 +375,7 @@ internal fun NotesSheet(
 
             // 笔记与书签
             if (notes.isNotEmpty()) {
-                item {
+                item(contentType = "notes_section_header") {
                     NotesSectionHeader(
                         icon = Icons.Outlined.Bookmark,
                         title = "笔记 / 书签",
@@ -338,7 +383,7 @@ internal fun NotesSheet(
                         tint = Color(0xFF2563EB),
                     )
                 }
-                itemsIndexed(notes, key = { _, n -> n.id }) { index, n ->
+                itemsIndexed(notes, key = { _, n -> n.id }, contentType = { _, _ -> "notes_note_card" }) { index, n ->
                     NoteItemCard(
                         note = n,
                         index = index,
@@ -351,7 +396,7 @@ internal fun NotesSheet(
 
             // 灵感记录
             if (inspirations.isNotEmpty()) {
-                item {
+                item(contentType = "notes_section_header") {
                     NotesSectionHeader(
                         icon = Icons.Outlined.Lightbulb,
                         title = "灵感记录",
@@ -359,7 +404,7 @@ internal fun NotesSheet(
                         tint = Color(0xFFF59E0B),
                     )
                 }
-                itemsIndexed(inspirations, key = { _, ins -> ins.id }) { index, ins ->
+                itemsIndexed(inspirations, key = { _, ins -> ins.id }, contentType = { _, _ -> "notes_inspiration_card" }) { index, ins ->
                     InspirationItemCard(
                         inspiration = ins,
                         index = index,
@@ -370,7 +415,7 @@ internal fun NotesSheet(
 
             // 空状态
             if (highlights.isEmpty() && notes.isEmpty() && inspirations.isEmpty()) {
-                item {
+                item(contentType = "notes_empty_state") {
                     FullEmptyState(
                         icon = { LineArtBookmark(sizeDp = 72.dp) },
                         title = "还没有笔记或灵感",
@@ -379,7 +424,7 @@ internal fun NotesSheet(
                 }
             }
 
-            item {
+            item(contentType = "notes_footer_spacer") {
                 Spacer(Modifier.height(16.dp))
             }
         }
@@ -389,21 +434,24 @@ internal fun NotesSheet(
 /** 待确认的删除请求；确认之前不下发任何删除回调。 */
 private sealed interface NotesDeleteRequest {
     val preview: String
+    val chapterTitle: String?
 
     data class Highlight(val entity: HighlightEntity) : NotesDeleteRequest {
         override val preview: String get() = entity.text
+        override val chapterTitle: String? get() = entity.chapter_title
     }
 
     data class Note(val entity: NoteEntity) : NotesDeleteRequest {
         override val preview: String get() = entity.title
+        override val chapterTitle: String? get() = entity.chapter_title
     }
 }
 
 /**
  * 删除高亮 / 笔记的二次确认。
  *
- * 必须展示**被删内容的摘录**：同一个列表里可能有几十条同类条目，
- * 只说「确定删除吗？」用户无法确认自己点中的是哪一条。
+ * 必须展示**被删内容的摘录**与**所属章节**：同一个列表里可能有几十条同类条目，
+ * 避免用户误删重要笔记。
  */
 @Composable
 private fun DeleteAnnotationConfirmDialog(
@@ -425,13 +473,30 @@ private fun DeleteAnnotationConfirmDialog(
             )
         },
         text = {
-            Text(
-                "「${request.preview.ifBlank { "（无摘录）" }}」将被删除，且无法撤销。",
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            androidx.compose.foundation.layout.Column(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    "「${request.preview.ifBlank { "（无摘录）" }}」将被彻底删除，且无法撤销。",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                request.chapterTitle?.takeIf { it.isNotBlank() }?.let { ch ->
+                    Text(
+                        "章节来源：$ch",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         },
         confirmButton = {
-            Button(onClick = onConfirm) {
+            Button(
+                onClick = onConfirm,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError,
+                ),
+            ) {
                 Text("删除")
             }
         },

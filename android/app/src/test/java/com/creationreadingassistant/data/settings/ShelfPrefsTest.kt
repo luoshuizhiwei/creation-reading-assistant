@@ -75,4 +75,61 @@ class ShelfPrefsTest {
         prefs.setPrivateSearch(false)
         assertEquals(false, prefs.privateSearch.first { !it })
     }
+
+    // ── 「新导入未查看」角标集合 ──────────────────────────────
+
+    @Test
+    fun `new book ids round trip and survive as a set`() = runTest {
+        val ids = listOf("nb-${UUID.randomUUID()}", "nb-${UUID.randomUUID()}")
+        prefs.addNewBookIds(ids)
+
+        val loaded = prefs.newBookIds.first { it.containsAll(ids) }
+        assertTrue(loaded.containsAll(ids))
+
+        prefs.clearAllNewBookIds()
+    }
+
+    @Test
+    fun `adding new book ids deduplicates and puts newest first`() = runTest {
+        val a = "nb-a-${UUID.randomUUID()}"
+        val b = "nb-b-${UUID.randomUUID()}"
+        prefs.clearAllNewBookIds()
+        prefs.addNewBookIds(listOf(a))
+        prefs.addNewBookIds(listOf(b, a))
+
+        val loaded = prefs.newBookIds.first { it.contains(a) && it.contains(b) }
+        assertEquals(setOf(a, b), loaded)
+
+        prefs.clearAllNewBookIds()
+    }
+
+    @Test
+    fun `clearing one new book id keeps the others`() = runTest {
+        val keep = "nb-keep-${UUID.randomUUID()}"
+        val drop = "nb-drop-${UUID.randomUUID()}"
+        prefs.clearAllNewBookIds()
+        prefs.addNewBookIds(listOf(keep, drop))
+        // 先确认两个都在，再删一个——否则下面的 first{} 会被 StateFlow 的
+        // 初始空集合直接满足，测试变成「永远通过」的假绿。
+        assertTrue(prefs.newBookIds.first { it.contains(keep) && it.contains(drop) }.contains(keep))
+
+        prefs.clearNewBookId(drop)
+
+        val loaded = prefs.newBookIds.first { it.contains(keep) && !it.contains(drop) }
+        assertTrue(loaded.contains(keep))
+        assertFalse(loaded.contains(drop))
+
+        prefs.clearAllNewBookIds()
+    }
+
+    @Test
+    fun `blank ids are ignored`() = runTest {
+        val seed = "nb-seed-${UUID.randomUUID()}"
+        prefs.clearAllNewBookIds()
+        prefs.addNewBookIds(listOf(seed))
+        prefs.addNewBookIds(listOf("", "  "))
+
+        val loaded = prefs.newBookIds.first { it.contains(seed) }
+        assertEquals(setOf(seed), loaded)
+    }
 }

@@ -105,3 +105,50 @@ fun formatDuration(
         }
     }
 }
+
+/**
+ * 智能亲和时间格式化（Relative Time）。
+ *
+ * 支持将 ISO-8601 字符串或 epoch millis 时间戳转为贴近自然语言的亲切表述：
+ * - 1 分钟内 -> "刚刚"
+ * - 1 小时内 -> "N 分钟前"
+ * - 24 小时内且自然日为今天 -> "N 小时前"
+ * - 自然日为昨天 -> "昨天"
+ * - 自然日为前天 -> "前天"
+ * - 7 天内 -> "N 天前"
+ * - 同一年内 -> "M月d日" (如 "9月18日")
+ * - 跨年 -> "yyyy年M月d日"
+ *
+ * 容错防护：若解析失败或传入空值，安全回退到原始截断文本或空字符串，绝不抛出异常。
+ */
+fun formatRelativeTime(raw: String?, nowMillis: Long = System.currentTimeMillis()): String {
+    if (raw.isNullOrBlank()) return ""
+    val targetMillis = runCatching {
+        raw.toLongOrNull() ?: Instant.parse(raw).toEpochMilli()
+    }.getOrNull() ?: return raw.take(10)
+
+    val diffMs = nowMillis - targetMillis
+    if (diffMs < 0) return "刚刚"
+    val diffSec = diffMs / 1000
+    val diffMin = diffSec / 60
+    val diffHour = diffMin / 60
+    val diffDay = diffHour / 24
+
+    if (diffMin < 1) return "刚刚"
+    if (diffMin < 60) return "${diffMin} 分钟前"
+    if (diffHour < 24 && diffDay == 0L) return "${diffHour} 小时前"
+    if (diffDay == 1L) return "昨天"
+    if (diffDay == 2L) return "前天"
+    if (diffDay in 3..6) return "${diffDay} 天前"
+
+    return runCatching {
+        val targetZone = java.time.ZoneId.systemDefault()
+        val targetDate = Instant.ofEpochMilli(targetMillis).atZone(targetZone).toLocalDate()
+        val nowDate = Instant.ofEpochMilli(nowMillis).atZone(targetZone).toLocalDate()
+        if (targetDate.year == nowDate.year) {
+            targetDate.format(java.time.format.DateTimeFormatter.ofPattern("M月d日"))
+        } else {
+            targetDate.format(java.time.format.DateTimeFormatter.ofPattern("yyyy年M月d日"))
+        }
+    }.getOrDefault(raw.take(10))
+}

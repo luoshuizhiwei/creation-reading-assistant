@@ -3,7 +3,11 @@ package com.creationreadingassistant.ui.viewmodel
 import app.cash.turbine.test
 import com.creationreadingassistant.data.ai.AiClient
 import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
+import com.creationreadingassistant.data.local.entity.HighlightEntity
+import com.creationreadingassistant.data.local.entity.InspirationEntity
+import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
+import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.ChapterReadRepository
 import com.creationreadingassistant.data.repository.NoteRepository
@@ -26,6 +30,7 @@ import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
 import com.creationreadingassistant.feature.reader.rules.RuleCommand
 import com.creationreadingassistant.feature.reader.rules.RuleKind
 import com.creationreadingassistant.feature.reader.rules.RuleMutationResult
+import com.creationreadingassistant.feature.reader.rules.RuleScope
 import com.creationreadingassistant.feature.reader.rules.FakeReaderCorrectionDao
 import com.creationreadingassistant.feature.reader.rules.RulesRepository
 import com.creationreadingassistant.feature.reader.session.ReadingSessionRecorder
@@ -37,12 +42,14 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -471,6 +478,70 @@ class ReaderViewModelTest {
         reads.value = emptyList()
         advanceUntilIdle()
         assertTrue(viewModel.routeUiState.value.readChapters.isEmpty())
+    }
+
+    @Test
+    fun `route state publishes before room flows emit so first open shows loading not blank`() = runTest {
+        // M-BUG-02 护栏：新书首开时 Room 读被导入的写事务饿住，bookData 的 combine 凑不齐首发射。
+        // routeUiState 是多层 combine 嵌套（routeSources 再与 ruleData 合），而 combine 需
+        // **所有源各发射至少一次**才发布 ⇒ 没有 onStart 兜底时它会一直停在 initialValue
+        // （requestedBookId == ""），于是：①UI 收不到 isLoading，先看到白屏、转圈迟到；
+        // ②_screenState 的 controlsVisible 变更也传不出去，菜单栏一直不隐去。
+        // 只把这 4 路换成「活着但一条不发」即可：combine 只要有一路不发射就整体不发射，
+        // chapterReadRepository 仍用 setup 的 flowOf(emptyList())，多换一路不会更严格。
+        val highlights = MutableSharedFlow<List<HighlightEntity>>()
+        val notes = MutableSharedFlow<List<NoteEntity>>()
+        val inspirations = MutableSharedFlow<List<InspirationEntity>>()
+        val sessions = MutableSharedFlow<List<ReadingSessionEntity>>()
+        every { noteRepository.observeHighlightsByBook(any()) } returns highlights
+        every { noteRepository.observeNotesByBook(any()) } returns notes
+        every { noteRepository.observeInspirationsByBook(any()) } returns inspirations
+        every { bookRepository.observeSessionsByBook(any()) } returns sessions
+        // 正文解析闸门：放行前一直停在 loading，即用户报的「几十秒后才显示正在打开书籍」。
+        // 用可放行的闸门而非 awaitCancellation()——后者会留下永不结束的 loadJob，其协程在
+        // Dispatchers.resetMain() 之后仍持有 Main 引用，会污染后续测试类。
+        val gate = CompletableDeferred<Unit>()
+        coEvery { documentLoader.load("book-1") } coAnswers {
+            gate.await()
+            fakeLoadedBook()
+        }
+
+        val vm = createViewModel()
+        // 顺序不可调换：生产里 Route 的 LaunchedEffect 先派发 OpenBook（openBook 同步落定
+        // activeBookId 与 isLoading），collectAsStateWithLifecycle 随后才订阅 ⇒ stateIn 的
+        // 收集起点直接落在慢 combine 上，flatMapLatest 的「无书身份」空分支根本没机会执行。
+        // 若先订阅再打开，就会走空分支让 bookData 提前发射，测试假阳性通过。
+        vm.onAction(ReaderAction.OpenBook("book-1"))
+        val collectJob = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            vm.routeUiState.collect { }
+        }
+        advanceUntilIdle()
+
+        val published = vm.routeUiState.value
+        assertEquals(
+            "bookData 首发射被饿住时，route 仍必须发布真实 uiState（onStart 兜底）",
+            "book-1",
+            published.document.requestedBookId,
+        )
+        assertTrue(
+            "正文未就绪时 isLoading 必须可达 UI，否则先看到的是白屏",
+            published.document.isLoading,
+        )
+        assertNull(
+            "loadedBook 为空 ⇒ 必须落在加载占位分支，而不是渲染空正文",
+            published.document.loadedBook,
+        )
+
+        // 放行解析，让 loadJob 正常收尾，不留悬挂协程。（「真实数据晚到后覆盖兜底快照」
+        // 已由 `route state observes read chapters for the active book` 覆盖，此处不重复。）
+        gate.complete(Unit)
+        advanceUntilIdle()
+
+        // 显式退订并当场结算：stateIn 的订阅计数簿记会恢复共享协程（其作用域是
+        // viewModelScope＝测试 Main）。若拖到 runTest 收尾之后才结算，就会在
+        // Dispatchers.resetMain() 之后去碰 Main，抛未捕获异常并随机污染后续测试类。
+        collectJob.cancel()
+        advanceUntilIdle()
     }
 
     // ── 6. TTS 安全 — TTS 相关操作在 ViewModel 层正确处理 ─────────
@@ -1032,6 +1103,105 @@ class ReaderViewModelTest {
         assertEquals(-1, viewModel.screenState.value.selectedSourceEnd)
     }
 
+    // ── S07-F2：页面/章节身份变化后必须完整清除选区 ──────────────────
+
+    /**
+     * 选区不变量：五个字段必须一起复位。
+     *
+     * 只清 `selectedText` / `selectedRangeStart` 会留下 `selectedGlobalOffset`、
+     * `selectedSourceEnd` 与 `showColorRow`，而 `ReaderScaffold` 的
+     * `selectedSourceLength` 正是由 `selectedSourceEnd` 减去这两个起点之一推出的 ——
+     * 半清状态下会算出跨字段的错值（进而静默写空 payload）。
+     */
+    private fun assertSelectionFullyCleared(stage: String) {
+        val s = viewModel.screenState.value
+        assertEquals("$stage: selectedText 必须清空", "", s.selectedText)
+        assertEquals("$stage: selectedRangeStart 必须复位", -1, s.selectedRangeStart)
+        assertEquals("$stage: selectedGlobalOffset 必须复位", -1, s.selectedGlobalOffset)
+        assertEquals("$stage: selectedSourceEnd 必须复位", -1, s.selectedSourceEnd)
+        assertFalse("$stage: showColorRow 必须收起", s.showColorRow)
+    }
+
+    /** 造一个「选区四字段 + 色板行全开」的状态，供各清除路径共用。 */
+    private fun seedOpenSelectionWithColorRow() {
+        viewModel.onAction(ReaderAction.SetSelectedText("一期一会", 5, 100, 120))
+        viewModel.onAction(ReaderAction.ToggleColorRow)
+        assertTrue("前置：色板行应为打开态", viewModel.screenState.value.showColorRow)
+    }
+
+    @Test
+    fun `clear selection resets every field including the colour row`() {
+        seedOpenSelectionWithColorRow()
+
+        viewModel.onAction(ReaderAction.ClearSelection)
+
+        assertSelectionFullyCleared("ClearSelection")
+    }
+
+    @Test
+    fun `a committed page turn clears the whole selection`() {
+        // 手势翻页 / 硬件键翻页 / 自动翻页 / 外部翻页请求在提交页码后都派发
+        // ReaderAction.PageTurn。旧实现只隐藏控制栏，VM 选区原样保留，
+        // 工具条会继续引用上一页的文字与坐标。
+        seedOpenSelectionWithColorRow()
+
+        viewModel.onAction(ReaderAction.PageTurn)
+
+        assertSelectionFullyCleared("PageTurn")
+        assertFalse("翻页仍必须隐藏控制栏", viewModel.screenState.value.controlsVisible)
+    }
+
+    @Test
+    fun `a chapter change clears the whole selection`() {
+        // 目录选择 / 上一章 / 下一章 / 搜索跳转 / 高亮回源都经 goToChapter → LoadChapter。
+        seedOpenSelectionWithColorRow()
+
+        viewModel.onAction(ReaderAction.LoadChapter("book-1", 2))
+
+        assertSelectionFullyCleared("LoadChapter")
+    }
+
+    @Test
+    fun `a centre tap that dismisses an open selection clears the whole selection`() {
+        // 中央点击收起菜单时若正有选区，必须与 ClearSelection 同语义；
+        // 旧实现只清 text 与 rangeStart，留下 globalOffset / sourceEnd / showColorRow。
+        seedOpenSelectionWithColorRow()
+
+        viewModel.onAction(ReaderAction.ToggleControls())
+
+        assertSelectionFullyCleared("ToggleControls(CenterTap)")
+    }
+
+    @Test
+    fun `clearing on a page turn preserves the new reading position`() {
+        // 清选区不得顺手改动位置：页码/章号与选区是两套独立状态。
+        viewModel.onAction(ReaderAction.ToggleControls(visible = false))
+        assertFalse(viewModel.screenState.value.controlsVisible)
+
+        viewModel.onAction(ReaderAction.SetSelectedText("一期一会", 5, 100, 120))
+        viewModel.onAction(ReaderAction.PageTurn)
+
+        assertSelectionFullyCleared("PageTurn")
+        assertFalse(
+            "翻页后的 chrome 可见性契约不变（仍是隐藏）",
+            viewModel.screenState.value.controlsVisible,
+        )
+        assertEquals("翻页不得清空搜索词", "", viewModel.screenState.value.searchQuery)
+        assertNull("翻页不得改动弹层状态", viewModel.screenState.value.sheet)
+    }
+
+    @Test
+    fun `a page turn without a selection is a harmless no-op on selection state`() {
+        // 到达第一页/最后一页等「没有真正换页」的情况不会派发 PageTurn
+        // （resolveReaderTapAction 返回 NONE，见 ReaderTapActionTest）。
+        // 这里锁定的是：即便 PageTurn 被派发，也不得凭空造出或改变选区。
+        assertSelectionFullyCleared("初始态")
+
+        viewModel.onAction(ReaderAction.PageTurn)
+
+        assertSelectionFullyCleared("无选区的 PageTurn")
+    }
+
     @Test
     fun `search query action updates screen state`() {
         viewModel.onAction(ReaderAction.SetSearchQuery("test query"))
@@ -1207,6 +1377,89 @@ class ReaderViewModelTest {
 
         viewModel.onAction(ReaderAction.ClearRuleMutationResult)
         assertNull("清除反馈后应回到 null", viewModel.ruleMutationResult.value)
+    }
+
+    @Test
+    fun `successful rule command clears stale selection so repaginated body keeps no residue`() = runTest {
+        // 选区残留 bug（R6 静态排查）：规则保存会触发重分页，display 坐标选区若不清空，
+        // 正文选区底色/把手错位、选区工具条不消失、规则表单下次还预填失效旧文本。
+        viewModel.onAction(ReaderAction.SetSelectedText("hello", 5, 100, 120))
+        assertEquals("hello", viewModel.screenState.value.selectedText)
+
+        viewModel.onAction(
+            ReaderAction.ExecuteRuleCommand(
+                "book-1",
+                RuleCommand.SaveCustomReplace(name = "净化", pattern = "广告", replacement = ""),
+            ),
+        )
+        awaitIo()
+
+        assertTrue(viewModel.ruleMutationResult.value is RuleMutationResult.Saved)
+        val state = viewModel.screenState.value
+        assertEquals("", state.selectedText)
+        assertEquals(-1, state.selectedRangeStart)
+        assertEquals(-1, state.selectedGlobalOffset)
+        assertEquals(-1, state.selectedSourceEnd)
+        assertFalse(state.showColorRow)
+    }
+
+    @Test
+    fun `global replace rule change wakes a REPLACE sweep instead of a silently dropped KEEP enqueue`() =
+        runTest {
+            // 规则变更置脏后必须用 REPLACE 唤起后台重扫。
+            //
+            // 曾经的实现用 SearchIndexScheduler.enqueueOnce()（ExistingWorkPolicy.KEEP）：当唯一
+            // 任务名对应的 work 正处于 RUNNING 时，这次入队会被 WorkManager **静默丢弃**；而在跑的
+            // 那个 worker 会继续把 last_scanned_book_id 往前写，**覆盖掉**
+            // invalidateSweepForFullRebuild() 刚重置的游标 ⇒ 换了全局替换规则后全库重扫
+            // **根本不会发生**，旧规则下建的索引行一直生效（搜索命中旧文本）。
+            //
+            // 反向验证方式：把 ReaderViewModel 里那行改回 enqueueOnce()，本用例必须 FAIL。
+            viewModel.onAction(
+                ReaderAction.ExecuteRuleCommand(
+                    "book-1",
+                    RuleCommand.SaveCustomReplace(
+                        name = "全局净化",
+                        pattern = "广告",
+                        replacement = "",
+                        scope = RuleScope.GLOBAL,
+                    ),
+                ),
+            )
+            awaitIo()
+
+            assertTrue(viewModel.ruleMutationResult.value is RuleMutationResult.Saved)
+            coVerify(exactly = 1) { searchIndexRepository.invalidateSweepForFullRebuild() }
+            verify(exactly = 1) { searchIndexScheduler.triggerNow(force = true) }
+            verify(exactly = 0) { searchIndexScheduler.enqueueOnce() }
+            // 规则变更不涉及删书，不得顺带走孤儿回收（千万行表的全表 distinct 扫描）。
+            // 这条锁住「不改成 triggerFullRebuildNow()」的决定。
+            coVerify(exactly = 0) { searchIndexRepository.purgeOrphanIndexRows() }
+        }
+
+    @Test
+    fun `failed correction keeps selection intact for retry`() = runTest {
+        // 失败路径不清选区：用户仍可重试或改用本书替换。
+        // 构造 NotAnchorable：命令 findText 与当前选区文本不一致。
+        viewModel.onAction(ReaderAction.SetSelectedText("hello", 5, 100, 120))
+
+        viewModel.onAction(
+            ReaderAction.ExecuteRuleCommand(
+                "book-1",
+                RuleCommand.SaveSingleCorrection(
+                    sourceStart = -1,
+                    sourceEnd = -1,
+                    findText = "完全不同的文本",
+                    replaceText = "x",
+                ),
+            ),
+        )
+        awaitIo()
+
+        assertTrue(viewModel.ruleMutationResult.value is RuleMutationResult.NotAnchorable)
+        assertEquals("hello", viewModel.screenState.value.selectedText)
+        assertEquals(5, viewModel.screenState.value.selectedRangeStart)
+        assertEquals(120, viewModel.screenState.value.selectedSourceEnd)
     }
 
     @Test

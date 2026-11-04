@@ -56,8 +56,15 @@ class BookViewModel @Inject constructor(
             .onFailure { onResult("删除失败：${it.message}") }
     }
 
+    /**
+     * 「标记为已读完」。
+     *
+     * 走 [BookRepository.markFinished] 而不是 `updateReadingProgress(100f, "finished")`：
+     * 后者会把 `last_read_at` 刷成当下，让一本从未打开过的书跳到「最近阅读」榜首。
+     * 标记读完是管理操作，不是阅读行为，不应伪造阅读时间。
+     */
     fun markRead(id: String) = viewModelScope.launch {
-        repository.updateReadingProgress(id, 100f, "finished")
+        repository.markFinished(id)
     }
 
     fun markUnread(id: String) = viewModelScope.launch {

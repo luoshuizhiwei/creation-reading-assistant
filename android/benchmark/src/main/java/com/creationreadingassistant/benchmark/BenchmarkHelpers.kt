@@ -2,6 +2,7 @@ package com.creationreadingassistant.benchmark
 
 import androidx.benchmark.macro.MacrobenchmarkScope
 import androidx.test.uiautomator.By
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.Until
 
 internal fun MacrobenchmarkScope.dismissOnboardingIfPresent() {
@@ -128,3 +129,58 @@ internal fun MacrobenchmarkScope.filterShelfForBenchmark(query: String) {
     field.text = query
     device.waitForIdle()
 }
+
+/**
+ * 打开书架中的测试书籍并等待阅读正文就绪。
+ *
+ * **为什么 Baseline Profile 生成器必须调用此函数**：Baseline Profile 是把编译产物（AOT 内联表）
+ * 固化进 release APK 的机制。只有 journey 真正走过的代码路径才会被采样，否则 release 首次开书
+ * 只能走主线程解释/JIT，产生肉眼可见的加载卡顿。Macrobenchmark（ReaderBenchmark）只做「测量」，
+ * 跑再多也不会让 release 包变快 —— 两者不可互相替代。
+ *
+ * 复用生产代码已有的语义描述符（`内容：分页正文已就绪` / `打开书籍`），避免与 ReaderBenchmark
+ * 各写一份坐标点击而漂移。坐标点击仅用于翻页（无对应描述符）。
+ *
+ * @param openOldest true 打开「测试 TXT」，false 打开「测试 EPUB」
+ */
+internal fun MacrobenchmarkScope.openBenchmarkBookForProfile(openOldest: Boolean) {
+    openShelfForBenchmark()
+    filterShelfForBenchmark(if (openOldest) "测试 TXT" else "测试 EPUB")
+
+    // 书架在搜索过滤后可能仍在刷新，命中 StaleObjectException 需重试（同 ReaderBenchmark）。
+    repeat(3) {
+        val book = device.wait(Until.findObject(By.desc("打开书籍")), 5_000)
+        checkNotNull(book) {
+            "书架没有可用于性能测试的${if (openOldest) "测试 TXT" else "测试 EPUB"}"
+        }
+        try {
+            book.click()
+            return@repeat
+        } catch (_: StaleObjectException) {
+            device.waitForIdle()
+        }
+    }
+    check(device.wait(Until.hasObject(By.desc("阅读正文已就绪")), 15_000)) {
+        "阅读器文档未就绪"
+    }
+    check(device.wait(Until.hasObject(By.desc("分页正文已就绪")), 15_000)) {
+        "阅读器首屏正文未就绪"
+    }
+}
+
+/**
+ * 在阅读器内连续翻页，采样相邻章节的排版热路径。
+ *
+ * 翻页使用坐标点击（正文无对应语义描述符）。每次点击后等待正文重新就绪，确保排版完成后再翻下一页，
+ * 否则会把「排版进行中」的状态采进 profile。
+ */
+internal fun MacrobenchmarkScope.turnBenchmarkPages(times: Int = 4) {
+    repeat(times) {
+        device.click(device.displayWidth * 4 / 5, device.displayHeight / 2)
+        device.waitForIdle()
+        check(device.wait(Until.hasObject(By.desc("分页正文已就绪")), 10_000)) {
+            "翻页后分页正文未就绪"
+        }
+    }
+}
+

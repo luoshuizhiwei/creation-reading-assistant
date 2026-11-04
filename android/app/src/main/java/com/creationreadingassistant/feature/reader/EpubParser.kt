@@ -47,21 +47,48 @@ object EpubParser {
     /** SVG 封面页用的 <image xlink:href="…">，此前完全不识别，整页渲染为空白。 */
     private val RE_SVG_HREF = Regex("(?:xlink:)?href\\s*=\\s*[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
 
+    /**
+     * @param expectedBookId 显式指定内部副本 id（替换/打开已登记的书时必须传），
+     *                       不传则按完整 Uri 字符串派生，同一来源会派生出同一个 id。
+     * @param requireFreshSource **本次必须读取并校验「来源 URI 的当前字节」**，
+     *                           禁止复用任何已存在的内部副本。替换正文时必须为 true。
+     */
     suspend fun parse(
         context: Context,
         uri: Uri,
         expectedBookId: String? = null,
         fallbackLocalPath: String? = null,
+        requireFreshSource: Boolean = false,
     ): EpubBook = withContext(Dispatchers.IO) {
         // 使用完整 Uri 字符串的 hashCode，避免不同书因 lastPathSegment 相同而碰撞。
         val id = expectedBookId ?: ("epub_" + uri.toString().hashCode().toString(36))
         // EPUB 是已导入的用户内容，不能只放 cacheDir：系统清缓存后书架记录还在，
         // 正文却会消失。首次打开时迁移/复制到 filesDir，后续解析只依赖应用自有副本。
-        val epubFile = File(context.filesDir, "books/epub/$id.epub")
-        if (!epubFile.exists() || epubFile.length() == 0L) {
-            epubFile.parentFile?.mkdirs()
-            val staging = File(epubFile.parentFile, "$id.importing")
+        val epubDir = File(context.filesDir, "books/epub")
+        val epubFile = File(epubDir, "$id.epub")
+        val staging = File(epubDir, "$id.importing")
+
+        // 「文件已存在就直接沿用」的早退分支是 S04「同 URI V1→V2 更新失效」的根因：
+        // 书被导入时若走的是派生 id（openEpub 不传 expectedBookId），bookId 就等于该派生 id，
+        // 于是这里的 epubFile 与替换链路的 target 是**同一个文件**，早退必然命中，
+        // 来源的新字节根本没被读过 —— 替换变成「用 V1 覆盖 V1」的 no-op。
+        // requireFreshSource 时绝不早退：一律从来源 URI 重新取字节。
+        val reuseExisting = !requireFreshSource && epubFile.exists() && epubFile.length() > 0L
+        // landing = 本次由来源字节落盘、且**校验失败时必须清理**的文件；
+        // 复用既有副本时为 null（那不是本次产生的，绝不能删）。
+        val landing: File? = when {
+            requireFreshSource -> staging
+            reuseExisting -> null
+            else -> epubFile
+        }
+
+        if (!reuseExisting) {
+            // 新鲜来源模式一律落到 staging：它绝不能覆盖 epubFile，
+            // 因为 epubFile 此刻可能正是等待被替换、且唯一完好的旧正文。
+            val dest = landing ?: epubFile
+            epubDir.mkdirs()
             staging.delete()
+            dest.delete()
             try {
                 val copied = runCatching {
                     context.contentResolver.openInputStream(uri)?.use { input ->
@@ -71,12 +98,21 @@ object EpubParser {
                 if (!copied) {
                     // 兼容同步下载和旧版本：外部 Uri 权限失效时，从已登记的本地路径
                     // 或旧 cacheDir 副本迁移，仍保留原书 id 与阅读进度。
-                    val fallback = fallbackLocalPath
-                        ?.removePrefix("file://")
-                        ?.let(::File)
-                        ?.takeIf { it.isFile && it.length() > 0L }
-                        ?: File(context.cacheDir, "epub/$id.epub")
-                            .takeIf { it.isFile && it.length() > 0L }
+                    //
+                    // 新鲜来源模式下**绝不使用该兜底**：兜底读到的正是本次要替换掉的
+                    // 旧内部副本，用它「校验通过」等于把旧内容伪装成新来源，
+                    // 与早退分支是同一个缺陷的两种形态。
+                    val fallback = if (requireFreshSource) null else {
+                        fallbackLocalPath
+                            ?.removePrefix("file://")
+                            ?.let(::File)
+                            ?.takeIf { it.isFile && it.length() > 0L }
+                            ?: File(context.cacheDir, "epub/$id.epub")
+                                .takeIf { it.isFile && it.length() > 0L }
+                    }
+                    if (fallback == null && requireFreshSource) {
+                        throw IllegalStateException("无法读取所选 EPUB 来源，请重新选择文件")
+                    }
                     if (fallback != null) {
                         fallback.inputStream().use { input ->
                             staging.outputStream().use { out -> input.copyTo(out) }
@@ -86,18 +122,40 @@ object EpubParser {
                 if (staging.length() == 0L) {
                     throw IllegalStateException("无法打开 EPUB 文件，请重新导入")
                 }
-                if (!staging.renameTo(epubFile)) {
-                    staging.copyTo(epubFile, overwrite = true)
-                    staging.delete()
+                if (dest !== staging) {
+                    if (!staging.renameTo(dest)) {
+                        staging.copyTo(dest, overwrite = true)
+                        staging.delete()
+                    }
                 }
             } catch (e: Exception) {
+                // 校验在下面才做，落盘可能已经完成 ⇒ 本次产生的文件必须一并清掉，
+                // 否则损坏的 EPUB 会在私有目录留下无人引用的孤儿副本（S04 §9-4）。
                 staging.delete()
+                landing?.takeIf { it !== staging }?.delete()
                 throw e
             }
         }
-        val cachedPath = epubFile.absolutePath
+        // 新鲜来源模式下解析的是 staging（尚未提升为正式内部副本）；
+        // 其余情况解析的是 epubFile。
+        val cachedPath = (if (requireFreshSource) staging else epubFile).absolutePath
+        val parsedFile = File(cachedPath)
 
-        val zip = ZipFile(epubFile)
+        // 先落盘、后校验：ZipFile 及后续解析（缺 container.xml / OPF / 无正文）都可能抛错。
+        // 这些失败点全部在 try 之外的话，已落位的副本就会变成无人引用的孤儿文件
+        // （S04 §9-4：损坏 EPUB 在私有目录永久留下副本）。这里把**解析阶段**也纳入，
+        // 保证「本次产生的文件」在任何失败下都被清理。
+        // 清理必须发生在 zip 关闭**之后**：Windows 上 ZipFile 持有文件句柄，
+        // 未关闭就 delete() 会静默失败（返回 false），孤儿文件照样留下。
+        // 因此这里用「失败标记 + finally 统一清理」，而不是在 catch 里直接删。
+        val zip: ZipFile
+        var parseFailed = false
+        try {
+            zip = ZipFile(parsedFile)
+        } catch (e: Exception) {
+            discardLanding(landing, staging)
+            throw e
+        }
         try {
             val containerEntry = zip.getEntry("META-INF/container.xml")
                 ?: throw IllegalStateException("不是合法的 EPUB（缺少 META-INF/container.xml）")
@@ -144,9 +202,26 @@ object EpubParser {
                 cachedEpubPath = cachedPath,
                 coverEntryPath = coverEntryPath,
             )
+        } catch (e: Exception) {
+            // 解析（而非复制）失败：本次落盘的文件同样必须清掉，不得留下孤儿副本。
+            parseFailed = true
+            throw e
         } finally {
+            // 先关句柄（释放 Windows 上的文件锁），再清理。
             zip.close()
+            if (parseFailed) discardLanding(landing, staging)
         }
+    }
+
+    /**
+     * 清理「本次操作产生的」落盘文件。
+     *
+     * [landing] 为 null 表示本次复用的是既有内部副本 —— 那不是本次产生的，
+     * **绝不能删**（删掉就销毁了用户仅存的正文）。
+     */
+    private fun discardLanding(landing: File?, staging: File) {
+        runCatching { staging.delete() }
+        runCatching { landing?.takeIf { it !== staging }?.delete() }
     }
 
     /**

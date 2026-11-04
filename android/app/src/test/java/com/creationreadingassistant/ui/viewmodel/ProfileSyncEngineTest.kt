@@ -4,11 +4,14 @@ import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.remote.SyncConfigStore
 import com.creationreadingassistant.data.remote.SyncContract
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.ConflictStrategy
+import com.creationreadingassistant.data.repository.SyncOptions
 import com.creationreadingassistant.data.repository.SyncRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -106,6 +109,28 @@ class ProfileSyncEngineTest {
         coVerify(exactly = 0) { syncRepository.downloadPendingBooks(any()) }
         assertEquals(0, outcome.result.downloaded.bookFiles)
         assertFalse(outcome.logs.any { it.startsWith("开始下载") || it.startsWith("下载完成") })
+    }
+
+    @Test
+    fun `runSync forwards sync options to pull and push unchanged`() = runTest {
+        // 真接线护栏：子页的 3 个开关 + 冲突策略必须原样透传到 pull/push，
+        // 否则开关就是「摆着能点却不生效」的摆设。
+        val options = SyncOptions(
+            syncBooks = false,
+            syncProgress = true,
+            syncInspirations = false,
+            conflictStrategy = ConflictStrategy.LOCAL_WINS,
+        )
+        val pullSlot = slot<SyncOptions>()
+        val pushSlot = slot<SyncOptions>()
+        coEvery { syncRepository.pull(capture(pullSlot)) } returns pullResult()
+        coEvery { syncRepository.push(capture(pushSlot)) } returns pushResult()
+        every { bookRepository.observeBooks() } returns flowOf(emptyList())
+
+        engine().runSync(autoDownloadBooks = false, options = options)
+
+        assertEquals(options, pullSlot.captured)
+        assertEquals(options, pushSlot.captured)
     }
 
     @Test

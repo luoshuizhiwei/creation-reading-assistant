@@ -85,6 +85,7 @@ import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.buildHighlighted
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.layout.adaptivePageMetrics
 import com.creationreadingassistant.ui.theme.AppSuccess
@@ -403,7 +404,7 @@ internal fun ShelfSearchRoute(
                         }
                     }
                     items(results, key = { it.id }) { book ->
-                        SearchResultRow(
+                        ShelfSearchResultRow(
                             book = book,
                             progress = source.library.progressById[book.id],
                             query = normalized,
@@ -429,7 +430,7 @@ internal fun ShelfSearchRoute(
 }
 
 @Composable
-private fun SearchResultRow(
+private fun ShelfSearchResultRow(
     book: BookEntity,
     progress: ReadingProgressEntity?,
     query: String,
@@ -548,31 +549,3 @@ private fun SearchResultRow(
     }
 }
 
-/** 在文本中高亮匹配子串。命中部分使用柔和底衬与主色加粗。 */
-private fun buildHighlighted(text: String, query: String, highlightColor: Color): AnnotatedString {
-    val keyword = query.trim()
-    if (keyword.isBlank()) return AnnotatedString(text)
-    val lower = text.lowercase()
-    val lowerKeyword = keyword.lowercase()
-    val builder = AnnotatedString.Builder()
-    var index = 0
-    while (index < text.length) {
-        val found = lower.indexOf(lowerKeyword, index)
-        if (found < 0) {
-            builder.append(text.substring(index))
-            break
-        }
-        if (found > index) builder.append(text.substring(index, found))
-        builder.pushStyle(
-            SpanStyle(
-                color = highlightColor,
-                fontWeight = FontWeight.Bold,
-                background = highlightColor.copy(alpha = 0.14f),
-            ),
-        )
-        builder.append(text.substring(found, (found + keyword.length).coerceAtMost(text.length)))
-        builder.pop()
-        index = found + keyword.length
-    }
-    return builder.toAnnotatedString()
-}

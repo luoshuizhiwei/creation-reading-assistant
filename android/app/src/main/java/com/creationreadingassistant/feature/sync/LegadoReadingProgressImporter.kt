@@ -7,6 +7,7 @@ import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.mergeReaderProgress
 import com.creationreadingassistant.feature.reader.locator.LegadoProgressMarker
+import com.creationreadingassistant.feature.reader.locator.LocatorBuilder
 import com.creationreadingassistant.feature.reader.locator.LocatorCodec
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -245,25 +246,18 @@ class LegadoReadingProgressImporter @Inject constructor(
     private fun locationFor(book: BookEntity, remote: LegadoProgress): String =
         if (isEpub(book)) {
             // EPUB 的章节 + 章内偏移与本阅读器的 locator v2 同构，可直接恢复。
-            // globalOffset 必须省略（locator v2 单一写入契约，S12-①）：导入时未解析
+            // globalOffset 必须传 null（locator v2 单一写入契约，S12-①）：导入时未解析
             // EPUB 正文、拿不到章起点表，若把章内偏移写进 v2 "offset" 冒充全书偏移，
             // 会违反 `offset == chapterStart[ci] + co` 不变式，导入后的所有回源跳转
             // （SourceNavigationContract 一致性校验）都被判为不一致而拒绝。缺省后由
             // 读侧按章元组派生、天然自洽；首次原生保存会补上真实的全书偏移。
-            //
-            // 直接构造 JSON 以避免 globalOffset 传 null（joint tree 的
-            // LocatorBuilder.progressJson 的 globalOffset 非空，LocatorCodec.encode
-            // 的 legacyOffset 也非空；工作树将两者改为可空但那两个文件不在本候选
-            // 所有权内）。产物结构与 LocatorBuilder.progressJson(globalOffset=null)
-            // 逐字一致：legacy offset + chapter + locator_v2 无 offset 字段。
-            buildString {
-                append('{')
-                append("\"chapter\":").append(remote.chapterIndex.coerceAtLeast(0)).append(',')
-                append("\"offset\":").append(remote.charOffset.coerceAtLeast(0))
-                append(",\"locator_v2\":{\"v\":2,\"ci\":").append(remote.chapterIndex.coerceAtLeast(0))
-                append(",\"co\":").append(remote.charOffset.coerceAtLeast(0)).append('}')
-                append('}')
-            }
+            LocatorBuilder.progressJson(
+                legacyOffset = remote.charOffset,
+                chapterIndex = remote.chapterIndex,
+                charOffset = remote.charOffset,
+                globalOffset = null,
+                legacyChapter = remote.chapterIndex,
+            )
         } else {
             // 纯文本需等打开本地正文并取得目录边界后再换算成绝对偏移；Markdown 已在
             // 匹配阶段被 [supportsImportedPosition] 排除，不会走到这里。

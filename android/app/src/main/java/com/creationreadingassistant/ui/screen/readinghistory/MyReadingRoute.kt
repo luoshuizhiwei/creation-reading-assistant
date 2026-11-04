@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -52,7 +53,13 @@ fun MyReadingRoute(
     var repairBookId by remember { mutableStateOf<String?>(null) }
     val repairLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         val id = repairBookId
-        if (uri != null && id != null) bookOps.reselectFile(id, uri) {}
+        // S04：修复结果不再静默丢弃——成功与失败（含替换残留守卫的完整原因）都必须可见。
+        // 残留文案约 90 字，Short（约 4 秒）读不完，用 Long 给用户留出阅读时间。
+        if (uri != null && id != null) {
+            bookOps.reselectFile(id, uri) { msg ->
+                scope.launch { snackbar.showSnackbar(msg, duration = SnackbarDuration.Long) }
+            }
+        }
         repairBookId = null
     }
 

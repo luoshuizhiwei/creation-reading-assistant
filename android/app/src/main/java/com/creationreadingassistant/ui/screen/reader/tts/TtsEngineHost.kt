@@ -113,6 +113,20 @@ internal class TtsEngineHost(private val appContext: Context, initialEngineId: T
         engine.setTimedStop(min)
     }
 
+    /** 睡眠定时剩余秒数（实时可观察）。 */
+    val timedStopRemainingSeconds: Int get() = engine.timedStopRemainingSeconds
+
+    /** 快捷延长睡眠定时（追加指定分钟）。 */
+    fun extendTimedStop(additionalMinutes: Int = 15) {
+        engine.extendTimedStop(additionalMinutes)
+        timedStopMinutes = (timedStopRemainingSeconds + 59) / 60
+    }
+
+    /** 实时调节语速：播放中当前句立即以新语速重读。 */
+    fun updateSpeechRate(v: Float) {
+        rate = v.coerceIn(0.5f, 3.0f)
+    }
+
     /** 实时调节音量：立即作用（不等到下一句）。 */
     fun updateVolume(v: Float) {
         volume = v.coerceIn(0f, 1f)

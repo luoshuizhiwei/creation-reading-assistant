@@ -37,56 +37,9 @@ import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.feature.reader.ReaderFontManager
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
-import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import java.io.File
-
-@Composable
-fun SettingsScreenScaffold(
-    title: String,
-    modifier: Modifier = Modifier,
-    navigationIcon: @Composable () -> Unit = {},
-    actions: @Composable RowScope.() -> Unit = {},
-    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
-) {
-    AppScreenScaffold(
-        title = title,
-        modifier = modifier,
-        navigationIcon = navigationIcon,
-        actions = actions,
-    ) { padding ->
-        PageLazyColumn(scaffoldPadding = padding, content = content)
-    }
-}
-
-@Composable
-fun SettingsSection(
-    title: String,
-    modifier: Modifier = Modifier,
-    description: String? = null,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val layout = LocalLayoutTokens.current
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (description != null) {
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        SettingsGroup(content = content)
-    }
-}
 
 @Composable
 fun SettingSwitchRow(
@@ -122,24 +75,32 @@ fun SettingSliderRow(
     enabled: Boolean = true,
 ) {
     val layout = LocalLayoutTokens.current
+    val metrics = settingsMetrics()
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = layout.cardPadding, vertical = layout.relatedGap),
+            .padding(horizontal = metrics.horizontalPadding, vertical = metrics.verticalPadding),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = metrics.titleSize,
+                    lineHeight = metrics.titleLineHeight,
+                ),
+            )
             Text(
                 valueLabel,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
         }
-        Slider(
+        // 统一视觉：CraSlider（连续轨道 + 末端停点）；steps 只做取值吸附不再碎段
+        CraSlider(
             value = value.coerceIn(valueRange.start, valueRange.endInclusive),
             onValueChange = onValueChange,
             valueRange = valueRange,
@@ -196,18 +157,28 @@ fun <T> SettingSegmentedRow(
     enabled: Boolean = true,
 ) {
     val layout = LocalLayoutTokens.current
+    val metrics = settingsMetrics()
     val haptic = rememberHaptic(rememberReducedMotion())
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = layout.cardPadding, vertical = layout.relatedGap),
+            .padding(horizontal = metrics.horizontalPadding, vertical = metrics.verticalPadding),
         verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
     ) {
-        Text(title, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            title,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontSize = metrics.titleSize,
+                lineHeight = metrics.titleLineHeight,
+            ),
+        )
         if (subtitle != null) {
             Text(
                 subtitle,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = metrics.subtitleSize,
+                    lineHeight = metrics.subtitleLineHeight,
+                ),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -293,7 +264,7 @@ fun SettingLinkRow(
                 if (value != null) {
                     Text(
                         value,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = settingsMetrics().subtitleSize),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -342,7 +313,7 @@ fun ReaderFontPickerRow(
     if (custom.isBlank()) {
         SettingLinkRow(
             title = "正文字体",
-            subtitle = "跟随系统字体；支持导入 .ttf / .otf 字体文件",
+            subtitle = "可导入 .ttf / .otf 字体文件",
             value = "跟随系统",
             onClick = { launcher.launch(arrayOf("*/*")) },
         )

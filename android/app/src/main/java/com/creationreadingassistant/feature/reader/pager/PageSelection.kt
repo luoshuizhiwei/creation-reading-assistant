@@ -57,8 +57,13 @@ object PageSelection {
         return out
     }
 
-    /** 拖拽把手落点（页内坐标）。 */
-    data class Handle(val x: Float, val y: Float)
+    /** 拖拽把手落点（页内坐标）。含对应字符行高的顶部与底部几何，供光标竖线渲染。 */
+    data class Handle(
+        val x: Float,
+        val y: Float,
+        val top: Float = y,
+        val bottom: Float = y,
+    )
 
     /** 一对把手；选区为空或与本页无交集时 [isActive] 为 false，两把手为 null。 */
     data class Handles(val isActive: Boolean, val left: Handle?, val right: Handle?)
@@ -81,9 +86,36 @@ object PageSelection {
         val last = rects.last()
         return Handles(
             isActive = true,
-            left = Handle(first.left, (first.top + first.bottom) / 2f),
-            right = Handle(last.right, (last.top + last.bottom) / 2f),
+            left = Handle(first.left, (first.top + first.bottom) / 2f, top = first.top, bottom = first.bottom),
+            right = Handle(last.right, (last.top + last.bottom) / 2f, top = last.top, bottom = last.bottom),
         )
+    }
+
+    /**
+     * 选区手柄触控命中检测（纯函数，JVM 可测）：
+     * - [pointerX], [pointerY]：相对于页面的触控点；
+     * - [handleX], [handleY]：把手中心坐标；
+     * - [horizontalRadiusPx]：水平判定半径；
+     * - [verticalUpRadiusPx]：向上判定半径（控制在合理范围防止向上误抢上一行）；
+     * - [verticalDownRadiusPx]：向下判定半径（适应人体大拇指下方握持遮挡）。
+     */
+    fun isHandleHit(
+        pointerX: Float,
+        pointerY: Float,
+        handleX: Float,
+        handleY: Float,
+        horizontalRadiusPx: Float,
+        verticalUpRadiusPx: Float,
+        verticalDownRadiusPx: Float,
+    ): Boolean {
+        val dx = kotlin.math.abs(pointerX - handleX)
+        if (dx > horizontalRadiusPx) return false
+        val dy = pointerY - handleY
+        return if (dy < 0f) {
+            -dy <= verticalUpRadiusPx
+        } else {
+            dy <= verticalDownRadiusPx
+        }
     }
 
     /**

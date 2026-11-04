@@ -28,6 +28,15 @@ internal sealed interface ReaderVolumeTurnPlan {
 }
 
 /**
+ * 根据反转配置将物理按键方向映射为有效翻页方向。
+ * 物理方向：-1 = 音量上键，1 = 音量下键。
+ * 默认（invert = false）：-1 向上/向前，1 向下/向后；
+ * 反转（invert = true）：-1 向下/向后（下一页），1 向上/向前（上一页）。
+ */
+internal fun effectiveVolumeTurnDirection(direction: Int, invert: Boolean): Int =
+    if (invert) -direction else direction
+
+/**
  * Decides whether a hardware volume press has an actionable reader operation.
  * At a boundary, returning system-volume avoids swallowing a key that cannot turn a page.
  */
@@ -42,14 +51,16 @@ internal fun readerVolumeTurnPlan(
     canScroll: Boolean,
     chapterIndex: Int,
     chapterCount: Int,
+    volumeKeyInvert: Boolean = false,
 ): ReaderVolumeTurnPlan {
-    if (direction !in setOf(-1, 1) || !volumeKeyPaging || (ttsVisible && !allowDuringTts)) {
+    val effectiveDir = effectiveVolumeTurnDirection(direction, volumeKeyInvert)
+    if (effectiveDir !in setOf(-1, 1) || !volumeKeyPaging || (ttsVisible && !allowDuringTts)) {
         return ReaderVolumeTurnPlan.UseSystemVolume
     }
-    if (pagerEngineOn) return ReaderVolumeTurnPlan.Paged(direction)
+    if (pagerEngineOn) return ReaderVolumeTurnPlan.Paged(effectiveDir)
     if (!scrollLayoutReady) return ReaderVolumeTurnPlan.UseSystemVolume
-    if (canScroll) return ReaderVolumeTurnPlan.Scroll(direction)
-    val targetIndex = chapterIndex + direction
+    if (canScroll) return ReaderVolumeTurnPlan.Scroll(effectiveDir)
+    val targetIndex = chapterIndex + effectiveDir
     return if (targetIndex in 0 until chapterCount) {
         ReaderVolumeTurnPlan.Chapter(targetIndex)
     } else {
@@ -77,6 +88,7 @@ internal fun readerVolumeKeyTurn(
     } else {
         plainListState
     }
+    val effectiveDir = effectiveVolumeTurnDirection(direction, readerSettings.volumeKeyInvert)
     val plan = readerVolumeTurnPlan(
         direction = direction,
         volumeKeyPaging = readerSettings.volumeKeyPaging,
@@ -84,9 +96,10 @@ internal fun readerVolumeKeyTurn(
         ttsVisible = showTts,
         pagerEngineOn = pagerEngineOn,
         scrollLayoutReady = activeScrollState.layoutInfo.viewportSize.height > 0,
-        canScroll = if (direction > 0) activeScrollState.canScrollForward else activeScrollState.canScrollBackward,
+        canScroll = if (effectiveDir > 0) activeScrollState.canScrollForward else activeScrollState.canScrollBackward,
         chapterIndex = chapterIndex,
         chapterCount = epubBook?.chapters?.size ?: markdownDocument?.chapters?.size ?: 0,
+        volumeKeyInvert = readerSettings.volumeKeyInvert,
     )
     when (plan) {
         is ReaderVolumeTurnPlan.Paged -> pagedHardwareTurnRequest.value = plan.direction

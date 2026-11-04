@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import java.io.File
+import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.runBlocking
@@ -11,26 +12,82 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
+/**
+ * S04 隔离修复（对应设计文档 §3.7）：
+ *
+ * 此前本测试把真实 [Context] 直接交给 [EpubParser.parse]，且用例 id 是固定字符串，
+ * 于是内部副本落在**正式** `filesDir/books/epub/`，`@After` 再按固定 bookId 去
+ * 正式目录删文件 —— 与真机上用户已导入的书共用一个目录，属同一类缺陷。
+ *
+ * 现在的隔离方式：
+ * - 所有写入（合成 EPUB 源文件、`EpubParser` 内部副本、img 缓存）都经
+ *   [IsolatedTestContext] 重定向到本次测试唯一的 [testRoot]（UUID 命名）。
+ * - [IsolatedTestContext] 不覆盖 `contentResolver`，仍委托真实实现只读源
+ *   （`Uri.fromFile`），读源能力不受影响。
+ * - [cleanUp] 只删经 [IsolatedTestContext.assertInsideRoot] 确认的该根目录，
+ *   **绝不**按固定 bookId 在正式 `filesDir` 删除任何东西。
+ * - [assertRootDisjointFromRealStorage] 是运行时防线：确认测试根与正式
+ *   `filesDir`（尤其 `books/epub`）互不包含、不相交，防线失守立即失败而非照常删除。
+ */
 class EpubParserInstrumentedTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val sourceFiles = mutableListOf<File>()
-    private val importedIds = mutableListOf<String>()
+
+    /** 本次测试专属唯一根目录；所有合成源文件与内部副本都落在它之下。 */
+    private val testRoot = File(
+        context.cacheDir,
+        "epub-parser-isolated-test/" + UUID.randomUUID(),
+    )
+
+    private val isolated = IsolatedTestContext(context, testRoot)
+
+    @Before
+    fun setUp() {
+        // 防线先于任何目录创建：若 testRoot 构造将来被改到正式 filesDir 下，
+        // 必须在落盘前就失败，而不是先污染后报警（S04 独立审查 P2-1）。
+        assertRootDisjointFromRealStorage()
+        testRoot.mkdirs()
+    }
 
     @After
     fun cleanUp() {
-        sourceFiles.forEach(File::delete)
-        importedIds.forEach { id ->
-            File(context.filesDir, "books/epub/$id.epub").delete()
-            File(context.filesDir, "books/epub/$id").deleteRecursively()
+        // 只清理本测试自己创建的唯一根；先经路径防线确认，失败即抛出而非照常删除。
+        isolated.assertInsideRoot(testRoot)
+        assertRootDisjointFromRealStorage()
+        // deleteRecursively 返回 false 且目录确实存在时，说明有残留：不能静默吞掉，
+        // 但此时不应再抛异常覆盖可能存在的原始测试失败 —— 用断言显式报告
+        // （S04 独立审查 P2-2）。testRoot 不存在（如 @Before 防线已失败）视为已清理，
+        // 不报告。残留只可能发生在自身 cacheDir 子树内（防线已确认 testRoot
+        // 不在正式目录下）。
+        if (testRoot.exists() && !testRoot.deleteRecursively()) {
+            throw AssertionError(
+                "测试根 $testRoot 删除失败，存在残留文件。" +
+                    "残留仅位于本测试自身 cacheDir 子树内，但请检查是否有文件被占用。",
+            )
+        }
+    }
+
+    /**
+     * 运行时防线：测试根与正式 `filesDir`（尤其 `books/epub`）必须互不相交。
+     * 任何一侧包含另一侧都视为防线失守，立即失败。
+     */
+    private fun assertRootDisjointFromRealStorage() {
+        val root = testRoot.canonicalFile
+        val realFiles = context.filesDir.canonicalFile
+        val realEpubRoot = File(realFiles, "books/epub").canonicalFile
+        check(!(root == realFiles || root.path.startsWith(realFiles.path + File.separator))) {
+            "测试根 $root 落在正式 filesDir $realFiles 内，防线失守，拒绝继续。"
+        }
+        check(!(root == realEpubRoot || realEpubRoot.path.startsWith(root.path + File.separator))) {
+            "正式 books/epub（$realEpubRoot）落入测试根 $root 内，防线失守，拒绝继续。"
         }
     }
 
     @Test
     fun emptySpineFallsBackToReadableManifestItemsAndSkipsNav() = runBlocking {
         val id = "instrumented-empty-spine"
-        importedIds += id
         val epub = createEpub(
             "META-INF/container.xml" to containerXml(),
             "OPS/package.opf" to """
@@ -55,7 +112,7 @@ class EpubParserInstrumentedTest {
             "OPS/style.css" to "body { color: black; }",
         )
 
-        val parsed = EpubParser.parse(context, Uri.fromFile(epub), expectedBookId = id)
+        val parsed = EpubParser.parse(isolated, Uri.fromFile(epub), expectedBookId = id)
 
         assertEquals("测试 EPUB", parsed.title)
         assertEquals(listOf("第一章", "第二章"), parsed.chapters.map { it.title })
@@ -71,7 +128,6 @@ class EpubParserInstrumentedTest {
     @Test
     fun epub3Nav文档作为目录源() = runBlocking {
         val id = "instrumented-epub3-nav-toc"
-        importedIds += id
         val epub = createEpub(
             "META-INF/container.xml" to containerXml(),
             "OPS/package.opf" to """
@@ -108,7 +164,7 @@ class EpubParserInstrumentedTest {
             "OPS/text/ch2.xhtml" to "<html><body><h1>实际标题二</h1><p>正文二</p></body></html>",
         )
 
-        val parsed = EpubParser.parse(context, Uri.fromFile(epub), expectedBookId = id)
+        val parsed = EpubParser.parse(isolated, Uri.fromFile(epub), expectedBookId = id)
 
         // 应使用 nav 文档中的标题，而非 HTML 中的 h1
         assertEquals(2, parsed.chapters.size)
@@ -122,7 +178,6 @@ class EpubParserInstrumentedTest {
     @Test
     fun epub2Ncx作为目录源() = runBlocking {
         val id = "instrumented-epub2-ncx-toc"
-        importedIds += id
         val epub = createEpub(
             "META-INF/container.xml" to containerXml(),
             "OPS/package.opf" to """
@@ -164,7 +219,7 @@ class EpubParserInstrumentedTest {
             "OPS/text/ch2.xhtml" to "<html><body><h1>HTML标题二</h1><p>正文二</p></body></html>",
         )
 
-        val parsed = EpubParser.parse(context, Uri.fromFile(epub), expectedBookId = id)
+        val parsed = EpubParser.parse(isolated, Uri.fromFile(epub), expectedBookId = id)
 
         // 应使用 NCX 中的标题
         assertEquals(2, parsed.chapters.size)
@@ -178,7 +233,6 @@ class EpubParserInstrumentedTest {
     @Test
     fun 无目录时回退到spine并过滤封面() = runBlocking {
         val id = "instrumented-no-toc-filter"
-        importedIds += id
         val epub = createEpub(
             "META-INF/container.xml" to containerXml(),
             "OPS/package.opf" to """
@@ -204,7 +258,7 @@ class EpubParserInstrumentedTest {
             "OPS/text/ch2.xhtml" to "<html><body><h1>第二章</h1><p>正文二</p></body></html>",
         )
 
-        val parsed = EpubParser.parse(context, Uri.fromFile(epub), expectedBookId = id)
+        val parsed = EpubParser.parse(isolated, Uri.fromFile(epub), expectedBookId = id)
 
         // 封面应被过滤，只保留正文章节
         assertEquals(2, parsed.chapters.size)
@@ -214,8 +268,9 @@ class EpubParserInstrumentedTest {
     }
 
     private fun createEpub(vararg entries: Pair<String, String>): File {
-        val file = File.createTempFile("neutral-epub-matrix-", ".epub", context.cacheDir)
-        sourceFiles += file
+        // 合成源文件也落在测试专属根内，绝不落正式 cacheDir。
+        val dir = File(testRoot, "src").also { it.mkdirs() }
+        val file = File.createTempFile("neutral-epub-matrix-", ".epub", dir)
         ZipOutputStream(file.outputStream()).use { output ->
             entries.forEach { (path, content) ->
                 output.putNextEntry(ZipEntry(path))

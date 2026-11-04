@@ -26,13 +26,16 @@ import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.entity.ShelfBookEntity
 import com.creationreadingassistant.data.local.entity.mergeReaderProgress
+import com.creationreadingassistant.data.repository.SearchIndexRepository
 import com.creationreadingassistant.feature.library.deletion.BookDeletionSnapshot
 import com.creationreadingassistant.feature.library.deletion.BookRestoreReport
 import com.creationreadingassistant.feature.library.deletion.LiveRelationTargets
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import com.creationreadingassistant.App
 import android.content.Context
 import com.creationreadingassistant.feature.log.AppLog
@@ -60,11 +63,16 @@ class BookRepository @Inject constructor(
     private val bookCategoryDao: BookCategoryDao,
     private val shelfBookDao: ShelfBookDao,
     private val chapterReadDao: ChapterReadDao,
+    /**
+     * 全文索引仓储，用于删除书时清理孤儿索引行。
+     * 默认 null 仅用于测试/mock 构造（Hilt 在生产中按类型自动注入真实实例）；
+     * 生产路径恒为非空，因此所有调用点都用安全调用 `?.` 兜底，避免测试上下文下空指针。
+     */
     private val searchIndexRepository: SearchIndexRepository? = null,
     /**
      * 异步逐书搜索索引刷新协调器（S04-2 / S03-3 接缝）。
      * 用于撤销删除恢复书籍后，在 ApplicationScope 中异步触发该书的索引重建，解除同步阻塞。
-     * 默认 null 仅用于测试 mock 构造（Hilt 在生产中按类型自动注入真实实例）。
+     * 默认 null 仅用于测试/mock 构造（Hilt 在生产中按类型自动注入真实实例）。
      */
     private val indexRefreshCoordinator: SearchIndexBookRefreshCoordinator? = null,
     @ApplicationContext private val context: Context,
@@ -482,6 +490,33 @@ class BookRepository @Inject constructor(
     }
 
     /**
+     * 只改变阅读生命周期状态，不改进度、位置、阅读时长、笔记或灵感。
+     * 搁置与恢复在读都必须走这里，避免把“管理状态”误当成一次阅读进度更新。
+     *
+     * S05-① 契约：状态列是书架分组的唯一权威（见 `ShelfModels.bookStatus`）。
+     * 取消读完（传 [ReadingCompletionState.READING]）只清 `completed_at`；若此前
+     * `markFinished` 把 `progress_percent` 抬到了 100，该残余会保留——真实阅读位置仍在
+     * `current_location_json` 中，下一次真实阅读保存进度时自愈回落。展示层不得据
+     * 「高百分比 + reading」判完成，因此取消后书架正确归入「在读」。
+     */
+    suspend fun setReadingState(bookId: String, state: ReadingCompletionState) {
+        val now = Instant.now().toString()
+        val existing = progressDao.getByBook(bookId)
+        val base = existing ?: ReadingProgressEntity(book_id = bookId, updated_at = now)
+        progressDao.upsert(
+            base.copy(
+                completion_state = state.storageValue,
+                completed_at = when (state) {
+                    ReadingCompletionState.FINISHED -> base.completed_at ?: System.currentTimeMillis()
+                    ReadingCompletionState.READING,
+                    ReadingCompletionState.SHELVED -> null
+                },
+                updated_at = now,
+            ),
+        )
+    }
+
+    /**
      * 用户显式「标记为已读完」。
      *
      * 与 [updateReadingProgress] 的关键区别：**不刷新 `last_read_at`**。
@@ -510,27 +545,6 @@ class BookRepository @Inject constructor(
     }
 
     /**
-     * 只改变阅读生命周期状态，不改进度、位置、阅读时长、笔记或灵感。
-     * 搁置与恢复在读都必须走这里，避免把“管理状态”误当成一次阅读进度更新。
-     */
-    suspend fun setReadingState(bookId: String, state: ReadingCompletionState) {
-        val now = Instant.now().toString()
-        val existing = progressDao.getByBook(bookId)
-        val base = existing ?: ReadingProgressEntity(book_id = bookId, updated_at = now)
-        progressDao.upsert(
-            base.copy(
-                completion_state = state.storageValue,
-                completed_at = when (state) {
-                    ReadingCompletionState.FINISHED -> base.completed_at ?: System.currentTimeMillis()
-                    ReadingCompletionState.READING,
-                    ReadingCompletionState.SHELVED -> null
-                },
-                updated_at = now,
-            ),
-        )
-    }
-
-    /**
      * 恢复被删除的书籍及其关联数据（用于没有快照时的撤销兜底）。
      *
      * 只恢复与书籍行同一个 deleted_at 时间戳的记录：[deleteBook] 会把本次操作影响的
@@ -546,6 +560,7 @@ class BookRepository @Inject constructor(
             val deletedBook = bookDao.getDeleted().find { it.id == bookId } ?: return@runInTransaction
             val stamp = deletedBook.deleted_at ?: return@runInTransaction
             bookDao.upsert(deletedBook.copy(deleted_at = null))
+            restored = true
             progressDao.getDeleted()
                 .find { it.book_id == bookId && it.deleted_at == stamp }
                 ?.let { progressDao.upsert(it.copy(deleted_at = null)) }
@@ -567,7 +582,6 @@ class BookRepository @Inject constructor(
                     .filter { it.book_id == bookId && it.deleted_at == stamp }
                     .map { it.copy(deleted_at = null) },
             )
-            restored = true
         }
         if (restored) {
             indexRefreshCoordinator?.request(bookId)
@@ -647,7 +661,7 @@ class BookRepository @Inject constructor(
         // 索引器幂等（先删该书行再重建），这里只对「确实被本次撤销恢复」的书触发，
         // 避免把已活跃或未恢复的书的索引也重扫一遍。
         // S03-3：优先通过 indexRefreshCoordinator 提交异步请求（解除同步阻塞）；
-        // 若未注入协调器（如旧测试夹具），回退到 searchIndexRepository 同步重建以维持测试兼容。
+        // 若未注入协调器（如旧测试夹具），回退至 searchIndexRepository 同步重建以维持测试兼容。
         if (indexRefreshCoordinator != null) {
             reports
                 .filter { it.restoredBook }
@@ -661,10 +675,13 @@ class BookRepository @Inject constructor(
                     .filter { it.restoredBook }
                     .map { it.bookId }
                     .forEach { bookId ->
-                        try {
-                            repo.reindexBookById(bookId)
-                        } catch (e: Exception) {
-                            AppLog.w("BookRepository", "重建全文索引失败（bookId=$bookId）：${e.message}")
+                        runCatching {
+                            withContext(Dispatchers.IO) { repo.reindexBookById(bookId) }
+                        }.onFailure { e ->
+                            AppLog.w(
+                                "BookRepository",
+                                "撤销后重建搜索索引失败（book=${bookId.take(8)}），将在下次后台扫描自愈：${e.message ?: e.javaClass.simpleName}",
+                            )
                         }
                     }
             }

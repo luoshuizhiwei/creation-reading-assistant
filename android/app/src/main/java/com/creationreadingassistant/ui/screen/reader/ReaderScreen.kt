@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPaperTheme
+import com.creationreadingassistant.ui.theme.animateReaderPaperPaletteAsState
 import com.creationreadingassistant.ui.theme.paperPalette
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,6 +24,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
@@ -52,6 +54,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.creationreadingassistant.data.local.entity.NoteEntity
+import com.creationreadingassistant.ui.window.LocalDialogSystemBarsPolicy
+import com.creationreadingassistant.ui.window.SystemBarsPolicy
 import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
 import com.creationreadingassistant.ui.viewmodel.ChapterLoadResult
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
@@ -186,11 +190,12 @@ fun ReaderScreen(
         "dark" -> true
         else -> isSystemInDarkTheme()
     }
+    val reducedMotion = rememberReducedMotion()
     // 阅读器纸张调色板与外壳浅/深解耦；正文与 chrome 共同跟随 paper 的 light/dark。
-    val paper = paperPalette(readerSettings.background, appDark)
+    val targetPaper = paperPalette(readerSettings.background, appDark)
+    val paper by animateReaderPaperPaletteAsState(target = targetPaper, enabled = !reducedMotion)
     val paperBg = paper.bg
     val scope = rememberCoroutineScope()
-    val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
     val snackbarHost = remember { SnackbarHostState() }
     val tts = rememberTts()
@@ -470,10 +475,33 @@ fun ReaderScreen(
 
     val persistOnLeave: () -> Unit = {
         // S12：未换算 Legado marker 的保存保护——用户尚未改变阅读位置时，退出/暂停/
-        // 离开落库不得把 marker 覆盖为当前位置的原生 locator。武装与解除都在
+        // 离开落库不得把 marker 覆盖为近似位置的原生 locator。守卫的武装与解除都在
         // ReaderProgressEffects（依据 loader 的 unconvertedLegadoPosition 与位置变化），
-        // 这里只读注册表；该书换算成功或已是原生进度时未武装，行为与之前逐字一致。
+        // 这里只读注册表；该书换算成功或已是原生进度时恒未武装，行为与之前逐字一致。
         if (!temporaryInspection && !LegadoMarkerSaveGuard.isArmed(bid)) nav.persistCurrentProgress()
+    }
+
+    // S07-F4.1：把生产层算出的替换能力裁决同步给 ViewModel。
+    //
+    // 工具栏摘除「替换」槽位（下方 ReaderScaffold 的 canCreateReplaceRule）与 VM 的
+    // 单处纠错命令层纵深防御必须消费**同一个** pagerEngine.replacementAvailability ——
+    // 否则会出现「UI 给入口、VM 拒绝保存」或反向错配。这里只做搬运，不做任何解释：
+    // 解释（availability → capability）由两端共用的 readerReplacementCapability 负责。
+    //
+    // 三个 key 缺一不可：availability 变了要重发；书身份变了要重发；VM 侧书身份
+    // 落定（requestedBookId）也要重发 —— 否则「先到达的 availability + 后落定的书身份」
+    // 会被 VM 的防迟到判据丢弃，新书一直停在未发布（默认拒绝）状态。
+    LaunchedEffect(
+        pagerEngine.replacementAvailability,
+        bid,
+        documentUiState.requestedBookId,
+    ) {
+        onAction(
+            ReaderAction.SetReplacementAvailability(
+                bookId = bid,
+                availability = pagerEngine.replacementAvailability,
+            ),
+        )
     }
 
     LaunchedEffect(pagerEngine.replacementAvailability, pagerEngineOn, replacementStartupNoticeShown) {
@@ -549,9 +577,26 @@ fun ReaderScreen(
         openTts = nav.openTts,
     )
 
+    // ── M-BUG-11：弹层窗口的系统栏策略 ──────────────────────────────────────
+    // ModalBottomSheet / AlertDialog 都是**独立 Window**，不继承 Activity 窗口的系统栏状态；
+    // 而 Activity 窗口的沉浸策略由 SystemBarsEffect 独占写入，管不到弹层。结果是沉浸阅读时
+    // 一打开目录/设置/笔记等面板，被隐藏的系统状态栏就重新露出来。
+    // 这里把「弹层应使用的策略」提供给阅读器子树，由各弹层内部的 LocalDialogSystemBarsEffect()
+    // 写入各自窗口（实现见 ui/window/DialogSystemBarsEffect.kt）。
+    // remember 是必需的：staticCompositionLocalOf 取值变化会整棵子树重组，不能在重组时新建实例。
+    val dialogSystemBarsPolicy = remember(readerSettings.immersiveMode, paper.isLight, appDark) {
+        SystemBarsPolicy.reader(
+            immersive = readerSettings.immersiveMode,
+            paperIsLight = paper.isLight,
+            appDark = appDark,
+        )
+    }
+    CompositionLocalProvider(LocalDialogSystemBarsPolicy provides dialogSystemBarsPolicy) {
     // ── 笔记对话框（已提取到 ReaderNoteDialog）──────────────────────
     if (noteOpen) {
-        // S07-F2.4：笔记是长生命周期消费者 —— 显示与保存都读**打开时快照**。
+        // S07-F2.4：笔记是长生命周期消费者 —— 显示与保存都读**打开时快照**，
+        // 不回读实时活动选区（TTS 跟读导致 ReadingUnit dispose 时后者会被清空，
+        // 会造成摘录当场变空、保存后 excerpt 落 null）。
         val noteSelection = screenState.selectionSnapshot
         com.creationreadingassistant.ui.screen.reader.sheets.ReaderNoteDialog(
             selectedText = noteSelection?.text.orEmpty(),
@@ -559,6 +604,8 @@ fun ReaderScreen(
             onNoteBodyChange = { onAction(ReaderAction.SetNoteBody(it)) },
             onSave = {
                 // B3：保存逻辑抽到 reader/ReaderActions.kt::saveReaderNote，逐字保真。
+                // S07-F2.4：文字与 locator 必须来自**同一个快照**，禁止
+                //「文字取快照、坐标取已清空的实时状态」这种混搭（要求 7）。
                 saveReaderNote(
                     onAction, bid, noteSelection?.text.orEmpty(), noteBody, currentChapterTitle,
                     progressPercent, nav.computeLocatorJsonForSnapshot(noteSelection),
@@ -623,6 +670,7 @@ fun ReaderScreen(
         appDark = appDark,
         activeReadingMs = activeReadingMs,
         goToChapter = nav.goToChapter,
+        goToPrevChapter = nav.goToPrevChapter,
         syncPagedChapter = nav.syncPagedChapter,
         showNotice = nav.showNotice,
         seekToPercent = nav.seekToPercent,
@@ -637,5 +685,6 @@ fun ReaderScreen(
         searchSession = searchSession,
         holders = mutableHolders,
     )
+    }
 
 }

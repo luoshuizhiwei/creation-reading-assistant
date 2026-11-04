@@ -29,6 +29,7 @@ internal fun TtsSettingsSyncEffect(
     LaunchedEffect(readerSettings) {
         if (!ttsSynced) {
             tts.switchEngine(TtsEngineId.fromKey(readerSettings.ttsEngine))
+            tts.rate = readerSettings.ttsSpeechRate
             tts.pitch = readerSettings.ttsPitch
             tts.volume = readerSettings.ttsVolume
             tts.voiceId = readerSettings.ttsVoiceId

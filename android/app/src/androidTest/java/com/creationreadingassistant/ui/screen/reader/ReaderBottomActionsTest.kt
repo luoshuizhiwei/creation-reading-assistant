@@ -25,7 +25,7 @@ class ReaderBottomActionsTest {
         composeRule.setContent {
             ReaderBottomActions(
                 onAction = {},
-                chapterProgress = 10f,
+                bookProgress = 10f,
                 onSeekProgress = {},
                 onPreviousChapter = {},
                 onNextChapter = {},
@@ -51,7 +51,7 @@ class ReaderBottomActionsTest {
             var chapterProgress by remember { mutableFloatStateOf(10f) }
             ReaderBottomActions(
                 onAction = {},
-                chapterProgress = chapterProgress,
+                bookProgress = chapterProgress,
                 onSeekProgress = { chapterProgress = it },
                 onPreviousChapter = {},
                 onNextChapter = {},

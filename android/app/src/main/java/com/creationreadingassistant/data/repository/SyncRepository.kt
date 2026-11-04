@@ -98,37 +98,47 @@ class SyncRepository @Inject constructor(
     )
 
     // ---- 拉取：服务端全量 → 本地库 ----
-    suspend fun pull(): PullResult = withContext(ioDispatcher) {
+    suspend fun pull(options: SyncOptions = SyncOptions()): PullResult = withContext(ioDispatcher) {
         val api = apiProvider.current() ?: error("尚未配对，无法同步")
         val device = deviceInfoProvider.provide()
         val resp = api.pull(SyncContract.SyncPullPayloadRequest(device))
         val failures = mutableListOf<SyncFailedEntry>()
+        val strategy = options.conflictStrategy
         var bookCount = 0
         var inspirationCount = 0
         var progressCount = 0
         var sessionCount = 0
 
         // 逐条 apply 包在单个事务里：要么整批落库，要么整体回滚，不留半同步状态。
+        // 关闭的同步项直接跳过对应类别（不 apply、不计数），因此子页的「书架 / 进度 / 灵感」
+        // 开关真正门控落库，而不是摆着能点却不生效。
         bookDao.runInTransaction {
-            resp.books.forEach { env ->
-                runCatching { applyBook(env) }
-                    .onSuccess { bookCount++ }
-                    .onFailure { failures.add(SyncFailedEntry("book", env.id, env.payload["title"]?.toString(), it.message ?: "未知错误")) }
+            if (options.syncBooks) {
+                resp.books.forEach { env ->
+                    runCatching { applyBook(env, strategy) }
+                        .onSuccess { bookCount++ }
+                        .onFailure { failures.add(SyncFailedEntry("book", env.id, env.payload["title"]?.toString(), it.message ?: "未知错误")) }
+                }
             }
-            resp.inspirations.forEach { env ->
-                runCatching { applyInspiration(env) }
-                    .onSuccess { inspirationCount++ }
-                    .onFailure { failures.add(SyncFailedEntry("inspiration", env.id, env.payload["title"]?.toString(), it.message ?: "未知错误")) }
+            if (options.syncInspirations) {
+                resp.inspirations.forEach { env ->
+                    runCatching { applyInspiration(env, strategy) }
+                        .onSuccess { inspirationCount++ }
+                        .onFailure { failures.add(SyncFailedEntry("inspiration", env.id, env.payload["title"]?.toString(), it.message ?: "未知错误")) }
+                }
             }
-            resp.progress.forEach { env ->
-                runCatching { applyProgress(env) }
-                    .onSuccess { progressCount++ }
-                    .onFailure { failures.add(SyncFailedEntry("progress", env.id, null, it.message ?: "未知错误")) }
-            }
-            resp.sessions.forEach { env ->
-                runCatching { applySession(env) }
-                    .onSuccess { sessionCount++ }
-                    .onFailure { failures.add(SyncFailedEntry("session", env.id, null, it.message ?: "未知错误")) }
+            // 「阅读进度与阅读历史」同属一个开关：progress 与 sessions 一起门控。
+            if (options.syncProgress) {
+                resp.progress.forEach { env ->
+                    runCatching { applyProgress(env, strategy) }
+                        .onSuccess { progressCount++ }
+                        .onFailure { failures.add(SyncFailedEntry("progress", env.id, null, it.message ?: "未知错误")) }
+                }
+                resp.sessions.forEach { env ->
+                    runCatching { applySession(env, strategy) }
+                        .onSuccess { sessionCount++ }
+                        .onFailure { failures.add(SyncFailedEntry("session", env.id, null, it.message ?: "未知错误")) }
+                }
             }
         }
         configStore.markSyncedAt(Instant.now().toString())
@@ -140,29 +150,56 @@ class SyncRepository @Inject constructor(
 
     private fun jsonStr(payload: JsonObject): String = payload.toString()
 
-    private suspend fun applyBook(env: SyncEnvelope<JsonObject>) {
+    /**
+     * 应用远端书籍。
+     *
+     * ⚠️ 远端载荷**只有跨设备字段**（书名/作者/格式/内容哈希/删除标记…），不含
+     * `local_uri` / `local_content_path` / `size` / `content_status` / `cover_data_url` /
+     * `imported_at` —— 这些是**本机事实**，对端无从得知。因此必须基于 [local] 合并，
+     * 绝不能拿一个用默认值补齐的新 `BookEntity` 去覆盖：
+     * `content_status` 默认 `"available"`、`local_content_path` 默认 null，覆盖后这本书
+     * 在本机立刻变成「正文指向空路径」，表现为书架上的书打不开、读了一半的进度丢失
+     * （进度行虽在，但书无法加载）。本地不存在该书时才按远端字段新建。
+     */
+    private suspend fun applyBook(env: SyncEnvelope<JsonObject>, strategy: ConflictStrategy?) {
         val local = bookDao.getById(env.id)
-        if (local != null && !shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at)) return
+        if (local != null && !shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at, strategy)) return
         val p = env.payload
+        val remote = BookEntity(
+            id = env.id,
+            title = str(p, "title") ?: "(未命名)",
+            author = str(p, "author"),
+            format = str(p, "format") ?: "txt",
+            content_hash = str(p, "contentHash"),
+            payload = jsonStr(p),
+            revision = env.revision,
+            device_id = env.deviceId,
+            updated_at = env.updatedAt,
+            deleted_at = env.deletedAt,
+        )
         bookDao.upsert(
-            BookEntity(
-                id = env.id,
-                title = str(p, "title") ?: "(未命名)",
-                author = str(p, "author"),
-                format = str(p, "format") ?: "txt",
-                content_hash = str(p, "contentHash"),
-                payload = jsonStr(p),
-                revision = env.revision,
-                device_id = env.deviceId,
-                updated_at = env.updatedAt,
-                deleted_at = env.deletedAt,
-            ),
+            if (local == null) {
+                remote
+            } else {
+                // 本机列一律保留本地值；远端列以远端为准。
+                local.copy(
+                    title = remote.title,
+                    author = remote.author,
+                    format = remote.format,
+                    content_hash = remote.content_hash,
+                    payload = remote.payload,
+                    revision = remote.revision,
+                    device_id = remote.device_id,
+                    updated_at = remote.updated_at,
+                    deleted_at = remote.deleted_at,
+                )
+            },
         )
     }
 
-    private suspend fun applyInspiration(env: SyncEnvelope<JsonObject>) {
+    private suspend fun applyInspiration(env: SyncEnvelope<JsonObject>, strategy: ConflictStrategy?) {
         val local = inspirationDao.getById(env.id)
-        if (local != null && !shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at)) return
+        if (local != null && !shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at, strategy)) return
         val p = env.payload
         inspirationDao.upsert(
             InspirationEntity(
@@ -182,51 +219,100 @@ class SyncRepository @Inject constructor(
         )
     }
 
-    private suspend fun applyProgress(env: SyncEnvelope<JsonObject>) {
+    /**
+     * 应用远端阅读进度。
+     *
+     * 与 [applyBook] 同理：远端载荷不含本机事实，且这里的载荷当前**只带 payload**，
+     * 因此必须基于本地行合并 —— 直接用新实体覆盖会把 `progress_percent` 归零、
+     * `completion_state` 打回 `"reading"`、`current_location_json` 清空，
+     * 用户看到的是「同步一次，所有书的阅读进度全部回到开头」。
+     */
+    private suspend fun applyProgress(env: SyncEnvelope<JsonObject>, strategy: ConflictStrategy?) {
         val local = readingProgressDao.getByBook(env.id)
-        if (local != null && !shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at)) return
+        if (local != null && !shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at, strategy)) return
         val p = env.payload
-        readingProgressDao.upsert(
-            ReadingProgressEntity(
-                book_id = env.id,
-                payload = jsonStr(p),
-                revision = env.revision,
-                device_id = env.deviceId,
-                updated_at = env.updatedAt,
-                deleted_at = env.deletedAt,
-            ),
+        val remote = ReadingProgressEntity(
+            book_id = env.id,
+            payload = jsonStr(p),
+            revision = env.revision,
+            device_id = env.deviceId,
+            updated_at = env.updatedAt,
+            deleted_at = env.deletedAt,
         )
-    }
-
-    private suspend fun applySession(env: SyncEnvelope<JsonObject>) {
-        val local = readingSessionDao.getById(env.id)
-        if (local != null && !shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at)) return
-        val p = env.payload
-        readingSessionDao.upsert(
-            ReadingSessionEntity(
-                id = env.id,
-                book_id = str(p, "bookId") ?: "",
-                payload = jsonStr(p),
-                revision = env.revision,
-                device_id = env.deviceId,
-                created_at = str(p, "createdAt") ?: env.updatedAt,
-                updated_at = env.updatedAt,
-                deleted_at = env.deletedAt,
-            ),
+        readingProgressDao.upsert(
+            if (local == null) {
+                remote
+            } else {
+                local.copy(
+                    payload = remote.payload,
+                    revision = remote.revision,
+                    device_id = remote.device_id,
+                    updated_at = remote.updated_at,
+                    deleted_at = remote.deleted_at,
+                )
+            },
         )
     }
 
     /**
-     * 冲突合并策略：委托给 [SyncMergePolicy]，与本地 JSON / WebDAV 恢复路径
-     * （[com.creationreadingassistant.feature.sync.JsonBridge]）共用同一纯函数，避免策略分叉。
+     * 应用远端阅读会话。
+     *
+     * 与 [applyBook] 同理：远端载荷不含本机事实（`duration_ms` / `started_at` /
+     * `ended_at` / `progress_percent` 都不在载荷里），直接覆盖会把这次会话的时长清零，
+     * 进而抹掉「今日阅读时长」统计。基于本地行合并，本地不存在时才新建。
+     */
+    private suspend fun applySession(env: SyncEnvelope<JsonObject>, strategy: ConflictStrategy?) {
+        val local = readingSessionDao.getById(env.id)
+        if (local != null && !shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at, strategy)) return
+        val p = env.payload
+        val remote = ReadingSessionEntity(
+            id = env.id,
+            book_id = str(p, "bookId") ?: "",
+            payload = jsonStr(p),
+            revision = env.revision,
+            device_id = env.deviceId,
+            created_at = str(p, "createdAt") ?: env.updatedAt,
+            updated_at = env.updatedAt,
+            deleted_at = env.deletedAt,
+        )
+        readingSessionDao.upsert(
+            if (local == null) {
+                remote
+            } else {
+                local.copy(
+                    book_id = remote.book_id,
+                    payload = remote.payload,
+                    revision = remote.revision,
+                    device_id = remote.device_id,
+                    updated_at = remote.updated_at,
+                    deleted_at = remote.deleted_at,
+                )
+            },
+        )
+    }
+
+    /**
+     * 冲突合并策略。
+     *
+     * - [strategy] 为 null（无参 pull 的历史默认）→ 委托 [SyncMergePolicy]，与本地 JSON /
+     *   WebDAV 恢复路径（[com.creationreadingassistant.feature.sync.JsonBridge]）共用同一纯函数
+     *   （revision 优先，等 revision 比较 updated_at 取较新者），避免策略分叉。
+     * - 用户在「我的 · 同步」显式选择策略时，**等 revision**（双方离线各改一次的真冲突）的裁决
+     *   改由策略决定：远端为准 = 接受远端；本地为准 = 保留本地。revision 不等的分支两种策略都与
+     *   历史一致（高者胜），因此策略只影响真冲突，不会让高 revision 的更新被错误丢弃。
      */
     private fun shouldAcceptRemote(
         remoteRevision: Int, localRevision: Int,
         remoteUpdatedAt: String, localUpdatedAt: String,
-    ): Boolean = SyncMergePolicy.shouldAcceptRemote(remoteRevision, localRevision, remoteUpdatedAt, localUpdatedAt)
+        strategy: ConflictStrategy? = null,
+    ): Boolean = when (strategy) {
+        null -> SyncMergePolicy.shouldAcceptRemote(remoteRevision, localRevision, remoteUpdatedAt, localUpdatedAt)
+        ConflictStrategy.REMOTE_WINS -> remoteRevision >= localRevision
+        ConflictStrategy.LOCAL_WINS -> remoteRevision > localRevision
+    }
 
     // ---- 推送：本地库 → 服务端 ----
-    suspend fun push(): PushResult = withContext(ioDispatcher) {
+    suspend fun push(options: SyncOptions = SyncOptions()): PushResult = withContext(ioDispatcher) {
         val api = apiProvider.current() ?: error("尚未配对，无法同步")
         val device = deviceInfoProvider.provide()
         val failures = mutableListOf<SyncFailedEntry>()
@@ -240,7 +326,8 @@ class SyncRepository @Inject constructor(
         val deletedBooks = bookDao.getDeleted()
         val allBooks = activeBooks + deletedBooks
         allBooks.forEach { localBookMap[it.id] = it }
-        val books = allBooks.map { e ->
+        // 关闭的同步项推送空列表（该类别本次不上传，删除也不传播），与 pull 侧的门控对称。
+        val books = (if (options.syncBooks) allBooks else emptyList()).map { e ->
             SyncEnvelope(
                 id = e.id, type = "book", revision = e.revision,
                 deviceId = e.device_id ?: device.deviceId, updatedAt = e.updated_at,
@@ -251,7 +338,7 @@ class SyncRepository @Inject constructor(
         val deletedInspirations = inspirationDao.getDeleted()
         val allInspirations = activeInspirations + deletedInspirations
         allInspirations.forEach { localInspirationMap[it.id] = it }
-        val inspirations = allInspirations.map { e ->
+        val inspirations = (if (options.syncInspirations) allInspirations else emptyList()).map { e ->
             SyncEnvelope(
                 id = e.id, type = "inspiration", revision = e.revision,
                 deviceId = e.device_id ?: device.deviceId, updatedAt = e.updated_at,
@@ -262,7 +349,7 @@ class SyncRepository @Inject constructor(
         val deletedProgress = readingProgressDao.getDeleted()
         val allProgress = activeProgress + deletedProgress
         allProgress.forEach { localProgressMap[it.book_id] = it }
-        val progress = allProgress.map { e ->
+        val progress = (if (options.syncProgress) allProgress else emptyList()).map { e ->
             SyncEnvelope(
                 id = e.book_id, type = "progress", revision = e.revision,
                 deviceId = e.device_id ?: device.deviceId, updatedAt = e.updated_at,
@@ -273,7 +360,7 @@ class SyncRepository @Inject constructor(
         val deletedSessions = readingSessionDao.getDeleted()
         val allSessions = activeSessions + deletedSessions
         allSessions.forEach { localSessionMap[it.id] = it }
-        val sessions = allSessions.map { e ->
+        val sessions = (if (options.syncProgress) allSessions else emptyList()).map { e ->
             SyncEnvelope(
                 id = e.id, type = "session", revision = e.revision,
                 deviceId = e.device_id ?: device.deviceId, updatedAt = e.updated_at,

@@ -1,12 +1,15 @@
 package com.creationreadingassistant.ui.screen.profile
 
 import androidx.compose.runtime.Immutable
+import com.creationreadingassistant.data.repository.ConflictStrategy
 import com.creationreadingassistant.data.settings.AISettings
 import com.creationreadingassistant.data.settings.AppearanceSettings
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.data.settings.SelectionActionSettings
+import com.creationreadingassistant.data.settings.SyncPrefs
 import com.creationreadingassistant.feature.sync.WebDavBackup
 import com.creationreadingassistant.feature.sync.WebDavConfigStore
+import com.creationreadingassistant.ui.viewmodel.AboutUpdateState
 import com.creationreadingassistant.ui.viewmodel.ProfileHomeSummary
 import com.creationreadingassistant.ui.viewmodel.ProfileLibraryState
 import com.creationreadingassistant.ui.viewmodel.SyncFailedItem
@@ -124,8 +127,13 @@ internal data class ProfileUiState(
     val baseUrl: String? = null,
     val lastSyncResult: SyncResultDetail? = null,
     val syncLogs: List<String> = emptyList(),
+    /** 「我的 · 同步」子页的 3 个同步项开关 + 冲突策略（独立于配对持久化，真接线到 pull/push）。 */
+    val syncPrefs: SyncPrefs = SyncPrefs(),
+    /** 关于页「检查更新」状态（决策⑥：联网比对已下沉到 ProfileUpdateChecker/ViewModel，子页只渲染）。 */
+    val aboutUpdate: AboutUpdateState = AboutUpdateState(),
     val webDavConfig: WebDavConfigStore.Config? = null,
     val webDavBackups: List<WebDavBackup.BackupFile> = emptyList(),
+    val legadoBackups: List<WebDavBackup.BackupFile> = emptyList(),
     val appearance: AppearanceSettings = AppearanceSettings(),
     val reader: ReaderSettings = ReaderSettings(),
     /** R3-X1：选区工具条动作 / 查询目标配置。 */
@@ -136,9 +144,9 @@ internal data class ProfileUiState(
     /** 非加密 http AI 接口的一次性警示文案（null 表示无需警示）。 */
     val aiHttpWarning: String? = null,
     val aiKeyDraft: String = "",
+    /** AI 连接测试是否进行中（用于测试按钮的加载态，测试结束后自动复位）。 */
+    val aiTesting: Boolean = false,
     val libraryState: ProfileLibraryState = ProfileLibraryState(),
-    /** WebDAV 目录下扫描到的开源阅读（Legado）备份列表（刷新动作填充）。 */
-    val legadoBackups: List<WebDavBackup.BackupFile> = emptyList(),
     val pendingDownloadCount: Int = 0,
     val indexBytes: Long = 0L,
     val goal: GoalPageState = GoalPageState(),
@@ -148,9 +156,20 @@ internal data class ProfileUiState(
 
 // ============================== Action ==============================
 
+/** 「我的 · 同步」子页可独立开关的三个数据同步项（进度项同时门控阅读进度与会话）。 */
+internal enum class SyncToggleItem { BOOKS, PROGRESS, INSPIRATIONS }
+
 internal sealed interface ProfileAction {
     // Navigation
     data class OpenSubPage(val page: ProfileSubPage) : ProfileAction
+
+    /**
+     * 从设置搜索结果直达某个设置项：导航到 [page] 并聚焦 [anchor]（空串 = 只到子页顶部）。
+     *
+     * 与 [OpenSubPage] 分开，是因为它需要额外携带 focus 参数走 `profile/{page}?focus={anchor}`，
+     * 而普通菜单点击不该多带这个空参数。
+     */
+    data class OpenSettingsEntry(val page: ProfileSubPage, val anchor: String) : ProfileAction
     data class OpenBook(val bookId: String) : ProfileAction
     /** 跳底部导航的灵感中心 Tab（产品规划：阅读时记灵感用于创作，无独立笔记概念）。 */
     data object OpenInspirations : ProfileAction
@@ -162,21 +181,29 @@ internal sealed interface ProfileAction {
     // Sync
     data class StartPairing(val rawQr: String) : ProfileAction
     data object SyncNow : ProfileAction
-    /** 扫描 WebDAV 目录下的开源阅读（Legado）备份（backup*.zip）。 */
-    data object RefreshLegadoBackups : ProfileAction
-    /** 导入选中的开源阅读备份（书名+作者唯一匹配才写进度；99.4% 上限保护）。 */
-    data class ImportLegadoBackup(val filename: String) : ProfileAction
     data object Unpair : ProfileAction
     data class RetryItem(val item: SyncFailedItem) : ProfileAction
     data object RetryFailed : ProfileAction
     data object ScanQr : ProfileAction
 
+    /** 切换某个数据同步项开关（书架 / 进度 / 灵感），落库后由 syncNow 透传给 pull/push。 */
+    data class SetSyncItem(val item: SyncToggleItem, val enabled: Boolean) : ProfileAction
+
+    /** 设置冲突裁决策略（以远端为准 / 以本地为准），落库后作用于 pull 合并。 */
+    data class SetConflictStrategy(val strategy: ConflictStrategy) : ProfileAction
+
     // WebDAV
     data class SaveWebDav(val url: String, val user: String, val pass: String) : ProfileAction
     data object UploadBackup : ProfileAction
-    data object TestWebDav : ProfileAction
+    data class TestWebDav(
+        val url: String? = null,
+        val user: String? = null,
+        val pass: String? = null,
+    ) : ProfileAction
     data object RefreshBackups : ProfileAction
     data class DownloadRestore(val filename: String) : ProfileAction
+    data object RefreshLegadoBackups : ProfileAction
+    data class ImportLegadoBackup(val filename: String) : ProfileAction
     data object ClearWebDav : ProfileAction
 
     // Settings
@@ -210,8 +237,14 @@ internal sealed interface ProfileAction {
     data object ImportZip : ProfileAction
     data object ClearReaderCache : ProfileAction
 
+    /** 清理阅读器正文缓存，但跳过二次确认（调用方已自行确认，如「清空离线书籍」危险流程）。 */
+    data object ClearReaderCacheNow : ProfileAction
+
     // AI
     data object TestAi : ProfileAction
+
+    /** 关于页检查更新：本地 versionName 由 UI 传入，比对在 ProfileUpdateChecker 完成。 */
+    data class CheckUpdate(val currentVersion: String) : ProfileAction
 
     // Snackbar
     data class ShowMessage(val text: String) : ProfileAction

@@ -52,6 +52,7 @@ fun HomeMetricsSection(
     Column(modifier) {
         SectionHeader(
             title = "本周概览",
+            compact = true,
             modifier = Modifier
                 .animateEnter(120, reducedMotion)
                 .testTag("metrics-title"),

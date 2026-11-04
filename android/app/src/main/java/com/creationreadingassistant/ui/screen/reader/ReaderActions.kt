@@ -120,6 +120,8 @@ internal fun openTts(
             }
             is TtsNoticeAction.ShowMessage -> showNotice(decision.message)
         }
+        // 唤出 TTS 控制底栏，打破错误态/初始化中无法触达引擎选择器的死锁
+        onShowTtsChange(true)
         return
     }
     onShowTtsChange(true)
@@ -238,9 +240,18 @@ internal fun saveReaderNote(
 @Suppress("LongParameterList")
 internal data class ReaderNavActions(
     val computeLocatorJson: () -> String?,
+    /**
+     * S07-F2.4：按**消费者快照**生成 locator。长生命周期消费者（笔记等）用它，
+     * 保证文字与坐标来自同一个快照，不受正文活动选区清理影响。
+     */
     val computeLocatorJsonForSnapshot: (ReaderSelectionSnapshot?) -> String?,
     val showNotice: (String) -> Unit,
     val goToChapter: (Int) -> Unit,
+    /**
+     * M-BUG-08：「上一章」专用——落到目标章的**末尾**而非章首。
+     * 对齐 md3 `ReadBook.moveToPrevChapter(toLast = true)`（`durChapterPos = prevTextChapter.lastReadLength`）。
+     */
+    val goToPrevChapter: (Int) -> Unit,
     val syncPagedChapter: (Int) -> Unit,
     val jumpToPlainOffset: (Int) -> Unit,
     val jumpToMarkdownOffset: (Int) -> Unit,
@@ -310,6 +321,14 @@ internal fun buildReaderNavActions(
             pagedJumpRequest, chapterIndexState, tts, onAction, bid,
         )
     }
+    // M-BUG-08：「上一章」——落点取上一章末尾，对齐 md3 moveToPrevChapter(toLast = true)。
+    val goToPrevChapterFn: (Int) -> Unit = { i ->
+        goToChapter(
+            i, epubBook, markdownDocument, pagerEngineOn, chapterStartOffsets,
+            pagedJumpRequest, chapterIndexState, tts, onAction, bid,
+            atChapterEnd = true,
+        )
+    }
     // 翻页跨章的被动章号同步：只更新 ViewModel 章状态（章号/TTS/章节块加载），
     // 不写 jumpRequest、不写章首进度，避免把已停在正确页位（上一章末页）的
     // 阅读器拽回章首。
@@ -372,9 +391,9 @@ internal fun buildReaderNavActions(
         computeLocatorJsonForSnapshot = { snapshot ->
             computeLocatorJsonForSnapshot(epubBook, chapterStartOffsets, snapshot)
         },
-
         showNotice = showNoticeFn,
         goToChapter = goToChapterFn,
+        goToPrevChapter = goToPrevChapterFn,
         syncPagedChapter = syncPagedChapterFn,
         jumpToPlainOffset = jumpToPlainOffsetFn,
         jumpToMarkdownOffset = jumpToMarkdownOffsetFn,
@@ -388,7 +407,10 @@ internal fun buildReaderNavActions(
                 progressSnapshot.pagedAbsOffset, pagedSource, progressSnapshot.chapterIndex,
                 epubListState, blockGlobalOffsets,
                 chapterBase, chapterBlocks, bookIndex, chapterStartOffsets, visiblePlainOffset,
-                markdownDocument, txtStreamingDocument, plainContent, epubDocument, onAction,
+                markdownDocument, txtStreamingDocument, plainContent, epubDocument,
+                plainListState = plainListState,
+                readingUnits = readingUnits,
+                onAction = onAction,
             )
         },
         seekToPercent = { p ->

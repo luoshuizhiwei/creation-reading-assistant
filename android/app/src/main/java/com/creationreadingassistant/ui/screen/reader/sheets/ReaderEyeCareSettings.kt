@@ -10,6 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.ui.window.LocalDialogSystemBarsPolicy
+import com.creationreadingassistant.ui.window.applyToDialogWindow
 import java.util.Calendar
 
 private fun formatEyeCareMinute(minute: Int): String {
@@ -24,6 +26,10 @@ private fun EyeCareTimeRow(
     onChange: (Int) -> Unit,
 ) {
     val ctx = LocalContext.current
+    // M-BUG-11：`TimePickerDialog` 是平台对话框（独立窗口），不继承 Activity 的沉浸策略——
+    // 沉浸阅读时打开它会让被隐藏的系统状态栏重新露出。它没有组合树可挂，只能在 show 之后
+    // 直接把自己的窗口交给弹层策略；非沉浸场景该策略为 null，函数内部直接返回。
+    val dialogSystemBarsPolicy = LocalDialogSystemBarsPolicy.current
     MicroSettingsLinkRow(
         icon = Icons.Outlined.Timer,
         tint = Color(0xFF7C3AED),
@@ -40,7 +46,10 @@ private fun EyeCareTimeRow(
                 cal.get(Calendar.HOUR_OF_DAY),
                 cal.get(Calendar.MINUTE),
                 true,
-            ).show()
+            ).apply {
+                // 窗口在 show() 之前不可用，故挂在 onShow 里。
+                setOnShowListener { dialogSystemBarsPolicy.applyToDialogWindow(window) }
+            }.show()
         },
     )
 }

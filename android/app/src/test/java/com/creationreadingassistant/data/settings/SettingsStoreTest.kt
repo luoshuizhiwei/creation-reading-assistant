@@ -89,6 +89,32 @@ class SettingsStoreTest {
     }
 
     @Test
+    fun `day night paper memory persists and reads back`() = runTest {
+        store.reader.first()
+        store.updateReader {
+            copy(dayNightLightPaper = "green", dayNightDarkPaper = "sepia_dark")
+        }
+
+        val loaded = store.reader.first { it.dayNightDarkPaper == "sepia_dark" }
+        assertEquals("green", loaded.dayNightLightPaper)
+        assertEquals("sepia_dark", loaded.dayNightDarkPaper)
+    }
+
+    @Test
+    fun `day night paper memory rejects values from the wrong side`() = runTest {
+        // 脏数据防线：亮纸键被写进暗侧（或反之）时，读取端必须拒绝并回退默认，
+        // 否则灯绳会把「warm」当成夜间目标纸色。
+        store.reader.first()
+        store.updateReader {
+            copy(dayNightLightPaper = "night", dayNightDarkPaper = "warm")
+        }
+
+        val loaded = store.reader.first()
+        assertEquals(ReaderDayNightToggle.DEFAULT_LIGHT_PAPER, loaded.dayNightLightPaper)
+        assertEquals(ReaderDayNightToggle.DEFAULT_DARK_PAPER, loaded.dayNightDarkPaper)
+    }
+
+    @Test
     fun `reader reveal page turn effect persists without compatibility downgrade`() = runTest {
         store.reader.first()
         store.updateReader { copy(pageTurnEffect = "reveal") }

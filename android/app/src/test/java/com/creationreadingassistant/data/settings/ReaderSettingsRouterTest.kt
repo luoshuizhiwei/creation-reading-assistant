@@ -167,4 +167,102 @@ class ReaderSettingsRouterTest {
         assertEquals(26f, bookPlan.global.fontSize)
         assertEquals(300f, bookPlan.global.pageTurnSpeed)
     }
+
+    // ===================== D-2-A：引擎模式的作用域路由 =====================
+    //
+    // 修复前：两个引擎字段不是可覆盖项 → 在 BOOK 作用域下编辑会写进全局，
+    // 用户以为只改了本书，实际影响了所有书（真机验收缺陷 D-2）。
+
+    @Test
+    fun `book scope editing the txt pager engine writes only the book override`() {
+        val edited = displayed.copy(pagerEngineMode = "off")
+
+        val plan = ReaderSettingsRouter.plan(ReaderSettingsScope.BOOK, global, displayed, edited)
+
+        assertEquals(
+            "TXT/Markdown 引擎改动必须只进本书覆盖",
+            "off",
+            plan.overridesToSet[ReaderOverrideKey.PAGER_ENGINE_MODE],
+        )
+        assertEquals(
+            "BOOK 作用域下全局引擎值必须保持原值",
+            global.pagerEngineMode,
+            plan.global.pagerEngineMode,
+        )
+    }
+
+    @Test
+    fun `book scope editing the epub pager engine writes only the book override`() {
+        val edited = displayed.copy(epubPagerEngineMode = "off")
+
+        val plan = ReaderSettingsRouter.plan(ReaderSettingsScope.BOOK, global, displayed, edited)
+
+        assertEquals(
+            "EPUB 引擎改动必须只进本书覆盖",
+            "off",
+            plan.overridesToSet[ReaderOverrideKey.EPUB_PAGER_ENGINE_MODE],
+        )
+        assertEquals(
+            "BOOK 作用域下全局 EPUB 引擎值必须保持原值",
+            global.epubPagerEngineMode,
+            plan.global.epubPagerEngineMode,
+        )
+    }
+
+    @Test
+    fun `book scope editing only the engine does not make the global differ`() {
+        // 「本次编辑是否真的动了全局」决定要不要发 DataStore 写请求；
+        // 只改引擎时全局必须无差异，否则会产生一次无谓且有害的全局写入。
+        val edited = displayed.copy(pagerEngineMode = "off", epubPagerEngineMode = "on")
+
+        val plan = ReaderSettingsRouter.plan(ReaderSettingsScope.BOOK, global, displayed, edited)
+
+        assertFalse(
+            "只改引擎的本书编辑不得让全局产生差异",
+            plan.globalDiffersFrom(global),
+        )
+    }
+
+    @Test
+    fun `global scope editing the engines writes global and clears the book overrides`() {
+        val overridesWithEngines = overrides + mapOf(
+            ReaderOverrideKey.PAGER_ENGINE_MODE to "off",
+            ReaderOverrideKey.EPUB_PAGER_ENGINE_MODE to "off",
+        )
+        val displayedWithEngines = ReaderSettingsOverlay.apply(global, overridesWithEngines)
+        val edited = displayedWithEngines.copy(pagerEngineMode = "on", epubPagerEngineMode = "auto")
+
+        val plan = ReaderSettingsRouter.plan(
+            ReaderSettingsScope.GLOBAL,
+            global,
+            displayedWithEngines,
+            edited,
+        )
+
+        assertEquals("全局必须收到新的 TXT 引擎值", "on", plan.global.pagerEngineMode)
+        assertEquals("全局必须收到新的 EPUB 引擎值", "auto", plan.global.epubPagerEngineMode)
+        assertTrue(
+            "显式选全局时必须清除本书引擎覆盖，否则新全局值被旧覆盖遮住",
+            ReaderOverrideKey.PAGER_ENGINE_MODE in plan.overridesToClear,
+        )
+        assertTrue(
+            ReaderOverrideKey.EPUB_PAGER_ENGINE_MODE in plan.overridesToClear,
+        )
+    }
+
+    @Test
+    fun `book scope keeps the other device level keys global as before`() {
+        // 回归护栏：D-2-A 只把两个引擎键变成可覆盖项，
+        // 其余设备/交互项（点击区域、屏幕常亮）必须保持全局语义，不得被顺带改造。
+        val edited = displayed.copy(tapZoneMode = "five-zone", keepAwake = true)
+
+        val plan = ReaderSettingsRouter.plan(ReaderSettingsScope.BOOK, global, displayed, edited)
+
+        assertEquals("five-zone", plan.global.tapZoneMode)
+        assertEquals(true, plan.global.keepAwake)
+        assertFalse(
+            "设备/交互项不得进入本书覆盖",
+            ReaderOverrideKey.entries.any { it.id == "tapZoneMode" || it.id == "keepAwake" },
+        )
+    }
 }

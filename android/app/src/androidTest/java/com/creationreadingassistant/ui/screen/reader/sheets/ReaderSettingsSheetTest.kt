@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -28,6 +29,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.data.settings.ReaderSettingsScope
 import com.creationreadingassistant.ui.theme.AppTheme
 import com.creationreadingassistant.ui.theme.paperPalette
 import org.junit.Assert.assertEquals
@@ -194,6 +196,7 @@ class ReaderSettingsSheetTest {
         darkTheme: Boolean = false,
         initial: ReaderSettings = ReaderSettings(),
         visible: MutableState<Boolean> = mutableStateOf(true),
+        scope: ReaderSettingsScope = ReaderSettingsScope.BOOK,
         onSettingsChangeObserved: (ReaderSettings) -> Unit = {},
     ) {
         composeRule.setContent {
@@ -215,11 +218,142 @@ class ReaderSettingsSheetTest {
                                     onSettingsChangeObserved(it)
                                 },
                                 onBookInfo = {},
+                                scope = scope,
                             )
                         }
                     }
                 }
             }
         }
+    }
+
+    // ===================== D-2-B：页级作用域说明 =====================
+
+    /**
+     * 等待 `AnimatedContent` 的页面切换动画走完（淡入 160ms / 淡出 120ms）。
+     *
+     * 为什么必须等：过渡窗口内**新旧两个 target 的内容同时存在**，
+     * 此时单节点断言（`onNodeWithTag`）会报 "Expected exactly 1 node but found 2"，
+     * 计数断言（`assertCountEquals(0)`）会读到尚未 dispose 的旧节点 —— 假红。
+     *
+     * 推进 Compose 主时钟而不是 `Thread.sleep`：时钟推进是确定性的，
+     * 不受机器负载影响；250ms > 160ms，留出余量覆盖两个方向的过渡。
+     * 等完之后断言仍是**严格**的唯一节点 / 零节点，不放宽任何产品断言。
+     */
+    private fun settlePageAnimation() {
+        composeRule.mainClock.advanceTimeBy(250L)
+        composeRule.waitForIdle()
+    }
+
+    /** 从根页进入指定分组（分组标题即入口文案），并等待切换动画结束。 */
+    private fun openGroup(entry: String) {
+        scrollToText(entry)
+        composeRule.onNodeWithText(entry).performClick()
+        settlePageAnimation()
+    }
+
+    /** 点击返回并等待切回根页的动画结束。 */
+    private fun goBackToRoot() {
+        composeRule.onNodeWithContentDescription("返回").performClick()
+        settlePageAnimation()
+    }
+
+    @Test
+    fun rootPageShowsNoScopeNoticeButMarksPageTurnSpeedAsShared() {
+        renderSettings()
+
+        // 根页已有「只改本书 / 改全局默认」胶囊，不再叠一条页级说明。
+        composeRule.onAllNodesWithTag(SCOPE_NOTICE_TAG).assertCountEquals(0)
+        // 但翻页速度是全局字段，必须显式标注「所有书籍共用」（不能因根页有胶囊就省略）。
+        scrollToText("翻页速度")
+        composeRule.onNodeWithTag(PAGE_TURN_SPEED_NOTE_TAG).assertIsDisplayed()
+        composeRule.onNodeWithText("全局设置，所有书籍共用").assertIsDisplayed()
+    }
+
+    @Test
+    fun bookScopeNoticeAppearsOnEverySubPageWithTheExpectedCopy() {
+        renderSettings()
+
+        val expected = listOf(
+            "翻页与按键" to "除阅读模式、翻页效果和屏幕方向外，本页其他设置均为全局设置，对所有书籍生效",
+            "显示与页眉页脚" to "除沉浸模式、显示进度条、自动隐藏和显示安静阅读信息外，本页其他设置均为全局设置，对所有书籍生效",
+            "护眼与阅读提醒" to "本页均为全局设置，对所有书籍生效",
+            "排版与版式" to "本页设置只对当前书籍生效",
+            "排版引擎兼容" to "本页设置只对当前书籍生效",
+        )
+
+        expected.forEach { (entry, copy) ->
+            openGroup(entry)
+            // 进页第一屏即见，无需滚动。
+            composeRule.onNodeWithTag(SCOPE_NOTICE_TAG).assertIsDisplayed()
+            composeRule.onNodeWithText(copy).assertIsDisplayed()
+            goBackToRoot()
+            composeRule.onNodeWithText("快捷排版").assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun advancedCompatibilityNoticeNeverClaimsGlobalScope() {
+        renderSettings()
+
+        openGroup("排版引擎兼容")
+
+        composeRule.onNodeWithTag(SCOPE_NOTICE_TAG).assertIsDisplayed()
+        // D-2-A 的两个引擎键是真·本书覆盖：这一页绝不能出现「全局」方向的说法。
+        composeRule.onNodeWithText("本页设置只对当前书籍生效").assertIsDisplayed()
+        composeRule.onAllNodesWithText(
+            "除阅读模式、翻页效果和屏幕方向外，本页其他设置均为全局设置，对所有书籍生效",
+        ).assertCountEquals(0)
+        composeRule.onAllNodesWithText("本页均为全局设置，对所有书籍生效").assertCountEquals(0)
+    }
+
+    @Test
+    fun globalScopeNoticeUsesTheCorrectedCopyOnSubPages() {
+        renderSettings(scope = ReaderSettingsScope.GLOBAL)
+
+        // 根页在 GLOBAL 下同样不显示页级说明。
+        composeRule.onAllNodesWithTag(SCOPE_NOTICE_TAG).assertCountEquals(0)
+
+        openGroup("翻页与按键")
+
+        composeRule.onNodeWithTag(SCOPE_NOTICE_TAG).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            "本页修改将保存为全局默认；其他书已有的单书设置不会被清除",
+        ).assertIsDisplayed()
+        // 修正版不得再出现旧的不准确承诺。
+        composeRule.onAllNodesWithText("本页设置会写入全局默认，影响所有书").assertCountEquals(0)
+    }
+
+    @Test
+    fun returningToRootRemovesTheScopeNotice() {
+        renderSettings()
+
+        openGroup("护眼与阅读提醒")
+        composeRule.onNodeWithTag(SCOPE_NOTICE_TAG).assertIsDisplayed()
+
+        goBackToRoot()
+
+        composeRule.onNodeWithText("快捷排版").assertIsDisplayed()
+        // 动画结束后旧 target 已 dispose：这里必须是**零节点**，不是"至少一个"。
+        composeRule.onAllNodesWithTag(SCOPE_NOTICE_TAG).assertCountEquals(0)
+    }
+
+    @Test
+    fun scopeNoticeRemainsVisibleAt320DpWithLargeFont() {
+        // 沿用既有 nightSettingsRemainUsableAt320DpWithLargeFont 的密度压力配置：
+        // 长句必须完整可读（允许换行），不得被单行省略截断。
+        renderSettings(width = 320.dp, height = 640.dp, fontScale = 1.3f, darkTheme = true)
+
+        openGroup("显示与页眉页脚")
+
+        composeRule.onNodeWithTag(SCOPE_NOTICE_TAG).assertIsDisplayed()
+        composeRule.onNodeWithText(
+            "除沉浸模式、显示进度条、自动隐藏和显示安静阅读信息外，本页其他设置均为全局设置，对所有书籍生效",
+        ).assertIsDisplayed()
+    }
+
+    private companion object {
+        const val SCOPE_NOTICE_TAG = "reader-settings-scope-notice"
+        const val PAGE_TURN_SPEED_NOTE_TAG = "reader-page-turn-speed-global-note"
     }
 }

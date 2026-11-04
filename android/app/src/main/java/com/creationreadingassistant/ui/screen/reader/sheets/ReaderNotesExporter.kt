@@ -32,9 +32,21 @@ internal fun buildNotesExportMarkdown(
     appendLine("# 《${bookTitle.ifBlank { "未命名" } }》阅读笔记")
     appendLine()
     appendLine("> 导出于 ${exportedAt.format(EXPORT_TIME_FORMAT)}")
+    val plainNotes = notes.filter { it.kind != "bookmark" }
+    val bookmarks = notes.filter { it.kind == "bookmark" }
+    val summaryItems = mutableListOf<String>()
+    if (highlights.isNotEmpty()) summaryItems.add("${highlights.size} 条书摘")
+    if (plainNotes.isNotEmpty()) summaryItems.add("${plainNotes.size} 条笔记")
+    if (bookmarks.isNotEmpty()) summaryItems.add("${bookmarks.size} 条书签")
+    if (inspirations.isNotEmpty()) summaryItems.add("${inspirations.size} 条灵感")
+    if (summaryItems.isNotEmpty()) {
+        appendLine("> 汇总统计：${summaryItems.joinToString(" · ")}")
+    }
     appendLine()
 
     if (highlights.isNotEmpty()) {
+        appendLine("---")
+        appendLine()
         appendLine("## 书摘（共 ${highlights.size} 条）")
         appendLine()
         groupByChapterInDocumentOrder(
@@ -53,8 +65,9 @@ internal fun buildNotesExportMarkdown(
         }
     }
 
-    val plainNotes = notes.filter { it.kind != "bookmark" }
     if (plainNotes.isNotEmpty()) {
+        appendLine("---")
+        appendLine()
         appendLine("## 笔记（共 ${plainNotes.size} 条）")
         appendLine()
         plainNotes.forEach { n ->
@@ -64,11 +77,13 @@ internal fun buildNotesExportMarkdown(
         appendLine()
     }
 
-    val bookmarks = notes.filter { it.kind == "bookmark" }
-    if (bookmarks.isNotEmpty()) {
-        appendLine("## 书签（共 ${bookmarks.size} 条）")
+    val bookmarksList = notes.filter { it.kind == "bookmark" }
+    if (bookmarksList.isNotEmpty()) {
+        appendLine("---")
         appendLine()
-        bookmarks.forEach { b ->
+        appendLine("## 书签（共 ${bookmarksList.size} 条）")
+        appendLine()
+        bookmarksList.forEach { b ->
             appendLine("- ${b.title}")
             b.excerpt?.takeIf { it.isNotBlank() }?.let { appendLine("  > ${it}") }
         }
@@ -76,6 +91,8 @@ internal fun buildNotesExportMarkdown(
     }
 
     if (inspirations.isNotEmpty()) {
+        appendLine("---")
+        appendLine()
         appendLine("## 灵感（共 ${inspirations.size} 条）")
         appendLine()
         inspirations.forEach { ins ->

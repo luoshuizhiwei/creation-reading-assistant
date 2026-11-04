@@ -6,6 +6,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import android.view.KeyEvent
+import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -93,7 +95,20 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                var showOnboarding by remember { mutableStateOf(!isOnboardingCompleted(this@MainActivity)) }
+                // 引导标记不能在组合期同步读：`getSharedPreferences().getBoolean()` 首次调用
+                // 要解析 XML，真机 StrictMode 实测在主线程造成 ~200ms 的 DiskReadViolation，
+                // 直接落在首帧前。这里改为**异步读取**：先用 null 表示「尚未得知」，
+                // 读到结果后再决定是否渲染引导层。
+                //
+                // 不用「先按未完成渲染再纠正」的写法：那会让老用户在每次冷启动时**闪一下**
+                // 引导层再消失。null 期间两者都不渲染，而首帧本身不依赖引导层 ——
+                // 它是覆盖在主界面之上的浮层。
+                var onboardingCompleted by remember { mutableStateOf<Boolean?>(null) }
+                LaunchedEffect(Unit) {
+                    onboardingCompleted = withContext(Dispatchers.IO) {
+                        isOnboardingCompleted(this@MainActivity)
+                    }
+                }
                 val darkTheme = ThemeResolver.resolveAppDarkTheme(
                     themeMode = appearance.themeMode,
                     isSystemDark = isSystemInDarkTheme(),
@@ -116,8 +131,9 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Box(Modifier.fillMaxSize()) {
                             AppNavigation()
-                            if (showOnboarding) {
-                                OnboardingOverlay(onClose = { showOnboarding = false })
+                            // 只在**明确读到「未完成」**时渲染；null（读取中）不渲染，避免闪烁。
+                            if (onboardingCompleted == false) {
+                                OnboardingOverlay(onClose = { onboardingCompleted = true })
                             }
                         }
                     }
@@ -168,7 +184,19 @@ class MainActivity : ComponentActivity() {
                     fatal.takeIf(File::exists)?.readText()?.trim()
                 }.getOrNull()
                 if (!text.isNullOrEmpty()) {
-                    runCatching { fatal.renameTo(File(dir, "cra_fatal.shown")) }
+                    runCatching {
+                        val ts = System.currentTimeMillis()
+                        fatal.renameTo(File(dir, "cra_fatal_$ts.shown"))
+                        val shownFiles = dir.listFiles { f ->
+                            f.name.startsWith("cra_fatal_") && f.name.endsWith(".shown")
+                        } ?: emptyArray()
+                        if (shownFiles.size > 5) {
+                            shownFiles.sortedBy { it.lastModified() }
+                                .take(shownFiles.size - 5)
+                                .forEach { it.delete() }
+                        }
+                        File(dir, "cra_fatal.shown").takeIf(File::exists)?.delete()
+                    }
                 }
                 TextStreamLoader(dir).cleanupStaleTempFiles()
                 text?.takeIf(String::isNotEmpty)
@@ -188,6 +216,21 @@ class MainActivity : ComponentActivity() {
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (ReaderHardwareKeys.dispatch(event)) return true
         return super.onKeyUp(keyCode, event)
+    }
+
+    // 鼠标滚轮以 MotionEvent.ACTION_SCROLL 到达，不会进 onKeyDown/onKeyUp；
+    // 垂直轴直接读 AXIS_VSCROLL 交给滚轮纯逻辑入口。未消费（阅读器外、零轴）
+    // 或非滚轮事件一律交回 super，不影响其他 generic motion（如指针 hover）。
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+        if (
+            event.action == MotionEvent.ACTION_SCROLL &&
+            ReaderHardwareKeys.dispatchScroll(
+                event.getAxisValue(MotionEvent.AXIS_VSCROLL),
+            )
+        ) {
+            return true
+        }
+        return super.dispatchGenericMotionEvent(event)
     }
 
     /** 本次启动失败兜底：直接把异常类型 + 完整栈显示出来。 */

@@ -1,5 +1,6 @@
 package com.creationreadingassistant.ui.screen.reader.tts
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -47,6 +49,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -62,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.IconPedestal
+import com.creationreadingassistant.ui.components.CraSlider
 import com.creationreadingassistant.ui.components.SettingSegmentedRow
 import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
@@ -71,6 +75,7 @@ import com.creationreadingassistant.ui.theme.ReaderPaperTheme
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.screen.reader.sheets.ReaderSheetScaffold
 import com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId
+import com.creationreadingassistant.ui.window.LocalDialogSystemBarsEffect
 
 @Composable
 internal fun rememberTts(): TtsEngineHost {
@@ -126,11 +131,12 @@ internal fun TtsBar(
     paper: ReaderPaperPalette,
     tts: TtsEngineHost,
     chapterLabel: String,
-    onPersistTts: (pitch: Float, volume: Float, voiceId: String, timedStop: Int, engine: String) -> Unit,
+    onPersistTts: (speechRate: Float, pitch: Float, volume: Float, voiceId: String, timedStop: Int, engine: String) -> Unit,
     onClose: () -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
     val spec = LocalComponentSpec.current
+    val context = LocalContext.current
     var showSettings by remember { mutableStateOf(false) }
     val haptic = rememberHaptic(false)
     val isPlaying = tts.status == "playing"
@@ -196,11 +202,46 @@ internal fun TtsBar(
                     )
                     Spacer(Modifier.width(3.dp))
                     Text(
-                        text = "${"%.1f".format(tts.pitch)}x",
+                        text = "${"%.1f".format(tts.rate)}x",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                     )
+                }
+            }
+
+            // 睡眠倒计时动态微胶囊：显示剩余分钟，点击一键延长 15 分钟
+            if (tts.timedStopRemainingSeconds > 0) {
+                val remMinutes = (tts.timedStopRemainingSeconds + 59) / 60
+                Surface(
+                    onClick = {
+                        haptic(HapticFeedbackType.TextHandleMove)
+                        tts.extendTimedStop(15)
+                        Toast.makeText(context, "已延长 15 分钟睡眠定时", Toast.LENGTH_SHORT).show()
+                    },
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.55f),
+                    border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.tertiary.copy(alpha = spec.hairlineAlpha)),
+                    modifier = Modifier.padding(end = 4.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        Icon(
+                            Icons.Outlined.AccessTime,
+                            contentDescription = "睡眠倒计时，点击快捷延长15分钟",
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(13.dp),
+                        )
+                        Spacer(Modifier.width(3.dp))
+                        Text(
+                            text = "${remMinutes}分",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        )
+                    }
                 }
             }
 
@@ -348,6 +389,8 @@ internal fun TtsBar(
             dragHandle = { SheetHandle() },
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         ) {
+            // M-BUG-11：朗读设置弹层同样是独立 Window，须自行写入系统栏策略。
+            LocalDialogSystemBarsEffect()
             // 微岛收敛：朗读设置弹层内容此前未进入 ReaderPaperTheme，而 sheet 容器色已是 paper.bg——
             // 深色外壳 + 亮纸时会出现「浅底浅字」对比度塌陷。与其他 reader sheet（ReaderSheetHost）
             // 对齐，统一包一层 ReaderPaperTheme，让弹层内 Material 语义色随纸。
@@ -366,11 +409,11 @@ internal fun TtsBar(
 @Composable
 internal fun TtsSettingsContent(
     tts: TtsEngineHost,
-    onPersistTts: (pitch: Float, volume: Float, voiceId: String, timedStop: Int, engine: String) -> Unit,
+    onPersistTts: (speechRate: Float, pitch: Float, volume: Float, voiceId: String, timedStop: Int, engine: String) -> Unit,
     onClose: () -> Unit,
 ) {
     val haptic = rememberHaptic(false)
-    fun persist() = onPersistTts(tts.pitch, tts.volume, tts.voiceId, tts.timedStopMinutes, tts.engineId.key)
+    fun persist() = onPersistTts(tts.rate, tts.pitch, tts.volume, tts.voiceId, tts.timedStopMinutes, tts.engineId.key)
 
     ReaderSheetScaffold(title = "朗读设置") {
         Column(
@@ -387,95 +430,26 @@ internal fun TtsSettingsContent(
                 modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
             )
 
-            // 1. 语速与音调（暖橙底座 + Speed 图标 + 精准数值微胶囊指示与刻度标签）
-            SettingHeader(
-                title = "语速与音调",
-                badgeIconTint = Color(0xFFEA580C),
-                badgeIcon = Icons.Outlined.Speed,
-                indicatorText = "${"%.2f".format(tts.pitch)}x",
-                indicatorColor = Color(0xFFEA580C),
+            // 1. 朗读语速（核心高频设置，重组作用域隔离）
+            TtsRateSection(
+                currentRate = tts.rate,
+                onRateChange = { tts.updateSpeechRate(it) },
+                onRateCommitted = { persist() },
             )
-            // 语速微胶囊 Chip 预设行
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                listOf(0.8f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speedPreset ->
-                    val selected = kotlin.math.abs(tts.pitch - speedPreset) < 0.08f
-                    Surface(
-                        onClick = {
-                            haptic(HapticFeedbackType.TextHandleMove)
-                            tts.updatePitch(speedPreset)
-                            persist()
-                        },
-                        shape = CircleShape,
-                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
-                        border = BorderStroke(
-                            1.dp,
-                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(32.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = "${speedPreset}x",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
-                    }
-                }
-            }
-            // 平滑微导轨滑块
-            Slider(
-                value = tts.pitch,
-                onValueChange = { tts.updatePitch(it) },
-                onValueChangeFinished = { persist() },
-                valueRange = 0.5f..2f,
-                steps = 15,
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text("0.5x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                Text("1.0x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                Text("1.5x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                Text("2.0x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-            }
 
-            // 2. 音量（天蓝底座 + VolumeUp 图标 + 精准数值微胶囊指示与刻度标签）
-            SettingHeader(
-                title = "音量",
-                badgeIconTint = Color(0xFF0284C7),
-                badgeIcon = Icons.AutoMirrored.Outlined.VolumeUp,
-                indicatorText = "${(tts.volume * 100).toInt()}%",
-                indicatorColor = Color(0xFF0284C7),
+            // 2. 音调微调（重组作用域隔离）
+            TtsPitchSection(
+                currentPitch = tts.pitch,
+                onPitchChange = { tts.updatePitch(it) },
+                onPitchCommitted = { persist() },
             )
-            Slider(
-                value = tts.volume,
-                onValueChange = { tts.updateVolume(it) },
-                onValueChangeFinished = { persist() },
-                valueRange = 0f..1f,
-                steps = 10,
+
+            // 3. 音量（重组作用域隔离组件）
+            TtsVolumeSection(
+                currentVolume = tts.volume,
+                onVolumeChange = { tts.updateVolume(it) },
+                onVolumeCommitted = { persist() },
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text("0%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                Text("50%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                Text("100%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-            }
 
             // 2.5 朗读引擎（系统语音离线可用；神经语音需联网，失败自动回退系统）
             Row(
@@ -750,5 +724,200 @@ private fun VoiceMicroChip(
                 color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
             )
         }
+    }
+}
+
+/**
+ * 朗读语速调节微模块（重组隔离作用域）。
+ *
+ * 拖动滑块时仅在本地状态高频刷新数值文本，拖动结束（onValueChangeFinished）才触发
+ * 引擎更新与设置持久化，杜绝拖动时整个底部控制栏高频重绘以及 TTS 频繁重新发音打断。
+ */
+@Composable
+private fun TtsRateSection(
+    currentRate: Float,
+    onRateChange: (Float) -> Unit,
+    onRateCommitted: (Float) -> Unit,
+) {
+    val haptic = rememberHaptic(false)
+    var draggingRate by remember(currentRate) { mutableFloatStateOf(currentRate) }
+
+    SettingHeader(
+        title = "朗读语速",
+        badgeIconTint = Color(0xFFEA580C),
+        badgeIcon = Icons.Outlined.Speed,
+        indicatorText = "${"%.2f".format(draggingRate)}x",
+        indicatorColor = Color(0xFFEA580C),
+    )
+    // 语速微胶囊 Chip 预设行
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        listOf(0.8f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speedPreset ->
+            val selected = kotlin.math.abs(draggingRate - speedPreset) < 0.08f
+            Surface(
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    draggingRate = speedPreset
+                    onRateChange(speedPreset)
+                    onRateCommitted(speedPreset)
+                },
+                shape = CircleShape,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                border = BorderStroke(
+                    1.dp,
+                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(32.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "${speedPreset}x",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
+    }
+    // 平滑微导轨滑块
+    CraSlider(
+        value = draggingRate,
+        onValueChange = { draggingRate = it },
+        onValueChangeFinished = {
+            onRateChange(draggingRate)
+            onRateCommitted(draggingRate)
+        },
+        valueRange = 0.5f..2.5f,
+        steps = 19,
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text("0.5x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        Text("1.0x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        Text("1.5x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        Text("2.0x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        Text("2.5x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+    }
+}
+
+/**
+ * 音调调节微模块（重组隔离作用域）。
+ */
+@Composable
+private fun TtsPitchSection(
+    currentPitch: Float,
+    onPitchChange: (Float) -> Unit,
+    onPitchCommitted: (Float) -> Unit,
+) {
+    val haptic = rememberHaptic(false)
+    var draggingPitch by remember(currentPitch) { mutableFloatStateOf(currentPitch) }
+
+    SettingHeader(
+        title = "音调微调",
+        badgeIconTint = Color(0xFF0D9488),
+        badgeIcon = Icons.Outlined.Tune,
+        indicatorText = "${"%.2f".format(draggingPitch)}",
+        indicatorColor = Color(0xFF0D9488),
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        listOf(0.8f to "低沉", 1.0f to "标准", 1.2f to "清亮").forEach { (pitchPreset, label) ->
+            val selected = kotlin.math.abs(draggingPitch - pitchPreset) < 0.08f
+            Surface(
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    draggingPitch = pitchPreset
+                    onPitchChange(pitchPreset)
+                    onPitchCommitted(pitchPreset)
+                },
+                shape = CircleShape,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                border = BorderStroke(
+                    1.dp,
+                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(32.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
+    }
+    CraSlider(
+        value = draggingPitch,
+        onValueChange = { draggingPitch = it },
+        onValueChangeFinished = {
+            onPitchChange(draggingPitch)
+            onPitchCommitted(draggingPitch)
+        },
+        valueRange = 0.6f..1.4f,
+        steps = 7,
+    )
+}
+
+/**
+ * 音量调节微模块（重组隔离作用域）。
+ *
+ * 音量调节直接作用于音频流，拖动中实时回调但不引起外部外壳重组。
+ */
+@Composable
+private fun TtsVolumeSection(
+    currentVolume: Float,
+    onVolumeChange: (Float) -> Unit,
+    onVolumeCommitted: (Float) -> Unit,
+) {
+    var draggingVolume by remember(currentVolume) { mutableFloatStateOf(currentVolume) }
+
+    SettingHeader(
+        title = "音量",
+        badgeIconTint = Color(0xFF0284C7),
+        badgeIcon = Icons.AutoMirrored.Outlined.VolumeUp,
+        indicatorText = "${(draggingVolume * 100).toInt()}%",
+        indicatorColor = Color(0xFF0284C7),
+    )
+    CraSlider(
+        value = draggingVolume,
+        onValueChange = {
+            draggingVolume = it
+            onVolumeChange(it)
+        },
+        onValueChangeFinished = {
+            onVolumeCommitted(draggingVolume)
+        },
+        valueRange = 0f..1f,
+        steps = 10,
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text("0%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        Text("50%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+        Text("100%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
     }
 }

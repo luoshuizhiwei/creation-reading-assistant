@@ -18,8 +18,19 @@ enum class ReaderSheet {
 }
 
 /**
- * 消费者快照（S07-F2.4）：文字与坐标的**不可变**对。坐标仍是 source 口径
- * （与 [ReaderScreenState] 的活动选区字段同名同义），持久化契约不变。
+ * 打开长生命周期选区消费者时捕获的**不可变**选区快照（S07-F2.4）。
+ *
+ * 为什么需要它：滚动 TXT 的 TTS 跟读会经 `scrollToItem` 程序化滚动，拥有当前选区的
+ * ReadingUnit 随后可能 dispose 并（正确地）清除正文活动选区。而笔记、规则、AI 解读、
+ * 灵感等弹层是**长生命周期**的 —— 它们若继续读实时 VM 选区，就会在正文清理后
+ * 丢摘录、丢保存定位、甚至丢用户正在编辑的草稿。
+ *
+ * 因此这些消费者在**打开时**一次性捕获选区，之后全程只读本快照；
+ * 正文活动选区仍按原规则清理（不引入 pending-clear 状态机、不暂停 TTS、
+ * 不改变 ReadingUnit dispose 语义）。
+ *
+ * 坐标字段与 [ReaderScreenState] 的活动选区同名同义，仍是 **source** 口径
+ * （不是 display offset），因此持久化契约不变。
  */
 data class ReaderSelectionSnapshot(
     val text: String,
@@ -86,13 +97,6 @@ internal fun ReaderScreenState.withSelectionSnapshotReleased(): ReaderScreenStat
  * 所有变更通过 ReaderViewModel.onAction → _screenState.update { it.copy(...) } 驱动；
  * ReaderScreen 通过 collectAsStateWithLifecycle 获取只读快照。
  */
-
-/**
- * 阅读页短生命周期 UI 状态（不可变 data class）。
- *
- * 所有变更通过 ReaderViewModel.onAction → _screenState.update { it.copy(...) } 驱动；
- * ReaderScreen 通过 collectAsStateWithLifecycle 获取只读快照。
- */
 data class ReaderScreenState(
     val controlsVisible: Boolean = true,
     /** 每次进度拖动开始递增，用于重启 chrome 自动隐藏倒计时；不改变可见性。 */
@@ -111,7 +115,7 @@ data class ReaderScreenState(
     val showColorRow: Boolean = false,
     /**
      * 长生命周期选区消费者的不可变快照（S07-F2.4）。
-
+     *
      * `null` = 当前没有消费者持有快照。仅在「从选区工具栏打开需要选区的 sheet/dialog」
      * 时由 ViewModel 原子捕获；正文活动选区被清除**不影响**它。
      * 关闭消费者、保存完成或切到不消费选区的 sheet 时释放为 null。

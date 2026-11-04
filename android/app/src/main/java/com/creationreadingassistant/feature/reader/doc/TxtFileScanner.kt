@@ -235,7 +235,7 @@ object TxtFileScanner {
 
             // Advance offsets by what was actually consumed（末行无换行不再虚增 +1）。
             charOffset += line.length + terminator.length
-            byteOffset += (line + terminator).toByteArray(charset).size
+            byteOffset += fastEncodedByteLength(line, terminator, charset)
 
             // Checkpoint at MAX_UNIT_CHARS boundary within long chapters.
             // Record at the ACTUAL line boundary position (charOffset, byteOffset)
@@ -416,6 +416,7 @@ object TxtFileScanner {
         return offset
     }
 
+
     /**
      * Resolve an encoding name to a [Charset].
      */
@@ -424,6 +425,89 @@ object TxtFileScanner {
         "UTF-16LE" -> Charsets.UTF_16LE
         "UTF-16BE" -> Charsets.UTF_16BE
         else -> Charset.forName("GB18030")
+    }
+
+    /**
+     * 极速无分配字节长度换算。
+     *
+     * 消除原方案中每行执行 `(line + terminator).toByteArray(charset).size` 产生的瞬时
+     * 字符串拼接、临时 ByteArray 分配及 CharsetEncoder 实例查询与 GC 停顿瓶颈。
+     *
+     * - UTF-8: 按字符码点零分配计算，Surrogate Pair 精准按 4 字节折算，terminator 精准计入；
+     * - UTF-16LE / UTF-16BE: 字符数 * 2 纯算术步进；
+     * - GB18030 / GBK / GB2312: 对 99.9% 的纯中文与 ASCII 常见字符零分配换算，遇到冷门稀有字符安全回退。
+     */
+    internal fun fastEncodedByteLength(
+        line: CharSequence,
+        terminator: String,
+        charset: Charset,
+    ): Int {
+        if (charset == Charsets.UTF_8) {
+            return fastUtf8ByteLength(line) + terminator.length
+        }
+        if (charset == Charsets.UTF_16LE || charset == Charsets.UTF_16BE) {
+            return (line.length + terminator.length) * 2
+        }
+        val csName = charset.name()
+        if (csName.equals("GB18030", ignoreCase = true) ||
+            csName.equals("GBK", ignoreCase = true) ||
+            csName.equals("GB2312", ignoreCase = true)
+        ) {
+            var bytes = 0
+            var i = 0
+            val len = line.length
+            var canFast = true
+            while (i < len) {
+                val c = line[i].code
+                if (c <= 0x7F) {
+                    bytes += 1
+                    i++
+                } else if ((c in 0x4E00..0x9FA5) || (c in 0x3000..0x303F) || (c in 0xFF01..0xFF5E)) {
+                    bytes += 2
+                    i++
+                } else {
+                    canFast = false
+                    break
+                }
+            }
+            if (canFast) {
+                return bytes + terminator.length
+            }
+        }
+        return (line.toString() + terminator).toByteArray(charset).size
+    }
+
+    internal fun fastUtf8ByteLength(seq: CharSequence): Int {
+        var bytes = 0
+        var i = 0
+        val len = seq.length
+        while (i < len) {
+            val c = seq[i].code
+            when {
+                c <= 0x7F -> {
+                    bytes += 1
+                    i++
+                }
+                c <= 0x7FF -> {
+                    bytes += 2
+                    i++
+                }
+                c in 0xD800..0xDBFF -> {
+                    if (i + 1 < len && seq[i + 1].code in 0xDC00..0xDFFF) {
+                        bytes += 4
+                        i += 2
+                    } else {
+                        bytes += 3
+                        i++
+                    }
+                }
+                else -> {
+                    bytes += 3
+                    i++
+                }
+            }
+        }
+        return bytes
     }
 
 }

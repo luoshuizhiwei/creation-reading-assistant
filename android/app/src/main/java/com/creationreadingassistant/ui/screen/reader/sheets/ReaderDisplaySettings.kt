@@ -6,7 +6,9 @@ import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import com.creationreadingassistant.data.settings.BatteryTipStyle
 import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.ui.components.HeaderFooterPicker
 import com.creationreadingassistant.ui.components.SettingBrightnessRow
 import com.creationreadingassistant.ui.screen.reader.AUTO_HIDE_SECOND_OPTIONS
 import com.creationreadingassistant.ui.screen.reader.autoHideSecondsLabel
@@ -43,7 +45,7 @@ internal fun DisplaySettings(
             MicroSettingsSwitchRow(
                 icon = Icons.Outlined.Devices,
                 tint = Color(0xFF2563EB),
-                title = "显示底部进度条",
+                title = "显示进度条",
                 checked = settings.showProgressBar,
                 onCheckedChange = { onChange(settings.copy(showProgressBar = it)) },
             )
@@ -89,13 +91,51 @@ internal fun DisplaySettings(
             )
             if (settings.showReaderInfo) {
                 MicroSectionDivider()
-                HeaderFooterPicker("页眉左侧", settings.headerLeft) { onChange(settings.copy(headerLeft = it)) }
+                MicroOptionPillRow(
+                    title = "电量显示方式",
+                    icon = Icons.Outlined.Devices,
+                    options = BatteryTipStyle.entries.map { it to it.label },
+                    selected = settings.batteryTipStyle,
+                    onSelect = { onChange(settings.copy(batteryTipStyle = it)) },
+                    tint = Color(0xFF0891B2),
+                    subtitle = "作用于模板里的 {BatteryPercent}",
+                )
                 MicroSectionDivider()
-                HeaderFooterPicker("页眉右侧", settings.headerRight) { onChange(settings.copy(headerRight = it)) }
+                HeaderFooterPicker(
+                    label = "页眉左侧",
+                    template = settings.effectiveHeaderLeft(),
+                    onTemplateChange = { onChange(settings.copy(customTipHeaderLeft = it)) },
+                )
                 MicroSectionDivider()
-                HeaderFooterPicker("页脚左侧", settings.footerLeft) { onChange(settings.copy(footerLeft = it)) }
+                HeaderFooterPicker(
+                    label = "页眉中间",
+                    template = settings.effectiveHeaderCenter(),
+                    onTemplateChange = { onChange(settings.copy(customTipHeaderCenter = it)) },
+                )
                 MicroSectionDivider()
-                HeaderFooterPicker("页脚右侧", settings.footerRight) { onChange(settings.copy(footerRight = it)) }
+                HeaderFooterPicker(
+                    label = "页眉右侧",
+                    template = settings.effectiveHeaderRight(),
+                    onTemplateChange = { onChange(settings.copy(customTipHeaderRight = it)) },
+                )
+                MicroSectionDivider()
+                HeaderFooterPicker(
+                    label = "页脚左侧",
+                    template = settings.effectiveFooterLeft(),
+                    onTemplateChange = { onChange(settings.copy(customTipFooterLeft = it)) },
+                )
+                MicroSectionDivider()
+                HeaderFooterPicker(
+                    label = "页脚中间",
+                    template = settings.effectiveFooterCenter(),
+                    onTemplateChange = { onChange(settings.copy(customTipFooterCenter = it)) },
+                )
+                MicroSectionDivider()
+                HeaderFooterPicker(
+                    label = "页脚右侧",
+                    template = settings.effectiveFooterRight(),
+                    onTemplateChange = { onChange(settings.copy(customTipFooterRight = it)) },
+                )
             }
         }
     }

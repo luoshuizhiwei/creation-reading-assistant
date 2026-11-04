@@ -7,6 +7,7 @@ import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
+import com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability
 import com.creationreadingassistant.feature.reader.rules.RuleCommand
 import com.creationreadingassistant.feature.reader.rules.RuleMutationResult
 import com.creationreadingassistant.feature.reader.rules.RuleSnapshot
@@ -202,6 +203,23 @@ sealed interface ReaderAction {
     data class ClearChapterReads(val bookId: String) : ReaderAction
 
     // ── 规则（RulesRepository）──
+    /**
+     * S07-F4.1：把**生产层实时算出的**替换能力裁决同步给 ViewModel。
+     *
+     * 唯一事实源是分页引擎的 `pagerEngine.replacementAvailability`
+     * （`effectiveReplacementAvailability` 的产物）：它由真实 source 的
+     * `replacementCoordinateSpace` 与装配期作用域裁决共同决定。UI（工具栏摘槽、
+     * 规则页门控）与 VM（单处纠错命令层纵深防御）必须消费**同一个**值 ——
+     * 任何一侧另起一套判据，都会出现「UI 给入口、VM 拒绝」或反向的错配。
+     *
+     * [bookId] 是发布时的书身份：VM 只在该书是当前书时采信，防止切书后旧组合的
+     * 迟到发布把上一本书的能力裁决留在新书会话里。
+     */
+    data class SetReplacementAvailability(
+        val bookId: String,
+        val availability: PagedReplacementAvailability,
+    ) : ReaderAction
+
     /** 执行规则写入命令；结果经 Repository 校验/迁移后发布到 ruleMutationResult。 */
     data class ExecuteRuleCommand(val bookId: String, val command: RuleCommand) : ReaderAction
 

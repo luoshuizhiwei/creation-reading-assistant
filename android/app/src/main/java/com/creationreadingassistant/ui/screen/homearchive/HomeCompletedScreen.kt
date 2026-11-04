@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,6 +29,9 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -57,6 +62,9 @@ import com.creationreadingassistant.feature.library.deletion.deletionConfirmActi
 import com.creationreadingassistant.feature.library.deletion.deletionConfirmBody
 import com.creationreadingassistant.feature.library.deletion.deletionConfirmTitle
 import com.creationreadingassistant.ui.components.AppScreenScaffold
+import com.creationreadingassistant.ui.util.DurationText
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.formatDuration
 import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.GlassAlertDialog
@@ -68,12 +76,10 @@ import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.shelf.BookActionSheet
 import com.creationreadingassistant.ui.screen.shelf.bookNotReadyLabel
 import com.creationreadingassistant.ui.screen.shelf.durationUnitPill
-import com.creationreadingassistant.ui.util.DurationText
-import com.creationreadingassistant.ui.util.LocalDurationUnit
-import com.creationreadingassistant.ui.util.formatDuration
 import com.creationreadingassistant.ui.viewmodel.BookOperationsViewModel
 import com.creationreadingassistant.ui.viewmodel.CompletedArchiveItem
 import com.creationreadingassistant.ui.viewmodel.HomeArchiveViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeCompletedRoute(
@@ -84,6 +90,10 @@ fun HomeCompletedRoute(
 ) {
     val state by archiveViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    // S04：本页此前没有任何 Snackbar 宿主，「重新定位文件」的成功/失败（含替换残留
+    // 守卫的完整原因）被整个丢弃。补一个宿主，模式与 MyReadingRoute 一致。
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     var query by rememberSaveable { mutableStateOf("") }
     var sort by rememberSaveable { mutableStateOf(CompletedArchiveSort.COMPLETED) }
     var managedBook by remember { mutableStateOf<BookEntity?>(null) }
@@ -91,7 +101,12 @@ fun HomeCompletedRoute(
     var repairBookId by remember { mutableStateOf<String?>(null) }
     val repairLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         val id = repairBookId
-        if (uri != null && id != null) bookOps.reselectFile(id, uri) {}
+        // 残留文案约 90 字，Short（约 4 秒）读不完，用 Long 给用户留出阅读时间。
+        if (uri != null && id != null) {
+            bookOps.reselectFile(id, uri) { msg ->
+                scope.launch { snackbar.showSnackbar(msg, duration = SnackbarDuration.Long) }
+            }
+        }
         repairBookId = null
     }
     val visible = remember(state.completedBooks, query, sort) {
@@ -104,22 +119,31 @@ fun HomeCompletedRoute(
             }
         }
     }
-    CompletedArchiveScreen(
-        items = visible,
-        totalCount = state.completedBooks.size,
-        totalReadingTimeMs = remember(state.completedBooks) {
-            state.completedBooks.sumOf { it.progress.total_reading_time_ms }
-        },
-        query = query,
-        sort = sort,
-        onBack = { navController.popBackStack() },
-        onQueryChange = { query = it },
-        onSelectSort = { sort = it },
-        onOpen = { book ->
-            if (bookNotReadyLabel(book) == null) navController.navigate("reader/${book.id}") else managedBook = book
-        },
-        onManage = { managedBook = it },
-    )
+    Box(modifier = Modifier.fillMaxSize()) {
+        CompletedArchiveScreen(
+            items = visible,
+            totalCount = state.completedBooks.size,
+            totalReadingTimeMs = remember(state.completedBooks) {
+                state.completedBooks.sumOf { it.progress.total_reading_time_ms }
+            },
+            query = query,
+            sort = sort,
+            onBack = { navController.popBackStack() },
+            onQueryChange = { query = it },
+            onSelectSort = { sort = it },
+            onOpen = { book ->
+                if (bookNotReadyLabel(book) == null) navController.navigate("reader/${book.id}") else managedBook = book
+            },
+            onManage = { managedBook = it },
+        )
+
+        SnackbarHost(
+            hostState = snackbar,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
+        )
+    }
 
     val managed = managedBook
     if (managed != null) {
@@ -140,12 +164,6 @@ fun HomeCompletedRoute(
             },
             onOpenDetail = { id -> managedBook = null; navController.navigate("shelf/detail/$id") },
             onDelete = { managedBook = null; deletePrompt = managed },
-            onCancelFinished = { book ->
-                bookOps.restoreReading(book.id) { success, message ->
-                    if (success) managedBook = null
-                    else android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
-                }
-            },
         )
     }
     val deleting = deletePrompt
@@ -390,7 +408,7 @@ internal fun CompletedArchiveScreen(
     }
 }
 
-/** 已读书籍卡片时长 pill 的测试钩子。 */
+/** S15-F3-B2：已读书籍卡片上的时长 pill 测试钩子（与手势契约同源，见 durationUnitPill）。 */
 internal const val COMPLETED_DURATION_PILL_TAG = "completed-duration-pill"
 
 @Composable
@@ -513,6 +531,8 @@ internal fun CompletedBookCard(
                             shape = RoundedCornerShape(6.dp),
                             color = Color(0xFFF59E0B).copy(alpha = 0.14f),
                             border = BorderStroke(0.6.dp, Color(0xFFF59E0B).copy(alpha = 0.3f)),
+                            // 手势在 pill 容器上：点 pill 与点父卡一致（打开书籍），
+                            // 长按只切换时长单位，不会打开书、也不会碰到管理按钮。
                             modifier = Modifier.durationUnitPill(COMPLETED_DURATION_PILL_TAG) { onOpen() },
                         ) {
                             Row(
@@ -526,8 +546,12 @@ internal fun CompletedBookCard(
                                     modifier = Modifier.size(11.dp),
                                     tint = Color(0xFFD97706),
                                 )
+                                // 纯展示文本：不再自己挂 durationUnitToggle，否则又会吞掉 pill 的点击。
                                 Text(
-                                    text = formatDuration(item.progress.total_reading_time_ms, LocalDurationUnit.current),
+                                    text = formatDuration(
+                                        item.progress.total_reading_time_ms,
+                                        LocalDurationUnit.current,
+                                    ),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Medium,
                                     color = Color(0xFFD97706),

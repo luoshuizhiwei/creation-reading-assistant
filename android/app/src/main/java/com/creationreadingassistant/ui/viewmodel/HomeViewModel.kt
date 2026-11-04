@@ -45,6 +45,8 @@ data class HomeUiState(
     val completedBooks: ImmutableList<BookEntity> = persistentListOf(),
     val recentInspirations: ImmutableList<InspirationEntity> = persistentListOf(),
     val totalReadBooksCount: Int = 0,
+    /** 书架里可展示的书总数（不含已删除）。用于区分「书架空」与「有书但没开始读」。 */
+    val shelfBookCount: Int = 0,
     val thisWeekNew: Int = 0,
     val readingCount: Int = 0,
     val totalReadingMs: Long = 0L,
@@ -154,6 +156,7 @@ private fun buildHomeUiState(
         totalReadBooksCount = input.books.count {
             isBookDisplayable(it) && hasBookBeenRead(it, progressById[it.id], sessionsByBook[it.id])
         },
+        shelfBookCount = input.books.count { isBookDisplayable(it) },
         thisWeekNew = input.books.count { epochDayOf(it.imported_at) in weekStart..nowDay },
         readingCount = input.books.count {
             isBookDisplayable(it) && progressById[it.id]?.completion_state == "reading"

@@ -36,6 +36,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -151,28 +152,40 @@ internal fun SelectionBar(
     }
 }
 
-// ===================== 状态筛选条（对齐 web .shelf-status-rail） =====================
+// ===================== 状态分组条 =====================
+
+/**
+ * 状态分组条：书架首屏常驻的阅读状态切换。
+ *
+ * 分组项与文案来自 [ShelfStatusGroupOptions] / [statusLabel]，**不再各写一份**——
+ * 旧实现这里私有一份 `ShelfStatusFilterOptions`，与 `ShelfSharedComponents.statusLabel`、
+ * `ShelfUiState.label()` 三处并存，改一处就会分叉。
+ *
+ * 徽章显示该状态下的本数；为 0 时只在「全部」上显示（其余分组显示 0 会让横条被数字塞满），
+ * 且不显示 0 会让用户误以为分组为空而放弃点击，故非全部项在 0 时也保留分组但省略徽章。
+ */
 @Composable
 internal fun StatusRail(
     statusFilter: ShelfStatusFilter,
     onSelect: (ShelfStatusFilter) -> Unit,
+    counts: Map<ShelfStatusFilter, Int> = emptyMap(),
+    modifier: Modifier = Modifier,
 ) {
-    val options = listOf(
-        ShelfStatusFilter.ALL to "全部",
-        ShelfStatusFilter.READING to "在读",
-        ShelfStatusFilter.COMPLETED to "已完成",
-        ShelfStatusFilter.UNREAD to "未开始",
-        ShelfStatusFilter.READABLE to "本机可读",
-    )
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        options.forEach { (value, label) ->
+        ShelfStatusGroupOptions.forEach { value ->
             val active = statusFilter == value
+            val count = counts[value]
+            val label = if (count != null && (count > 0 || value == ShelfStatusFilter.ALL)) {
+                "${statusLabel(value)} $count"
+            } else {
+                statusLabel(value)
+            }
             SelectablePill(text = label, selected = active, onClick = { onSelect(value) })
         }
     }
@@ -233,8 +246,6 @@ internal fun ShelfRefreshIndicator(
 internal fun BookTile(
     book: BookEntity,
     percent: Float,
-    /** 进度行 completion_state（S05-①）：完成标识由显式状态决定，取消读完后的残余 100% 不触发。 */
-    completionState: String?,
     viewMode: ShelfViewMode,
     selectionMode: Boolean,
     selected: Boolean,
@@ -242,14 +253,20 @@ internal fun BookTile(
     downloading: Boolean,
     /** M-BUG-03：来源文件在系统目录被改过，需要用户确认刷新。 */
     contentUpdated: Boolean = false,
+    /** 新导入且尚未打开过（「新」角标），打开后消失。 */
+    isNew: Boolean = false,
+    /** 当前阅读到的章节序号或名称提示，如「第18章」。 */
+    chapterLabel: String? = null,
+    /** 进度行 completion_state（S05-①）：「完」标识由显式状态决定，取消读完后的残余 100% 不触发。 */
+    completionState: String?,
     onOpenBook: (BookEntity) -> Unit,
     onToggleActions: (String) -> Unit,
     onToggleSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val readiness = book.readiness()
     // 完成标识统一口径（与书架分组 bookStatus 一致）：显式 FINISHED 才显示「完」/「已读完」/藏书印。
     val displayFinished = isDisplayFinished(percent, completionState)
-    val readiness = book.readiness()
     val layout = LocalLayoutTokens.current
     val haptic = rememberHaptic(rememberReducedMotion())
     val onClick = {
@@ -275,6 +292,24 @@ internal fun BookTile(
             },
         )
 
+    val isSelected = selectionMode && selected
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val outlineVariantColor = MaterialTheme.colorScheme.outlineVariant
+    val gridBorder = remember(isSelected, primaryColor, outlineVariantColor) {
+        if (isSelected) {
+            BorderStroke(2.dp, primaryColor)
+        } else {
+            BorderStroke(0.6.dp, outlineVariantColor.copy(alpha = 0.40f))
+        }
+    }
+    val listBorder = remember(isSelected, primaryColor, outlineVariantColor) {
+        if (isSelected) {
+            BorderStroke(1.5.dp, primaryColor)
+        } else {
+            BorderStroke(0.6.dp, outlineVariantColor.copy(alpha = 0.40f))
+        }
+    }
+
     if (viewMode == ShelfViewMode.GRID) {
         Column(
             modifier = tileModifier,
@@ -284,11 +319,7 @@ internal fun BookTile(
             Surface(
                 shape = RoundedCornerShape(8.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
-                border = if (selectionMode && selected) {
-                    BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                } else {
-                    BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
-                },
+                border = gridBorder,
                 shadowElevation = 1.dp,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -362,6 +393,26 @@ internal fun BookTile(
                         }
                     }
 
+                    // 「新」角标：新导入且尚未打开过。置于 TopEnd，与多选徽章（TopStart）不冲突。
+                    // 与「可更新」共用 TopEnd 位——两者互斥显示（见下方 contentUpdated 分支），
+                    // 同一角叠两枚徽章会互相遮挡，且「刚导入」与「来源已更新」同时成立的情况极少。
+                    if (isNew && !contentUpdated) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(6.dp),
+                        ) {
+                            Text(
+                                text = "新",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                            )
+                        }
+                    }
+
                     // 来源内容已更新徽章（M-BUG-03）：置于 TopEnd，与多选徽章（TopStart）不冲突。
                     // 仅作提示，**不自动改正文** —— 正文事实源仍是内部稳定副本，是否刷新由用户决定。
                     if (contentUpdated) {
@@ -407,16 +458,25 @@ internal fun BookTile(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    // 百分比微胶囊标签
+                    // 百分比与章节微胶囊标签
                     Surface(
                         shape = RoundedCornerShape(4.dp),
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
                         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)),
                     ) {
+                        val label = if (displayFinished) {
+                            "完"
+                        } else if (chapterLabel != null && percent > 0f) {
+                            "$chapterLabel · ${percent.toInt()}%"
+                        } else {
+                            "${percent.toInt()}%"
+                        }
                         Text(
-                            text = if (displayFinished) "完" else "${percent.toInt()}%",
+                            text = label,
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                         )
                     }
@@ -452,11 +512,7 @@ internal fun BookTile(
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    border = if (selectionMode && selected) {
-                        BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
-                    } else {
-                        BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
-                    },
+                    border = listBorder,
                     shadowElevation = 1.dp,
                     modifier = Modifier.size(width = 48.dp, height = 66.dp),
                 ) {
@@ -509,19 +565,44 @@ internal fun BookTile(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
-                    Text(
-                        text = book.title,
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Normal),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    // 列表态横向空间充裕，用可读的「新」文字胶囊而非圆点；
+                    // 圆点（网格列表封面上的「可更新」用法）在这里会与封面角标语义混淆。
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = book.title,
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Normal),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (isNew) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                            ) {
+                                Text(
+                                    text = "新",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                )
+                            }
+                        }
+                    }
 
                     val authorStr = book.author?.trim()?.takeIf { it.isNotBlank() }
                     val progressStr = if (downloading) {
                         "下载中…"
                     } else if (readiness.tone == ReadinessTone.READY) {
-                        if (displayFinished) "已读完" else if (percent > 0f) "已读 ${percent.toInt()}%" else "未读"
+                        if (displayFinished) {
+                            "已读完"
+                        } else if (percent > 0f) {
+                            if (chapterLabel != null) "$chapterLabel · 已读 ${percent.toInt()}%" else "已读 ${percent.toInt()}%"
+                        } else {
+                            "未读"
+                        }
                     } else {
                         readiness.label
                     }

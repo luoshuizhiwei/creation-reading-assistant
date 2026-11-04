@@ -136,10 +136,17 @@ class SafLibrarySource(
 
     private fun List<LibraryEntry>.sortedFor(sortMode: LibrarySortMode): List<LibraryEntry> {
         val nameComparator = compareBy<LibraryEntry> { it.displayName.lowercase(Locale.ROOT) }
+        // 修改时间缺失（provider 未返回该列）时用 Long.MIN_VALUE 沉底，
+        // 避免 null 参与比较把「时间未知」的文件排到最前。
+        val timeDesc = compareByDescending<LibraryEntry> { it.lastModifiedMillis ?: Long.MIN_VALUE }
+            .then(nameComparator)
         val fileComparator = when (sortMode) {
             LibrarySortMode.NAME -> nameComparator
-            LibrarySortMode.MODIFIED_DESC -> compareByDescending<LibraryEntry> { it.lastModifiedMillis ?: Long.MIN_VALUE }
-                .then(nameComparator)
+            // 「最近添加」与「最近修改」同键：SAF 不提供加入文件夹的时间，
+            // 文件拷入时的修改时间即拷贝时间（见 LibrarySortMode 的说明）。
+            LibrarySortMode.ADDED_DESC,
+            LibrarySortMode.MODIFIED_DESC,
+            -> timeDesc
             LibrarySortMode.SIZE_DESC -> compareByDescending<LibraryEntry> { it.sizeBytes ?: Long.MIN_VALUE }
                 .then(nameComparator)
         }

@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.components.IslandSectionHeader
+import com.creationreadingassistant.ui.components.MetricMicroCard
 import com.creationreadingassistant.ui.screen.stats.StatsUi
 import com.creationreadingassistant.ui.screen.stats.formatCompactDuration
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
@@ -144,73 +145,18 @@ internal fun CreationSection(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     rowItems.forEach { item ->
-                        CreationMicroCard(
-                            item = item,
+                        MetricMicroCard(
+                            icon = item.icon,
+                            iconTint = item.iconTint,
+                            label = item.label,
+                            value = item.value,
+                            subtitle = item.subtitle,
                             modifier = Modifier.weight(1f),
+                            valueModifier = item.valueModifier,
                         )
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun CreationMicroCard(
-    item: CreationMetricItem,
-    modifier: Modifier = Modifier,
-) {
-    val spec = LocalComponentSpec.current
-    Surface(
-        modifier = modifier,
-        shape = spec.listItemShape,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(
-            spec.hairlineBorderWidth,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
-        ),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                IconPedestal(
-                    icon = item.icon,
-                    tint = item.iconTint,
-                )
-                Text(
-                    text = item.label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-
-            Spacer(Modifier.height(2.dp))
-
-            Text(
-                text = item.value,
-                modifier = item.valueModifier,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.Bold,
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-            )
-
-            Text(
-                text = item.subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            )
         }
     }
 }

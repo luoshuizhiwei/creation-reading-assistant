@@ -35,12 +35,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
@@ -82,6 +87,47 @@ internal fun searchSheetBodyState(
     phase == BookSearchPhase.SEARCHING -> SearchSheetBodyState.SEARCHING
     phase == BookSearchPhase.CANCELLED -> SearchSheetBodyState.CANCELLED
     else -> SearchSheetBodyState.EMPTY_RESULTS
+}
+
+/**
+ * 将搜索摘要中的关键词用高亮色加粗并附带淡底色渲染，让读者一眼定位搜索命中。
+ */
+internal fun buildHighlightedSearchSnippet(
+    snippet: String,
+    query: String,
+    highlightColor: Color,
+    highlightBg: Color,
+): AnnotatedString {
+    val trimmed = query.trim()
+    if (trimmed.isEmpty() || !snippet.contains(trimmed, ignoreCase = true)) {
+        return AnnotatedString(snippet)
+    }
+    return buildAnnotatedString {
+        val lowerSnippet = snippet.lowercase()
+        val lowerQuery = trimmed.lowercase()
+        var cursor = 0
+        while (cursor < snippet.length) {
+            val matchIdx = lowerSnippet.indexOf(lowerQuery, cursor)
+            if (matchIdx < 0) {
+                append(snippet.substring(cursor))
+                break
+            }
+            if (matchIdx > cursor) {
+                append(snippet.substring(cursor, matchIdx))
+            }
+            val matchEnd = matchIdx + trimmed.length
+            withStyle(
+                SpanStyle(
+                    color = highlightColor,
+                    fontWeight = FontWeight.Bold,
+                    background = highlightBg,
+                ),
+            ) {
+                append(snippet.substring(matchIdx, matchEnd))
+            }
+            cursor = matchEnd
+        }
+    }
 }
 
 @Composable
@@ -431,8 +477,18 @@ internal fun SearchSheet(
                                     .fillMaxWidth()
                                     .padding(horizontal = 14.dp, vertical = 10.dp),
                             ) {
+                                val primaryColor = MaterialTheme.colorScheme.primary
+                                val primaryContainerColor = MaterialTheme.colorScheme.primaryContainer
+                                val highlightedSnippet = remember(r.snippet, query, isCurrent, primaryColor, primaryContainerColor) {
+                                    buildHighlightedSearchSnippet(
+                                        snippet = r.snippet,
+                                        query = query,
+                                        highlightColor = if (isCurrent) primaryColor else primaryColor.copy(alpha = 0.92f),
+                                        highlightBg = if (isCurrent) primaryColor.copy(alpha = 0.18f) else primaryContainerColor.copy(alpha = 0.40f),
+                                    )
+                                }
                                 Text(
-                                    text = r.snippet,
+                                    text = highlightedSnippet,
                                     style = MaterialTheme.typography.bodyMedium,
                                     maxLines = 3,
                                     overflow = TextOverflow.Ellipsis,

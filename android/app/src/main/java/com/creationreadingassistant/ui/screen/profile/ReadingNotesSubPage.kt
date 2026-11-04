@@ -66,6 +66,11 @@ internal fun ReadingNotesSubPage(
 /**
  * 统一阅读笔记页：高亮 / 批注 / 书签同一份来源（highlights + notes 两表 Flow 投影），
  * 与书内笔记面板数据一致 —— 编辑 / 删除后 Flow 自动刷新，重启持久化由 Room 保证。
+ *
+ * 紧凑化说明：本页是列表/编辑页，**没有说明性卡片可合并** —— 页面上只有筛选栏
+ * （`AnnotationFilterBar`）与条目卡（`AnnotationEntryCard`），两者都由别的文件持有，
+ * 空态文案也来自 `strings.xml`。这里只把空态插画从 64dp 收到 56dp，
+ * 卡片间距与页边距由 `ProfileScreen` 注入的 `CompactSettingsLayoutTokens` 自动生效。
  */
 @Composable
 private fun AnnotationNotesPage(
@@ -139,7 +144,7 @@ private fun AnnotationNotesPage(
                 entries.isEmpty() -> PageLazyColumn {
                     item {
                         FullEmptyState(
-                            icon = { LineArtBookmark(sizeDp = 64.dp) },
+                            icon = { LineArtBookmark(sizeDp = 56.dp) },
                             title = stringResource(R.string.annotations_empty_no_records_title),
                             body = stringResource(R.string.annotations_empty_no_records_body),
                         )
@@ -149,7 +154,7 @@ private fun AnnotationNotesPage(
                 filtered.isEmpty() -> PageLazyColumn {
                     item {
                         FullEmptyState(
-                            icon = { LineArtBookmark(sizeDp = 64.dp) },
+                            icon = { LineArtBookmark(sizeDp = 56.dp) },
                             title = stringResource(R.string.annotations_empty_filtered_title),
                             body = stringResource(R.string.annotations_empty_filtered_body),
                             primaryAction = stringResource(R.string.annotations_empty_filtered_clear) to {

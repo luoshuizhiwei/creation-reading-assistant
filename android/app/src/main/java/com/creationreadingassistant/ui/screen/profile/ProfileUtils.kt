@@ -21,10 +21,6 @@ internal fun formatDateTimeShort(iso: String?): String {
     return instant.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MM/dd HH:mm"))
 }
 
-/** 将毫秒时长格式化为「X 天 Y 小时」/「X 小时 Y 分钟」/「Y 分钟」（委托 ui/util 公共实现）。 */
-internal fun formatDuration(ms: Long): String =
-    com.creationreadingassistant.ui.util.formatDuration(ms)
-
 /** 将同步耗时毫秒格式化为可读字符串。 */
 internal fun formatSyncDuration(ms: Long): String {
     if (ms < 1000) return "${ms}ms"

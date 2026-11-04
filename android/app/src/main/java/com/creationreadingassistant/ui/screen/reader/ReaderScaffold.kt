@@ -2,8 +2,12 @@ package com.creationreadingassistant.ui.screen.reader
 
 import android.annotation.SuppressLint
 import android.content.Context
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -38,6 +42,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.settings.PerBookOverrides
+import com.creationreadingassistant.data.settings.ReaderDayNightToggle
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.data.settings.ReaderSettingsScope
 import com.creationreadingassistant.data.settings.SelectionActionSettings
@@ -226,6 +231,8 @@ internal fun ReaderScaffold(
     appDark: Boolean,
     activeReadingMs: Long,
     goToChapter: (Int) -> Unit,
+    /** M-BUG-08：「上一章」——落到上一章**末尾**（对齐 md3 `moveToPrevChapter(toLast=true)`）。 */
+    goToPrevChapter: (Int) -> Unit = {},
     syncPagedChapter: (Int) -> Unit,
     showNotice: (String) -> Unit,
     seekToPercent: (Float) -> Unit,
@@ -292,6 +299,36 @@ internal fun ReaderScaffold(
 
     val paperSurface = remember(paper, paperTexture) { paper.surfaceSpec(paperTexture) }
 
+    /**
+     * 拉灯绳：一键切换日间 / 夜间（对齐 QQ 阅读阅读页右上角的灯绳）。
+     *
+     * 一次点击同时落两处，缺一处就会出现「深色正文 + 浅色外壳」的明暗断层：
+     * 1. **阅读纸张** —— 走 [applyReaderEdit]，与主题面板同一套「本书 / 全局」路由，
+     *    否则本书覆盖过纸张时，拉灯绳在渲染层完全不生效；
+     * 2. **应用外壳** —— 写 `themeMode`（全局外观，无本书级覆盖概念）。
+     *
+     * 目标纸色取「上次该侧用过的纸」（记忆值），避免把用户的暖纸/护眼静默变成白纸。
+     */
+    val toggleDayNight: () -> Unit = {
+        val target = ReaderDayNightToggle.next(
+            background = readerSettings.background,
+            appDark = appDark,
+            lastLightPaper = readerSettings.dayNightLightPaper,
+            lastDarkPaper = readerSettings.dayNightDarkPaper,
+        )
+        onPersistProgress()
+        applyReaderEdit(
+            settingsVm = settingsVm,
+            bid = bid,
+            scope = settingsScope,
+            global = globalReaderSettings,
+            displayed = readerSettings,
+            edited = readerSettings.copy(background = target.paper),
+            showNotice = showNotice,
+        )
+        settingsVm.updateAppearance { copy(themeMode = if (target.dark) "dark" else "light") }
+    }
+
     // 可变 var 从 holder 重新委托：写操作直接落回 ReaderScreen 持有的真实状态。
     var autoPagingActive by holders.autoPagingActiveState
     var runtimeError by holders.runtimeErrorState
@@ -320,20 +357,35 @@ internal fun ReaderScaffold(
         it.absoluteRange.first to it.absoluteRange.last + 1
     }
 
+    val targetEyeCareAlpha = if (eyeCareActive) {
+        val base = readerSettings.eyeCareIntensity.coerceIn(0, 100) / 100f
+        if (readerSettings.eyeCareOledBlackCompat && !paper.isLight) {
+            base * 0.45f
+        } else base
+    } else 0f
+
+    val animatedEyeCareAlpha by animateFloatAsState(
+        targetValue = targetEyeCareAlpha,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        label = "eyeCareAlpha",
+    )
+
+    val animatedEyeCareColor by animateColorAsState(
+        targetValue = eyeFilterColor,
+        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+        label = "eyeCareColor",
+    )
+
     ReaderPaperTheme(paper) {
     Scaffold(
         modifier = Modifier
             .drawWithContent {
                 drawContent()
-                // ── 1/2：护眼色温滤镜（暖色 Multiply 叠层，OLED 纯黑兼容降强度）──
-                if (eyeCareActive) {
-                    val base = readerSettings.eyeCareIntensity.coerceIn(0, 100) / 100f
-                    val intensity = if (readerSettings.eyeCareOledBlackCompat && !paper.isLight) {
-                        base * 0.45f
-                    } else base
+                // ── 1/2：护眼色温滤镜（平滑渐变插值，关闭时零重绘短路）──
+                if (animatedEyeCareAlpha > 0.001f) {
                     drawRect(
-                        color = eyeFilterColor,
-                        alpha = intensity,
+                        color = animatedEyeCareColor,
+                        alpha = animatedEyeCareAlpha,
                         blendMode = BlendMode.Multiply,
                     )
                 }
@@ -350,7 +402,8 @@ internal fun ReaderScaffold(
             }
             // ── 边缘上下滑调亮度手势（左/右 18dp 窄条，起点同款）──
             // 只有按下命中边缘窄条时才进入亮度调节，其余位置完全不拦截事件，
-            // 让三区点击翻页、长按选区、滚动照常工作。
+            // 让三区点击翻页、长按选区、滚动照常工作。挂在根 modifier 上 ⇒ 阅读期始终可用，
+            // 无需先唤出菜单。误触由手势内的位移阈值兜住（见 readerBrightnessEdgeGesture）。
             .readerBrightnessEdgeGesture(
                 readerBrightness = readerSettings.brightness,
                 lastFixedBrightness = readerSettings.lastFixedBrightness,
@@ -381,19 +434,34 @@ internal fun ReaderScaffold(
                 .windowInsetsPadding(WindowInsets.displayCutout),
         ) {
             // 纸张层次：极淡上亮下暗渐变 + 中性灰度轻噪点，叠在纸色之上、正文之下；
-            // 守对比度红线——绝不改 paper.fg，纹理 alpha≤0.04，亮/暗纸自适应。
-            // 噪点纹理受外观设置「纸张纹理」开关控制（渐变恒在）。
-            when {
-                isLoading || error != null -> ReaderDocumentStatus(
-                    isLoading = isLoading,
-                    errorMessage = error,
-                    foreground = paperFg,
-                    onBack = onBack,
-                    onRetry = {
-                        runtimeError = null
-                        onDocumentAction(ReaderAction.Retry)
-                    },
-                )
+                // 守对比度红线——绝不改 paper.fg，纹理 alpha≤0.04，亮/暗纸自适应。
+                // 噪点纹理受外观设置「纸张纹理」开关控制（渐变恒在）。
+                // 白屏兜底（P0）：routeUiState 的 combine 需全部数据流首发射后才发布，
+                // 新书首开时 Room 查询被导入重活饿住，期间初始值 document 为「无书/无错/
+                // 非 loading」→ 旧版落入 else 渲染空正文（白屏数十秒、转圈迟到）。
+                // 无书可渲染且无错误时一律按加载占位处理，提示立即可见。
+                when {
+                    error != null -> ReaderDocumentStatus(
+                        isLoading = false,
+                        errorMessage = error,
+                        foreground = paperFg,
+                        onBack = onBack,
+                        onRetry = {
+                            runtimeError = null
+                            onDocumentAction(ReaderAction.Retry)
+                        },
+                    )
+
+                    isLoading || loadedBook == null -> ReaderDocumentStatus(
+                        isLoading = true,
+                        errorMessage = null,
+                        foreground = paperFg,
+                        onBack = onBack,
+                        onRetry = {
+                            runtimeError = null
+                            onDocumentAction(ReaderAction.Retry)
+                        },
+                    )
 
                 else -> BoxWithConstraints(Modifier.fillMaxSize()) {
                     val viewportReaderSettings = remember(readerSettings, maxWidth, maxHeight) {
@@ -513,6 +581,11 @@ internal fun ReaderScaffold(
                     selectionActions = selectionActions,
                     // R3-X1 门控：未配置 AI 时「AI 解读」不进选区菜单（点进去只会撞提示）
                     aiConfigured = aiConfigured,
+                    // M-BUG-08：纯 TXT 的章节导航口径（EPUB/Markdown 不受影响）。
+                    txtChapterIndex = txtChapterIndex,
+                    txtChapterCount = txtChapters.size,
+                    // 一键日/夜灯绳的当前态：`follow` 纸张的明暗要由外壳解析。
+                    appDark = appDark,
                 ),
                 callbacks = buildReaderInteractionLayerCallbacks(
                     chapterIndex = chapterIndex,
@@ -534,6 +607,7 @@ internal fun ReaderScaffold(
                     handleChromeAction = handleChromeAction,
                     seekToChapterPercent = seekToPercent,
                     goToChapter = goToChapter,
+                    goToPrevChapter = goToPrevChapter,
                     onAutoPageSpeedChange = { speed ->
                         settingsVm.updateReader {
                             copy(autoPageSpeed = clampAutoPageSpeed(speed))
@@ -543,6 +617,13 @@ internal fun ReaderScaffold(
                     showNotice = showNotice,
                     selectionActions = selectionActions,
                     onOpenDictionary = onOpenDictionary,
+                    // M-BUG-08：纯 TXT（非 EPUB 且非 Markdown）改用 txtChapters 的章首偏移跳章；
+                    // goToChapter 对这类书直接 return，点下去不会有任何反应。
+                    usesTxtChapterNav = epubBook == null && markdownDocument == null,
+                    txtChapters = txtChapters,
+                    txtChapterIndex = txtChapterIndex,
+                    jumpToPlainOffset = jumpToPlainOffset,
+                    onToggleDayNight = toggleDayNight,
                 ),
                 tts = tts,
             )

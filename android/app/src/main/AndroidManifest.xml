@@ -10,11 +10,14 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />
 
-    <!-- 文本选区“字典”入口：仅查询可处理只读文本的本机应用；无处理器时回退网页词典。 -->
+    <!-- 文本选区“字典”入口与 TTS 语音引擎包可见性声明（Android 11+ 必须声明才能绑定系统 TTS 服务） -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
     </queries>
 

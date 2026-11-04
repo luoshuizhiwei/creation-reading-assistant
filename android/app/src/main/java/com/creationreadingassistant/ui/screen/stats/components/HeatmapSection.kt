@@ -1,7 +1,14 @@
 package com.creationreadingassistant.ui.screen.stats.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -11,15 +18,23 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,8 +42,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
+import kotlin.math.roundToInt
 import com.creationreadingassistant.R
 import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.components.IslandSectionHeader
@@ -48,7 +69,8 @@ import kotlin.math.ceil
  * 年度阅读热力图微岛：
  * - 整年 365 天网状排布，圆角 2.5dp 方块；
  * - 柔和递进的纸墨阶梯渐变色彩；
- * - 顶部 32dp 微底座小图标与次级说明胶囊标签。
+ * - 顶部 32dp 微底座小图标与次级说明胶囊标签；
+ * - 支持点击单个方块查看精确日期与时长微气泡提示。
  */
 @Composable
 internal fun HeatmapSection(
@@ -62,6 +84,8 @@ internal fun HeatmapSection(
 
     val totalMs = remember(heatmap) { heatmap.sumOf { it.durationMs } }
     val activeDays = remember(heatmap) { heatmap.count { it.durationMs > 0L } }
+
+    var selectedCell by remember { mutableStateOf<HeatmapCell?>(null) }
 
     // 将 365 天的平铺序列按"星期几 → 第几周"二维化
     val grid = remember(heatmap) { arrangeHeatmapGrid(heatmap) }
@@ -94,8 +118,9 @@ internal fun HeatmapSection(
                             color = scheme.onSurfaceVariant,
                             // 整张热力图只有这一个汇总口径的时长入口。
                             //
-                            // 365 个格子各自成为入口会让 TalkBack 在同屏读到 365 个
-                            // 同名操作，故单日格子刻意不挂；时长单位由本汇总胶囊统一切换。
+                            // 单日 tooltip 与格子刻意不挂：格子本身已有「点击选中」的
+                            // 主交互，再挂长按会让一次点击先被长按手势消费；且 365 个格子
+                            // 各自成为入口会让 TalkBack 在同屏读到 365 个同名操作。
                             modifier = Modifier
                                 .durationUnitToggle()
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -151,8 +176,30 @@ internal fun HeatmapSection(
                             }
 
                             // 主体热力图网格：按列（周）排布，每列 7 格（周一~周日）
-                            HeatmapGrid(weeks = grid, cellSize = cell, gap = gap)
+                            HeatmapGrid(
+                                weeks = grid,
+                                cellSize = cell,
+                                gap = gap,
+                                selectedCell = selectedCell,
+                                onCellClick = { c ->
+                                    selectedCell = if (selectedCell?.date == c.date) null else c
+                                },
+                            )
                         }
+                    }
+                }
+
+                // 点击单元格展开的微提示卡片
+                AnimatedVisibility(
+                    visible = selectedCell != null,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    selectedCell?.let { c ->
+                        HeatmapCellTooltip(
+                            cell = c,
+                            onDismiss = { selectedCell = null },
+                        )
                     }
                 }
 
@@ -276,7 +323,13 @@ private fun WeekdayLabelColumn(cellSize: Dp) {
 }
 
 @Composable
-private fun HeatmapGrid(weeks: List<HeatmapWeek>, cellSize: Dp, gap: Dp) {
+private fun HeatmapGrid(
+    weeks: List<HeatmapWeek>,
+    cellSize: Dp,
+    gap: Dp,
+    selectedCell: HeatmapCell?,
+    onCellClick: (HeatmapCell) -> Unit,
+) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(gap),
         verticalAlignment = Alignment.Top,
@@ -286,7 +339,13 @@ private fun HeatmapGrid(weeks: List<HeatmapWeek>, cellSize: Dp, gap: Dp) {
                 verticalArrangement = Arrangement.spacedBy(gap),
             ) {
                 week.cells.forEach { cell ->
-                    HeatmapCellBox(cell, cellSize)
+                    val isSelected = cell != null && selectedCell?.date == cell.date
+                    HeatmapCellBox(
+                        cell = cell,
+                        cellSize = cellSize,
+                        isSelected = isSelected,
+                        onClick = { if (cell != null) onCellClick(cell) },
+                    )
                 }
             }
         }
@@ -294,7 +353,12 @@ private fun HeatmapGrid(weeks: List<HeatmapWeek>, cellSize: Dp, gap: Dp) {
 }
 
 @Composable
-private fun HeatmapCellBox(cell: HeatmapCell?, cellSize: Dp) {
+private fun HeatmapCellBox(
+    cell: HeatmapCell?,
+    cellSize: Dp,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+) {
     val scheme = MaterialTheme.colorScheme
     val color = remember(cell) {
         when {
@@ -313,13 +377,89 @@ private fun HeatmapCellBox(cell: HeatmapCell?, cellSize: Dp) {
         }
     }
     val hasCell = cell != null
+    val shape = if (cellSize >= 6.dp) CELL_SHAPE else RoundedCornerShape(1.dp)
+
     Box(
         modifier = Modifier
             .width(cellSize)
             .height(cellSize)
-            .clip(if (cellSize >= 6.dp) CELL_SHAPE else RoundedCornerShape(1.dp))
-            .then(if (hasCell) Modifier.background(color) else Modifier),
+            .clip(shape)
+            .then(if (hasCell) Modifier.background(color) else Modifier)
+            .then(
+                if (isSelected) Modifier.border(1.5.dp, scheme.primary, shape) else Modifier
+            )
+            .then(
+                if (hasCell) Modifier.clickable(onClick = onClick) else Modifier
+            ),
     )
+}
+
+@Composable
+private fun HeatmapCellTooltip(
+    cell: HeatmapCell,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val spec = LocalComponentSpec.current
+
+    val dow = cell.date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.SIMPLIFIED_CHINESE)
+    val dateStr = "${cell.date.year}年${cell.date.monthValue}月${cell.date.dayOfMonth}日 $dow"
+    val durationText = if (cell.durationMs > 0L) {
+        "阅读 ${formatCompactDuration(cell.durationMs, LocalDurationUnit.current)} · 活跃度 ${(cell.intensity.coerceIn(0f, 1f) * 100).roundToInt()}%"
+    } else {
+        "该日暂无阅读记录"
+    }
+
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = scheme.surfaceContainerHigh.copy(alpha = 0.9f),
+        border = BorderStroke(spec.hairlineBorderWidth, scheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    imageVector = if (cell.durationMs > 0L) Icons.Outlined.AccessTime else Icons.Outlined.CalendarMonth,
+                    contentDescription = null,
+                    tint = if (cell.durationMs > 0L) scheme.primary else scheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
+                )
+                Column {
+                    Text(
+                        text = dateStr,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = scheme.onSurface,
+                    )
+                    Text(
+                        text = durationText,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        color = if (cell.durationMs > 0L) scheme.primary else scheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier.size(24.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = "关闭提示",
+                    tint = scheme.onSurfaceVariant,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
+    }
 }
 
 @Composable

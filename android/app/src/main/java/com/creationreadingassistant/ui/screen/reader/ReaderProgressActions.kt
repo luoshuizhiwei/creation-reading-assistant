@@ -6,6 +6,7 @@ import androidx.compose.runtime.MutableState
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.doc.DocBlock
+import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.doc.EpubDocument
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
@@ -83,6 +84,14 @@ internal fun goToChapter(
     onAction: (ReaderAction) -> Unit,
     bid: String,
     jumpToStart: Boolean = true,
+    /**
+     * M-BUG-08：为 true 时把分页落点定在目标章的**末尾**而不是章首。
+     *
+     * 用于「上一章」——对齐 md3 `ReadBook.moveToPrevChapter(toLast = true)` 的语义
+     * （`durChapterPos = prevTextChapter.lastReadLength`，即回到上一章的最后位置）。
+     * 末尾取「下一章章首 - 1」，因为 chapterStartOffsets 是各章起始偏移。
+     */
+    atChapterEnd: Boolean = false,
 ) {
     val maxIndex = when {
         epubBook != null -> epubBook.chapters.lastIndex
@@ -91,7 +100,14 @@ internal fun goToChapter(
     }
     val clamped = i.coerceIn(0, maxIndex)
     if (pagerEngineOn && jumpToStart) {
-        pagedJumpRequest.value = chapterStartOffsets.getOrElse(clamped) { 0 }
+        val chapterStart = chapterStartOffsets.getOrElse(clamped) { 0 }
+        pagedJumpRequest.value = if (atChapterEnd) {
+            // 目标章末尾 = 其下一章章首 - 1；已是最后一章时退化为该章章首。
+            val nextStart = chapterStartOffsets.getOrNull(clamped + 1)
+            if (nextStart != null) (nextStart - 1).coerceAtLeast(0) else chapterStart
+        } else {
+            chapterStart
+        }
     }
     chapterIndexState.value = clamped
     tts.stop()
@@ -117,6 +133,26 @@ internal fun jumpToPlainOffset(
     } else if (readingUnits.isNotEmpty()) {
         scope.launch { plainListState.scrollToItem(unitIndexForOffset(readingUnits, offset)) }
     }
+}
+
+/**
+ * 纯 TXT 滚动模式的「上一章 / 下一章」目标全书偏移（S07-F2）。
+ *
+ * 这条路径走 [jumpToPlainOffset]，**不经过** `LoadChapter`，因此调用方必须自己清选区。
+ * 该函数把「是否有可跳目标」显式表达为 null，调用方据此决定是否真的发生了章跳转 ——
+ * 只有真的跳了才清选区，不在首章/末章/目录未识别时把「什么都没发生」伪装成一次导航。
+ *
+ * @param direction -1 = 上一章（落到上一章末尾），+1 = 下一章（落到下一章章首）。
+ */
+internal fun txtScrollChapterTargetOffset(
+    direction: Int,
+    txtChapters: List<DocChapter>,
+    txtChapterIndex: Int,
+): Int? = when {
+    // 上一章末尾 = 本章章首 - 1；章首不可得即无可跳目标。
+    direction < 0 -> txtChapters.getOrNull(txtChapterIndex)?.startOffset?.let { (it - 1).coerceAtLeast(0) }
+    direction > 0 -> txtChapters.getOrNull(txtChapterIndex + 1)?.startOffset
+    else -> null
 }
 
 /**
@@ -162,6 +198,8 @@ internal fun persistCurrentProgress(
     txtStreamingDocument: PlainTextDocument?,
     plainContent: String,
     epubDocument: EpubDocument? = null,
+    plainListState: LazyListState? = null,
+    readingUnits: List<ReadingUnit> = emptyList(),
     onAction: (ReaderAction) -> Unit,
 ) {
     if (
@@ -221,10 +259,19 @@ internal fun persistCurrentProgress(
             )
         )
     } else {
+        val livePlainOffset = if (plainListState != null && readingUnits.isNotEmpty()) {
+            if (!plainListState.canScrollForward && txtStreamingDocument != null) {
+                txtStreamingDocument.totalChars
+            } else {
+                currentPlainListOffset(plainListState, readingUnits, fallbackOffset = visiblePlainOffset)
+            }
+        } else {
+            visiblePlainOffset
+        }
         val absoluteOffset = if (pagerEngineOn && pagedAbsOffset >= 0) {
             pagedAbsOffset
         } else {
-            visiblePlainOffset
+            livePlainOffset
         }.coerceAtLeast(0)
         val totalChars = when {
             markdownDocument != null -> markdownDocument.totalChars
@@ -232,6 +279,21 @@ internal fun persistCurrentProgress(
             else -> plainContent.length
         }.coerceAtLeast(1)
         val percent = (absoluteOffset * 100f / totalChars).coerceIn(0f, 100f)
+        // TXT/Markdown 也存真实章号：书架进度卡显示「第 N 章」读的就是这个 ci。
+        // 此前恒写 0，书架永远显示「第1章」（用户 2026-09-18 反馈）。退出保存是离开阅读器
+        // 前的最后一次落库，漏了它前面的防抖保存就白做。
+        // 章号来源优先级：分页 source 反推（TXT/EPUB 同款二分）→ 全书章起点反推 →
+        // 会话当前章号。不能只信 chapterStartOffsets：小 TXT 分页下 bookIndex 为 null，
+        // 它是空列表。
+        val chapterForLocator = pagedSource
+            ?.takeIf { pagerEngineOn && pagedAbsOffset >= 0 }
+            ?.runCatching { chapterIndexFor(absoluteOffset) }
+            ?.getOrNull()
+            ?: chapterStartOffsets
+                .takeIf { it.isNotEmpty() }
+                ?.let { com.creationreadingassistant.feature.reader.locator.EpubLocatorMapping
+                    .toChapterOffset(absoluteOffset, it).first }
+            ?: chapterIndex.coerceAtLeast(0)
         onAction(
             ReaderAction.SaveProgress(
                 ReadingProgressEntity(
@@ -240,7 +302,7 @@ internal fun persistCurrentProgress(
                     completion_state = if (percent >= 99.9f) "finished" else "reading",
                     current_location_json = LocatorBuilder.progressJson(
                         legacyOffset = absoluteOffset,
-                        chapterIndex = 0,
+                        chapterIndex = chapterForLocator,
                         charOffset = absoluteOffset,
                         space = if (markdownDocument != null) "canonical" else null,
                     ),

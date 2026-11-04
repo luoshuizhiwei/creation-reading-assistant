@@ -2,8 +2,9 @@ package com.creationreadingassistant.ui.screen.inspiration.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,9 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
@@ -37,7 +36,7 @@ import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import com.creationreadingassistant.ui.theme.AppIconSize
-import androidx.compose.material3.AlertDialog
+import com.creationreadingassistant.ui.components.GlassAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -112,14 +111,15 @@ internal fun InspirationDetail(
         else -> Color(0xFF2563EB)
     }
 
-    Column(
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .animateEnter(reducedMotion = rememberReducedMotion())
-            .padding(16.dp),
+            .animateEnter(reducedMotion = rememberReducedMotion()),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         // ── 1. 核心灵感卡片 ──
+        item(key = "core-card") {
         IslandCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -221,10 +221,11 @@ internal fun InspirationDetail(
                 }
             }
         }
+        } // end item core-card
 
         // ── 2. 来源书籍与阅读足迹微岛 ──
         if (source != null) {
-            Spacer(Modifier.height(14.dp))
+            item(key = "source-card") {
             IslandCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     IslandSectionHeader(
@@ -364,12 +365,13 @@ internal fun InspirationDetail(
                     }
                 }
             }
-        }
+        } // end item source-card
+        } // end if source != null
 
         // ── 2.b 多摘录素材卡：聚合的各来源摘录（每条可独立回源）──
         val aggregatedExcerpts = payload?.excerpts.orEmpty()
         if (aggregatedExcerpts.isNotEmpty()) {
-            Spacer(Modifier.height(14.dp))
+            item(key = "excerpts-card") {
             IslandCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     IslandSectionHeader(
@@ -427,9 +429,11 @@ internal fun InspirationDetail(
                     }
                 }
             }
-        }
+        } // end item excerpts-card
+        } // end if aggregatedExcerpts
 
         // ── 2.c 采用去向（R5-I1：采用记录与原文摘录/用户想法/AI 内容分开）──
+        item(key = "adoption-card") {
         AdoptionSection(
             adoptions = payload?.adoptions.orEmpty(),
             onAdd = { kind, value, note ->
@@ -443,9 +447,10 @@ internal fun InspirationDetail(
             },
             onDelete = { record -> viewModel.removeAdoption(entity.id, record) },
         )
+        } // end item adoption-card
 
         // ── 3. AI 灵感工坊 ──
-        Spacer(Modifier.height(14.dp))
+        item(key = "ai-workshop-card") {
         IslandCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 IslandSectionHeader(
@@ -516,10 +521,11 @@ internal fun InspirationDetail(
                 }
             }
         }
+        } // end item ai-workshop-card
 
+        // AI 候选版本（懒加载，按 InspirationVariantEntity.id 键控）
         if (variants.isNotEmpty()) {
-            Spacer(Modifier.height(12.dp))
-            variants.forEach { v ->
+            items(variants, key = { it.id }) { v ->
                 VariantCard(
                     variant = v,
                     onApply = {
@@ -535,7 +541,6 @@ internal fun InspirationDetail(
                 )
             }
         }
-        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -660,7 +665,6 @@ private fun AdoptionSection(
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
 
-    Spacer(Modifier.height(14.dp))
     IslandCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.fillMaxWidth()) {
             IslandSectionHeader(
@@ -743,7 +747,7 @@ private fun AdoptionSection(
         var kind by remember { mutableStateOf(InspirationAdoptionRecord.KIND_TEXT) }
         var value by remember { mutableStateOf("") }
         var note by remember { mutableStateOf("") }
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showAddDialog = false },
             title = { Text("记录采用去向") },
             text = {

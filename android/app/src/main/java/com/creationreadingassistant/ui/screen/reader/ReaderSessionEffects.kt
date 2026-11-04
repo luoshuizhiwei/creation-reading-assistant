@@ -359,6 +359,8 @@ internal fun ReaderSessionEffects(
         jumpToPlainOffset = jumpToPlainOffset,
         txtStreamingDocumentState = docLoad.txtStreamingDocumentState,
         txtStreamingFileIndexState = docLoad.txtStreamingFileIndexState,
+        // M-BUG-09：重扫完成后的重新定位以「用户此刻位置」为准，不回退到旧锚点。
+        currentVisiblePlainOffset = visiblePlainOffset,
         autoPagingActiveState = holders.autoPagingActiveState,
         autoPagingPaused = autoPagingPaused,
         epubListState = epubListState,

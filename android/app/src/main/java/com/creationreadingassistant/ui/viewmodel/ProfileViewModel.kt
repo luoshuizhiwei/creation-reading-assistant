@@ -17,11 +17,16 @@ import com.creationreadingassistant.feature.annotations.AnnotationEntry
 import com.creationreadingassistant.feature.annotations.AnnotationType
 import com.creationreadingassistant.feature.sync.PairingManager
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.ConflictStrategy
 import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.repository.StatsRepository
-import com.creationreadingassistant.data.repository.isReadingFinishedRow
+import com.creationreadingassistant.data.repository.SyncOptions
 import com.creationreadingassistant.data.repository.SyncRepository
+import com.creationreadingassistant.data.repository.isReadingFinishedRow
+import com.creationreadingassistant.data.settings.SyncPrefs
+import com.creationreadingassistant.data.settings.SyncPrefsStore
 import com.creationreadingassistant.feature.sync.JsonBridge
+import com.creationreadingassistant.feature.sync.LegadoReadingProgressImporter
 import com.creationreadingassistant.feature.sync.LocalZipBackup
 import com.creationreadingassistant.feature.sync.WebDavBackup
 import com.creationreadingassistant.feature.sync.WebDavConfigStore
@@ -135,13 +140,13 @@ private data class ProfileCacheSummary(
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val jsonBridge: JsonBridge,
-    private val legadoImporter: com.creationreadingassistant.feature.sync.LegadoReadingProgressImporter,
     private val localZipBackup: LocalZipBackup,
     private val pairingManager: PairingManager,
     private val syncRepository: SyncRepository,
     private val configStore: SyncConfigStore,
     private val webDavConfigStore: WebDavConfigStore,
     private val webDavBackup: WebDavBackup,
+    private val legadoImporter: LegadoReadingProgressImporter,
     private val aiClient: AiClient,
     private val bookRepository: BookRepository,
     private val noteRepository: NoteRepository,
@@ -150,6 +155,7 @@ class ProfileViewModel @Inject constructor(
     private val searchIndexScheduler: com.creationreadingassistant.data.repository.SearchIndexScheduler,
     private val goalStore: com.creationreadingassistant.data.settings.GoalStore,
     private val goalScheduler: com.creationreadingassistant.feature.goal.ReadingGoalScheduler,
+    private val syncPrefsStore: SyncPrefsStore,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -344,6 +350,33 @@ class ProfileViewModel @Inject constructor(
     private val _syncLogs = MutableStateFlow<List<String>>(emptyList())
     val syncLogs: StateFlow<List<String>> = _syncLogs.asStateFlow()
 
+    // ---- 同步偏好（3 个同步项开关 + 冲突策略）----
+    // 独立于配对持久化（DataStore "sync_prefs"）：未配对时也能配置；配对后 syncNow 读取并透传给 pull/push。
+    val syncPrefs: StateFlow<SyncPrefs> = syncPrefsStore.prefs
+        .distinctUntilChanged()
+        .flowOn(ioDispatcher)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = SyncPrefs(),
+        )
+
+    fun setSyncBooks(enabled: Boolean) {
+        viewModelScope.launch(ioDispatcher) { syncPrefsStore.setSyncBooks(enabled) }
+    }
+
+    fun setSyncProgress(enabled: Boolean) {
+        viewModelScope.launch(ioDispatcher) { syncPrefsStore.setSyncProgress(enabled) }
+    }
+
+    fun setSyncInspirations(enabled: Boolean) {
+        viewModelScope.launch(ioDispatcher) { syncPrefsStore.setSyncInspirations(enabled) }
+    }
+
+    fun setConflictStrategy(strategy: ConflictStrategy) {
+        viewModelScope.launch(ioDispatcher) { syncPrefsStore.setConflictStrategy(strategy) }
+    }
+
     // ---- WebDAV 远程备份 ----
     private val _webDavConfig = MutableStateFlow<WebDavConfigStore.Config?>(webDavConfigStore.config)
     val webDavConfig: StateFlow<WebDavConfigStore.Config?> = _webDavConfig.asStateFlow()
@@ -464,15 +497,20 @@ class ProfileViewModel @Inject constructor(
 
     // ---- 同步 ----
     /**
-     * R6-B7：「修复搜索」入口。置脏增量扫描游标 + 重新入队一次性扫描作业——
+     * R6-B7：「修复搜索」入口。置脏增量扫描游标 + 回收孤儿索引行 + 重新入队一次性扫描作业——
      * 重建由既有后台 worker 分预算窗口惰性完成，绝不在交互路径同步全库重建
      * （全库可达数 GB / 数十分钟，见索引构建真机量化）。幂等，可重复触发。
+     *
+     * 走 [SearchIndexRepository.triggerFullRebuildNow] 而不是内联复制它的两行：那条路径里
+     * 挂了孤儿索引行回收（`purgeOrphanIndexRows`）。此前这里自己调
+     * `invalidateSweepForFullRebuild()` + `searchIndexScheduler.triggerNow(force = true)`，
+     * 绕过了回收 ⇒ 从「存储 / 日志与诊断」页点「重建索引」清不掉已删书的残留索引行
+     * （只有搜索结果页那条索引状态胶囊会清）。两个用户入口现统一到仓储同一函数。
      */
     fun rebuildSearchIndex(onDone: (String) -> Unit = {}) {
         viewModelScope.launch(ioDispatcher) {
             runCatching {
-                searchIndexRepository.invalidateSweepForFullRebuild()
-                searchIndexScheduler.triggerNow(force = true)
+                searchIndexRepository.triggerFullRebuildNow(searchIndexScheduler)
             }.onSuccess {
                 AppLog.event("SearchIndex", "用户触发全库索引重建（置脏 + 立即唤起）")
                 onDone("已重置索引进度，后台将立即分批重建全库；期间搜索结果可能暂时不全。")
@@ -487,7 +525,15 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch(ioDispatcher) {
             _syncing.value = true
             _syncMsg.value = null
-            val outcome = syncEngine.runSync(autoDownloadBooks)
+            // 读取用户配置的同步项开关 + 冲突策略，透传给 pull/push —— 真接线，子页的开关不再是摆设。
+            val prefs = syncPrefsStore.prefs.first()
+            val options = SyncOptions(
+                syncBooks = prefs.syncBooks,
+                syncProgress = prefs.syncProgress,
+                syncInspirations = prefs.syncInspirations,
+                conflictStrategy = prefs.conflictStrategy,
+            )
+            val outcome = syncEngine.runSync(autoDownloadBooks, options)
             outcome.logs.forEach { appendSyncLog(it) }
             _lastSyncResult.value = outcome.result
             _syncMsg.value = outcome.message
@@ -558,6 +604,9 @@ class ProfileViewModel @Inject constructor(
     private val _webDavBackups = MutableStateFlow<List<com.creationreadingassistant.feature.sync.WebDavBackup.BackupFile>>(emptyList())
     val webDavBackups: StateFlow<List<com.creationreadingassistant.feature.sync.WebDavBackup.BackupFile>> = _webDavBackups.asStateFlow()
 
+    private val _legadoBackups = MutableStateFlow<List<com.creationreadingassistant.feature.sync.WebDavBackup.BackupFile>>(emptyList())
+    val legadoBackups: StateFlow<List<com.creationreadingassistant.feature.sync.WebDavBackup.BackupFile>> = _legadoBackups.asStateFlow()
+
     fun saveWebDav(url: String, user: String, pass: String) {
         // 密码留空 = 继续使用已保存的密码（占位文案已承诺此语义，不得清空凭证）
         val keepPass = pass.isBlank() && (webDavConfigStore.config?.pass?.isNotBlank() == true)
@@ -579,6 +628,17 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    fun loadLegadoBackups() {
+        viewModelScope.launch(ioDispatcher) {
+            when (val result = webDavManager.listLegadoBackups()) {
+                null -> Unit
+                else -> result
+                    .onSuccess { _legadoBackups.value = it }
+                    .onFailure { _legadoBackups.value = emptyList() }
+            }
+        }
+    }
+
     fun backupNow(context: Context) {
         viewModelScope.launch(ioDispatcher) {
             _webDavMsg.value = null
@@ -592,10 +652,15 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun testWebDav() {
+    fun testWebDav(url: String? = null, user: String? = null, pass: String? = null) {
         viewModelScope.launch(ioDispatcher) {
             _webDavMsg.value = null
-            webDavManager.test()
+            val overrideConfig = if (!url.isNullOrBlank()) {
+                val keepPass = pass.isNullOrBlank() && (webDavConfigStore.config?.pass?.isNotBlank() == true)
+                val effectivePass = if (keepPass) webDavConfigStore.config!!.pass else (pass ?: "")
+                WebDavConfigStore.Config(url.trim(), (user ?: "").trim(), effectivePass)
+            } else null
+            webDavManager.test(overrideConfig)
                 .onSuccess { _webDavMsg.value = it; AppLog.event("WebDAV", "连接测试：${it.removePrefix("WebDAV ")}") }
                 .onFailure { _webDavMsg.value = "连接测试失败：${it.message}"; AppLog.e("WebDAV", "连接测试失败：${it.message}") }
         }
@@ -610,29 +675,6 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    private val _legadoBackups = MutableStateFlow<List<com.creationreadingassistant.feature.sync.WebDavBackup.BackupFile>>(emptyList())
-    val legadoBackups: StateFlow<List<com.creationreadingassistant.feature.sync.WebDavBackup.BackupFile>> = _legadoBackups.asStateFlow()
-
-    /** 扫描 WebDAV 目录下的开源阅读备份（backup*.zip）；失败置空并提示。 */
-    fun loadLegadoBackups() {
-        viewModelScope.launch(ioDispatcher) {
-            when (val result = webDavManager.listLegadoBackups()) {
-                null -> Unit
-                else -> result
-                    .onSuccess { _legadoBackups.value = it }
-                    .onFailure { error ->
-                        _legadoBackups.value = emptyList()
-                        _webDavMsg.value = "扫描开源阅读备份失败：${error.message}"
-                    }
-            }
-        }
-    }
-
-    /**
-     * 导入选中的开源阅读备份。走生产确认流程（WebDavSubPage 的确认对话框）后到达这里；
-     * 内部经 [ProfileWebDavManager.importLegadoBackup] → DatabaseSafetyNet 快照 →
-     * LegadoReadingProgressImporter.importArchive（书名+作者唯一匹配、99.4% 上限）。
-     */
     fun importLegadoBackup(context: Context, filename: String) {
         viewModelScope.launch(ioDispatcher) {
             _webDavMsg.value = null
@@ -649,10 +691,10 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun clearWebDav() {
-        _legadoBackups.value = emptyList()
         webDavConfigStore.config = null
         _webDavConfig.value = null
         _webDavBackups.value = emptyList()
+        _legadoBackups.value = emptyList()
         _webDavMsg.value = "WebDAV 配置已清除"
     }
 
@@ -660,15 +702,56 @@ class ProfileViewModel @Inject constructor(
     private val _aiMsg = MutableStateFlow<String?>(null)
     val aiMsg: StateFlow<String?> = _aiMsg.asStateFlow()
 
+    private val _aiTesting = MutableStateFlow(false)
+    val aiTesting: StateFlow<Boolean> = _aiTesting.asStateFlow()
+
     /** 非加密 http AI 接口的一次性警示（由 AiClient 暴露，AI 设置页展示，不拦截请求）。 */
     val aiHttpWarning: StateFlow<String?> = aiClient.insecureHttpWarning
 
+    // ---- 检查更新（决策⑥技术债收口：联网比对从 AboutSubPage 下沉至此）----
+
+    private val updateChecker = ProfileUpdateChecker()
+
+    private val _aboutUpdate = MutableStateFlow(AboutUpdateState())
+    val aboutUpdate: StateFlow<AboutUpdateState> = _aboutUpdate.asStateFlow()
+
+    fun checkUpdate(currentVersion: String) {
+        if (_aboutUpdate.value.checking) return
+        _aboutUpdate.value = _aboutUpdate.value.copy(checking = true, status = null)
+        viewModelScope.launch(ioDispatcher) {
+            updateChecker.check(currentVersion)
+                .onSuccess { outcome ->
+                    _aboutUpdate.value = AboutUpdateState(
+                        status = outcome.status,
+                        hasUpdate = outcome.hasUpdate,
+                        latestTag = outcome.latestTag,
+                        releaseNotes = outcome.releaseNotes,
+                        downloadUrl = outcome.downloadUrl,
+                        lastCheckAt = Instant.now().toString(),
+                    )
+                    AppLog.event("About", "检查更新：${outcome.status}")
+                }
+                .onFailure { error ->
+                    _aboutUpdate.value = _aboutUpdate.value.copy(
+                        checking = false,
+                        status = "更新检查失败：${error.message}",
+                    )
+                    AppLog.e("About", "更新检查失败：${error.message}")
+                }
+        }
+    }
+
     fun testAi() {
         viewModelScope.launch(ioDispatcher) {
+            _aiTesting.value = true
             _aiMsg.value = null
-            aiClient.testConnection()
-                .onSuccess { _aiMsg.value = "AI 连接成功"; AppLog.event("AI", "连接测试成功") }
-                .onFailure { _aiMsg.value = "AI 连接失败：${it.message}"; AppLog.e("AI", "连接测试失败：${it.message}") }
+            try {
+                aiClient.testConnection()
+                    .onSuccess { _aiMsg.value = "AI 连接成功"; AppLog.event("AI", "连接测试成功") }
+                    .onFailure { _aiMsg.value = "AI 连接失败：${it.message}"; AppLog.e("AI", "连接测试失败：${it.message}") }
+            } finally {
+                _aiTesting.value = false
+            }
         }
     }
 }

@@ -1,5 +1,12 @@
 package com.creationreadingassistant.ui.screen.reader
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -62,6 +69,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.creationreadingassistant.ui.components.CraSlider
 import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
@@ -104,6 +112,47 @@ internal fun readerBottomChromeMode(showTts: Boolean, autoPagingActive: Boolean)
     showTts -> ReaderBottomChromeMode.TTS
     autoPagingActive -> ReaderBottomChromeMode.AUTO_PAGING
     else -> ReaderBottomChromeMode.NORMAL
+}
+
+/**
+ * 上一章 / 下一章按钮的可用边界（M-BUG-08）。
+ *
+ * 语义对齐 md3 的 `ReadBook.moveToPrevChapter` / `moveToNextChapter`（legado 源码）：
+ * **不环绕**——首章禁用「上一章」、末章禁用「下一章」，越界时静默不动作（对方是 `return false`
+ * + 仅打日志，不弹 toast）。因此这里只判定「能不能点」，点不动就是按钮禁用态。
+ *
+ * [chapterCount] 为 0 或负（章节信息未知）时两个方向都判为不可用：宁可不给按钮，
+ * 也不给一个点下去毫无反应的按钮。
+ *
+ * @return Pair(上一章可用, 下一章可用)
+ */
+internal fun readerChapterNavBounds(
+    chapterIndex: Int,
+    chapterCount: Int,
+): Pair<Boolean, Boolean> {
+    if (chapterCount <= 0) return false to false
+    val canPrev = chapterIndex > 0
+    val canNext = chapterIndex < chapterCount - 1
+    return canPrev to canNext
+}
+
+/**
+ * 把 [readerChapterNavBounds] 的「能否上/下一章」口径转成阅读器的
+ * 「是否首章 / 是否末章」字段口径（[ReaderInteractionLayerState] 用后者，消费方按
+ * `enabled = !isFirstChapter` 取反）。
+ *
+ * 两个口径语义相反，必须经此函数转换后再赋值：直接透传会让**中间章**同时被判为
+ * 首章+末章，于是两个按钮一起禁用、点击落空并穿透到翻页手势（真机表现为点「下一章」
+ * 只是往后翻一页、进度涨 1% 多）。
+ *
+ * @return Pair(是否首章, 是否末章)
+ */
+internal fun readerChapterEdgeFlags(
+    chapterIndex: Int,
+    chapterCount: Int,
+): Pair<Boolean, Boolean> {
+    val (canPrev, canNext) = readerChapterNavBounds(chapterIndex, chapterCount)
+    return !canPrev to !canNext
 }
 
 @Composable
@@ -188,7 +237,16 @@ internal fun AutoPagingBar(
 @Composable
 internal fun ReaderBottomActions(
     onAction: (ReaderChromeAction) -> Unit,
-    chapterProgress: Float,
+    /**
+     * **全书**进度（0..100）。
+     *
+     * M-BUG-07：此参数原为 `chapterProgress`（本章百分比），但底栏的跳转实际走
+     * `seekToPercent`（**全书**口径，见 ReaderProgressActions:235），导致「显示本章百分比、
+     * 按全书百分比跳」的错配。现统一为全书口径，名实相符。
+     */
+    bookProgress: Float,
+    /** 是否显示进度条（对应「显示进度条」设置项）。关闭后仍保留上一章/下一章按钮。 */
+    showProgressBar: Boolean = true,
     onSeekProgress: (Float) -> Unit,
     onPreviousChapter: () -> Unit,
     onNextChapter: () -> Unit,
@@ -203,25 +261,25 @@ internal fun ReaderBottomActions(
     val layout = LocalLayoutTokens.current
     val spec = LocalComponentSpec.current
     val accentColor = paper?.accent ?: MaterialTheme.colorScheme.primary
-    var sliderValue by remember { mutableFloatStateOf(chapterProgress) }
+    var sliderValue by remember { mutableFloatStateOf(bookProgress) }
     var isDragging by remember { mutableStateOf(false) }
     // T9：待落地的拖拽目标百分比。Material3 Slider 的无障碍 SetProgress 语义会在同一帧内
     // 连续调用 onValueChange 与 onValueChangeFinished，若预览气泡只挂在 isDragging 上，
     // 它会在 onSeekProgress 真正执行之前就被置回 false —— 气泡永不出现（TalkBack 用户与
     // ReaderBottomActionsTest 走的都是这条路径）。改为记录「待落地目标值」，直到外部
-    // chapterProgress 推进（= seek 已生效）才收起，从而保证「seek 之前目标百分比可见」。
+    // 全书进度推进（= seek 已生效）才收起，从而保证「seek 之前目标百分比可见」。
     var pendingSeekPercent by remember { mutableStateOf<Float?>(null) }
     // 记录拖拽开始时的外部进度，只有它真正向本次目标收敛才可关闭预览；无关的被动进度更新不能抢掉气泡。
     var pendingSeekStartPercent by remember { mutableStateOf<Float?>(null) }
     var pendingSeekFinished by remember { mutableStateOf(false) }
 
     // 仅在非拖拽状态下同步外部进度
-    if (!isDragging && kotlin.math.abs(sliderValue - chapterProgress) > 0.5f) {
-        sliderValue = chapterProgress
+    if (!isDragging && kotlin.math.abs(sliderValue - bookProgress) > 0.5f) {
+        sliderValue = bookProgress
     }
     // seek 落地后保留一个可观察短时窗口。单帧等待在真机上仍可能被同一调度批次吞掉，
     // 所以同步 onSeekProgress 更新也至少显示 650ms；无关被动进度不会命中收敛条件。
-    LaunchedEffect(chapterProgress, pendingSeekPercent, pendingSeekStartPercent, pendingSeekFinished) {
+    LaunchedEffect(bookProgress, pendingSeekPercent, pendingSeekStartPercent, pendingSeekFinished) {
         val target = pendingSeekPercent ?: return@LaunchedEffect
         val start = pendingSeekStartPercent ?: return@LaunchedEffect
         if (
@@ -230,7 +288,8 @@ internal fun ReaderBottomActions(
                 seekFinished = pendingSeekFinished,
                 startPercent = start,
                 targetPercent = target,
-                chapterProgress = chapterProgress,
+                // 收敛判定比的是「外部驱动的进度值」——此处即全书进度。
+                chapterProgress = bookProgress,
             )
         ) {
             delay(SEEK_PREVIEW_LINGER_MILLIS)
@@ -258,17 +317,24 @@ internal fun ReaderBottomActions(
             .fillMaxWidth()
             .padding(horizontal = layout.relatedGap),
     ) {
-        // 拖动预览：拖拽中（及 seek 落地前）实时显示目标百分比微岛气泡，进度真正推进后才收起
+        // 拖动预览：拖拽中（及 seek 落地前）实时显示目标百分比微岛气泡，带物理弹簧微缩放动效
         val previewPercent = pendingSeekPercent
-        if (isDragging || previewPercent != null) {
+        AnimatedVisibility(
+            visible = isDragging || previewPercent != null,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) + scaleIn(
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
+                initialScale = 0.82f,
+            ),
+            exit = fadeOut(spring(stiffness = Spring.StiffnessMedium)) + scaleOut(
+                animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                targetScale = 0.88f,
+            ),
+        ) {
             // 微岛收敛：拖拽预览气泡是覆盖在阅读页之上的提示岛，统一走 ReaderPanelSurface
-            //（随纸 panel 纸面 + 发丝边 + panelElevation 0dp）。原手写 10dp 圆角 / 3dp 阴影中，
-            // 阴影会在翻页动画期额外触发重绘并侵蚀帧预算；圆角改取 hintRadius 令牌。
             ReaderPanelSurface(
                 shape = RoundedCornerShape(spec.hintRadius),
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(bottom = 2.dp),
+                modifier = Modifier.padding(bottom = 2.dp),
             ) {
                 Text(
                     text = "跳到 ${(previewPercent ?: sliderValue).toInt()}%",
@@ -279,7 +345,7 @@ internal fun ReaderBottomActions(
                 )
             }
         }
-        // 进度条行：[上一章] ──── Slider ──── [下一章]
+        // 进度条行：[上一章] ──── 全书进度滑块 ──── [下一章]
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -302,34 +368,38 @@ internal fun ReaderBottomActions(
                 )
             }
 
-            Slider(
-                value = sliderValue,
-                onValueChange = {
-                    if (!isDragging) {
-                        pendingSeekStartPercent = chapterProgress
-                        onProgressInteractionStarted()
-                    }
-                    isDragging = true
-                    sliderValue = it
-                    pendingSeekPercent = it
-                    pendingSeekFinished = false
-                },
-                onValueChangeFinished = {
-                    isDragging = false
-                    pendingSeekFinished = pendingSeekPercent != null
-                    onSeekProgress(sliderValue)
-                },
-                valueRange = 0f..100f,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = layout.relatedGap)
-                    .testTag("reader-progress-scrubber"),
-                colors = SliderDefaults.colors(
-                    thumbColor = accentColor,
-                    activeTrackColor = accentColor,
-                    inactiveTrackColor = accentColor.copy(alpha = 0.2f),
-                ),
-            )
+            if (showProgressBar) {
+                // 全书进度滑块（M-BUG-07：此处原先显示「本章百分比」，但跳转走的是全书口径的
+                // seekToPercent，显示与跳转口径不一致；现统一为全书，名实相符）。
+                // 统一视觉：CraSlider（连续轨道 + 末端停点 + 按压放大拇指）
+                CraSlider(
+                    value = sliderValue,
+                    onValueChange = {
+                        if (!isDragging) {
+                            pendingSeekStartPercent = bookProgress
+                            onProgressInteractionStarted()
+                        }
+                        isDragging = true
+                        sliderValue = it
+                        pendingSeekPercent = it
+                        pendingSeekFinished = false
+                    },
+                    onValueChangeFinished = {
+                        isDragging = false
+                        pendingSeekFinished = pendingSeekPercent != null
+                        onSeekProgress(sliderValue)
+                    },
+                    valueRange = 0f..100f,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = layout.relatedGap)
+                        .testTag("reader-progress-scrubber"),
+                    tint = accentColor,
+                )
+            } else {
+                // 关闭「显示进度条」只隐藏滑块；上一章/下一章跳转仍然可用。
+                Spacer(Modifier.weight(1f))
+            }
 
             IconButton(
                 onClick = onNextChapter,
@@ -423,7 +493,7 @@ internal fun ReaderBottomActions(
             ReaderFooterAction(Icons.Outlined.Lightbulb, "灵感", accentColor) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.INSPIRATION))
             }
-            ReaderFooterAction(Icons.Outlined.Palette, "主题", accentColor) {
+            ReaderFooterAction(Icons.Outlined.Palette, "外观", accentColor) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.THEME))
             }
             ReaderFooterAction(Icons.Outlined.Settings, "设置", accentColor) {

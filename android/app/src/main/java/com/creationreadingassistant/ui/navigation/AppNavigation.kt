@@ -477,11 +477,26 @@ private fun AppNavHost(
             ProfileRoute(navController = navController)
         }
         composable(
-            route = "profile/{subPage}",
-            arguments = listOf(navArgument("subPage") { type = NavType.StringType }),
+            // focus：设置搜索结果要聚焦的锚点子项（SettingsSearchIndex 的 anchor），
+            // 由 ProfileRoute 注入 LocalFocusedSettingsAnchor，子页的 SettingsAnchor 自行比对。
+            route = "profile/{subPage}?focus={focus}",
+            arguments = listOf(
+                navArgument("subPage") { type = NavType.StringType },
+                navArgument("focus") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
+                },
+            ),
         ) { backStackEntry ->
             val page = profileSubPageFromRoute(backStackEntry.arguments?.getString("subPage"))
-            if (page != null) ProfileRoute(navController = navController, subPage = page)
+            if (page != null) {
+                ProfileRoute(
+                    navController = navController,
+                    subPage = page,
+                    focusAnchor = backStackEntry.arguments?.getString("focus"),
+                )
+            }
         }
         composable("my-reading") { MyReadingRoute(navController) }
         composable("home/inspirations") { HomeInspirationsRoute(navController) }

@@ -15,13 +15,10 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -35,12 +32,10 @@ import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -66,10 +61,12 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.feature.log.AppLog
+import com.creationreadingassistant.ui.components.CompactItemDivider
+import com.creationreadingassistant.ui.components.CompactSettingRow
+import com.creationreadingassistant.ui.components.CompactSettingsGroup
 import com.creationreadingassistant.ui.components.GlassAlertDialog
+import androidx.compose.foundation.lazy.items
 import com.creationreadingassistant.ui.components.PageLazyColumn
-import com.creationreadingassistant.ui.components.SectionCard
-import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.animateEnter
@@ -148,7 +145,7 @@ internal fun DiagnosticsSubPage(
         GlassAlertDialog(
             onDismissRequest = { showClearConfirm = false },
             title = { Text("清空诊断日志") },
-            text = { Text("确定要清空全部诊断日志吗？清空后将无法找回历史事件追踪与异常记录。") },
+            text = { Text("清空后历史事件与异常记录无法找回。") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -183,222 +180,214 @@ internal fun DiagnosticsSubPage(
         scaffoldPadding = scaffoldPadding,
         modifier = Modifier.fillMaxSize(),
     ) {
-        // 1. 顶部环境指标（现代 2 列紧凑微岛）
+        // 1. 运行环境：6 项指标仍是两列密排，但去掉「卡中卡」描边，降成分组卡内的文本格。
         item {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SubPageSectionTitle(
-                        title = "运行环境",
-                        icon = Icons.Outlined.Info,
-                        iconTint = Color(0xFF0284C7),
+            CompactSettingsGroup(
+                title = "运行环境",
+                icon = Icons.Outlined.Info,
+                tint = Color(0xFF0284C7),
+                description = "设备与应用信息，用于问题定位",
+                modifier = Modifier.animateEnter(reducedMotion = reducedMotion),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    EnvMetricRow(
+                        first = EnvMetric(
+                            label = "应用版本",
+                            value = appVersion,
+                            icon = Icons.Outlined.Info,
+                            iconTint = Color(0xFF3B82F6),
+                        ),
+                        second = EnvMetric(
+                            label = "系统版本",
+                            value = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+                            icon = Icons.Outlined.Android,
+                            iconTint = Color(0xFF10B981),
+                        ),
                     )
-
-                    // 2 列紧凑指标微岛矩阵
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            EnvMetricCard(
-                                label = "应用版本",
-                                value = appVersion,
-                                icon = Icons.Outlined.Info,
-                                iconTint = Color(0xFF3B82F6),
-                                modifier = Modifier.weight(1f),
-                            )
-                            EnvMetricCard(
-                                label = "系统版本",
-                                value = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
-                                icon = Icons.Outlined.Android,
-                                iconTint = Color(0xFF10B981),
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            EnvMetricCard(
-                                label = "厂商型号",
-                                value = "${Build.MANUFACTURER} ${Build.MODEL}",
-                                icon = Icons.Outlined.PhoneAndroid,
-                                iconTint = Color(0xFF8B5CF6),
-                                modifier = Modifier.weight(1f),
-                            )
-                            EnvMetricCard(
-                                label = "设备标识",
-                                value = "${deviceId.take(8)}…",
-                                icon = Icons.Outlined.Fingerprint,
-                                iconTint = Color(0xFFF59E0B),
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            EnvMetricCard(
-                                label = "界面语言",
-                                value = context.resources.configuration.locales.get(0)?.toString() ?: "默认",
-                                icon = Icons.Outlined.Translate,
-                                iconTint = Color(0xFF06B6D4),
-                                modifier = Modifier.weight(1f),
-                            )
-                            EnvMetricCard(
-                                label = "诊断容量",
-                                value = "500 条 (内存环形)",
-                                icon = Icons.Outlined.Storage,
-                                iconTint = Color(0xFFEC4899),
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
+                    EnvMetricRow(
+                        first = EnvMetric(
+                            label = "厂商型号",
+                            value = "${Build.MANUFACTURER} ${Build.MODEL}",
+                            icon = Icons.Outlined.PhoneAndroid,
+                            iconTint = Color(0xFF8B5CF6),
+                        ),
+                        second = EnvMetric(
+                            label = "设备标识",
+                            value = "${deviceId.take(8)}…",
+                            icon = Icons.Outlined.Fingerprint,
+                            iconTint = Color(0xFFF59E0B),
+                        ),
+                    )
+                    EnvMetricRow(
+                        first = EnvMetric(
+                            label = "界面语言",
+                            value = context.resources.configuration.locales.get(0)?.toString() ?: "默认",
+                            icon = Icons.Outlined.Translate,
+                            iconTint = Color(0xFF06B6D4),
+                        ),
+                        second = EnvMetric(
+                            label = "诊断容量",
+                            value = "500 条 (内存环形)",
+                            icon = Icons.Outlined.Storage,
+                            iconTint = Color(0xFFEC4899),
+                        ),
+                    )
                 }
             }
         }
 
-        // 1.b 搜索索引维护（R6-B7）：rebuildAll 之前唯一的全库重建入口
+        // 2. 日志与索引维护：原「搜索索引」独立卡与「诊断日志」卡只差一个分区的语义，
+        //    合并为一张操作卡 —— 导出 / 清空 / 重建索引三行动作 + 级别与模块筛选。
+        //    链路：重建按钮 → ProfileAction.RebuildSearchIndex → ProfileViewModel.rebuildSearchIndex()
+        //    → SearchIndexRepository.triggerFullRebuildNow()，只覆盖活跃书，期间仍可搜索。
         item {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SubPageSectionTitle(
-                        title = "搜索索引",
-                        icon = Icons.Outlined.Search,
-                        iconTint = Color(0xFF7C3AED),
-                    )
-                    Text(
-                        text = "搜索结果缺失、覆盖率状态异常或更换分词/规则后，可在此重建全库索引。" +
-                            "重建在后台分窗口进行，不阻塞使用。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    OutlinedButton(
-                        onClick = { showRebuildIndexConfirm = true },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(AppIconSize.Compact))
-                        Spacer(Modifier.width(8.dp))
-                        Text("重建搜索索引")
-                    }
-                }
-            }
-        }
-
-        // 2. 日志与操作栏
-        item {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SubPageSectionTitle(
-                        title = "诊断日志",
-                        icon = Icons.Outlined.Storage,
-                        iconTint = MaterialTheme.colorScheme.primary,
-                        trailing = {
-                            Text(
-                                text = "共 ${filtered.size} 条",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            CompactSettingsGroup(
+                title = "日志与索引",
+                icon = Icons.Outlined.Storage,
+                tint = MaterialTheme.colorScheme.primary,
+                description = "共 ${filtered.size} 条 · 异常与关键动作自动记录",
+                modifier = Modifier.animateEnter(reducedMotion = reducedMotion),
+            ) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    CompactSettingRow(
+                        title = "导出日志",
+                        subtitle = "生成文本文件分享",
+                        modifier = Modifier.weight(1f),
+                        leading = {
+                            Icon(
+                                Icons.Outlined.Download,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.primary,
                             )
                         },
+                        onClick = { exportLog() },
                     )
+                    CompactSettingRow(
+                        title = "清空日志",
+                        subtitle = "删除全部历史记录",
+                        modifier = Modifier.weight(1f),
+                        leading = {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        },
+                        onClick = { showClearConfirm = true },
+                    )
+                }
 
+                CompactItemDivider()
+                CompactSettingRow(
+                    title = "重建搜索索引",
+                    subtitle = "后台执行，不阻塞阅读",
+                    leading = {
+                        Icon(
+                            Icons.Outlined.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = Color(0xFF7C3AED),
+                        )
+                    },
+                    trailing = {
+                        Text(
+                            text = "执行",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    onClick = { showRebuildIndexConfirm = true },
+                )
+
+                exportMsg?.let { msg ->
                     Text(
-                        "运行中的导入、同步、备份与未捕获异常会自动记录到这里（最多保留 500 条）。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 18.sp,
+                        text = msg,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                     )
+                }
 
-                    // 独立微彩操作底座：导出日志 / 清空日志
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                CompactItemDivider()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        "级别",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                            border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable { exportLog() },
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 10.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Download,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    "导出日志",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f),
-                            border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f)),
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable { showClearConfirm = true },
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(vertical = 10.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Delete,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    "清空日志",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.error,
-                                )
-                            }
-                        }
-                    }
-
-                    exportMsg?.let { msg ->
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
-                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(
-                                text = msg,
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        LogLevelCapsule(
+                            label = "全部",
+                            badgeColor = Color(0xFF64748B),
+                            count = logs.size,
+                            selected = selectedLevel == null,
+                            onClick = { selectedLevel = null },
+                        )
+                        LogLevelCapsule(
+                            label = "VERBOSE",
+                            badgeColor = Color(0xFF94A3B8),
+                            count = levelCounts["VERBOSE"] ?: 0,
+                            selected = selectedLevel == "VERBOSE",
+                            onClick = { selectedLevel = "VERBOSE" },
+                        )
+                        LogLevelCapsule(
+                            label = "DEBUG",
+                            badgeColor = Color(0xFF3B82F6),
+                            count = levelCounts["DEBUG"] ?: 0,
+                            selected = selectedLevel == "DEBUG",
+                            onClick = { selectedLevel = "DEBUG" },
+                        )
+                        LogLevelCapsule(
+                            label = "INFO",
+                            badgeColor = Color(0xFF10B981),
+                            count = levelCounts["INFO"] ?: 0,
+                            selected = selectedLevel == "INFO",
+                            onClick = { selectedLevel = "INFO" },
+                        )
+                        LogLevelCapsule(
+                            label = "WARN",
+                            badgeColor = Color(0xFFF59E0B),
+                            count = levelCounts["WARN"] ?: 0,
+                            selected = selectedLevel == "WARN",
+                            onClick = { selectedLevel = "WARN" },
+                        )
+                        LogLevelCapsule(
+                            label = "ERROR",
+                            badgeColor = Color(0xFFEF4444),
+                            count = levelCounts["ERROR"] ?: 0,
+                            selected = selectedLevel == "ERROR",
+                            onClick = { selectedLevel = "ERROR" },
+                        )
+                        if ((levelCounts["EVENT"] ?: 0) > 0) {
+                            LogLevelCapsule(
+                                label = "EVENT",
+                                badgeColor = Color(0xFF8B5CF6),
+                                count = levelCounts["EVENT"] ?: 0,
+                                selected = selectedLevel == "EVENT",
+                                onClick = { selectedLevel = "EVENT" },
                             )
                         }
                     }
 
-                    SectionDivider(modifier = Modifier.padding(vertical = 2.dp))
-
-                    // 日志级别微胶囊导轨（分色微徽章）
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // 模块过滤
+                    if (modules.isNotEmpty()) {
                         Text(
-                            "级别筛选导轨",
+                            "模块",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -406,110 +395,16 @@ internal fun DiagnosticsSubPage(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            LogLevelCapsule(
-                                label = "全部",
-                                badgeColor = Color(0xFF64748B),
-                                count = logs.size,
-                                selected = selectedLevel == null,
-                                onClick = { selectedLevel = null },
+                            SelectablePill(
+                                text = "全部模块",
+                                selected = selectedModule == null,
+                                onClick = { selectedModule = null },
                             )
-                            LogLevelCapsule(
-                                label = "VERBOSE",
-                                badgeColor = Color(0xFF94A3B8),
-                                count = levelCounts["VERBOSE"] ?: 0,
-                                selected = selectedLevel == "VERBOSE",
-                                onClick = { selectedLevel = "VERBOSE" },
-                            )
-                            LogLevelCapsule(
-                                label = "DEBUG",
-                                badgeColor = Color(0xFF3B82F6),
-                                count = levelCounts["DEBUG"] ?: 0,
-                                selected = selectedLevel == "DEBUG",
-                                onClick = { selectedLevel = "DEBUG" },
-                            )
-                            LogLevelCapsule(
-                                label = "INFO",
-                                badgeColor = Color(0xFF10B981),
-                                count = levelCounts["INFO"] ?: 0,
-                                selected = selectedLevel == "INFO",
-                                onClick = { selectedLevel = "INFO" },
-                            )
-                            LogLevelCapsule(
-                                label = "WARN",
-                                badgeColor = Color(0xFFF59E0B),
-                                count = levelCounts["WARN"] ?: 0,
-                                selected = selectedLevel == "WARN",
-                                onClick = { selectedLevel = "WARN" },
-                            )
-                            LogLevelCapsule(
-                                label = "ERROR",
-                                badgeColor = Color(0xFFEF4444),
-                                count = levelCounts["ERROR"] ?: 0,
-                                selected = selectedLevel == "ERROR",
-                                onClick = { selectedLevel = "ERROR" },
-                            )
-                            if ((levelCounts["EVENT"] ?: 0) > 0) {
-                                LogLevelCapsule(
-                                    label = "EVENT",
-                                    badgeColor = Color(0xFF8B5CF6),
-                                    count = levelCounts["EVENT"] ?: 0,
-                                    selected = selectedLevel == "EVENT",
-                                    onClick = { selectedLevel = "EVENT" },
-                                )
-                            }
-                        }
-                    }
-
-                    // 模块过滤
-                    if (modules.isNotEmpty()) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(
-                                "模块过滤",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
+                            modules.forEach { module ->
                                 SelectablePill(
-                                    text = "全部模块",
-                                    selected = selectedModule == null,
-                                    onClick = { selectedModule = null },
-                                )
-                                modules.forEach { module ->
-                                    SelectablePill(
-                                        text = module,
-                                        selected = selectedModule == module,
-                                        onClick = { selectedModule = module },
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    SectionDivider(modifier = Modifier.padding(vertical = 2.dp))
-
-                    // 日志条目微岛列表
-                    if (filtered.isEmpty()) {
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.3f),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(
-                                "（无匹配的诊断日志条目）",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(14.dp),
-                            )
-                        }
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            filtered.reversed().forEach { entry ->
-                                LogEntryItem(
-                                    entry = entry,
-                                    onCopy = { copyToClipboard(it) },
+                                    text = module,
+                                    selected = selectedModule == module,
+                                    onClick = { selectedModule = module },
                                 )
                             }
                         }
@@ -517,60 +412,95 @@ internal fun DiagnosticsSubPage(
                 }
             }
         }
+
+        // 3. 日志条目列表（懒加载，按 Entry.id 键控，避免 500 条同帧全量组合）
+        if (filtered.isEmpty()) {
+            item(key = "diag-log-empty") {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.3f),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "（无匹配的诊断日志条目）",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(14.dp),
+                    )
+                }
+            }
+        } else {
+            items(filtered.reversed(), key = { it.id }) { entry ->
+                LogEntryItem(
+                    entry = entry,
+                    onCopy = { copyToClipboard(it) },
+                )
+            }
+        }
+    }
+}
+
+/** 一项环境指标（纯信息，不可点击）。 */
+private data class EnvMetric(
+    val label: String,
+    val value: String,
+    val icon: ImageVector,
+    val iconTint: Color,
+)
+
+/**
+ * 两列环境指标行：不再各自套一层描边小卡，只留图标色点 + 名称 + 取值，
+ * 让六项指标在分组卡内读起来像一张表而不是一屏按钮。
+ */
+@Composable
+private fun EnvMetricRow(first: EnvMetric, second: EnvMetric) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        EnvMetricCell(first, modifier = Modifier.weight(1f))
+        EnvMetricCell(second, modifier = Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun EnvMetricCard(
-    label: String,
-    value: String,
-    icon: ImageVector,
-    iconTint: Color,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f),
-        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+private fun EnvMetricCell(metric: EnvMetric, modifier: Modifier = Modifier) {
+    Row(
         modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(metric.iconTint.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(26.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(iconTint.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(14.dp),
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 11.5.sp,
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            Icon(
+                metric.icon,
+                contentDescription = null,
+                tint = metric.iconTint,
+                modifier = Modifier.size(12.dp),
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = metric.label,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+            Text(
+                text = metric.value,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.5.sp,
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

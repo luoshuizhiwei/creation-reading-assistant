@@ -66,14 +66,39 @@ import com.creationreadingassistant.ui.theme.bounceable
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
-private const val PREFS = "app_prefs"
+/**
+ * 引导完成标记的 SharedPreferences 文件名。
+ *
+ * 提到 internal 顶层常量是为了让 [com.creationreadingassistant.App.attachBaseContext]
+ * 能在进程启动时预热同一个文件 —— 首次 `getSharedPreferences()` 要建目录 + stat + 解析
+ * XML（实测 ~250ms），若发生在 Compose 组合期就落在首帧关键路径上。
+ * 两处必须指向同一个文件，故不允许各自写字面量。
+ */
+internal const val ONBOARDING_PREFS = "app_prefs"
+private const val PREFS = ONBOARDING_PREFS
 private const val KEY_ONBOARDED = "onboarded_v1"
+private const val KEY_CORD_HINT_SEEN = "cord_hint_seen_v1"
 
 fun isOnboardingCompleted(context: Context): Boolean =
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ONBOARDED, false)
 
 private fun markOnboardingComplete(context: Context) {
     context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ONBOARDED, true).apply()
+}
+
+/**
+ * 灯绳引导气泡是否已展示过。
+ *
+ * 用户反馈（2026-09-18）：提示只在**首次使用应用**时出现一次，之后永不打扰；且气泡要能
+ * 手动关闭。与引导完成标记同文件 —— `App.attachBaseContext` 已预热，读取是内存命中，
+ * 不会落在首帧关键路径上。刻意不放 ReaderSettings：那是「本书覆盖 + 预设」的路由体系，
+ * 一个纯提示标记放进去会被复制与继承，代价远大于收益。
+ */
+fun isCordHintSeen(context: Context): Boolean =
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CORD_HINT_SEEN, false)
+
+fun markCordHintSeen(context: Context) {
+    context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CORD_HINT_SEEN, true).apply()
 }
 
 /**

@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -60,6 +61,63 @@ internal fun pagedReaderPageTurnRenderer(
         PagedReaderPageTurnRenderer.PAGE_TURNER
     }
 
+/**
+ * 一次点按要做什么（S07-F2.1）。
+ *
+ * 存在的理由：修复前非 `OUTER_REVEAL` 的点按分支是「先派发 PageTurn（隐藏菜单 + 清选区），
+ * 再设置 turnRequest」—— 通知早于页码真正提交，属**乐观清除**；而 `PageTurner` 提交后还会经
+ * `onPageTurned` 再派发一次，构成重复。
+ *
+ * 把决策显式化为计划后，[RequestTurn] 只登记请求、**不携带任何立即派发的动作**，
+ * 于是「点按处提前通知」在结构上不再可能；PageTurn 一律由真正提交页码的那一方派发一次。
+ */
+internal sealed interface ReaderTapTurnPlan {
+    /** 什么都没发生（边界页 / 视口非法）。 */
+    data object None : ReaderTapTurnPlan {
+        override val directionOrNull: Int? get() = null
+    }
+
+    /** 只唤出或收起控制栏，不涉及翻页。 */
+    data object ToggleControls : ReaderTapTurnPlan {
+        override val directionOrNull: Int? get() = null
+    }
+
+    /** 交给 `PageTurner`：登记请求，提交后由其 `onPageTurned` 派发 PageTurn。 */
+    data class RequestTurn(val direction: Int) : ReaderTapTurnPlan {
+        override val directionOrNull: Int get() = direction
+    }
+
+    /** 交给外层 reveal：动画结束帧提交页码，提交后再派发 PageTurn。 */
+    data class ManualReveal(val direction: Int) : ReaderTapTurnPlan {
+        override val directionOrNull: Int get() = direction
+    }
+
+    /** 这次点按是否要求翻页（等价于「是否可能改变页面身份」）。 */
+    val directionOrNull: Int?
+}
+
+internal fun readerTapTurnPlan(
+    action: ReaderTapAction,
+    renderer: PagedReaderPageTurnRenderer,
+): ReaderTapTurnPlan = when (action) {
+    ReaderTapAction.PREVIOUS_PAGE ->
+        if (renderer == PagedReaderPageTurnRenderer.OUTER_REVEAL) {
+            ReaderTapTurnPlan.ManualReveal(-1)
+        } else {
+            ReaderTapTurnPlan.RequestTurn(-1)
+        }
+
+    ReaderTapAction.NEXT_PAGE ->
+        if (renderer == PagedReaderPageTurnRenderer.OUTER_REVEAL) {
+            ReaderTapTurnPlan.ManualReveal(1)
+        } else {
+            ReaderTapTurnPlan.RequestTurn(1)
+        }
+
+    ReaderTapAction.TOGGLE_CONTROLS -> ReaderTapTurnPlan.ToggleControls
+    ReaderTapAction.NONE -> ReaderTapTurnPlan.None
+}
+
 /** 外层 reveal 的绘制不变量：目标页的纸面背景和正文必须在同一裁切层内。 */
 internal data class ManualRevealLayerPolicy(
     val keepsCurrentFrameVisible: Boolean,
@@ -92,6 +150,7 @@ internal fun PagedReaderPageSurface(
     turnRequest: MutableIntState,
     revealProgress: Float,
     tapZoneMode: String,
+    tapActionPreset: String = TapActionPreset.STANDARD,
     density: Density,
     horizontalInsetDp: Dp,
     contentWidthDp: Dp,
@@ -179,7 +238,10 @@ internal fun PagedReaderPageSurface(
         // （对抗性复核反编译 compose-ui 1.7 证实：key 不变时 update 不重启协程）。
         // 因此分区模式经 rememberUpdatedState 透传，页面/章起点在闭包内现读 controller。
         val tapZone by rememberUpdatedState(tapZoneMode)
-        val handleHitRadiusPx = with(density) { 24.dp.toPx() }
+        val tapPreset by rememberUpdatedState(tapActionPreset)
+        val handleHitRadiusHPx = with(density) { 28.dp.toPx() }
+        val handleHitRadiusVUpPx = with(density) { 24.dp.toPx() }
+        val handleHitRadiusVDownPx = with(density) { 40.dp.toPx() }
         val contentInsetPx = with(density) { horizontalInsetDp.toPx() }
         val pageTurnRenderer = pagedReaderPageTurnRenderer(pageTurnEffect, autoPageIntervalMillis)
         val manualRevealProgress = remember { Animatable(0f) }
@@ -207,6 +269,11 @@ internal fun PagedReaderPageSurface(
                 selRange.value = null
                 if (direction < 0) controller.prevPage() else controller.nextPage()
                 onGesturePageTurn()
+                // 提交帧保护（对齐 PageTurner 的 commitOverlay 思路）：翻页提交后保留
+                // 已完整揭示的目标页 2 帧，遮住新当前页的首绘/重组（含高亮底色重算与
+                // 位置上报触发的整条重组链），避免提交帧可见闪变；期间 manualRevealTarget
+                // 非空天然挡住下一次请求，不会重入。
+                repeat(2) { withFrameNanos { } }
                 manualRevealTarget = null
                 manualRevealProgress.snapTo(0f)
             }
@@ -223,7 +290,7 @@ internal fun PagedReaderPageSurface(
 
         val gestures = Modifier
                 .pointerInput(controller) {
-                    // 选区把手拖拽：down 命中把手圆点附近才接管（消费后续事件），
+                    // 选区把手拖拽：down 命中把手附近才接管（消费后续事件），
                     // 其余点按/翻页手势不受影响。拖拽中实时钳制区间并同步外部待保存选区。
                     // 注意：不能用 awaitEachGesture —— 长按选句时 down 已被 tap 手势消费，
                     // awaitEachGesture 会因此永久退出；这里用常驻循环保持存活。
@@ -235,18 +302,48 @@ internal fun PagedReaderPageSurface(
                             if (r.isEmpty()) continue
                             val handles = PageSelection.calculateSelectionHandles(page, cfg, r)
                             if (!handles.isActive) continue
-                            // 局部捕获可空把手：判空后直接命中检测，无需强解包
                             val leftHandle = handles.left
                             val rightHandle = handles.right
-                        val side = when {
-                            leftHandle != null &&
-                                handleDist(down.position, Offset(leftHandle.x + contentInsetPx, leftHandle.y)) <= handleHitRadiusPx ->
-                                PageSelection.HandleSide.LEFT
-                            rightHandle != null &&
-                                handleDist(down.position, Offset(rightHandle.x + contentInsetPx, rightHandle.y)) <= handleHitRadiusPx ->
-                                PageSelection.HandleSide.RIGHT
-                            else -> continue
-                        }
+
+                            val pointerPageX = down.position.x - contentInsetPx
+                            val pointerPageY = down.position.y
+                            val leftHit = leftHandle != null && PageSelection.isHandleHit(
+                                pointerX = pointerPageX,
+                                pointerY = pointerPageY,
+                                handleX = leftHandle.x,
+                                handleY = leftHandle.y,
+                                horizontalRadiusPx = handleHitRadiusHPx,
+                                verticalUpRadiusPx = handleHitRadiusVUpPx,
+                                verticalDownRadiusPx = handleHitRadiusVDownPx,
+                            )
+                            val rightHit = rightHandle != null && PageSelection.isHandleHit(
+                                pointerX = pointerPageX,
+                                pointerY = pointerPageY,
+                                handleX = rightHandle.x,
+                                handleY = rightHandle.y,
+                                horizontalRadiusPx = handleHitRadiusHPx,
+                                verticalUpRadiusPx = handleHitRadiusVUpPx,
+                                verticalDownRadiusPx = handleHitRadiusVDownPx,
+                            )
+                            val (side, targetHandle) = when {
+                                leftHit && rightHit -> {
+                                    val distLeft = handleDist(down.position, Offset(leftHandle!!.x + contentInsetPx, leftHandle.y))
+                                    val distRight = handleDist(down.position, Offset(rightHandle!!.x + contentInsetPx, rightHandle.y))
+                                    if (distLeft <= distRight) {
+                                        PageSelection.HandleSide.LEFT to leftHandle
+                                    } else {
+                                        PageSelection.HandleSide.RIGHT to rightHandle
+                                    }
+                                }
+                                leftHit -> PageSelection.HandleSide.LEFT to leftHandle!!
+                                rightHit -> PageSelection.HandleSide.RIGHT to rightHandle!!
+                                else -> continue
+                            }
+
+                            // 锁定触控点相对手柄中心的初始偏移，拖动时 1:1 相对位移跟随，杜绝首帧突变跳字
+                            val anchorDeltaX = pointerPageX - targetHandle.x
+                            val anchorDeltaY = pointerPageY - targetHandle.y
+
                             var currentSel = r
                             while (true) {
                                 val event = awaitPointerEvent()
@@ -255,8 +352,10 @@ internal fun PagedReaderPageSurface(
                                 val curPage = controller.currentPage ?: break
                                 // 拖拽中重排/跨章：放弃拖拽（翻页路径会清选区，不残留）
                                 if (curPage !== page) break
+                                val effectiveX = change.position.x - contentInsetPx - anchorDeltaX
+                                val effectiveY = change.position.y - anchorDeltaY
                                 currentSel = PageSelection.adjustHandle(
-                                    curPage, cfg, currentSel, side, change.position.x - contentInsetPx, change.position.y,
+                                    curPage, cfg, currentSel, side, effectiveX, effectiveY,
                                 )
                                 selRange.value = currentSel
                                 onSelect(
@@ -287,14 +386,30 @@ internal fun PagedReaderPageSurface(
                                 )
                             }
                         },
+                        onDoubleTap = { _ ->
+                            stopAutoPaging()
+                            if (selRange.value != null) {
+                                selRange.value = null
+                                onSelect("", -1, -1)
+                            }
+                            // 双击快捷唤出/收起控制栏，同时阻断快速连击触发两次单页翻页
+                            onToggleControls()
+                        },
                         onTap = { offset ->
                             if (selRange.value != null) {
                                 // 有选区时，任何点按先撤选区，不翻页
                                 selRange.value = null
                                 onSelect("", -1, -1)
                             } else {
-                                when (
-                                    resolveReaderTapAction(
+                                val edgeDeadzonePx = with(density) { 10.dp.toPx() }
+                                // S07-F2.1：点按只产生**计划**，不在这里派发 PageTurn。
+                                // 非 reveal 路径仅登记 turnRequest，PageTurn 由 PageTurner 在
+                                // 页码真正提交后经 onPageTurned 派发一次；reveal 路径同理，
+                                // 由外层动画的结束帧提交后再派发。
+                                // 修复前这里是 `onGesturePageTurn()` + `turnRequest = d`：
+                                // 通知早于提交（乐观清除），且提交后 onPageTurned 会再派发一次。
+                                val turnPlan = readerTapTurnPlan(
+                                    action = resolveReaderTapAction(
                                         x = offset.x,
                                         y = offset.y,
                                         width = size.width.toFloat(),
@@ -302,31 +417,25 @@ internal fun PagedReaderPageSurface(
                                         tapZoneMode = tapZone,
                                         canPrevious = controller.frameAt(-1) != null,
                                         canNext = controller.frameAt(1) != null,
-                                    )
-                                ) {
-                                    ReaderTapAction.PREVIOUS_PAGE -> {
+                                        preset = tapPreset,
+                                        edgeDeadzonePx = edgeDeadzonePx,
+                                    ),
+                                    renderer = pageTurnRenderer,
+                                )
+                                when (turnPlan) {
+                                    is ReaderTapTurnPlan.RequestTurn -> {
                                         stopAutoPaging()
-                                        if (pageTurnRenderer == PagedReaderPageTurnRenderer.OUTER_REVEAL) {
-                                            requestManualReveal(-1)
-                                        } else {
-                                            onGesturePageTurn()
-                                            turnRequest.intValue = -1
-                                        }
+                                        turnRequest.intValue = turnPlan.direction
                                     }
-                                    ReaderTapAction.NEXT_PAGE -> {
+                                    is ReaderTapTurnPlan.ManualReveal -> {
                                         stopAutoPaging()
-                                        if (pageTurnRenderer == PagedReaderPageTurnRenderer.OUTER_REVEAL) {
-                                            requestManualReveal(1)
-                                        } else {
-                                            onGesturePageTurn()
-                                            turnRequest.intValue = 1
-                                        }
+                                        requestManualReveal(turnPlan.direction)
                                     }
-                                    ReaderTapAction.TOGGLE_CONTROLS -> {
+                                    ReaderTapTurnPlan.ToggleControls -> {
                                         stopAutoPaging()
                                         onToggleControls()
                                     }
-                                    ReaderTapAction.NONE -> Unit
+                                    ReaderTapTurnPlan.None -> Unit
                                 }
                             }
                         },

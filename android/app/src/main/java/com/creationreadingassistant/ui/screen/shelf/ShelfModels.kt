@@ -261,11 +261,30 @@ internal fun filterItems(
     if (trimmed.isEmpty() && statusFilter == ShelfStatusFilter.ALL && allowedBookIds == null && formatFilter.isEmpty()) {
         return items
     }
-    val lower = trimmed.lowercase()
+    val tokens = if (trimmed.isEmpty()) {
+        emptyList()
+    } else {
+        trimmed.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    }
     return items.filter { item ->
         val book = item.book
-        val matchesQuery = lower.isEmpty() ||
-            "${book.title} ${book.author ?: ""} ${book.original_file_name ?: ""}".lowercase().contains(lower)
+        val matchesQuery = if (tokens.isEmpty()) {
+            true
+        } else {
+            val titleLower = book.title.lowercase()
+            val authorLower = (book.author ?: "").lowercase()
+            val fileNameLower = (book.original_file_name ?: "").lowercase()
+            val titleInitials = extractPinyinInitials(book.title)
+            val authorInitials = extractPinyinInitials(book.author ?: "")
+            // 每个分词 token 都要在原文或者拼音首字母中找到匹配
+            tokens.all { token ->
+                titleLower.contains(token) ||
+                    authorLower.contains(token) ||
+                    fileNameLower.contains(token) ||
+                    titleInitials.contains(token) ||
+                    authorInitials.contains(token)
+            }
+        }
         val matchesFilter = allowedBookIds?.contains(book.id) ?: true
         val matchesStatus = when (statusFilter) {
             ShelfStatusFilter.ALL -> true
@@ -286,4 +305,16 @@ internal fun toneColor(tone: ReadinessTone): Color = when (tone) {
     ReadinessTone.READY -> AppSuccess
     ReadinessTone.CLOUD -> MaterialTheme.colorScheme.primary
     ReadinessTone.ERROR -> AppError
+}
+
+private val chapterIndexRegex = Regex(""""ci"\s*:\s*(\d+)""")
+private val legacyChapterRegex = Regex(""""chapter"\s*:\s*(\d+)""")
+
+/** 从阅读进度实体中提取当前章号文字，如「第18章」。纯文本/JSON 正则匹配，高频纳秒级。 */
+internal fun extractChapterLabel(progress: ReadingProgressEntity?): String? {
+    if (progress == null) return null
+    val json = progress.current_location_json ?: return null
+    val idx = chapterIndexRegex.find(json)?.groupValues?.getOrNull(1)?.toIntOrNull()
+        ?: legacyChapterRegex.find(json)?.groupValues?.getOrNull(1)?.toIntOrNull()
+    return if (idx != null && idx >= 0) "第${idx + 1}章" else null
 }

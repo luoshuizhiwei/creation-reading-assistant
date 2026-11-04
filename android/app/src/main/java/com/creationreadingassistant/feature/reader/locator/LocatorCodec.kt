@@ -10,8 +10,14 @@ data class ReaderLocator(
 )
 
 /**
- * locator v2 超集编码。始终保留旧版认识的 `offset`，新增 ci/co/fp；
- * 旧 App 的正则仍能跳到相同混合量纲位置，不需要同步迁移窗口。
+ * locator v2 超集编码。`legacyOffset`（v2 `"offset"`）语义是**全书字符偏移**，可选：
+ * - 写入方能给出全书偏移时必须满足不变式 `offset == chapterStart[ci] + co`；
+ * - 给不出（如导入时未解析正文、章切换落库时未知章起点表）必须传 null 省略该字段，
+ *   读侧（[com.creationreadingassistant.feature.reader.navigation.SourceNavigationContract]）
+ *   会按 `chapterStart[ci] + co` 派生 —— 全书偏移要么真实、要么缺省，**绝不以章内偏移冒充**；
+ *   伪造值正是 S12-① 的根因（导入 locator 被一致性校验拒绝、回源跳转全部失效）。
+ *
+ * 旧 App 的正则仍能从 ci/co 或顶层 legacy 字段跳到相同位置，不需要同步迁移窗口。
  */
 object LocatorCodec {
     private val offsetRegex = Regex(""""offset"\s*:\s*(\d+)""")
@@ -20,13 +26,16 @@ object LocatorCodec {
     private val fingerprintRegex = Regex(""""fp"\s*:\s*"([0-9a-fA-F]+)"""")
 
     fun encode(
-        legacyOffset: Int,
+        legacyOffset: Int?,
         chapterIndex: Int?,
         charOffset: Int?,
         excerpt: String?,
     ): String = buildString {
-        append("""{"v":2,"offset":""")
-        append(legacyOffset.coerceAtLeast(0))
+        append("""{"v":2""")
+        if (legacyOffset != null) {
+            append(""","offset":""")
+            append(legacyOffset.coerceAtLeast(0))
+        }
         if (chapterIndex != null && charOffset != null) {
             append(""","ci":""")
             append(chapterIndex.coerceAtLeast(0))

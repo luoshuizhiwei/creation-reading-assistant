@@ -1,5 +1,6 @@
 package com.creationreadingassistant.ui.components
 
+import android.content.Context
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -20,7 +21,14 @@ import coil.request.ImageRequest
 import coil.size.Precision
 
 /**
- * 解析图片数据源：若为 data:image base64 字符串，解码为 ByteArray 供 Coil 原生高性能加载。
+ * 解析图片数据源：结合 CoverImageCache 进行多级软硬件缓存优化。
+ */
+internal fun resolveCoilImageData(context: Context, data: Any?, cacheKey: String = ""): Any? {
+    return CoverImageCache.resolve(context, data, cacheKey)
+}
+
+/**
+ * 兼容旧签名的图片数据解析。
  */
 internal fun resolveCoilImageData(data: Any?): Any? {
     if (data is String && data.startsWith("data:image/", ignoreCase = true)) {
@@ -38,6 +46,7 @@ internal fun resolveCoilImageData(data: Any?): Any? {
 /**
  * 按最终布局尺寸请求图片，避免书架封面以原图尺寸解码。
  * 首次测量前保留父容器背景，测得尺寸后才开始请求。
+ * 采用 CoverImageCache 进行内存 Lru 与磁盘 WebP 固化双级加速。
  */
 @Composable
 fun SizedAsyncImage(
@@ -48,7 +57,8 @@ fun SizedAsyncImage(
     contentScale: ContentScale = ContentScale.Crop,
     onError: (() -> Unit)? = null,
 ) {
-    val resolvedData = remember(data) { resolveCoilImageData(data) }
+    val context = LocalContext.current
+    val resolvedData = remember(data, cacheKey) { resolveCoilImageData(context, data, cacheKey) }
     var targetSize by remember { mutableStateOf(IntSize.Zero) }
     Box(
         modifier = modifier.onSizeChanged {

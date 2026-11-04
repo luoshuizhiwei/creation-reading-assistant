@@ -25,27 +25,18 @@ interface SearchTermDao {
     @Query("DELETE FROM search_terms WHERE book_id = :bookId")
     suspend fun deleteByBook(bookId: String)
 
-    @Query("DELETE FROM search_terms WHERE book_id = :bookId AND chapter_index = :chapterIndex")
-    suspend fun deleteByChapter(bookId: String, chapterIndex: Int)
-
     /**
      * 按「书 + 文本基准」清理（§6.6.6）。
      *
      * 只删指定基准的行，另一基准原样保留 —— 显示文通道改为逐章即时投影后，若第 k 章
-     * 投影抛错，需要精确回收该基准**已落盘**的行；此前只有 [deleteByBook]（全基准，
-     * 会误删 original）与 [deleteByChapter]（不限基准，同样误删），无法精确清理。
+     * 投影抛错，需要精确回收该基准**已落盘**的行；[deleteByBook] 会连另一个基准一起删除，
+     * 因而不能承担该职责。
      */
     @Query("DELETE FROM search_terms WHERE book_id = :bookId AND text_basis = :textBasis")
     suspend fun deleteByBookAndBasis(bookId: String, textBasis: String)
 
-    @Query("SELECT COUNT(*) FROM search_terms")
-    suspend fun countTerms(): Long
-
     @Query("SELECT COUNT(DISTINCT book_id) FROM search_terms")
     suspend fun countIndexedBooks(): Long
-
-    @Query("SELECT * FROM search_terms WHERE term = :term")
-    suspend fun rowsByTerm(term: String): List<SearchTermRow>
 
     /**
      * 按「词 + 文本基准」取命中行（R2-S1.2 起查询侧的实际入口）。

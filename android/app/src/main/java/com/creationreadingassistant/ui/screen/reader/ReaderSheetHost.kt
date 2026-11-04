@@ -18,8 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.creationreadingassistant.data.settings.PerBookOverrides
 import com.creationreadingassistant.data.settings.ReaderOverrideKey
+import com.creationreadingassistant.data.settings.ReaderDayNightToggle
 import com.creationreadingassistant.data.settings.ReaderSettings
-import com.creationreadingassistant.data.settings.ReaderSettingsRouter
 import com.creationreadingassistant.data.settings.ReaderSettingsScope
 import com.creationreadingassistant.data.settings.ReadingPreset
 import com.creationreadingassistant.domain.model.EpubBook
@@ -27,6 +27,7 @@ import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability
+import com.creationreadingassistant.feature.reader.pager.ReaderPagePosition
 import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.AiAssistSheet
@@ -34,25 +35,22 @@ import com.creationreadingassistant.ui.screen.reader.sheets.AiExplainSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.BookInfoSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.DictionarySheet
 import com.creationreadingassistant.ui.screen.reader.sheets.InspirationSheet
-import com.creationreadingassistant.ui.screen.reader.sheets.NotesSheet
-import com.creationreadingassistant.ui.screen.reader.sheets.noteNavigationTarget
-import com.creationreadingassistant.ui.screen.reader.sheets.highlightNavigationTarget
 import com.creationreadingassistant.ui.screen.reader.sheets.NOTE_KIND_BOOKMARK
-import com.creationreadingassistant.ui.screen.reader.sheets.tocNoteEntries
+import com.creationreadingassistant.ui.screen.reader.sheets.NotesSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.ProgressSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.RulesSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.SearchSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.SettingsSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.ThemeSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.TocSheet
+import com.creationreadingassistant.ui.screen.reader.sheets.highlightNavigationTarget
+import com.creationreadingassistant.ui.screen.reader.sheets.noteNavigationTarget
+import com.creationreadingassistant.ui.screen.reader.sheets.tocNoteEntries
 import com.creationreadingassistant.ui.screen.reader.sheets.readerTocEntries
-import com.creationreadingassistant.data.local.entity.HighlightEntity
-import com.creationreadingassistant.data.local.entity.NoteEntity
-import com.creationreadingassistant.feature.annotations.AnnotationType
-import com.creationreadingassistant.feature.annotations.navigationTargetId
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPaperTheme
+import com.creationreadingassistant.ui.window.LocalDialogSystemBarsEffect
 import com.creationreadingassistant.feature.reader.locator.EpubLocatorMapping
 import com.creationreadingassistant.feature.reader.locator.LocatorBuilder
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
@@ -167,12 +165,39 @@ internal data class ReaderSheetHostCallbacks(
     val onPickChapter: (Int) -> Unit,
     val onTxtRule: (String) -> Unit,
     val onCancelTxtScan: () -> Unit,
-    /** A01：标注回源统一收已带类型前缀的 typed 目标（highlight:/note:/bookmark:）。 */
+    /**
+     * 标注回源（A01）：入参是**已带类型前缀的 typed 目标**
+     * （`highlight:{id}` / `note:{id}` / `bookmark:{id}`），由
+     * [com.creationreadingassistant.feature.annotations.navigationTargetId] 生成。
+     *
+     * 为什么收敛成一个「只收 typed 目标」的回调：旧设计按类型拆成
+     * `onJumpToHighlight(rawId)` / `onJumpToBookmark(rawId)`，前者写裸 rawId，
+     * 而裸 rawId 在阅读器侧走「先高亮、后笔记」的兼容回退 —— 同一 rawId 跨表存在时
+     * 会跳错表。改成单一 typed 入参后，**结构上不存在**传裸 id 的入口。
+     */
     val onJumpToTypedAnnotation: (String) -> Unit,
-    val onSaveAiExplainInspiration: (body: String, excerpt: String, locatorJson: String?, tags: List<String>, categoryIds: List<String>) -> Unit,
+    /**
+     * S07-F2.4：AI 解读存灵感。摘录文字与 locator **由调用方按打开时快照传入**，
+     * 本层不得回读实时活动选区（后者会被 ReadingUnit dispose 清空）。
+     */
+    val onSaveAiExplainInspiration: (
+        body: String,
+        excerpt: String,
+        locatorJson: String?,
+        tags: List<String>,
+        categoryIds: List<String>,
+    ) -> Unit,
     /** 设置/主题变更前先持久化当前阅读进度（防重排回退到旧进度）。 */
     val onPersistProgress: () -> Unit,
-    val onSaveInspiration: (title: String, body: String, excerpt: String, locatorJson: String?, tags: List<String>, categoryIds: List<String>) -> Unit,
+    /** S07-F2.4：同上，摘录文字与 locator 来自同一个打开时快照。 */
+    val onSaveInspiration: (
+        title: String,
+        body: String,
+        excerpt: String,
+        locatorJson: String?,
+        tags: List<String>,
+        categoryIds: List<String>,
+    ) -> Unit,
     val onCreateCategory: (String) -> String,
     val onCreateTag: (String) -> String,
     /** R3-P1：切换书内设置的修改作用范围（本书 / 全局）。 */
@@ -207,42 +232,40 @@ internal fun ReaderSheetHost(
     sheetCallbacks: ReaderSheetHostCallbacks,
 ) {
     val bid = inputs.bookId ?: ""
+
+    // S07-F2.4：长生命周期消费者一律读**打开时快照**，不回读实时活动选区
+    //（后者会在 TTS 跟读导致 ReadingUnit dispose 时被清空）。
+    // 快照真源在 VM 的 screenState；本层只读转发，不新增第二份状态。
     val consumerSnapshot = inputs.screenState.selectionSnapshot
-    val snapshotLocator = {
-        computeLocatorJsonForSnapshot(
-            state.document.epubBook, state.document.chapterStartOffsets, consumerSnapshot,
-        )
-    }
 
     /**
-     * R3-P1：书内编辑的唯一落盘入口。
+     * S07-F2.4：随快照同源生成的 source locator（要求 7）。
      *
-     * 设置面板操作的是**有效设置**（全局 + 本书覆盖），本次改动该落到哪一层由
-     * [ReaderSettingsRouter] 按用户选择的 [ReaderSettingsScope] 决定：
-     * 不可覆盖项永远进全局；「本书」范围下可覆盖项只写本书覆盖（绝不污染全局）。
+     * 摘录文字与坐标都由 [consumerSnapshot] 这一份不可变快照推出，禁止「文字取快照、
+     * 坐标取已被清空的实时状态」。与落库高亮同源的 [computeLocatorJsonForSnapshot]
+     * 保持一致的 source 坐标契约（不写显示偏移）。
+     */
+    fun snapshotLocator(): String? = computeLocatorJsonForSnapshot(
+        epubBook = state.document.epubBook,
+        chapterStartOffsets = state.document.chapterStartOffsets,
+        snapshot = consumerSnapshot,
+    )
+
+    /**
+     * R3-P1：书内编辑的唯一落盘入口（实现见同包顶层 [applyReaderEdit]）。
+     *
+     * 灯绳与设置面板共用同一套路由，避免两边分叉。
      */
     val applyReaderEdit: (ReaderSettings) -> Unit = { updated ->
-        val plan = ReaderSettingsRouter.plan(
+        applyReaderEdit(
+            settingsVm = settingsVm,
+            bid = bid,
             scope = state.ui.settingsScope,
             global = state.ui.globalReaderSettings,
             displayed = state.ui.readerSettings,
             edited = updated,
+            showNotice = sheetCallbacks.showNotice,
         )
-        if (plan.globalDiffersFrom(state.ui.globalReaderSettings)) {
-            settingsVm.updateReader { plan.global }
-        }
-        val hasBookScopedChange =
-            plan.overridesToSet.isNotEmpty() || plan.overridesToClear.isNotEmpty()
-        if (bid.isNotBlank()) {
-            plan.overridesToSet.forEach { (key, value) -> settingsVm.setOverride(bid, key, value) }
-            plan.overridesToClear.forEach { key -> settingsVm.clearOverride(bid, key) }
-        } else if (hasBookScopedChange && state.ui.settingsScope == ReaderSettingsScope.BOOK) {
-            // 「只改本书」但没有 bookId 时，覆盖项无处可写。以前这里是静默丢弃：用户看着
-            // 设置已经变了，重进面板又弹回原值，且没有任何解释。宁可明确说没保存，
-            // 也不要把一次未落盘的编辑伪装成成功。
-            // 作用范围＝全局时不提示：那部分改动已经写进全局设置，并没有丢。
-            sheetCallbacks.showNotice("无法确定当前书籍，本次「只改本书」的调整未保存")
-        }
     }
 
     sheet?.let { type ->
@@ -264,6 +287,9 @@ internal fun ReaderSheetHost(
             },
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         ) {
+            // M-BUG-11：弹层是独立 Window，不继承 Activity 窗口的系统栏策略——沉浸阅读时
+            // 打开本面板会让隐藏的系统状态栏重新露出。这里把阅读器的策略写进本弹层窗口。
+            LocalDialogSystemBarsEffect()
             ReaderPaperTheme(paper) {
             when (type) {
                 ReaderSheet.TOC -> {
@@ -308,11 +334,14 @@ internal fun ReaderSheetHost(
                             callbacks.onAction(ReaderAction.ClearChapterReads(bid))
                             sheetCallbacks.showNotice("已清除已读标记")
                         },
-                        // A01：笔记 Tab = 高亮 + 非书签笔记（来自既有 inputs 流，不新增查询）。
+                        // A01：笔记 Tab = 高亮 + 非书签笔记。两类都来自既有的
+                        // inputs.highlights / inputs.notes（DAO 已按当前书 + 未删除过滤），
+                        // 不新增查询、不复制第二套数据源。
                         notes = tocNoteEntries(
                             highlights = inputs.highlights,
                             notes = inputs.notes,
                         ),
+                        // typed 回源：目标由条目自身携带，调用方不判断「该按哪张表跳」。
                         onPickNote = { entry ->
                             sheetCallbacks.onJumpToTypedAnnotation(entry.navigationTarget)
                         },
@@ -327,7 +356,8 @@ internal fun ReaderSheetHost(
                     initialReplaceText = consumerSnapshot?.text?.takeIf { it.isNotBlank() },
                     onCommand = { callbacks.onAction(ReaderAction.ExecuteRuleCommand(bid, it)) },
                     onBack = {
-                        if (consumerSnapshot != null) {
+                        // 消费者结束：清快照（避免下次打开复用旧选区），并回收活动选区。
+                        if (consumerSnapshot?.text?.isNotBlank() == true) {
                             callbacks.onAction(ReaderAction.ClearSelection)
                         }
                         callbacks.onAction(ReaderAction.ClearRuleMutationResult)
@@ -342,37 +372,37 @@ internal fun ReaderSheetHost(
                     notes = inputs.notes,
                     inspirations = inputs.inspirations,
                     onAddBookmark = {
-                        val pos = callbacks.pageIndexManager.position.value
-                        val cso = state.document.chapterStartOffsets
-                        val isEpub = state.document.epubBook != null
-                        val abs = pos?.absStart ?: -1
-                        val (ci, co) = if (pos != null && isEpub) {
-                            EpubLocatorMapping.toChapterOffset(pos.absStart, cso)
-                        } else {
-                            0 to (pos?.absStart ?: -1)
-                        }
-                        val locatorJson = if (pos != null) {
-                            if (isEpub) LocatorBuilder.forPosition(abs, ci, co, null)
-                            else LocatorBuilder.forPlain(abs, null)
-                        } else null
+                        // S09-A-F1：精确坐标与 locator 一律来自「确认属于当前这本书」的位置。
+                        val fields = bookmarkPositionFields(
+                            position = callbacks.pageIndexManager.position.value,
+                            bookId = bid,
+                            isEpub = state.document.epubBook != null,
+                            chapterStartOffsets = state.document.chapterStartOffsets,
+                        )
                         callbacks.onAction(
                             ReaderAction.AddBookmark(
                                 bookId = bid,
+                                // 百分比回退语义不变：locator 为空时 ReaderProgressEffects
+                                // 会用这个 progress_percent 近似回跳，所以「没有精确位置」
+                                // 不等于「书签废掉」。
                                 offset = state.stats.progressPercent.toInt(),
                                 title = state.document.currentChapterTitle.ifBlank { "正文" },
-                                absOffset = abs,
-                                chapterIndex = ci,
-                                charOffset = co,
-                                locatorJson = locatorJson,
+                                absOffset = fields.absOffset,
+                                chapterIndex = fields.chapterIndex,
+                                charOffset = fields.charOffset,
+                                locatorJson = fields.locatorJson,
                             ),
                         )
                         sheetCallbacks.showNotice("已添加书签")
                     },
                     onDeleteHighlight = { h ->
                         callbacks.onAction(ReaderAction.DeleteHighlight(h.id))
+                        sheetCallbacks.showNotice("已删除高亮")
                     },
                     onDeleteNote = { n ->
                         callbacks.onAction(ReaderAction.DeleteNote(n.id))
+                        val label = if (n.kind == "bookmark") "书签" else "笔记"
+                        sheetCallbacks.showNotice("已删除$label")
                     },
                     onChangeHighlightColor = { h, c ->
                         callbacks.onAction(ReaderAction.UpdateHighlightColor(h.id, c))
@@ -388,9 +418,9 @@ internal fun ReaderSheetHost(
                         callbacks.onAction(ReaderAction.ConvertHighlightToInspiration(h.id))
                         sheetCallbacks.showNotice("已转为灵感")
                     },
-                    // S07：typed 回源——按注释类型分派 typed 目标，避免同 rawId 跨表跳错。
-                    // onJumpToHighlight 回调是 onPendingHighlightIdChange 的直通管道，
-                    // 传入 typed 目标（highlight:{id} / note:{id} / bookmark:{id}）即可正确路由。
+                    // A01：高亮走 HIGHLIGHT，普通笔记走 NOTE，书签走 BOOKMARK ——
+                    // 由各自的 typed 目标决定，不再让普通笔记借用书签回调
+                    // （旧实现 onJumpToBookmark 收全部 notes，跨表同 rawId 会跳错表）。
                     onJumpToHighlight = { h ->
                         sheetCallbacks.onJumpToTypedAnnotation(highlightNavigationTarget(h))
                     },
@@ -403,7 +433,9 @@ internal fun ReaderSheetHost(
                     aiClient = callbacks.aiClient,
                     bookTitle = state.bookMeta.bookTitle,
                     chapterTitle = state.document.currentChapterTitle,
-                    contextText = consumerSnapshot?.text ?: state.document.contentText,
+                    // S07-F2.4：从选区打开时固定用快照，正文选区被清后**不得**退化为整章正文。
+                    contextText = consumerSnapshot?.text?.takeIf { it.isNotBlank() }
+                        ?: state.document.contentText,
                 )
 
                 ReaderSheet.AI_EXPLAIN -> AiExplainSheet(
@@ -415,8 +447,13 @@ internal fun ReaderSheetHost(
                     onCreateCategory = sheetCallbacks.onCreateCategory,
                     onCreateTag = sheetCallbacks.onCreateTag,
                     onSaveInspiration = { body, tags, categoryIds ->
+                        // 文字与 locator 同源于打开时快照（要求 7）。
                         sheetCallbacks.onSaveAiExplainInspiration(
-                            body, consumerSnapshot?.text.orEmpty(), snapshotLocator(), tags, categoryIds,
+                            body,
+                            consumerSnapshot?.text.orEmpty(),
+                            snapshotLocator(),
+                            tags,
+                            categoryIds,
                         )
                     },
                 )
@@ -431,8 +468,14 @@ internal fun ReaderSheetHost(
                     onCreateCategory = sheetCallbacks.onCreateCategory,
                     onCreateTag = sheetCallbacks.onCreateTag,
                     onSave = { title, body, tags, categoryIds ->
+                        // 文字与 locator 同源于打开时快照（要求 7）。
                         sheetCallbacks.onSaveInspiration(
-                            title, body, consumerSnapshot?.text.orEmpty(), snapshotLocator(), tags, categoryIds,
+                            title,
+                            body,
+                            consumerSnapshot?.text.orEmpty(),
+                            snapshotLocator(),
+                            tags,
+                            categoryIds,
                         )
                     },
                 )
@@ -501,11 +544,40 @@ internal fun ReaderSheetHost(
 
                 ReaderSheet.THEME -> ThemeSheet(
                     background = state.ui.readerSettings.background,
+                    fontSize = state.ui.readerSettings.fontSize,
+                    brightness = state.ui.readerSettings.brightness,
+                    lastFixedBrightness = state.ui.readerSettings.lastFixedBrightness,
+                    scope = state.ui.settingsScope,
                     appDark = state.ui.appDark,
-                    onBackground = {
+                    onBackground = { picked ->
                         sheetCallbacks.onPersistProgress()
+                        // 记下用户这次选的纸属于哪一侧（亮纸 / 暗纸），供灯绳切换时还原；
+                        // 选「跟随外观」不构成记忆，两侧都保持原值。
+                        val remembered = ReaderDayNightToggle.rememberPaper(picked)
+                        val current = state.ui.readerSettings
                         // R3-P1：纸张切换同样受作用范围约束，否则本书覆盖了纸张时这里点了没反应
-                        applyReaderEdit(state.ui.readerSettings.copy(background = it))
+                        applyReaderEdit(
+                            current.copy(
+                                background = picked,
+                                dayNightLightPaper = remembered?.light ?: current.dayNightLightPaper,
+                                dayNightDarkPaper = remembered?.dark ?: current.dayNightDarkPaper,
+                            ),
+                        )
+                    },
+                    onFontSize = { size ->
+                        sheetCallbacks.onPersistProgress()
+                        applyReaderEdit(state.ui.readerSettings.copy(fontSize = size))
+                    },
+                    onBrightness = { value ->
+                        sheetCallbacks.onPersistProgress()
+                        val current = state.ui.readerSettings
+                        // 亮度是不可本书覆盖项，Router 保证其始终落全局；同时记忆上次固定亮度
+                        applyReaderEdit(
+                            current.copy(
+                                brightness = value,
+                                lastFixedBrightness = if (value >= 0) value else current.lastFixedBrightness,
+                            ),
+                        )
                     },
                 )
 
@@ -567,28 +639,68 @@ internal fun ReaderSheetHost(
     }
 }
 
-// ── S07：typed 回源辅助（内联自 ReaderTocBookmarkList.kt，避免越界修改非所有文件）──
-
-/** 书签判定用的 kind 字面量。 */
-private const val NOTE_KIND_BOOKMARK = "bookmark"
+/**
+ * 书签的精确回跳坐标（S09-A-F1）。
+ *
+ * 「无可用精确位置」只有一种形态：`absOffset = -1`、`chapterIndex = 0`、`charOffset = -1`、
+ * `locatorJson = null`。这与修复前 `position == null` 时的形态**逐字段相同**，
+ * 因此现有「locator 为空 → 用 progress_percent 近似回跳」的回退链完全不受影响。
+ */
+internal data class BookmarkPositionFields(
+    val absOffset: Int,
+    val chapterIndex: Int,
+    val charOffset: Int,
+    val locatorJson: String?,
+)
 
 /**
- * 高亮的 typed 回源目标：恒为 `highlight:{id}`。
+ * 从 [ReaderPageIndexManager] 的当前页位置推导书签坐标，**只接受属于当前这本书的位置**。
  *
- * 为什么必须带类型：`resolveAnnotationTarget` 对裸 rawId 保留「先高亮、后笔记」的
- * 旧兼容语义，而 highlights 与 notes 是两张表 —— 同一 rawId 跨表存在时会跳错表。
+ * 为什么必须有这道校验：[ReaderPagePosition] 是进程内单例状态，只在分页阅读分支被写入，
+ * 且 `clear()` 目前没有调用点。于是「先读 A 书（分页）→ 再打开 B 书（滚动模式，
+ * 或新书首帧尚未上报）」时，manager 里残留的仍是 **A 书**的 absStart / 页号 / 百分比。
+ * 修复前 `onAddBookmark` 直接把它当作 B 书的坐标持久化，
+ * 于是 B 书的书签会跳到 A 书的位置 —— 属跨书数据污染（P1）。
+ *
+ * 语义集中在本函数里，**不在各个字段上重复写判断**：`absOffset`、`chapterIndex`、
+ * `charOffset`、`locatorJson` 全部由同一份过滤后的位置推导，
+ * 避免出现「locator 过滤了、坐标没过滤」这类漂移。
+ *
+ * 不伪造：位置不可用时绝不构造 `absOffset = 0` 之类的假锚点，
+ * 而是返回与 null 相同的回退形态，交给既有百分比回退链。
+ * EPUB 的章偏移解析（[EpubLocatorMapping]）同样只在通过校验的位置上执行。
  */
-private fun highlightNavigationTarget(highlight: HighlightEntity): String =
-    navigationTargetId(AnnotationType.HIGHLIGHT, highlight.id)
+internal fun bookmarkPositionFields(
+    position: ReaderPagePosition?,
+    bookId: String,
+    isEpub: Boolean,
+    chapterStartOffsets: List<Int>,
+): BookmarkPositionFields {
+    val owned = position?.takeIf { it.bookId == bookId } ?: return NO_EXACT_BOOKMARK_POSITION
 
-/**
- * 笔记类记录（含书签）的 typed 回源目标：`note:{id}` 或 `bookmark:{id}`。
- *
- * 书签也是 notes 表的一行，靠 `kind` 区分；类型由本函数单点判定，
- * 避免调用方各自写 `if (kind == "bookmark")` 而漏掉一处。
- */
-private fun noteNavigationTarget(note: NoteEntity): String =
-    navigationTargetId(
-        if (note.kind == NOTE_KIND_BOOKMARK) AnnotationType.BOOKMARK else AnnotationType.NOTE,
-        note.id,
+    val abs = owned.absStart
+    val (chapterIndex, charOffset) = if (isEpub) {
+        EpubLocatorMapping.toChapterOffset(abs, chapterStartOffsets)
+    } else {
+        0 to abs
+    }
+    val locatorJson = if (isEpub) {
+        LocatorBuilder.forPosition(abs, chapterIndex, charOffset, null)
+    } else {
+        LocatorBuilder.forPlain(abs, null)
+    }
+    return BookmarkPositionFields(
+        absOffset = abs,
+        chapterIndex = chapterIndex,
+        charOffset = charOffset,
+        locatorJson = locatorJson,
     )
+}
+
+/** 无可用精确位置时的书签字段形态：与修复前的 `position == null` 分支逐字段一致。 */
+private val NO_EXACT_BOOKMARK_POSITION = BookmarkPositionFields(
+    absOffset = -1,
+    chapterIndex = 0,
+    charOffset = -1,
+    locatorJson = null,
+)

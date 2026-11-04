@@ -8,6 +8,7 @@ import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.LibrarySourceAvailability
 import com.creationreadingassistant.data.repository.BookCacheClearOutcome
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.SearchIndexBookRefreshCoordinator
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.ContinueReadingStore
@@ -29,6 +30,8 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -105,12 +108,17 @@ class ShelfViewModelTest {
             every { sortMode } returns sortModeFlow
             every { recentSearches } returns MutableStateFlow(emptyList())
             every { privateSearch } returns MutableStateFlow(false)
+            // 「新导入未查看」角标集合；ShelfViewModel 在 init 中订阅它
+            every { newBookIds } returns MutableStateFlow(emptySet())
             coEvery { setViewMode(any()) } answers { viewModeFlow.value = it.invocation.args[0] as String; Unit }
             coEvery { setSortMode(any()) } answers { sortModeFlow.value = it.invocation.args[0] as String; Unit }
             coEvery { recordSearch(any()) } returns Unit
             coEvery { clearRecentSearches() } returns Unit
             coEvery { replaceRecentSearches(any()) } returns Unit
             coEvery { setPrivateSearch(any()) } returns Unit
+            coEvery { addNewBookIds(any()) } returns Unit
+            coEvery { clearNewBookId(any()) } returns Unit
+            coEvery { clearAllNewBookIds() } returns Unit
         }
         continueReadingStore = mockk { coEvery { clear(any()) } returns Unit }
     }
@@ -123,16 +131,18 @@ class ShelfViewModelTest {
     /**
      * 构造 ViewModel。
      *
-     * M-BUG-03 测试接缝：可注入来源索引 / 来源更新检测器 / 导入器替身；
-     * `sourceIndex` 与 `sourceUpdateChecker` 默认 relaxed mock，既有用例不受影响。
+     * [booksFlow] 用于需要**控制发射时机**的用例（M-BUG-09 骨架门护栏）：`ShelfViewModel.books`
+     * 在**属性初始化时**就调用 `repository.observeBooks()` 并捕获返回的 Flow，所以「先 createVm()
+     * 再重打桩」对已构造的实例**无效**。要换掉这条流，必须在构造前传入。
      */
     private fun createVm(
         books: List<BookEntity> = emptyList(),
+        booksFlow: Flow<List<BookEntity>>? = null,
         sourceIndex: LibrarySourceIndex = mockk(relaxed = true),
         sourceUpdateChecker: ShelfSourceUpdateChecker = mockk(relaxed = true),
         shelfImporter: ShelfImporter? = null,
     ): ShelfViewModel {
-        every { repository.observeBooks() } returns flowOf(books)
+        every { repository.observeBooks() } returns (booksFlow ?: flowOf(books))
         every { repository.observeProgress() } returns flowOf(emptyList())
         every { repository.observeSessions() } returns flowOf(emptyList())
         every { repository.observeNotes() } returns flowOf(emptyList())
@@ -151,6 +161,7 @@ class ShelfViewModelTest {
             sourceIndex = mockk(relaxed = true),
             rootStore = mockk { coEvery { loadRoot() } returns null },
             ioDispatcher = Dispatchers.Unconfined,
+            // S04-2：ShelfImporter 新增协调器参数；本测试不断言索引刷新行为，用 relaxed mock。
             indexRefreshCoordinator = mockk(relaxed = true),
         )
         return ShelfViewModel(
@@ -249,6 +260,14 @@ class ShelfViewModelTest {
         assertEquals(listOf("乙书", "甲书"), vm.shelfBooks.value.map { it.book.title })
         job.cancel()
         testScheduler.advanceUntilIdle()
+    }
+
+    @Test
+    fun `shelfBooks loads existing books without a screen collector or new import`() = runTest(mainDispatcher.scheduler) {
+        val vm = createVm(books = listOf(book("b1", "已存在的书")))
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("已存在的书"), vm.shelfBooks.value.map { it.book.title })
     }
 
     @Test
@@ -417,6 +436,39 @@ class ShelfViewModelTest {
         vm.setStatusFilter(ShelfStatusFilter.READING)
         assertEquals(true, vm.hasActiveFilters())
     }
+
+    @Test
+    fun `library loaded stays false until room emits so the shelf cannot flash an empty state`() =
+        runTest(mainDispatcher.scheduler) {
+            // M-BUG-09 护栏：books 是 stateIn(..., emptyList())，其合成初值与「书架真的没有书」
+            // 在 UI 层不可区分。若骨架门改用计时器（原实现 350ms），冷启动首读慢于该时长时
+            // 骨架先关、books 仍为空 ⇒ 先渲染空态「书架还空着」再跳到列表（真机可复现）。
+            // 因此门必须由**首次真实发射**驱动：这里让 Room 侧一条都不发，libraryLoaded 必须为 false。
+            // 注意 booksFlow 必须在**构造前**传入：books 属性在初始化时就捕获了 observeBooks()
+            // 的返回值，构造后再重打桩是无效的。
+            val roomBooks = MutableSharedFlow<List<BookEntity>>()
+            val vm = createVm(booksFlow = roomBooks)
+
+            val collectJob = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                vm.books.collect { }
+            }
+            testScheduler.advanceUntilIdle()
+            assertFalse(
+                "Room 首发射未到达时不得判定为已加载，否则空态会冒充加载态",
+                vm.libraryLoaded.value,
+            )
+
+            // 空表也算「已发射」—— 空书架理应显示空态，只是不能在数据到达前显示。
+            roomBooks.emit(emptyList())
+            testScheduler.advanceUntilIdle()
+            assertTrue("首次发射到达（哪怕空表）即算已加载", vm.libraryLoaded.value)
+
+            // 显式退订并当场结算：stateIn 的订阅计数簿记会恢复共享协程（作用域是 viewModelScope
+            // ＝测试 Main）。拖到 runTest 收尾之后才结算会撞 resetMain()，污染后续测试类。
+            collectJob.cancel()
+            testScheduler.advanceUntilIdle()
+        }
+
     private fun sourceRef(bookId: String = "b1"): LibrarySourceRef = LibrarySourceRef(
         bookId = bookId,
         rootId = null,

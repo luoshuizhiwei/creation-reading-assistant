@@ -14,14 +14,19 @@ import com.creationreadingassistant.data.remote.SyncConfigStore
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.repository.StatsRepository
+import com.creationreadingassistant.data.repository.SearchIndexRepository
+import com.creationreadingassistant.data.repository.SearchIndexScheduler
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.feature.sync.JsonBridge
+import com.creationreadingassistant.feature.sync.LegadoReadingProgressImporter
 import com.creationreadingassistant.feature.sync.LocalZipBackup
 import com.creationreadingassistant.feature.sync.PairingManager
 import com.creationreadingassistant.feature.sync.WebDavBackup
 import com.creationreadingassistant.feature.sync.WebDavConfigStore
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -57,6 +62,8 @@ import org.junit.Test
 class ProfileViewModelTest {
     private val bookRepository = mockk<BookRepository>()
     private val statsRepository = mockk<StatsRepository>()
+    private val searchIndexRepository = mockk<SearchIndexRepository>(relaxed = true)
+    private val searchIndexScheduler = mockk<SearchIndexScheduler>(relaxed = true)
 
     // 子页专用实体流是否被收集的标记
     private val bookEntitiesCollected = AtomicBoolean(false)
@@ -104,6 +111,11 @@ class ProfileViewModelTest {
         )
         val goalScheduler = mockk<com.creationreadingassistant.feature.goal.ReadingGoalScheduler>(relaxed = true)
 
+        val syncPrefsStore = mockk<com.creationreadingassistant.data.settings.SyncPrefsStore>(relaxed = true)
+        every { syncPrefsStore.prefs } returns kotlinx.coroutines.flow.flowOf(
+            com.creationreadingassistant.data.settings.SyncPrefs(),
+        )
+
         val configStore = mockk<SyncConfigStore>(relaxed = true)
         every { configStore.config } returns null
         val webDavConfigStore = mockk<WebDavConfigStore>(relaxed = true)
@@ -111,21 +123,22 @@ class ProfileViewModelTest {
 
         vm = ProfileViewModel(
             jsonBridge = mockk<JsonBridge>(relaxed = true),
-            legadoImporter = mockk<com.creationreadingassistant.feature.sync.LegadoReadingProgressImporter>(relaxed = true),
             localZipBackup = mockk<LocalZipBackup>(relaxed = true),
             pairingManager = mockk<PairingManager>(relaxed = true),
             syncRepository = mockk<SyncRepository>(relaxed = true),
             configStore = configStore,
             webDavConfigStore = webDavConfigStore,
             webDavBackup = mockk<WebDavBackup>(relaxed = true),
+            legadoImporter = mockk<LegadoReadingProgressImporter>(relaxed = true),
             aiClient = mockk<AiClient>(relaxed = true),
             bookRepository = bookRepository,
             noteRepository = mockk<NoteRepository>(relaxed = true),
             statsRepository = statsRepository,
-            searchIndexRepository = mockk<com.creationreadingassistant.data.repository.SearchIndexRepository>(relaxed = true),
-            searchIndexScheduler = mockk<com.creationreadingassistant.data.repository.SearchIndexScheduler>(relaxed = true),
+            searchIndexRepository = searchIndexRepository,
+            searchIndexScheduler = searchIndexScheduler,
             goalStore = goalStore,
             goalScheduler = goalScheduler,
+            syncPrefsStore = syncPrefsStore,
             ioDispatcher = UnconfinedTestDispatcher(testScheduler),
             defaultDispatcher = UnconfinedTestDispatcher(testScheduler),
         )
@@ -142,6 +155,30 @@ class ProfileViewModelTest {
     ): ProfileHomeSummary = withContext(Dispatchers.Default.limitedParallelism(1)) {
         withTimeout(5_000) { vm.homeSummary.first(predicate) }
     }
+
+    /**
+     * 护栏：「重建索引」必须走仓储里挂了孤儿行回收的那条入口。
+     *
+     * 曾经的实现是自己内联 `invalidateSweepForFullRebuild()` + `triggerNow(force = true)`，
+     * 绕过了 `triggerFullRebuildNow()` 里的 `purgeOrphanIndexRows()` ⇒ 用户从
+     * 「存储 / 日志与诊断」页点「重建索引」，已删书的残留索引行永远清不掉
+     * （只有搜索结果页的索引状态胶囊那条入口会清）。
+     */
+    @Test
+    fun `rebuild search index delegates to the repository entry that purges orphan rows`() =
+        runTest(mainDispatcher) {
+            val messages = mutableListOf<String>()
+
+            vm.rebuildSearchIndex { messages += it }
+
+            // 1) 必须调用仓储入口 —— 孤儿行回收挂在它里面
+            coVerify(exactly = 1) { searchIndexRepository.triggerFullRebuildNow(searchIndexScheduler) }
+            // 2) 不得自己内联那两行（等价于绕过回收）
+            coVerify(exactly = 0) { searchIndexRepository.invalidateSweepForFullRebuild() }
+            verify(exactly = 0) { searchIndexScheduler.triggerNow(any()) }
+            // 3) 成功回调仍要给出用户可读提示
+            assertEquals(1, messages.size)
+        }
 
     @Test
     fun `home summary subscription must not trigger sub-page entity loads`() = runTest(mainDispatcher) {

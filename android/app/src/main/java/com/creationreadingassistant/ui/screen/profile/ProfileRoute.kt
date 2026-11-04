@@ -2,6 +2,7 @@ package com.creationreadingassistant.ui.screen.profile
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.creationreadingassistant.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -75,6 +76,11 @@ internal val LocalProfileSnackbar = staticCompositionLocalOf<SnackbarHostState?>
 internal fun ProfileRoute(
     navController: NavHostController? = null,
     subPage: ProfileSubPage? = null,
+    /**
+     * 设置搜索要聚焦的锚点（来自路由 `?focus=`）。null = 正常浏览。
+     * 只在聚焦生效期间挂到 [LocalFocusedSettingsAnchor] 上，滚动完成后即消费掉。
+     */
+    focusAnchor: String? = null,
     viewModel: ProfileViewModel = hiltViewModel(),
     settingsVm: SettingsViewModel = hiltViewModel(),
     taxonomyVm: TaxonomyViewModel = hiltViewModel(),
@@ -94,6 +100,7 @@ internal fun ProfileRoute(
     val webDavBackups by viewModel.webDavBackups.collectAsStateWithLifecycle()
     val legadoBackups by viewModel.legadoBackups.collectAsStateWithLifecycle()
     val aiMsg by viewModel.aiMsg.collectAsStateWithLifecycle()
+    val aiTesting by viewModel.aiTesting.collectAsStateWithLifecycle()
     val aiHttpWarning by viewModel.aiHttpWarning.collectAsStateWithLifecycle()
     val bridgeStatus by viewModel.bridgeStatus.collectAsStateWithLifecycle()
     val zipStatus by viewModel.zipStatus.collectAsStateWithLifecycle()
@@ -101,6 +108,8 @@ internal fun ProfileRoute(
     val goal by viewModel.goalState.collectAsStateWithLifecycle()
     val lastSyncResult by viewModel.lastSyncResult.collectAsStateWithLifecycle()
     val syncLogs by viewModel.syncLogs.collectAsStateWithLifecycle()
+    val syncPrefs by viewModel.syncPrefs.collectAsStateWithLifecycle()
+    val aboutUpdate by viewModel.aboutUpdate.collectAsStateWithLifecycle()
     val searchIndexProgress by viewModel.searchIndexProgress.collectAsStateWithLifecycle()
 
     // ---- 设置状态收集 ----
@@ -135,6 +144,19 @@ internal fun ProfileRoute(
     var confirmDialog by remember { mutableStateOf<ConfirmSpec?>(null) }
     // AI Key 用本地草稿编辑,保存时写回持久化(避免每次按键都写盘)
     var aiKeyDraft by remember(ai.apiKey) { mutableStateOf(ai.apiKey) }
+
+    // ---- 设置项搜索的滚动定位 ----
+    // 整页列表状态由 Route 持有后下发给子页：搜索命中项在几屏之外时，
+    // 光靠节点自身的 bringIntoViewRequester 够不着（那个节点还没被组合），
+    // 必须有人能驱动列表滚动。控制器的实现细节见 SettingsFocusController。
+    val focusController = remember(subPage) { SettingsFocusController() }
+    val settingsListState = rememberLazyListState()
+    val focusedAnchor = focusAnchor?.takeIf { it.isNotBlank() }
+    // 由 Route 启动滚动，而不是让目标锚点自己发起：目标在屏幕外时它还没被组合，
+    // 等它触发滚动就是死锁（首轮真机验证的症状：跳到了子页却停在页首）。
+    LaunchedEffect(focusedAnchor, subPage) {
+        focusedAnchor?.let { focusController.reveal(it) }
+    }
 
     // ---- 子页专用的完整档案数据:仅在进入某个子页后(currentSubPage != null)才订阅 ----
     //（首页不物化整库 books/progress/sessions/notes，避免任何 DB 变化都重算整库 + 排序）
@@ -280,6 +302,8 @@ internal fun ProfileRoute(
         baseUrl = config?.baseUrl,
         lastSyncResult = lastSyncResult,
         syncLogs = syncLogs,
+        syncPrefs = syncPrefs,
+        aboutUpdate = aboutUpdate,
         webDavConfig = webDavConfig,
         webDavBackups = webDavBackups,
         legadoBackups = legadoBackups,
@@ -292,6 +316,7 @@ internal fun ProfileRoute(
         ai = ai,
         aiHttpWarning = aiHttpWarning,
         aiKeyDraft = aiKeyDraft,
+        aiTesting = aiTesting,
         libraryState = libraryState,
         goal = goal,
         pendingDownloadCount = books.count { !isBookDownloaded(it) },
@@ -327,6 +352,11 @@ internal fun ProfileRoute(
     CompositionLocalProvider(
         LocalProfileSnackbar provides snackbarHostState,
         LocalAnnotationActions provides annotationActions,
+        // 聚焦锚点来自路由参数：子页的 SettingsAnchor 命中后自行高亮，
+        // 滚动则由 focusController 驱动（子页把列表状态登记进来）。
+        LocalFocusedSettingsAnchor provides focusedAnchor,
+        LocalSettingsFocusController provides focusController,
+        LocalSettingsListState provides settingsListState,
     ) {
         ProfileScreen(
             state = uiState,
@@ -381,6 +411,19 @@ private fun handleProfileAction(
                 navController?.navigate("profile/${action.page.routeSegment}")
             }
         }
+        // 搜索结果直达：带上 focus 锚点，子页据此滚到那一项。
+        // 锚点为空（子页兜底入口）时不带查询参数，等价于普通打开子页。
+        // READING 走独立的 "my-reading" 路由，那里没有设置项锚点体系，只做普通导航。
+        is ProfileAction.OpenSettingsEntry -> {
+            val nav = navController ?: return
+            if (action.page == ProfileSubPage.READING) {
+                nav.navigate("my-reading")
+            } else if (action.anchor.isBlank()) {
+                nav.navigate("profile/${action.page.routeSegment}")
+            } else {
+                nav.navigate("profile/${action.page.routeSegment}?focus=${Uri.encode(action.anchor)}")
+            }
+        }
         is ProfileAction.OpenBook -> navController?.navigate("reader/${action.bookId}")
         ProfileAction.OpenInspirations -> navController?.navigate("inspiration")
         ProfileAction.GoBack -> navController?.popBackStack()
@@ -388,18 +431,16 @@ private fun handleProfileAction(
 
         // ---- Sync ----
         is ProfileAction.StartPairing -> viewModel.startPairing(action.rawQr)
-        ProfileAction.RefreshLegadoBackups -> viewModel.loadLegadoBackups()
-        is ProfileAction.ImportLegadoBackup -> onConfirmDialogChange(
-            ConfirmSpec(
-                title = "导入开源阅读记录",
-                message = "将只读取 ${action.filename} 内的 bookshelf.json，并只导入能以书名和作者唯一匹配到本地 EPUB 或纯文本书籍的阅读位置。不会导入书源、设置、书架分组或正文；本地已有更可靠位置的书，以及 Markdown 书，都会跳过。确认继续？",
-                onConfirm = { viewModel.importLegadoBackup(context, action.filename) },
-            )
-        )
         ProfileAction.SyncNow -> viewModel.syncNow()
         ProfileAction.Unpair -> viewModel.unpair()
         is ProfileAction.RetryItem -> viewModel.retryItem(action.item)
         ProfileAction.RetryFailed -> viewModel.retryFailed()
+        is ProfileAction.SetSyncItem -> when (action.item) {
+            SyncToggleItem.BOOKS -> viewModel.setSyncBooks(action.enabled)
+            SyncToggleItem.PROGRESS -> viewModel.setSyncProgress(action.enabled)
+            SyncToggleItem.INSPIRATIONS -> viewModel.setSyncInspirations(action.enabled)
+        }
+        is ProfileAction.SetConflictStrategy -> viewModel.setConflictStrategy(action.strategy)
         ProfileAction.RebuildSearchIndex ->
             viewModel.rebuildSearchIndex { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }
 
@@ -409,13 +450,21 @@ private fun handleProfileAction(
             showMsg("WebDAV 配置已保存")
         }
         ProfileAction.UploadBackup -> viewModel.backupNow(context)
-        ProfileAction.TestWebDav -> viewModel.testWebDav()
+        is ProfileAction.TestWebDav -> viewModel.testWebDav(action.url, action.user, action.pass)
         ProfileAction.RefreshBackups -> viewModel.loadWebDavBackups()
         is ProfileAction.DownloadRestore -> onConfirmDialogChange(
             ConfirmSpec(
                 title = "恢复备份",
-                message = "恢复将按版本规则合并覆写当前书籍、灵感、进度与会话数据。恢复前已自动备份数据库快照，若出问题可从快照找回。确认继续？",
+                message = "恢复将按版本规则合并当前书籍、灵感、进度、会话、笔记、高亮、标签、分类、书单、正文规则与来源引用数据（旧版本记录不会覆盖新版本）。恢复前已自动备份数据库快照，若出问题可从快照找回。确认继续？",
                 onConfirm = { viewModel.downloadRestore(context, action.filename) },
+            )
+        )
+        ProfileAction.RefreshLegadoBackups -> viewModel.loadLegadoBackups()
+        is ProfileAction.ImportLegadoBackup -> onConfirmDialogChange(
+            ConfirmSpec(
+                title = "导入开源阅读记录",
+                message = "将只读取 ${action.filename} 内的 bookshelf.json，并只导入能以书名和作者唯一匹配到本地 EPUB 或纯文本书籍的阅读位置。不会导入书源、设置、书架分组或正文；本地已有更可靠位置的书，以及 Markdown 书，都会跳过。确认继续？",
+                onConfirm = { viewModel.importLegadoBackup(context, action.filename) },
             )
         )
         ProfileAction.ClearWebDav -> {
@@ -479,7 +528,7 @@ private fun handleProfileAction(
         ProfileAction.Import -> onConfirmDialogChange(
             ConfirmSpec(
                 title = "导入数据",
-                message = "导入将按版本规则合并覆写当前书籍、灵感、进度与会话数据（旧版本记录不会覆盖新版本）。建议先导出备份。确认继续？",
+                message = "导入将按版本规则合并当前书籍、灵感、进度、会话、笔记、高亮、标签、分类、书单、正文规则与来源引用数据（旧版本记录不会覆盖新版本）。建议先导出备份。确认继续？",
                 onConfirm = { importLauncher.launch(arrayOf("application/json", "*/*")) },
             )
         )
@@ -498,14 +547,23 @@ private fun handleProfileAction(
                     message = "确认清理阅读器正文缓存?将删除本地缓存条目(含 EPUB 解压缓存、图片缓存),释放后可重新生成。不会删除正式书籍、进度、书签和笔记。",
                     onConfirm = {
                         val freed = clearReaderCache(context)
-                        showMsg("已清理缓存,释放 ${formatBytes(freed)}")
+                        showMsg("已清理阅读器临时缓存,释放 ${formatBytes(freed)}")
                     },
                 )
             )
         }
+        ProfileAction.ClearReaderCacheNow -> {
+            // 该动作只来自「清空所有离线书籍」确认流：本消息只覆盖阅读器临时缓存，
+            // 不得写成笼统的「已清理缓存」——离线正文的清空结果以上一条 ShowMessage 为准。
+            val freed = clearReaderCache(context)
+            showMsg("已清理阅读器临时缓存,释放 ${formatBytes(freed)}")
+        }
 
         // ---- AI ----
         ProfileAction.TestAi -> viewModel.testAi()
+
+        // ---- 检查更新 ----
+        is ProfileAction.CheckUpdate -> viewModel.checkUpdate(action.currentVersion)
 
         // ---- Snackbar ----
         is ProfileAction.ShowMessage -> showMsg(action.text)

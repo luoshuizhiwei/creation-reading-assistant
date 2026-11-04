@@ -285,6 +285,13 @@ internal fun ReaderProgressEffects(
                     initialPositionPending = initialPositionPending,
                     temporaryInspection = temporaryInspection,
                 )?.let(onSourcePositionChanged)
+                // 书架进度卡要显示「第 N 章」，TXT 也存真实章号 —— 此前恒写 0，书架永远显示
+                // 「第1章」（用户 2026-09-18 反馈）。恢复端（parseStoredAbsoluteOffset）只读
+                // legacyOffset，不读 ci，因此对 TXT 写真实章号不影响续读定位。
+                // 章号用全书 chapterStartOffsets 反推：effect 协程里读组合参数 chapterIndex
+                // 会拿到启动时的旧值，不可靠。
+                val ci = com.creationreadingassistant.feature.reader.locator.EpubLocatorMapping
+                    .toChapterOffset(offset.coerceAtLeast(0), chapterStartOffsets).first
                 onAction(ReaderAction.SaveProgress(
                     ReadingProgressEntity(
                         book_id = bid,
@@ -292,7 +299,7 @@ internal fun ReaderProgressEffects(
                         completion_state = if (percent >= 99.9f) "finished" else "reading",
                         current_location_json = LocatorBuilder.progressJson(
                             legacyOffset = offset.coerceAtLeast(0),
-                            chapterIndex = 0,
+                            chapterIndex = ci.coerceAtLeast(0),
                             charOffset = offset.coerceAtLeast(0),
                             space = if (markdownDocument != null) "canonical" else null,
                         ),
@@ -342,6 +349,12 @@ internal fun ReaderProgressEffects(
                     val chapterOffset = off - source.chapterStartAbs(ci)
                     onAction(ReaderAction.SaveEpubProgress(bid, ci, pct, chapterOffset, absoluteOffset = off))
                 } else {
+                    // TXT/Markdown 分页路径同样存真实章号（见上方滚动路径的说明）。
+                    // 注意不能用 pagedSource.chapterIndexFor —— 它是**当前章作用域**的
+                    // source，章数恒为 1，只会返回 0（真机验证踩过）。这里用全书
+                    // chapterStartOffsets 反推，与保存的 offset 自洽。
+                    val ci = com.creationreadingassistant.feature.reader.locator.EpubLocatorMapping
+                        .toChapterOffset(off.coerceAtLeast(0), chapterStartOffsets).first
                     onAction(ReaderAction.SaveProgress(
                         ReadingProgressEntity(
                             book_id = bid,
@@ -349,7 +362,7 @@ internal fun ReaderProgressEffects(
                             completion_state = if (pct >= 99.9f) "finished" else "reading",
                             current_location_json = LocatorBuilder.progressJson(
                                 legacyOffset = off.coerceAtLeast(0),
-                                chapterIndex = 0,
+                                chapterIndex = ci.coerceAtLeast(0),
                                 charOffset = off.coerceAtLeast(0),
                                 space = if (markdownDocument != null) "canonical" else null,
                             ),
@@ -519,6 +532,13 @@ internal fun ReaderProgressEffects(
     }
 
     // SE4：精确跳转 —— 打开阅读器并定位到该高亮/笔记所在位置（优先 locator_json 行内偏移，兜底 chapter_title / progress_percent）。
+    //
+    // M-BUG-10：key 里补上 isLoading / error / pendingSourceLocatorJsonState.value。
+    // 这三项**在函数体内被读，却从来不是 key**：首次运行多半发生在文档尚未就绪时，
+    // 于是走 `isLoading` 分支**提前返回且不消费** pendingHighlightId；此后它只能靠
+    // highlights/notes 这类 Room 流发射才重跑 —— 表现为「阅读中途毫无征兆地跳到某条
+    // 批注/高亮的位置」（用户报告的"突然回到之前的阅读进度"）。纳入 key 后，请求会在
+    // 文档就绪 / 源定位让位之后**立即**被消费，不再滞留到某个无关的流发射时刻。
     LaunchedEffect(
         bid,
         epubBook,
@@ -526,6 +546,9 @@ internal fun ReaderProgressEffects(
         highlights,
         notes,
         pendingHighlightIdState.value,
+        isLoading,
+        error,
+        pendingSourceLocatorJsonState.value,
     ) {
         if (pendingSourceLocatorJsonState.value != null) return@LaunchedEffect
         val hid = pendingHighlightIdState.value ?: return@LaunchedEffect

@@ -40,6 +40,13 @@ object AtomicUnits {
                     if (j - i >= 2) markRange(out, i, j, nextId++)
                     i = j
                 }
+                // 叠用叹号/问号（如 ！？、？！、！！、？？）：连续出现成对的情感标点不可拆行
+                isExclamationOrQuestion(clusters.text[clusters.startInText[i]]) -> {
+                    var j = i
+                    while (j < n && isExclamationOrQuestion(clusters.text[clusters.startInText[j]])) j++
+                    if (j - i >= 2) markRange(out, i, j, nextId++)
+                    i = j
+                }
                 // 西文词与数字串：连续的拉丁/数字视为一体
                 CharClass.isLatinLike(k) -> {
                     var j = i
@@ -93,4 +100,7 @@ object AtomicUnits {
     private fun markRange(out: IntArray, from: Int, until: Int, id: Int) {
         for (i in from until until.coerceAtMost(out.size)) out[i] = id
     }
+
+    private fun isExclamationOrQuestion(c: Char): Boolean =
+        c == '！' || c == '？' || c == '!' || c == '?'
 }

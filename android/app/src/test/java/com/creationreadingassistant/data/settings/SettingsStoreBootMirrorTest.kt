@@ -9,18 +9,14 @@ import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -33,28 +29,6 @@ import org.junit.Test
  *
  * 修复：写入时把这两个字段镜像到 SharedPreferences，启动时同步读回作首帧初始值。
  * 本测试用**新实例 + 同一份 SharedPreferences**模拟冷启动，断言首帧值不等于默认值。
- *
- * ## 等待口径（2026-09-30 隔离修复）
- *
- * `appearance` / `reader` 都是 `ds.data.map { ... }.stateIn(scope, WhileSubscribed, 镜像值)`。
- * 由此有两个必须记住的事实：
- *
- * 1. **StateFlow 的 `first()` / `first { 值谓词 }` 会立刻命中初始（镜像/默认）值并返回**，
- *    所以 `appearance.first()` **不是**「等磁盘状态加载」（旧注释如此声称，但实现并非如此）；
- * 2. **StateFlow 会合并相等的值**：当 DataStore 读出的值恰好等于初始值时上游不向下游发射，
- *    而镜像回填副作用发生在**上游 `map` 内部**（先于 `state.value =` 赋值）——「下游收到
- *    发射」与「回填已发生」是两件事。
- *
- * 旧写法把「镜像已回填」建立在值谓词等待上，于是断言变成「上游是否刚好抢在断言前跑完」的
- * 时序赌博：2026-09-30 联合全量首轮
- * `legacy datastore default system theme marks mirror as present after first load`
- * 就在 `SettingsStoreBootMirrorTest.kt:146` 失败（期望 `hasThemeMode == true` 实得 `false`）
- * —— 等待返回了、回填却还没跑。
- *
- * 因此本类统一改为**订阅上游 + 等可观测副作用**（启动镜像被回填），见
- * [awaitAppearanceUpstream] / [awaitBootThemeBackfilled]；并用
- * [appearance state flow holds the mirror value while data store holds the authoritative value]
- * 把这条机制固定成**确定性**回归用例。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsStoreBootMirrorTest {
@@ -75,75 +49,15 @@ class SettingsStoreBootMirrorTest {
 
     @After
     fun tearDown() {
-        // 资源关闭：本类在 scope 上启动的迁移/共享协程（SettingsStore.init 的
-        // migrateLegacyReaderDefaultsOnce、stateIn 的 WhileSubscribed 上游）都在这里停止，
-        // 不会带着 mock Context 跨测试方法存活。
         scope.cancel()
         unmockkObject(SecurePrefs)
     }
 
-    /**
-     * 等「DataStore → [SettingsStore.appearance] 上游」真正跑过一次，并（可选）等镜像回填到 [expected]。
-     *
-     * 为什么不能写成 `appearance.first { ... }`：
-     * 1. `appearance` 是 `stateIn(scope, WhileSubscribed, initialValue = 镜像值)`。**StateFlow 会
-     *    合并相等的值**：当 DataStore 读出的 `AppearanceSettings` 恰好等于初始值时（默认主题 +
-     *    默认调色板就是这种情况），上游**不会**向下游发射 —— 于是 `first { 值谓词 }` 要么立刻
-     *    命中初始值返回、要么永远等不到发射，两种都不是「上游已跑过」的证据；
-     * 2. 而镜像回填副作用发生在**上游 `map` 内部**（先于 `state.value =` 赋值）。也就是说
-     *    「下游有没有收到发射」与「回填有没有发生」本来就是两件事。
-     *
-     * 因此这里显式**订阅上游**（`collect` 只保持订阅、不依赖是否发射），再在真实时间上等那个
-     * 副作用出现。轮询带超时，失败信息给出实际镜像状态，不会静默通过。
-     */
-    private suspend fun awaitAppearanceUpstream(store: SettingsStore, expected: String? = null) {
-        val subscription = scope.launch { store.appearance.collect { } }
-        try {
-            withContext(Dispatchers.Default) {
-                val deadline = System.nanoTime() + WAIT_TIMEOUT_NANOS
-                while (true) {
-                    val has = BootMirror.hasThemeMode(context)
-                    val mode = BootMirror.themeMode(context)
-                    if (has && (expected == null || mode == expected)) return@withContext
-                    if (System.nanoTime() > deadline) {
-                        throw AssertionError(
-                            "等待 appearance 上游回填启动镜像超时：" +
-                                "expected=${expected ?: "<任意>"}, hasThemeMode=$has, themeMode=$mode",
-                        )
-                    }
-                    Thread.sleep(5)
-                }
-            }
-        } finally {
-            subscription.cancel()
-        }
-    }
-
-    /** 等启动镜像被回填为 [expected]（同时保证上游已跑过一次）。 */
-    private suspend fun awaitBootThemeBackfilled(store: SettingsStore, expected: String) {
-        awaitAppearanceUpstream(store, expected)
-    }
-
-    /** 抹掉启动镜像，模拟「从未带 BootMirror 的旧版本升级」。 */
-    private fun clearBootMirror() {
-        context.getSharedPreferences("cra_boot_mirror", Context.MODE_PRIVATE).edit().clear().apply()
-    }
-
-    /** 底层 DataStore 里 `appearance_theme_mode` 的权威值（不经过 StateFlow 缓存）。 */
-    private suspend fun storedThemeMode(store: SettingsStore): String? =
-        store.preferencesDataStore.data.first()
-            .asMap()
-            .entries
-            .firstOrNull { it.key.name == "appearance_theme_mode" }
-            ?.value as? String
-
     @Test
     fun `cold start appearance first value uses stored theme instead of default`() = runTest {
         val first = SettingsStore(context, scope)
-        // 等权威值真正加载进 StateFlow（不是等它的初始值）。
-        awaitAppearanceUpstream(first)
+        first.appearance.first() // 等磁盘状态加载，避免基于旧缓存值更新
         first.updateAppearance { copy(themeMode = "dark") }
-        assertEquals("dark", storedThemeMode(first))
 
         // 模拟冷启动：新建实例（DataStore 尚未 emit），但 SharedPreferences 镜像仍在。
         val restarted = SettingsStore(context, scope)
@@ -158,7 +72,7 @@ class SettingsStoreBootMirrorTest {
     @Test
     fun `cold start reader first value uses stored paper instead of default`() = runTest {
         val first = SettingsStore(context, scope)
-        awaitAppearanceUpstream(first)
+        first.reader.first()
         first.updateReader { copy(background = "night") }
 
         val restarted = SettingsStore(context, scope)
@@ -183,14 +97,14 @@ class SettingsStoreBootMirrorTest {
         // 先用正式写路径建立“旧用户已有 DataStore 主题”的状态，再抹去只有新版才有的镜像，
         // 模拟从未带 BootMirror 的版本升级。
         val existingUser = SettingsStore(context, scope)
-        awaitAppearanceUpstream(existingUser)
+        existingUser.appearance.first()
         existingUser.updateAppearance { copy(themeMode = "dark") }
-        clearBootMirror()
+        context.getSharedPreferences("cra_boot_mirror", Context.MODE_PRIVATE).edit().clear().apply()
         assertEquals("升级前没有启动镜像", "system", BootMirror.themeMode(context))
         assertEquals(false, BootMirror.hasThemeMode(context))
 
         val upgraded = SettingsStore(context, scope)
-        awaitBootThemeBackfilled(upgraded, "dark")
+        upgraded.appearance.first { it.themeMode == "dark" }
 
         assertEquals("首次读到 DataStore 的权威值后必须补齐镜像", "dark", BootMirror.themeMode(context))
         assertEquals(true, BootMirror.hasThemeMode(context))
@@ -201,14 +115,14 @@ class SettingsStoreBootMirrorTest {
     @Test
     fun `legacy datastore explicit light theme backfills a missing boot mirror after first load`() = runTest {
         val existingUser = SettingsStore(context, scope)
-        awaitAppearanceUpstream(existingUser)
+        existingUser.appearance.first()
         existingUser.updateAppearance { copy(themeMode = "light") }
-        clearBootMirror()
+        context.getSharedPreferences("cra_boot_mirror", Context.MODE_PRIVATE).edit().clear().apply()
         assertEquals("升级前没有启动镜像", "system", BootMirror.themeMode(context))
         assertEquals(false, BootMirror.hasThemeMode(context))
 
         val upgraded = SettingsStore(context, scope)
-        awaitBootThemeBackfilled(upgraded, "light")
+        upgraded.appearance.first { it.themeMode == "light" }
 
         assertEquals("首次读到 DataStore 的显式 light 后必须补齐镜像", "light", BootMirror.themeMode(context))
         assertEquals(true, BootMirror.hasThemeMode(context))
@@ -220,62 +134,19 @@ class SettingsStoreBootMirrorTest {
     fun `legacy datastore default system theme marks mirror as present after first load`() = runTest {
         // 先确保底层 DataStore 存有 system，再抹去镜像，模拟升级前无镜像但 DataStore 默认跟随系统的用户
         val existingUser = SettingsStore(context, scope)
-        awaitAppearanceUpstream(existingUser)
+        existingUser.appearance.first()
         existingUser.updateAppearance { copy(themeMode = "system") }
-        clearBootMirror()
+        context.getSharedPreferences("cra_boot_mirror", Context.MODE_PRIVATE).edit().clear().apply()
         assertEquals("升级前无镜像标记", false, BootMirror.hasThemeMode(context))
         assertEquals("升级前读取回落为 system", "system", BootMirror.themeMode(context))
 
         val upgraded = SettingsStore(context, scope)
-        // 这里必须等**回填副作用**，不能等值谓词：期望值 system 恰等于镜像/默认初始值，
-        // `first { it.themeMode == "system" }` 会立刻命中初始值返回，回填却可能还没跑。
-        awaitBootThemeBackfilled(upgraded, "system")
+        upgraded.appearance.first { it.themeMode == "system" }
 
         assertEquals("首次加载后必须记录镜像已就绪状态", true, BootMirror.hasThemeMode(context))
         assertEquals("回填后镜像主题为 system", "system", BootMirror.themeMode(context))
         val nextColdStart = SettingsStore(context, scope)
         assertEquals("冷启动首帧为 system", "system", nextColdStart.appearance.value.themeMode)
-    }
-
-    // ── 根因守卫：StateFlow 的值谓词不是 DataStore 的同步点 ────────────────────
-
-    /**
-     * 把 2026-09-30 偶发失败的机制固定成**确定性**回归用例（不依赖时序）。
-     *
-     * 让 DataStore 的权威值为 `dark`、镜像抹空，于是新实例的 StateFlow 在未被订阅时只有
-     * 初始值 `system` —— 它与 DataStore 的 `dark` **不同**，也正是
-     * `first { it.themeMode == "system" }` 能够立刻命中的那个值。所以值谓词等待不能作为
-     * 「上游已跑过 / 镜像已回填」的证据；只有等副作用（[awaitBootThemeBackfilled]）才可以。
-     */
-    @Test
-    fun `appearance state flow holds the mirror value while data store holds the authoritative value`() = runTest {
-        val seeded = SettingsStore(context, scope)
-        awaitAppearanceUpstream(seeded)
-        seeded.updateAppearance { copy(themeMode = "dark") }
-        assertEquals(
-            "权威单事实源（底层 DataStore）应已写入 dark",
-            "dark",
-            storedThemeMode(seeded),
-        )
-
-        clearBootMirror()
-
-        val restarted = SettingsStore(context, scope)
-        assertEquals(
-            "未订阅时 StateFlow 只有初始值：来自镜像/默认，不是 DataStore 的 dark",
-            "system",
-            restarted.appearance.value.themeMode,
-        )
-        assertEquals(
-            "同一时刻 DataStore 的权威值仍是 dark",
-            "dark",
-            storedThemeMode(restarted),
-        )
-
-        // 对照：等副作用则必然等到上游真的补回镜像为止（确定性，且不可能被初始值命中）。
-        awaitBootThemeBackfilled(restarted, "dark")
-        assertTrue("等到副作用后镜像必然存在", BootMirror.hasThemeMode(context))
-        assertEquals("且回填的是 DataStore 的权威值 dark", "dark", BootMirror.themeMode(context))
     }
 
     // ── S06 主题决议五大路径与系统映射测试 ────────────────────────────────────
@@ -381,10 +252,5 @@ class SettingsStoreBootMirrorTest {
             android.app.UiModeManager.MODE_NIGHT_AUTO,
             BootMirror.desiredNightMode("unrecognized"),
         )
-    }
-
-    private companion object {
-        /** 等上游副作用的真实时间上限：DataStore 首读 + 一次 map 的正常耗时远低于此。 */
-        const val WAIT_TIMEOUT_NANOS = 10_000_000_000L
     }
 }

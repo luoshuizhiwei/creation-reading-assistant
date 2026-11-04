@@ -138,6 +138,12 @@ interface TtsEngine : AutoCloseable {
     /** 定时停止（分钟），0 = 关闭；播放中调用会立即重排定时。 */
     fun setTimedStop(minutes: Int)
 
+    /** 睡眠定时剩余秒数，0 表示未开启或已结束。 */
+    val timedStopRemainingSeconds: Int get() = 0
+
+    /** 快捷延长睡眠定时（追加指定分钟）。 */
+    fun extendTimedStop(additionalMinutes: Int = 15) {}
+
     /**
      * 兼容旧读取方：idle / playing / paused。
      * 保持 [TtsController.status] 字符串契约避免大规模改动 TtsBar / MediaSession。

@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +49,13 @@ import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.theme.resolve
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+
+/**
+ * 子页级扁平卡片开关。为 true 时 [SectionCard] 只保留容器色与发丝描边，
+ * 关掉纸感渐变、噪点与玻璃高光——二级设置页卡片数量多，逐张叠材质会让版面发糊。
+ * 首页/书架等主角页保持 false。
+ */
+val LocalFlatCards = staticCompositionLocalOf { false }
 
 /**
  * 统一区块卡片。消费 [LocalComponentSpec]，自动适配三套主题的圆角/边框/底色/阴影。
@@ -88,7 +96,12 @@ fun SectionCard(
     }
     val borderColor = if (spec.borderSubtle) scheme.outlineVariant else scheme.outline
     val shape = spec.cardShape
-    val border = BorderStroke(spec.borderWidth, borderColor)
+    val flat = LocalFlatCards.current
+    val border = if (flat) {
+        BorderStroke(0.5.dp, scheme.outlineVariant)
+    } else {
+        BorderStroke(spec.borderWidth, borderColor)
+    }
     val pad = contentPadding ?: LocalLayoutTokens.current.cardPadding
     // 按压手感统一：与 SettingRow / SelectablePill 共享同一套 bounceable 弹簧 + 轻触感。
     val cardInteraction = remember { MutableInteractionSource() }
@@ -101,12 +114,14 @@ fun SectionCard(
     val paperBottom = lerp(container, Color.Black, 0.04f)
     val texturedContent: @Composable () -> Unit = {
         Box(Modifier.fillMaxSize()) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(Brush.verticalGradient(listOf(paperTop, paperBottom)))
-                    .background(PaperNoise.brush(), alpha = 0.035f),
-            )
+            if (!flat) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Brush.verticalGradient(listOf(paperTop, paperBottom)))
+                        .background(PaperNoise.brush(), alpha = 0.035f),
+                )
+            }
             Column(Modifier.fillMaxWidth().padding(pad), content = content)
         }
     }
@@ -120,8 +135,8 @@ fun SectionCard(
                 shape = shape,
                 color = container,
                 border = border,
-                tonalElevation = spec.cardElevation,
-                shadowElevation = spec.cardElevationAmbient,
+                tonalElevation = if (flat) 0.dp else spec.cardElevation,
+                shadowElevation = if (flat) 0.dp else spec.cardElevationAmbient,
                 content = texturedContent,
             )
         } else {
@@ -129,12 +144,12 @@ fun SectionCard(
                 shape = shape,
                 color = container,
                 border = border,
-                tonalElevation = spec.cardElevation,
-                shadowElevation = spec.cardElevationAmbient,
+                tonalElevation = if (flat) 0.dp else spec.cardElevation,
+                shadowElevation = if (flat) 0.dp else spec.cardElevationAmbient,
                 content = texturedContent,
             )
         }
-        if (palette != null && spec.glassEnabled) {
+        if (!flat && palette != null && spec.glassEnabled) {
             GlassOverlays(shape = shape, palette = palette)
         }
     }
@@ -253,6 +268,9 @@ fun SettingRow(
 ) {
     val spec = LocalComponentSpec.current
     val layout = LocalLayoutTokens.current
+    // 行高/内边距/字号统一取自 settingsMetrics()：REGULAR 档逐项等于原先写死的值，
+    // 因此阅读器面板与灵感页观感不变；只有 provide 了 COMPACT 的子树（「我的」）会收紧。
+    val metrics = settingsMetrics()
     val shape = spec.listItemShape
     val interactionSource = remember { MutableInteractionSource() }
     // G 档：组件内建轻触感，所有 SettingRow（排序/批量/设置/阅读器弹层）统一手感；调用处勿再重复触发
@@ -262,9 +280,9 @@ fun SettingRow(
             .fillMaxWidth()
             .heightIn(
                 min = if (subtitle == null) {
-                    layout.singleLineRowHeight
+                    metrics.singleLineRowHeight
                 } else {
-                    layout.supportingRowHeight
+                    metrics.supportingRowHeight
                 },
             )
             .then(
@@ -281,8 +299,8 @@ fun SettingRow(
                 },
             )
             .padding(
-                horizontal = layout.cardPadding,
-                vertical = layout.relatedGap,
+                horizontal = metrics.horizontalPadding,
+                vertical = metrics.verticalPadding,
             ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(layout.contentGap),
@@ -293,14 +311,20 @@ fun SettingRow(
         Column(Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = metrics.titleSize,
+                    lineHeight = metrics.titleLineHeight,
+                ),
                 color = MaterialTheme.colorScheme.onSurface,
             )
             if (subtitle != null) {
                 Spacer(Modifier.height(layout.microGap))
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = metrics.subtitleSize,
+                        lineHeight = metrics.subtitleLineHeight,
+                    ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

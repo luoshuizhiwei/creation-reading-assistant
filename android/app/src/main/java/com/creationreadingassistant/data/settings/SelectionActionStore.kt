@@ -28,7 +28,9 @@ class SelectionActionStore @Inject constructor(
     val settings: Flow<SelectionActionSettings> = ds.data.map { prefs ->
         SelectionActions.sanitize(
             SelectionActionSettings(
-                enabledPrimary = prefs[KEY_PRIMARY] ?: SelectionActions.DEFAULT_PRIMARY,
+                // 走 resolveStoredPrimary：老用户（存的是 3 槽历史默认）自动升级到新默认，
+                // 自定义过的配置原样保留。
+                enabledPrimary = SelectionActions.resolveStoredPrimary(prefs[KEY_PRIMARY]),
                 enabledMore = prefs[KEY_MORE] ?: SelectionActions.DEFAULT_MORE,
                 browserUrlTemplate = prefs[KEY_BROWSER_TEMPLATE] ?: SelectionActions.DEFAULT_BROWSER_TEMPLATE,
                 dictionaryUrlTemplate = prefs[KEY_DICTIONARY_TEMPLATE]
@@ -46,6 +48,10 @@ class SelectionActionStore @Inject constructor(
      *
      * 拒绝写入的情况（保持原值不变，绝不写坏配置）：
      * - 未知 id、固定组（「取消选择」不可隐藏）；
+     * - **dormant 动作**（[SelectionActions.DORMANT_IDS]，目前是未接线的「编辑」）：
+     *   读侧 [SelectionActions.pickableDefs] 已把它挡在可配置清单外，写侧也必须拒绝 ——
+     *   否则一个旧版本写下的 `edit` 或者绕过设置页的直接调用，会让它进入持久化集合，
+     *   将来接线时突然出现在工具条上；
      * - 移出后高频槽会空 —— 选中文字后没有任何入口；
      * - 放进后超过 [SelectionActions.MAX_PRIMARY_SLOTS] 个 —— 会把胶囊挤到不可点。
      */
@@ -57,6 +63,7 @@ class SelectionActionStore @Inject constructor(
     ) {
         val def = SelectionActions.byId(id) ?: return
         if (def.group == SelectionActionGroup.FIXED) return
+        if (id in SelectionActions.DORMANT_IDS) return
         if (target == SelectionActionGroup.FIXED) return
 
         val key = if (target == SelectionActionGroup.PRIMARY) KEY_PRIMARY else KEY_MORE

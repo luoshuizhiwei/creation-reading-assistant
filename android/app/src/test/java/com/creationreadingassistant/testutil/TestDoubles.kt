@@ -111,32 +111,15 @@ class InMemorySharedPreferences : SharedPreferences {
 /**
  * DataStore 单测的稳定文件根目录。
  *
- * **为什么同一次运行内必须唯一**：`preferencesDataStore` 委托把 DataStore 实例缓存为
- * 进程级单例，并以**首个** Context 的 `filesDir` 作为落盘目录；之后即使传入别的目录也
- * 不会被采用。所以同一次 JVM 运行内所有测试必须共用同一个根，否则会出现
- * 「测试以为在写 A 目录、DataStore 实际写 B 目录」的假隔离。
- *
- * **为什么又要按运行隔离**：该根一旦固定，上一次运行残留的 `app_settings` 等文件会被
- * 本次运行直接读进来 —— 既让「全新环境」类断言读到旧值，也让 DataStore 首次发射的
- * 时机随文件系统状态漂移（2026-09-30 联合全量首轮 `SettingsStoreBootMirrorTest`
- * 偶发失败的环境因素之一）。故以 JVM 启动标识生成一次性目录，并在 JVM 退出时递归
- * 删除（资源关闭，不留跨运行残渣）。
- *
- * **同运行内的跨测试类隔离**不靠目录实现（做不到，见上），而靠「每个测试显式建立自己
- * 依赖的状态并等待其落定」，见 `SettingsStoreBootMirrorTest` 的 await 辅助。
+ * preferencesDataStore 委托在每个顶级属性上只创建一次 DataStore 实例，并以首个
+ * Context 的 filesDir 作为落盘目录；因此所有 JVM 测试必须共用同一个稳定目录，
+ * 避免不同测试类之间的委托缓存指向不存在的目录。
  */
 object TestDataStoreDirs {
     val root: File by lazy {
-        val dir = Files.createDirectories(
-            File(System.getProperty("java.io.tmpdir"), "cra-datastore-tests-${runId()}").toPath(),
-        ).toFile()
-        Runtime.getRuntime().addShutdownHook(Thread { runCatching { dir.deleteRecursively() } })
+        val dir = Files.createDirectories(File(System.getProperty("java.io.tmpdir"), "cra-datastore-tests").toPath()).toFile()
         dir
     }
-
-    /** 本次 JVM 运行的唯一标识：跨运行不复用同一目录，避免读到上次运行的数据。 */
-    private fun runId(): String =
-        "${System.currentTimeMillis()}-${java.util.UUID.randomUUID().toString().take(8)}"
 }
 
 /**

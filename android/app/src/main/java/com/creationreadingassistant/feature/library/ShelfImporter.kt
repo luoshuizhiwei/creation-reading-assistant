@@ -57,6 +57,23 @@ sealed interface SourceRefreshResult {
     /** 有来源引用但执行失败：持久授权失效、文件已删除、格式不符、写入异常等。 */
     data class Failed(val message: String) : SourceRefreshResult
 }
+
+/**
+ * 某一批导入的成功结果，[batchId] 与 [bookIds] **绑在一起原子发布**（S05-④ 复核补强）。
+ *
+ * 为什么不只暴露一个 `List<String>`：UI 在「导入完成提示」上点「查看」时，必须拿到
+ * **与那条提示同一个批次**的成功 id。若批次 id 与 id 列表分两次写、或 UI 侧读的是
+ * Compose 异步收集到的最近一帧，就可能出现「提示还是旧批次、id 已是新批次」的错配，
+ * 于是用户点旧提示却被带去新批次的书。两者放进同一个不可变对象、一次赋值发布，
+ * 调用方再同步读 `.value`，这个错配就不可能发生。
+ */
+data class ImportBatchSuccesses(
+    /** 批次 id；空串表示还没有跑过任何批次。 */
+    val batchId: String = "",
+    /** 该批成功新增的 bookId，按导入顺序、已去重。 */
+    val bookIds: List<String> = emptyList(),
+)
+
 /**
  * 书架导入管线 —— 真实 SAF 导入（EPUB/TXT/MD）、文件夹扫描、修复缺失正文，
  * 以及导入任务队列 / 批量进度 / 导入历史的状态管理。
@@ -79,17 +96,45 @@ class ShelfImporter @Inject constructor(
     private val indexRefreshCoordinator: SearchIndexBookRefreshCoordinator,
 ) {
 
+
     /**
      * 当前书架上的书籍列表（用于重复导入检测），由 ViewModel 在使用前注入最新值来源。
      * 不放构造参数是为了让本类可被 Hilt 直接注入（未加 scope，每个 ViewModel 仍是新实例）。
      */
     var booksProvider: () -> List<BookEntity> = { emptyList() }
 
+    /**
+     * 每次**成功导入一本新书**后回调其 bookId，由 ViewModel 记录为「新导入未查看」。
+     *
+     * 只在 [ImportOutcome.Success] 时触发：重复、跳过、失败都不算新书，
+     * 否则「已存在，未重复导入」的书也会挂上「新」角标。
+     * 与 [booksProvider] 同样用 var 而非构造参数，保持本类可被 Hilt 直接注入。
+     */
+    var onBookImported: (String) -> Unit = {}
+
     private val _importTasks = MutableStateFlow<List<ImportTaskUi>>(emptyList())
     val importTasks: StateFlow<List<ImportTaskUi>> = _importTasks.asStateFlow()
 
     private val _importBatch = MutableStateFlow(ImportBatchUiState())
     val importBatch: StateFlow<ImportBatchUiState> = _importBatch.asStateFlow()
+
+    private val _batchSuccesses = MutableStateFlow(ImportBatchSuccesses())
+
+    /**
+     * 最近一批导入的成功 id，**与批次 id 一起原子发布**；新批次开始时整体重置。
+     *
+     * 为什么不能复用 `ShelfPrefs.newBookIds`（S05-④）：后者是**跨批次的持久「未查看」集合**，
+     * 只有用户真正打开过那本书才会移除。导入完成点「查看」时若取它的 `firstOrNull()`，
+     * 拿到的可能是**上一批**留下且从未打开的书 —— 于是「查看」滚到了旧书上。
+     *
+     * 调用方（`ShelfRoute`）应在**点按那一刻同步读** `batchSuccesses.value` 并核对
+     * `batchId`，不要依赖 Compose 异步收集到的最近一帧：那不能保证与「提示对应的批次
+     * 结果」原子同步。见 [ImportBatchSuccesses] 的说明。
+     *
+     * 口径与 [ImportBatchUiState.succeeded] 一致：重复 / 跳过 / 失败都不计入，
+     * 且与同一成功分支里自增 `succeeded`，两者不会分叉。
+     */
+    val batchSuccesses: StateFlow<ImportBatchSuccesses> = _batchSuccesses.asStateFlow()
 
     val importHistory: StateFlow<List<ImportHistoryEntry>> = importHistoryStore.entries
 
@@ -466,6 +511,20 @@ class ShelfImporter @Inject constructor(
             isRunning = true,
         )
         _importBatch.value = state
+        // 本批候选整体重置，并把批次 id 一起写进去：上一批的成功 id 不得泄漏进这一批的
+        // 「查看」定位，也不能出现「批次 id 已是新的、id 列表还是旧的」这种半截状态（S05-④）。
+        val succeededBookIds = mutableListOf<String>()
+        _batchSuccesses.value = ImportBatchSuccesses(batchId = batchId)
+        var lastBatchEmitMs = System.currentTimeMillis()
+
+        fun emitProgress(force: Boolean = false) {
+            val now = System.currentTimeMillis()
+            if (force || now - lastBatchEmitMs >= BATCH_EMIT_THROTTLE_MS) {
+                lastBatchEmitMs = now
+                _importBatch.value = state
+            }
+        }
+
         val batchFingerprints = mutableSetOf<String>()
         // 每批只读一次根目录配置，用于判定导入来源是否落在授权树内（判定不了就留空，不伪造）。
         val configuredRoot = withContext(ioDispatcher) {
@@ -477,14 +536,22 @@ class ShelfImporter @Inject constructor(
                     stopped = state.stopped + remainingImportCount(uris.size, index, currentCompleted = false),
                     stopRequested = true,
                 )
+                emitProgress(force = true)
                 break
             }
             val outcome = importOne(uri, batchFingerprints, configuredRoot)
+            val isFailure = outcome is ImportOutcome.Failed
             state = when (outcome) {
-                is ImportOutcome.Success -> state.copy(
-                    completed = state.completed + 1,
-                    succeeded = state.succeeded + 1,
-                )
+                is ImportOutcome.Success -> {
+                    // 与 succeeded 计数同一分支，保证「本批成功 id」计数与列表不分叉。
+                    succeededBookIds += outcome.bookId
+                    _batchSuccesses.value =
+                        ImportBatchSuccesses(batchId = batchId, bookIds = succeededBookIds.toList())
+                    state.copy(
+                        completed = state.completed + 1,
+                        succeeded = state.succeeded + 1,
+                    )
+                }
                 is ImportOutcome.Duplicate -> state.copy(
                     completed = state.completed + 1,
                     duplicates = state.duplicates + 1,
@@ -503,12 +570,15 @@ class ShelfImporter @Inject constructor(
                     ),
                 )
             }
-            _importBatch.value = state
+            val isLast = index == uris.lastIndex
+            emitProgress(force = isFailure || isLast)
+
             if (stopImportAfterCurrent) {
                 state = state.copy(
                     stopped = state.stopped + remainingImportCount(uris.size, index, currentCompleted = true),
                     stopRequested = true,
                 )
+                emitProgress(force = true)
                 break
             }
         }
@@ -523,9 +593,12 @@ class ShelfImporter @Inject constructor(
     ): ImportOutcome {
         val quickName = uri.lastPathSegment?.substringAfterLast('/') ?: "unknown"
         val taskId = "imp-${UUID.randomUUID()}"
-        _importTasks.value = (_importTasks.value + ImportTaskUi(taskId, quickName, IMPORT_PHASES[0], "processing"))
-            .sortedByDescending { it.createdAt }
-            .take(50)
+        val newTask = ImportTaskUi(taskId, quickName, IMPORT_PHASES[0], "processing")
+        val currentTasks = _importTasks.value
+        _importTasks.value = ArrayList<ImportTaskUi>(50).apply {
+            add(newTask)
+            addAll(currentTasks.take(49))
+        }
         return try {
             val metadata = withContext(ioDispatcher) {
                 val fileName = uriFileName(uri)
@@ -623,7 +696,8 @@ class ShelfImporter @Inject constructor(
                 bookTitle = resolved.book.title,
             )
             recordSourceRef(uri, configuredRoot, metadata, format, resolved)
-            ImportOutcome.Success
+            onBookImported(resolved.book.id)
+            ImportOutcome.Success(resolved.book.id)
         } catch (e: Throwable) {
             val msg = e.message ?: "导入失败"
             updateTaskResult(taskId, quickName, "导入失败：$msg", "error")
@@ -877,21 +951,48 @@ class ShelfImporter @Inject constructor(
         val staging = java.io.File(internalDir, "$safeName.repairing")
         val backup = java.io.File(internalDir, "$safeName.backup")
         staging.delete()
-        backup.delete()
+        // 崩溃残留守卫（第一道，最小范围）：同名 backup 已存在时**不得**删除、覆盖或自动恢复。
+        //
+        // 它的来源无法在本轮判定：
+        //   · 可能是上次进程被杀后**唯一完好的**正文（旧文件已挪进 backup、新文件尚未落位）；
+        //   · 也可能是上次已提交成功的**过期**副本（只差最后一步清理）。
+        // 仅凭 target 是否存在或长度**无法区分**这两种情况，因此一律停止本次替换并保留现场：
+        // 不删 backup、不动 target、不写 DB，让用户/后续工具去判断。
+        // 自动恢复状态机属独立设计（见 2026-09-24 设计稿），**不在本轮实现**。
+        if (backup.exists()) {
+            // 提示语必须对**两种现场都成立**：target 存在（旧正文仍在）与 target 缺失
+            // （旧正文已挪进 backup）。故不能断言「原有文件已保留」—— target 缺失时并没有
+            // 这样一份文件，那样写会让用户误以为旧正文还在原处。
+            // 也不能暗示存在自助恢复入口，或引导用户删书/清备份（那正是销毁唯一副本的做法）。
+            throw IllegalStateException(
+                "检测到未完成的替换残留（${backup.name}），本次替换已停止；" +
+                    "旧正文若仍存在，则未被本次操作修改，残留备份已保留。" +
+                    "重复重试不会自动恢复该备份",
+            )
+        }
+        // 阶段标记：catch 必须区分「旧副本根本没被动过」与「旧副本已挪走 / 新副本已落位」。
+        // 前者若执行 internalFile.delete()，会把用户**仅存**的正文删掉，而那时并没有 backup
+        // 可还原 —— 一次复制失败就等于永久丢正文（旧实现无条件 delete 的真实缺陷）。
+        var oldCopyMovedToBackup = false
+        var newCopyPromoted = false
         try {
             updateTask(taskId, "正在复制到应用存储")
             context.contentResolver.openInputStream(uri)?.use { input ->
                 staging.outputStream().use { out -> input.copyTo(out) }
             } ?: throw IllegalStateException("无法打开文件")
             if (staging.length() <= 0L) throw IllegalStateException("文件内容为空")
-            if (internalFile.exists() && !internalFile.renameTo(backup)) {
-                internalFile.copyTo(backup, overwrite = true)
-                internalFile.delete()
+            if (internalFile.exists()) {
+                if (!internalFile.renameTo(backup)) {
+                    internalFile.copyTo(backup, overwrite = true)
+                    internalFile.delete()
+                }
+                oldCopyMovedToBackup = true
             }
             if (!staging.renameTo(internalFile)) {
                 staging.copyTo(internalFile, overwrite = true)
                 staging.delete()
             }
+            newCopyPromoted = true
             val size = internalFile.length()
                 .coerceIn(0L, Int.MAX_VALUE.toLong())
                 .toInt()
@@ -903,6 +1004,11 @@ class ShelfImporter @Inject constructor(
             }
             updateTask(taskId, "正在保存书架记录")
             val storedUri = Uri.fromFile(internalFile).toString()
+            // S04 修复：刷新后同步计算新文件的 content_hash，写入 books 表。
+            // 与 refreshSourceBaseline 采用相同的 MAX_HASH_BYTES 阈值：
+            //   - 小文件（≤32MB）：计算全量 MD5，与 library_source_refs.content_hash 同口径。
+            //   - 大文件（>32MB）：置为 null，旧哈希必须清除（旧哈希对应旧内容，不能保留）。
+            val newBookHash = computeFileHash(internalFile)
             bookDao.runInTransaction {
                 bookDao.upsert(
                     existing.copy(
@@ -911,6 +1017,7 @@ class ShelfImporter @Inject constructor(
                         local_uri = storedUri,
                         local_content_path = internalFile.absolutePath,
                         content_status = "available",
+                        content_hash = newBookHash,
                         updated_at = now,
                     )
                 )
@@ -933,12 +1040,21 @@ class ShelfImporter @Inject constructor(
             }
             backup.delete()
         } catch (error: Throwable) {
-            internalFile.delete()
-            if (backup.exists()) {
-                if (!backup.renameTo(internalFile)) {
-                    backup.copyTo(internalFile, overwrite = true)
-                    backup.delete()
+            // 回滚必须按「走到哪一步」分流，而不是无条件删 internalFile：
+            //  - 旧副本未被挪动（复制 staging 阶段就失败）：internalFile 就是用户仅存的正文，
+            //    原样保留即可；此时不存在 backup，删了它没有任何东西能还原。
+            //  - 旧副本已挪进 backup：把 backup 还原回 internalFile；新副本若已落位，先删掉它。
+            //  - 原本没有旧副本（首次替换）：只清理本次落位的新副本，不留半截状态。
+            if (oldCopyMovedToBackup) {
+                if (newCopyPromoted) internalFile.delete()
+                if (backup.exists()) {
+                    if (!backup.renameTo(internalFile)) {
+                        backup.copyTo(internalFile, overwrite = true)
+                        backup.delete()
+                    }
                 }
+            } else if (newCopyPromoted) {
+                internalFile.delete()
             }
             throw error
         } finally {
@@ -1069,13 +1185,17 @@ class ShelfImporter @Inject constructor(
     }
 
     private sealed interface ImportOutcome {
-        data object Success : ImportOutcome
+        /** [bookId] 是本次成功新增的书，供「本批成功 id」接缝定位用（S05-④）。 */
+        data class Success(val bookId: String) : ImportOutcome
         data object Duplicate : ImportOutcome
         data object Skipped : ImportOutcome
         data class Failed(val fileName: String, val reason: String) : ImportOutcome
     }
 
     private companion object {
+        /** 批量导入向 StateFlow 发射进度的最小间隔（毫秒），防连续重组风暴。 */
+        const val BATCH_EMIT_THROTTLE_MS = 80L
+
         /** 封面降采样目标最长边（px）：书架封面卡片足够清晰的最小尺寸。 */
         const val COVER_TARGET_EDGE_PX = 600
 

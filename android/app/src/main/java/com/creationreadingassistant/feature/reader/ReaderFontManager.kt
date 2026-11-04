@@ -78,4 +78,36 @@ object ReaderFontManager {
 
     /** 清空缓存（换字体文件后防止旧对象残留）。 */
     fun clearCache() = typefaceCache.evictAll()
+
+    /** 已安装在私有字体目录中的字体描述。 */
+    data class InstalledFont(
+        val name: String,
+        val path: String,
+        val sizeBytes: Long,
+    )
+
+    /** 扫描已安装在私有目录中的所有可用字体（.ttf / .otf）。 */
+    fun listInstalledFonts(context: Context): List<InstalledFont> {
+        val dir = File(context.filesDir, FONT_DIR)
+        if (!dir.exists() || !dir.isDirectory) return emptyList()
+        return dir.listFiles()
+            ?.filter { it.isFile && (it.name.endsWith(".ttf", ignoreCase = true) || it.name.endsWith(".otf", ignoreCase = true)) }
+            ?.sortedBy { it.name }
+            ?.map { file ->
+                InstalledFont(
+                    name = file.nameWithoutExtension,
+                    path = file.absolutePath,
+                    sizeBytes = file.length(),
+                )
+            } ?: emptyList()
+    }
+
+    /** 删除指定路径的自定义字体文件并释放缓存。 */
+    fun deleteFont(path: String): Boolean {
+        if (path.isBlank()) return false
+        val file = File(path)
+        if (!file.exists()) return false
+        typefaceCache.remove(path)
+        return file.delete()
+    }
 }

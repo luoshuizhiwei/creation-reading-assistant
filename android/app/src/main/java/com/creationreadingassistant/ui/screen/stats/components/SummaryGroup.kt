@@ -4,9 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,15 +20,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.IslandCard
+import com.creationreadingassistant.ui.components.MetricMicroCard
 import com.creationreadingassistant.ui.screen.stats.StatsUi
 import com.creationreadingassistant.ui.screen.stats.formatCompactDuration
-import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
@@ -38,25 +36,10 @@ import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.util.LocalDurationUnit
 import com.creationreadingassistant.ui.util.durationUnitToggle
 
-private data class SummaryMetric(
-    val icon: ImageVector,
-    val formattedValue: String,
-    val label: String,
-    val subtitle: String,
-    val iconTint: Color,
-    /**
-     * 只作用于主值文本的附加修饰符；**仅时长指标**传 [durationUnitToggle]。
-     *
-     * 用 `Modifier` 而非布尔开关：调用方自己决定挂什么，本组件不替调用方猜测
-     * 哪个指标是时长（"42 篇"、"3 天" 这类计数挂上去是错的）。
-     */
-    val valueModifier: Modifier = Modifier,
-)
-
 /**
  * 4 项大盘指标微岛卡片化：
  * - 采用 2x2 纸墨微岛卡片布局，大数字 Bold 高光，配 32dp 微彩底座小图标与次级说明文字；
- * - 底部附带连续打卡轻量微胶囊，保持关键数据完整呈现。
+ * - 底部附带连续打卡轻量微胶囊（独立重组边界，数字动画期间完全跳过重组）。
  */
 @Composable
 internal fun SummaryGroup(
@@ -71,40 +54,6 @@ internal fun SummaryGroup(
     val animatedBooks = rememberCountUp(stats.readBooks, "stats.summary.books", reducedMotion)
     val animatedCompleted = rememberCountUp(stats.completed, "stats.summary.completed", reducedMotion)
 
-    val metrics = listOf(
-        SummaryMetric(
-            icon = Icons.Outlined.AccessTime,
-            formattedValue = formatCompactDuration(animatedMinutes.toLong() * 60000, LocalDurationUnit.current),
-            label = "阅读时长",
-            subtitle = "累计沉浸",
-            iconTint = Color(0xFFD97706), // 暖琥珀
-            // 阅读时长是本组唯一的时长展示位 ⇒ 本区块只此一个切换入口；
-            // 「阅读天数」是整数计数（不经过 formatter），不挂入口。
-            valueModifier = Modifier.durationUnitToggle(),
-        ),
-        SummaryMetric(
-            icon = Icons.Outlined.CalendarMonth,
-            formattedValue = "$animatedDays 天",
-            label = "阅读天数",
-            subtitle = "开卷打卡",
-            iconTint = Color(0xFF2563EB), // 晴空蓝
-        ),
-        SummaryMetric(
-            icon = Icons.Outlined.Book,
-            formattedValue = "$animatedBooks 本",
-            label = "读过书籍",
-            subtitle = "阅读广度",
-            iconTint = Color(0xFF7C3AED), // 典雅紫
-        ),
-        SummaryMetric(
-            icon = Icons.Outlined.CheckCircle,
-            formattedValue = "$animatedCompleted 本",
-            label = "已读完",
-            subtitle = "翻越终章",
-            iconTint = Color(0xFF059669), // 自然翠绿
-        ),
-    )
-
     IslandCard(
         modifier = modifier
             .fillMaxWidth()
@@ -112,125 +61,117 @@ internal fun SummaryGroup(
             .testTag("stats-summary"),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // 2x2 四大核心指标微岛卡片
-            metrics.chunked(2).forEach { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    rowItems.forEach { item ->
-                        SummaryMicroCard(
-                            item = item,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
+            // 2x2 四大核心指标微岛卡片（静态网格声明，消灭动态 listOf 与 chunked(2) 开销）
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                MetricMicroCard(
+                    icon = Icons.Outlined.AccessTime,
+                    iconTint = Color(0xFFD97706), // 暖琥珀
+                    label = "阅读时长",
+                    value = formatCompactDuration(
+                        animatedMinutes.toLong() * 60000,
+                        LocalDurationUnit.current,
+                    ),
+                    subtitle = "累计沉浸",
+                    modifier = Modifier.weight(1f),
+                    // 阅读时长是本组唯一的时长展示位 ⇒ 本区块只此一个切换入口；
+                    // 「阅读天数」是整数计数（不经过 formatter），不挂入口。
+                    valueModifier = Modifier.durationUnitToggle(),
+                )
+                MetricMicroCard(
+                    icon = Icons.Outlined.CalendarMonth,
+                    iconTint = Color(0xFF2563EB), // 晴空蓝
+                    label = "阅读天数",
+                    value = "$animatedDays 天",
+                    subtitle = "开卷打卡",
+                    modifier = Modifier.weight(1f),
+                )
             }
 
-            // 连续阅读微胶囊横条（当有连续天数数据时呈现）
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                MetricMicroCard(
+                    icon = Icons.Outlined.Book,
+                    iconTint = Color(0xFF7C3AED), // 典雅紫
+                    label = "读过书籍",
+                    value = "$animatedBooks 本",
+                    subtitle = "阅读广度",
+                    modifier = Modifier.weight(1f),
+                )
+                MetricMicroCard(
+                    icon = Icons.Outlined.CheckCircle,
+                    iconTint = Color(0xFF059669), // 自然翠绿
+                    label = "已读完",
+                    value = "$animatedCompleted 本",
+                    subtitle = "翻越终章",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            // 连续阅读微胶囊横条（独立可跳过组件，数字滚动动画递增时自动跳过重组）
             if (stats.streakCurrent > 0 || stats.streakLongest > 0) {
-                Surface(
-                    shape = RoundedCornerShape(spec.hintRadius),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    border = BorderStroke(
-                        spec.hairlineBorderWidth,
-                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        IconPedestal(
-                            icon = Icons.Outlined.LocalFireDepartment,
-                            tint = Color(0xFFEA580C),
-                            size = 24.dp,
-                            iconSize = 15.dp,
-                        )
-                        Text(
-                            text = "当前连续 ${stats.streakCurrent} 天",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "·",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = "最长连续 ${stats.streakLongest} 天",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+                StreakMicroCapsule(
+                    streakCurrent = stats.streakCurrent,
+                    streakLongest = stats.streakLongest,
+                    hintRadius = spec.hintRadius,
+                    hairlineBorderWidth = spec.hairlineBorderWidth,
+                    hairlineAlpha = spec.hairlineAlpha,
+                )
             }
         }
     }
 }
 
+/** 连续阅读微胶囊：独立重组作用域，参数稳定时自动跳过重组。 */
 @Composable
-private fun SummaryMicroCard(
-    item: SummaryMetric,
+private fun StreakMicroCapsule(
+    streakCurrent: Int,
+    streakLongest: Int,
+    hintRadius: Dp,
+    hairlineBorderWidth: Dp,
+    hairlineAlpha: Float,
     modifier: Modifier = Modifier,
 ) {
-    val spec = LocalComponentSpec.current
     Surface(
-        modifier = modifier,
-        shape = spec.listItemShape,
+        shape = RoundedCornerShape(hintRadius),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(
-            spec.hairlineBorderWidth,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+            hairlineBorderWidth,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = hairlineAlpha),
         ),
+        modifier = modifier.fillMaxWidth(),
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                // 32dp 微彩底座小图标：收敛到共享 IconPedestal（pedestalRadius + hairline 边框）
-                IconPedestal(
-                    icon = item.icon,
-                    tint = item.iconTint,
-                )
-                Text(
-                    text = item.label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-
-            Spacer(Modifier.height(2.dp))
-
-            // 大数字 Bold 高光
-            Text(
-                text = item.formattedValue,
-                modifier = item.valueModifier,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontFamily = DisplayFontFamily,
-                    fontWeight = FontWeight.Bold,
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
+            IconPedestal(
+                icon = Icons.Outlined.LocalFireDepartment,
+                tint = Color(0xFFEA580C),
+                size = 24.dp,
+                iconSize = 15.dp,
             )
-
-            // 次级说明文字
             Text(
-                text = item.subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                text = "当前连续 $streakCurrent 天",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "·",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "最长连续 $streakLongest 天",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

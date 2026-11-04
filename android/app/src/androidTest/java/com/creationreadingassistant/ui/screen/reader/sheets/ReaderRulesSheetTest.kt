@@ -8,7 +8,6 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.rules.BuiltinTocRules
 import com.creationreadingassistant.feature.reader.rules.RuleSnapshot
@@ -78,7 +77,7 @@ class ReaderRulesSheetTest {
         composeRule.onNodeWithText("新增规则").performClick()
         composeRule.onNodeWithText("新增规则").assertIsDisplayed()
         composeRule.onNodeWithText("规则名称").assertIsDisplayed()
-        composeRule.onNodeWithText("章节模式正则").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("正则表达式").assertIsDisplayed()
     }
 
     @Test

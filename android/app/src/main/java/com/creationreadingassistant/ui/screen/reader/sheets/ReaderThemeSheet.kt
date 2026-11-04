@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material3.Icon
@@ -37,6 +38,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.data.settings.ReaderSettingsScope
+import com.creationreadingassistant.ui.components.CompactSliderRow
+import com.creationreadingassistant.ui.components.SettingBrightnessRow
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.PillShape
@@ -48,10 +52,13 @@ import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 private fun paperToneSubtitle(key: String): String = when (key) {
     "white" -> "清冷墨香 · 纯净白纸"
-    "warm" -> "温润米黄 · 羊皮纸感"
+    "warm" -> "温润米黄 · 舒缓暖纸"
+    "parchment" -> "典雅泛黄 · 仿古羊皮"
+    "celadon" -> "青瓷素净 · 水墨雅灰"
     "green" -> "草木柔和 · 护眼青绿"
-    "night" -> "暗夜纯粹 · 极黑沉浸"
     "sepia_dark" -> "沉静暮色 · 暖棕护眼"
+    "ink_night" -> "水墨幽深 · 墨青夜读"
+    "night" -> "暗夜纯粹 · 极黑沉浸"
     "follow" -> "跟随系统 · 智能明暗"
     else -> "经典阅读纸面"
 }
@@ -59,9 +66,12 @@ private fun paperToneSubtitle(key: String): String = when (key) {
 private fun paperTonePoeticSample(key: String): Pair<String, String> = when (key) {
     "white" -> "窗前竹影摇阶砌" to "墨染霜绡展素心"
     "warm" -> "灯下清芬翻贝叶" to "旧墨微黄泛古香"
+    "parchment" -> "案上微黄凝古卷" to "墨痕如铁著春秋"
+    "celadon" -> "青瓷素碗浮新茗" to "翠竹虚窗弄晚凉"
     "green" -> "林泉入座清肌骨" to "山翠迎眸解目疲"
-    "night" -> "静夜寒星沉万籁" to "墨玉凝光照字明"
     "sepia_dark" -> "暮色闲披棕椟卷" to "炉香初泛静幽思"
+    "ink_night" -> "墨色空濛涵宿雾" to "寒光淡荡点寒星"
+    "night" -> "静夜寒星沉万籁" to "墨玉凝光照字明"
     "follow" -> "天光向晚随时换" to "云影随风任卷舒"
     else -> "天地玄黄生浩气" to "纸墨相传见古今"
 }
@@ -70,8 +80,14 @@ private fun paperTonePoeticSample(key: String): Pair<String, String> = when (key
 @Composable
 internal fun ThemeSheet(
     background: String,
+    fontSize: Float,
+    brightness: Int,
+    lastFixedBrightness: Int,
+    scope: ReaderSettingsScope,
     appDark: Boolean,
     onBackground: (String) -> Unit,
+    onFontSize: (Float) -> Unit,
+    onBrightness: (Int) -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
     val reducedMotion = rememberReducedMotion()
@@ -81,7 +97,8 @@ internal fun ThemeSheet(
     val isFollow = background == "follow"
 
     ReaderSheetScaffold(
-        title = "主题外观",
+        title = "外观",
+        maxHeightFraction = 0.65f,
         modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         Column(
@@ -221,33 +238,54 @@ internal fun ThemeSheet(
                 }
             }
 
-            // 2. 说明信息微岛指示行
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            // 2. 作用范围轻量提示徽标
+            Surface(
+                shape = PillShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                modifier = Modifier.align(Alignment.CenterHorizontally),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(18.dp)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
-                    contentAlignment = Alignment.Center,
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Icon(
                         Icons.Outlined.Info,
                         contentDescription = null,
-                        modifier = Modifier.size(11.dp),
+                        modifier = Modifier.size(12.dp),
                         tint = MaterialTheme.colorScheme.primary,
                     )
+                    Text(
+                        text = if (scope == ReaderSettingsScope.BOOK) {
+                            "调整仅作用于当前书籍 · 亮度为全局"
+                        } else {
+                            "调整将作用于全局默认设置"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                Text(
-                    "纸色选择作用于阅读正文与底栏，沉浸守护护眼专注度。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
+
+            // 2.6 字号快捷滑块
+            CompactSliderRow(
+                icon = Icons.Outlined.FormatSize,
+                title = "字号",
+                value = fontSize,
+                valueLabel = "${fontSize.toInt()} 号",
+                onValueChange = onFontSize,
+                valueRange = 12f..40f,
+                steps = 27,
+                minLabel = "小",
+                maxLabel = "大",
+            )
+
+            // 2.7 亮度（跟随系统 / 固定亮度）
+            SettingBrightnessRow(
+                brightness = brightness,
+                fixedDefault = lastFixedBrightness,
+                onBrightnessChange = onBrightness,
+            )
 
             // 3. 色盘圆润微岛卡片网格
             FlowRow(

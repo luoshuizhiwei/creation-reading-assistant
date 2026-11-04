@@ -71,9 +71,17 @@ internal fun ReaderSettings.withCommittedGestureBrightness(brightness: Int): Rea
  * 阅读器左/右边缘上下滑调亮度的 Modifier（起点读书同款交互）。
  *
  * 判定规则：
- * - 按下位置 x < 边缘宽度（dp，默认 18dp）→ 判定左边缘，进入亮度调节；
- * - 按下位置 x > 总宽度 - 边缘宽度 → 判定右边缘，进入亮度调节（默认右缘也启用，兼容单手左/右握）；
- * - 其余位置 → 本 Modifier 完全不处理、不 consume 事件，向下透传给翻页分区点击。
+ * - 按下位置 x <= [edgeWidthDp] → 判定左边缘，进入亮度调节；
+ * - 按下位置 x >= 总宽度 - [edgeWidthDp] → 判定右边缘，进入亮度调节（默认右缘也启用，
+ *   兼容单手左/右握）；
+ * - 其余位置 → 本 Modifier 完全不处理、不 consume 事件，向下透传给翻页分区点击/滚动。
+ *
+ * 挂载在 Scaffold 根 modifier 上：**阅读期始终可用，不需要先唤出菜单**。
+ *
+ * 历史（M-BUG-05）：边缘模式一度被移到菜单栏，因为用户遇到「阅读中突然弹出半透明浮层」——
+ * 真因是 `awaitFirstDown` 后**立刻** `onActive(true)` + 震动，没有位移阈值，于是边缘轻触
+ * （含翻页点按落在边缘窄条内）就会点亮 HUD。该根因已由下面的 `activated` 位移门修掉，
+ * 因此边缘模式重新成为默认交互。
  *
  * 亮度变化规则：
  * - 屏幕全高的一次纵向滑动 = 亮度变化 ±100%（换算：每 1% 高度 = 1% 亮度，线性）；
@@ -90,6 +98,7 @@ internal fun ReaderSettings.withCommittedGestureBrightness(brightness: Int): Rea
 internal fun Modifier.readerBrightnessEdgeGesture(
     readerBrightness: Int,
     lastFixedBrightness: Int,
+    /** 左/右边缘窄条宽度（dp）。按下点落在窄条内才进入亮度调节。 */
     edgeWidthDp: Float = 18f,
     rightEdgeEnabled: Boolean = true,
     onBrightnessChange: (Int) -> Unit,
@@ -118,11 +127,14 @@ internal fun Modifier.readerBrightnessEdgeGesture(
             // 判定命中亮度手势 → 记录初始亮度，进入纵向拖拽监听。
             val startingBrightness = currentReaderBrightness
             val initial = brightnessGestureInitialValue(startingBrightness, currentLastFixed)
-            // 小震动：告诉用户「已经进入亮度调节模式」。
-            scope.launch { haptic(HapticFeedbackType.TextHandleMove) }
-            currentOnActive(true)
             var running = initial.toFloat()
             var lastReported: Int? = null
+            // 位移阈值：**越过触摸斜率**（awaitVerticalDragOrCancellation 返回首个非 null 事件）
+            // 之后才真正进入亮度调节。此前是「按下即 onActive(true) + 震动」，于是
+            // 边缘轻触就弹 HUD（用户报的「突然弹出半透明浮层」，M-BUG-05）。
+            // 单纯点按必须在 awaitVerticalDragOrCancellation 处返回 null → 不激活、不消费事件，
+            // 落在边缘窄条内的翻页点按照常生效。
+            var activated = false
             @Suppress("UNUSED_VARIABLE")
             val velocityTracker = VelocityTracker()
 
@@ -130,6 +142,12 @@ internal fun Modifier.readerBrightnessEdgeGesture(
                 while (true) {
                     val event = awaitVerticalDragOrCancellation(pointerId = down.id)
                         ?: break
+                    if (!activated) {
+                        activated = true
+                        // 小震动：告诉用户「已经进入亮度调节模式」。
+                        scope.launch { haptic(HapticFeedbackType.TextHandleMove) }
+                        currentOnActive(true)
+                    }
                     velocityTracker.addPosition(event.uptimeMillis, event.position)
                     val dy = event.positionChange().y
                     // h 像素对应 100% 亮度：每 1 像素 → 100/h 个百分点
@@ -148,7 +166,9 @@ internal fun Modifier.readerBrightnessEdgeGesture(
                     event.consume()
                 }
             } finally {
-                currentOnActive(false)
+                // 只有真正激活过才需要收尾：未越过触摸斜率（点按）时从未 onActive(true)，
+                // 这里再发一次 false 会让外层 HUD 的「延迟 1.2s 淡出」被无谓启动。
+                if (activated) currentOnActive(false)
             }
         }
     }

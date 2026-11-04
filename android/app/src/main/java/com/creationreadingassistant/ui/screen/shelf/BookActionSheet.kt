@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
@@ -43,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
@@ -64,14 +67,27 @@ internal fun BookActionSheet(
     onRepair: (BookEntity) -> Unit,
     onOpenDetail: (String) -> Unit,
     onDelete: (String) -> Unit,
-    onCancelFinished: ((BookEntity) -> Unit)? = null,
+    /**
+     * 阅读状态动作。**为 null 时整张状态卡片不渲染**。
+     *
+     * 本面板被书架、首页已读完归档、我的阅读三处复用，后两者没有接这些写操作。
+     * 用可空而非空默认值：空回调会渲染出一个点了没反应的按钮，
+     * 用户会以为是卡顿或 bug——不渲染比渲染一个死按钮诚实。
+     */
+    onMarkFinished: ((String) -> Unit)? = null,
+    onMarkReading: ((String) -> Unit)? = null,
+    onShelve: ((String) -> Unit)? = null,
 ) {
     val readiness = book.readiness()
     val percent = progressFor(progressById, book.id)
-    // 与书架筛选条共用 bookStatus 口径（S05-①：显式状态权威，取消读完后的残余 100%
-    // 不得再判成完成——否则面板与书架分组自相矛盾）。
-    val isFinished = isDisplayFinished(percent, progressById[book.id]?.completion_state)
     val layout = LocalLayoutTokens.current
+
+    // 当前阅读状态：决定状态动作显示「标记」还是「取消」。
+    // 与书架筛选条共用 bookStatus 口径（S05-①：显式状态权威，取消读完后的残余 100%
+    // 不得再判成完成——否则面板会继续提供「取消读完」，与书架分组自相矛盾）。
+    val readingState = progressById[book.id]?.readingState
+    val isFinished = isDisplayFinished(percent, progressById[book.id]?.completion_state)
+    val isShelved = readingState == ReadingCompletionState.SHELVED
 
     GlassModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -214,7 +230,73 @@ internal fun BookActionSheet(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // 第二层：常规管理操作微岛卡片
+            // 第二层：阅读状态微岛卡片。
+            // 与「书籍详情与管理」分开成卡：这两件事的语义层级不同——读完/搁置是阅读生命周期，
+            // 编辑信息/换封面是资料维护。混在一张卡里会让人以为「标记读完」也是去改资料。
+            // 每行按当前状态二选一显示，避免同时列出「标记为已读完」和「取消已读完」两个互斥项。
+            // 三处调用方中只有书架接了写操作，其余为 null → 整张卡不渲染（见参数注释）。
+            val hasStateAction = onMarkFinished != null || onMarkReading != null || onShelve != null
+            if (hasStateAction) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column {
+                        if (isFinished) {
+                            onMarkReading?.let { action ->
+                                ActionRow(
+                                    icon = Icons.Outlined.Refresh,
+                                    title = "取消已读完",
+                                    subtitle = "回到在读状态，进度与笔记保留",
+                                    onClick = { action(book.id) },
+                                )
+                            }
+                        } else {
+                            onMarkFinished?.let { action ->
+                                ActionRow(
+                                    icon = Icons.Outlined.CheckCircle,
+                                    title = "标记为已读完",
+                                    subtitle = "归入「已完成」分组，不影响最近阅读时间",
+                                    onClick = { action(book.id) },
+                                )
+                            }
+                        }
+                        if (isShelved && onMarkReading != null) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 14.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                            )
+                            ActionRow(
+                                icon = Icons.Outlined.Refresh,
+                                title = "恢复为在读",
+                                subtitle = "保留原有进度、时长、笔记和灵感",
+                                onClick = { onMarkReading(book.id) },
+                            )
+                        } else if (!isFinished && !isShelved && onShelve != null) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 14.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                            )
+                            // 搁置与读完互斥：已读完的书再「搁置」会把它从「已完成」挪走，
+                            // 用户通常不是这个意图，因此已读完时只提供「取消已读完」。
+                            ActionRow(
+                                icon = Icons.Outlined.Archive,
+                                title = "搁置本书",
+                                subtitle = "阅读记录仍会保留，可随时恢复",
+                                onClick = { onShelve(book.id) },
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            // 第三层：常规管理操作微岛卡片
             Surface(
                 shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -243,16 +325,6 @@ internal fun BookActionSheet(
             }
 
             Spacer(modifier = Modifier.height(10.dp))
-
-            if (isFinished && onCancelFinished != null) {
-                ActionRow(
-                    icon = Icons.Outlined.Refresh,
-                    title = "取消读完",
-                    subtitle = "恢复在读，保留阅读位置和记录",
-                    onClick = { onCancelFinished(book) },
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-            }
 
             // 第三层：危险操作（柔和红调微岛）
             ActionRow(

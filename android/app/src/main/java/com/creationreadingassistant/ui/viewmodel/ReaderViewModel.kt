@@ -9,7 +9,6 @@ import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
-import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.data.repository.BookRepository
@@ -21,40 +20,38 @@ import com.creationreadingassistant.data.settings.TtsResume
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.reader.locator.AnchorCacheStore
 import com.creationreadingassistant.feature.reader.doc.DocBlock
-import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.TxtFileScanner
 import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
 import com.creationreadingassistant.feature.reader.doc.TxtScanMonitor
 import com.creationreadingassistant.feature.reader.doc.TxtTocProfile
 import com.creationreadingassistant.feature.reader.rules.BuiltinTocRules
 import com.creationreadingassistant.feature.reader.rules.RuleCommand
-import com.creationreadingassistant.feature.reader.rules.RuleEngine
 import com.creationreadingassistant.feature.reader.rules.RuleMutationResult
 import com.creationreadingassistant.feature.reader.rules.RulesRepository
 import com.creationreadingassistant.feature.reader.session.ReadingActivity
 import com.creationreadingassistant.feature.reader.session.ReadingSessionRecorder
 import com.creationreadingassistant.feature.reader.rules.RuleSnapshot
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
+import com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability
 import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
 import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
 import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordinator
-import com.creationreadingassistant.ui.screen.reader.consumesSelection
-import com.creationreadingassistant.ui.screen.reader.withSelectionCaptured
-import com.creationreadingassistant.ui.screen.reader.withSelectionSnapshotReleased
 import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeEvent
+import com.creationreadingassistant.ui.screen.reader.ReaderReplacementCapability
+import com.creationreadingassistant.ui.screen.reader.consumesSelection
 import com.creationreadingassistant.ui.screen.reader.into
 import com.creationreadingassistant.ui.screen.reader.readerChromeReducer
+import com.creationreadingassistant.ui.screen.reader.readerReplacementCapability
 import com.creationreadingassistant.ui.screen.reader.toReaderChromeState
+import com.creationreadingassistant.ui.screen.reader.withSelectionCaptured
+import com.creationreadingassistant.ui.screen.reader.withSelectionSnapshotReleased
 import com.creationreadingassistant.data.local.CoroutineScopeModule.ApplicationScope
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import com.creationreadingassistant.data.repository.SearchIndexRepository
 import com.creationreadingassistant.data.repository.SearchIndexScheduler
-import com.creationreadingassistant.feature.reader.rules.RuleDescriptor
-import com.creationreadingassistant.feature.reader.rules.RuleKind
-import com.creationreadingassistant.feature.reader.rules.RuleScope
 import kotlinx.coroutines.CoroutineScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
@@ -72,6 +69,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -79,23 +77,17 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * 阅读器文档协调层 + 数据层中枢。
+ * 选区状态的唯一「完整清除」语义（S07-F2）。
  *
- * 文档加载 / 资源所有权 + 所有 DAO·Repository·Store 写入均经过此 ViewModel；
- * ReaderScreen 变为纯组合函数，只接收 State 和 onAction 回调。
- */
-/**
- * 选区状态的唯一、完整清除器（S07-F2）。
- *
- * 五个字段必须**一起**复零，任一处单独清理都会留下不一致状态：
- * - `selectedText` 是工具条可见性的唯一门控，清空会让工具条悬挂新页面/新章节上；
+ * 五个字段必须**一起**复位，任何一处单独清理都会留下不一致状态：
+ * - `selectedText` 是工具条可见性的唯一门控，漏清会让工具条挂在新页面/新章节上；
  * - `selectedRangeStart`（TXT/滚动起点）与 `selectedGlobalOffset`（EPUB 分页起点）
- *   是互斥的两种起点口径，只清其一会留下另一条路径的陈旧坐标；
- * - `selectedSourceEnd` 是两端共用的开放终点，ReaderScaffold 的
- *   `selectedSourceLength` 用它减去前面两个起点之一 —— 即清状态：算出跨字段错值；
- * - `showColorRow` 是工具条的二级视图，遗漏会让下次长按直连落在色行而非动作行。
+ *   是互斥的两种起点口径，只清其中一个会留下另一条路径的陈旧坐标；
+ * - `selectedSourceEnd` 是两端共用的半开终点，`ReaderScaffold` 的
+ *   `selectedSourceLength` 正是用它减去上面两个起点之一 —— 半清状态会算出跨字段错值；
+ * - `showColorRow` 是工具条的二级视图，漏收会让下一次长按直接落在色板行而不是动作行。
  *
- * 调用方（`ClearSelection` / `PageTurn` / `LoadChapter` / 中点动作收起）只表达
+ * 调用方（`ClearSelection` / `PageTurn` / `LoadChapter` / 中央点击收起）只表达
  * 「选区已失效」这一个意图，字段清单只在本函数里维护。
  */
 internal fun ReaderScreenState.withSelectionCleared(): ReaderScreenState = copy(
@@ -106,6 +98,23 @@ internal fun ReaderScreenState.withSelectionCleared(): ReaderScreenState = copy(
     showColorRow = false,
 )
 
+/**
+ * S07-F4.1：ViewModel 侧单处纠错纵深防御所消费的**唯一事实源**。
+ *
+ * [bookId] 是发布时的书身份。带上它，才可能回答「这条裁决还算不算当前书的事实」——
+ * 只看 [availability] 会让切书后的迟到发布把上一本书的裁决留在新书会话里。
+ */
+internal data class PublishedReplacementAvailability(
+    val bookId: String,
+    val availability: PagedReplacementAvailability,
+)
+
+/**
+ * 阅读器文档协调层 + 数据层中枢。
+ *
+ * 文档加载 / 资源所有权 + 所有 DAO·Repository·Store 写入均经过此 ViewModel；
+ * ReaderScreen 变为纯组合函数，只接收 State 和 onAction 回调。
+ */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
@@ -137,33 +146,27 @@ class ReaderViewModel @Inject constructor(
     private val readerOpenTraceLock = Any()
     private var activeReaderOpenTraceCookie: Int? = null
 
-    // ── 章节加载代次 ──────────────────────────────────────────
-    private val chapterLoadGeneration = AtomicInteger(0)
-    private var chapterLoadJob: Job? = null
-    private val _chapterLoadState = MutableStateFlow<ChapterLoadResult?>(null)
-    val chapterLoadState: StateFlow<ChapterLoadResult?> = _chapterLoadState.asStateFlow()
+    // ── 协同模块委托 ──────────────────────────────────────────────
+    private val chapterLoaderCoordinator = ReaderChapterLoaderCoordinator()
+    private val txtScanCoordinator = ReaderTxtScanCoordinator()
 
-    // ── TXT 规则扫描结果 ──────────────────────────────────────
-    private val _txtRuleScanResult = MutableStateFlow<TxtRuleScanResult?>(null)
-    val txtRuleScanResult: StateFlow<TxtRuleScanResult?> = _txtRuleScanResult.asStateFlow()
-    private val txtRuleScanCoordinator = TxtRuleScanCoordinator()
-
-    // ── TXT 规则扫描状态（进度 / 取消 / 完成章数）──────────────
-    private val _txtRuleScanStatus = MutableStateFlow<TxtRuleScanStatus>(TxtRuleScanStatus.Idle)
-    val txtRuleScanStatus: StateFlow<TxtRuleScanStatus> = _txtRuleScanStatus.asStateFlow()
-    private var txtScanJob: Job? = null
+    val chapterLoadState: StateFlow<ChapterLoadResult?> get() = chapterLoaderCoordinator.chapterLoadState
+    val txtRuleScanResult: StateFlow<TxtRuleScanResult?> get() = txtScanCoordinator.txtRuleScanResult
+    val txtRuleScanStatus: StateFlow<TxtRuleScanStatus> get() = txtScanCoordinator.txtRuleScanStatus
 
     /**
      * 测试 seam：默认走真实扫描器；测试可注入受控实现来验证取消 / 进度时序。
      */
-    internal var txtFileScanner: (File, String, TxtScanMonitor?) -> TxtFileIndex =
-        { file, ruleId, monitor -> TxtFileScanner.scan(file, ruleId, monitor) }
+    internal var txtFileScanner: (File, String, TxtScanMonitor?) -> TxtFileIndex
+        get() = txtScanCoordinator.txtFileScanner
+        set(value) { txtScanCoordinator.txtFileScanner = value }
 
     /**
      * 测试 seam：按显式 [TxtTocProfile] 扫描（多规则目录重扫入口）。
      */
-    internal var txtFileScannerProfile: (File, TxtTocProfile, TxtScanMonitor?) -> TxtFileIndex =
-        { file, profile, monitor -> TxtFileScanner.scan(file, profile, monitor) }
+    internal var txtFileScannerProfile: (File, TxtTocProfile, TxtScanMonitor?) -> TxtFileIndex
+        get() = txtScanCoordinator.txtFileScannerProfile
+        set(value) { txtScanCoordinator.txtFileScannerProfile = value }
 
     private val _uiState = MutableStateFlow(ReaderUiState())
     val uiState: StateFlow<ReaderUiState> = _uiState.asStateFlow()
@@ -183,6 +186,23 @@ class ReaderViewModel @Inject constructor(
     private val _ruleMutationResult = MutableStateFlow<RuleMutationResult?>(null)
     val ruleMutationResult: StateFlow<RuleMutationResult?> = _ruleMutationResult.asStateFlow()
 
+    /**
+     * S07-F4.1：**生产层发布的替换能力裁决**，单处纠错纵深防御的唯一事实源。
+     *
+     * 由 UI 侧的 `LaunchedEffect(pagerEngine.replacementAvailability)` 经
+     * [ReaderAction.SetReplacementAvailability] 同步进来 —— 与工具栏摘除
+     * 「替换」槽位、规则页门控读的是**同一个** `PagedReplacementAvailability`
+     * 实例来源（`effectiveReplacementAvailability`）。
+     *
+     * 为什么不再按 [ReaderLoadedContent] 类型猜：EPUB 分页路径的引擎裁决可以是
+     * `APPLIED / NO_EFFECTIVE_RULES / PARTIALLY_APPLIED / ALL_SCOPES_OVERSIZED /
+     * UNVERIFIED_CHAPTER_LENGTHS`（全部 `Available`），只有 legacy/非分页路径才被
+     * 遮蔽成 `ESTIMATED_COORDINATES`。「是不是 EPUB」推不出「坐标能不能当锚点」。
+     *
+     * 初值与切书时一律为 null ⇒ 按 `SOURCE_UNAVAILABLE` 拒绝，绝不沿用上一本书的裁决。
+     */
+    private val _replacementAvailability = MutableStateFlow<PublishedReplacementAvailability?>(null)
+
     private val ruleData = activeBookId
         .flatMapLatest { bookId ->
             if (bookId.isBlank()) {
@@ -197,6 +217,10 @@ class ReaderViewModel @Inject constructor(
                 }
             }
         }
+        // 首发射兜底：combine 需所有源至少发射一次才发布；新书首开时 Room 查询可能被
+        // 导入重活饿住数十秒，期间 routeUiState 停在初始值 → isLoading 传不到 UI（白屏、
+        // 转圈迟到）。onStart 先补发空快照解锁 combine，真实数据到达后自然覆盖。
+        .onStart { emit(RuleUiState()) }
         .distinctUntilChanged()
         .flowOn(defaultDispatcher)
 
@@ -222,6 +246,9 @@ class ReaderViewModel @Inject constructor(
                 }
             }
         }
+        // 首发射兜底（同 ruleData）：先补发空数据解锁外层 combine，让 document 的
+        // isLoading/错误状态立即可达 UI；高亮/笔记等真实数据晚到后自动覆盖。
+        .onStart { emit(ReaderBookData()) }
         .distinctUntilChanged()
         .flowOn(defaultDispatcher)
 
@@ -301,9 +328,9 @@ class ReaderViewModel @Inject constructor(
             is ReaderAction.OpenBook -> openBook(action.bookId, force = false)
             is ReaderAction.Retry -> openBook(_uiState.value.requestedBookId, force = true)
             is ReaderAction.LoadChapter -> {
-                // S07-F2：章节身份变化 → 旧选区的章节/全书坐标全部失效。
-                // 目录选章、下一章/上一章、搜索跳转、高亮回源都走 goToChapter 落到这里，
-                // 因此清理只在这一处收口，调用方不需要各自记字段清单。
+                // S07-F2：章节身份变化 → 旧选区的章内/全书坐标全部失效。
+                // 目录选择、上一章/下一章、搜索跳转、高亮回源都经 goToChapter 落到这里，
+                // 因此清除只在这一处收敛，调用方不需要各自记字段清单。
                 updateScreen { it.withSelectionCleared() }
                 loadChapter(action.bookId, action.chapterIndex, action.persistProgress)
             }
@@ -320,8 +347,8 @@ class ReaderViewModel @Inject constructor(
                 }
                 updateScreen {
                     val next = readerChromeReducer(it.toReaderChromeState(), event).into(it)
-                    // S07-F2：中点点击收起浮层时，若有选区则一并完整清除。
-                    // 旧实现只清 text 和 rangeStart，留了 globalOffset / sourceEnd /
+                    // S07-F2：中央点击收起菜单时，若正有选区则一并完整清除。
+                    // 旧实现只清 text 与 rangeStart，留下 globalOffset / sourceEnd /
                     // showColorRow，形成跨字段的半清状态。
                     if (event == ReaderChromeEvent.CenterTap && it.selectedText.isNotBlank()) {
                         next.withSelectionCleared()
@@ -331,11 +358,11 @@ class ReaderViewModel @Inject constructor(
                 }
             }
             is ReaderAction.PageTurn -> updateScreen {
-                // S07-F2：页面身份变化 → 选区失效。落页翻页（PageTurner 的
-                // onPageTurned）、硬键翻页（ReaderSessionEffects 在消费成功后派发）、
-                // 软翻页与外部翻页请求都在交入页锁后走到这里；宿主晶的本地 selRange
-                // 由 selectionCleared 回流撤掉，但 VM 层的旧文本与旧坐标必须在这里清，
-                // 否则工具条会继续引用上一页的文本，保存高亮/笔记即落错位置。
+                // S07-F2：页面身份变化 → 选区失效。手势翻页（PageTurner 的
+                // onPageTurned）、硬件键翻页（ReaderSessionEffects 在消费成功后派发）、
+                // 自动翻页与外部翻页请求都在提交页码后走到这里；宿主侧的本地 selRange
+                // 由 selectionCleared 回流撤掉，但 VM 里的旧文本与旧坐标必须在这里清，
+                // 否则工具条会继续引用上一页的文字，保存高亮/笔记即落错位置。
                 readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.PageTurn)
                     .into(it)
                     .withSelectionCleared()
@@ -353,17 +380,23 @@ class ReaderViewModel @Inject constructor(
                 ).into(it)
             }
             is ReaderAction.OpenSheet -> updateScreen {
-                val opened = readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.SheetOpen).into(it)
+                // S07-F2.4：打开长生命周期选区消费者时，**原子**捕获当前四字段为不可变快照。
+                // 之后的 ClearSelection / PageTurn / ReadingUnit dispose / 正文新选区都不会
+                // 改动它（快照是独立字段）。打开非消费者 sheet 时释放快照，避免复用旧选区。
+                val opened = readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.SheetOpen)
+                    .into(it)
                     .copy(sheet = action.sheet)
-                // S07-F2.4：打开消费选区的 sheet/dialog 时原子捕获快照；其余释放。
                 if (action.sheet.consumesSelection()) opened.withSelectionCaptured()
                 else opened.withSelectionSnapshotReleased()
             }
             is ReaderAction.CloseSheet -> updateScreen {
+                // 关闭弹层即释放快照（要求 8）：下一次打开必须重新捕获，不复用旧选区。
                 readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.SheetClose).into(it)
-                    .copy(sheet = null).withSelectionSnapshotReleased()
+                    .copy(sheet = null)
+                    .withSelectionSnapshotReleased()
             }
             is ReaderAction.SetSelectedText -> updateScreen {
+                // 注意：这里**不动** selectionSnapshot —— 正文建立新选区不得改写消费者快照。
                 it.copy(
                     selectedText = action.text,
                     selectedRangeStart = action.rangeStart,
@@ -372,13 +405,14 @@ class ReaderViewModel @Inject constructor(
                 )
             }
             is ReaderAction.ClearSelection -> updateScreen {
+                // 同理：正文活动选区清理不得改写消费者快照（这正是 F2.4 要修的核心）。
                 it.withSelectionCleared()
             }
             is ReaderAction.SetShowTts -> updateScreen { it.copy(showTts = action.show) }
             is ReaderAction.SetSearchQuery -> updateScreen { it.copy(searchQuery = action.query) }
             is ReaderAction.SetShowOverflow -> updateScreen { it.copy(showReaderOverflow = action.show) }
             is ReaderAction.SetNoteOpen -> updateScreen {
-                // S07-F2.4：笔记对话框打开时捕获快照，关闭时释放。
+                // 笔记弹层同样是长生命周期消费者：打开时捕获，关闭时释放。
                 val next = if (action.open) it.withSelectionCaptured() else it.withSelectionSnapshotReleased()
                 next.copy(noteOpen = action.open)
             }
@@ -448,52 +482,85 @@ class ReaderViewModel @Inject constructor(
 
             // 规则写入（RulesRepository；校验/迁移失败不落库，结果原样发布）
             is ReaderAction.ExecuteRuleCommand -> io {
+                // 每次写入先清空上一次的反馈：_ruleMutationResult 是 MutableStateFlow，
+                // 按 equals 去重发射。编辑同一条规则时两次保存都返回相同的 Saved(id)，
+                // 不清空则第二次根本不发射 → UI 收不到「保存完成」→ 编辑器不关闭、
+                // 点击无反馈（M-BUG-01，退出重进才发现名字已改）。先置 null 保证每次
+                // 保存都有 null → 结果的可见跃变；随后 rulesRepository.execute 必须挂起
+                // （Room 写入），主线程收集器必然能观察到中间态。
+                _ruleMutationResult.value = null
                 // 单处纠错（E2）：命令不带坐标，锚点在执行前从当前选区状态回查填充，
                 // 与 ReaderScaffold/ReaderProgressActions 的字段判别式保持一致
                 // （TXT 用 selectedRangeStart，EPUB 用 selectedGlobalOffset，终点统一 selectedSourceEnd）。
                 val command: RuleCommand? = when {
                     action.command !is RuleCommand.SaveSingleCorrection -> action.command
                     else -> {
-                        val anchor = currentSelectionSourceRange()
-                        val draft = action.command
-                        when {
-                            anchor == null -> {
-                                _ruleMutationResult.value = RuleMutationResult.NotAnchorable(
-                                    "当前没有可用的选区位置，请先在正文中长按选中要纠错的文字",
-                                )
-                                null
-                            }
-                            draft.findText != _screenState.value.selectedText -> {
-                                _ruleMutationResult.value = RuleMutationResult.NotAnchorable(
-                                    "单处纠错只作用于当前选区文字；如需修改查找内容，请改用本书替换",
-                                )
-                                null
-                            }
-                            else -> RuleCommand.SaveSingleCorrection(
-                                sourceStart = anchor.first,
-                                sourceEnd = anchor.second,
-                                findText = draft.findText,
-                                replaceText = draft.replaceText,
+                        // F4 纵深防御第 1 道门：能力级。判据来自生产层发布的
+                        // pagerEngine.replacementAvailability（见 currentReplacementCapability），
+                        // 不是「文档是不是 EPUB」的类型推断，也不是 UI 开关反推。
+                        //
+                        // 为什么必须有这一道：`RulesRepository.saveSingleCorrection` 只校验
+                        // 区间有效性与 findText 非空，**不校验 `[sourceStart, sourceEnd)` 处的
+                        // 文本是否等于 findText**。因此把估算量纲（legacy EPUB）或渲染量纲
+                        // （Markdown）的坐标当锚点写库，是一条不报错、不崩溃、只有重开书
+                        // 才发现正文被改错位置的路径。任何新增入口（设置页跳转、深链、
+                        // 规则管理重构、未来的 AI 建议纠错）都能绕过 UI 直接构造本命令。
+                        val capability = currentReplacementCapability()
+                        if (capability !is ReaderReplacementCapability.Available) {
+                            _ruleMutationResult.value = RuleMutationResult.NotAnchorable(
+                                (capability as? ReaderReplacementCapability.Unavailable)
+                                    ?.message
+                                    ?.let { "当前书籍格式暂不支持单处纠错：$it" }
+                                    ?: "当前书籍格式暂不支持单处纠错",
                             )
+                            null
+                        } else {
+                            resolveSingleCorrectionAnchor(draft = action.command)
                         }
                     }
                 }
                 if (command == null) return@io
                 // 受影响范围必须在 execute **之前**判定：删除类命令执行后规则行已不在。
-                val indexPlan = searchIndexRefreshPlan(command)
+                val indexPlan = ReaderSearchIndexCoordinator.planForCommand(command, rulesRepository)
                 val result = rulesRepository.execute(action.bookId, command)
                 if (result is RuleMutationResult.Migrated) {
                     // 快速单选 / 迁移：同步旧单选显示 id，并发布结果供统一重扫策略消费
                     _txtTocRuleId.value = result.effectiveRuleId
                 }
                 _ruleMutationResult.value = result
+                if (result is RuleMutationResult.Success || result is RuleMutationResult.Saved) {
+                    // 选区使命已尽（单处纠错的锚点已在 execute 前回查消费）。
+                    // 规则变更会使正文重分页，残留的 display 坐标选区会错位；
+                    // 选区工具条与规则表单的「选中文本」预填也须一并失效。
+                    // 失败路径（Rejected/NotAnchorable/NotFound）不清——选区仍有效，用户可重试。
+                    updateScreen { it.withSelectionCleared() }
+                }
                 if (indexPlan != null &&
                     (result is RuleMutationResult.Success || result is RuleMutationResult.Saved)
                 ) {
-                    applySearchIndexRefresh(action.bookId, indexPlan)
+                    ReaderSearchIndexCoordinator.applySearchIndexRefresh(
+                        bookId = action.bookId,
+                        plan = indexPlan,
+                        appScope = appScope,
+                        searchIndexRepository = searchIndexRepository,
+                        searchIndexScheduler = searchIndexScheduler,
+                    )
                 }
             }
             is ReaderAction.ClearRuleMutationResult -> _ruleMutationResult.value = null
+
+            // S07-F4.1：生产层同步替换能力裁决（单处纠错纵深防御的唯一事实源）
+            is ReaderAction.SetReplacementAvailability -> {
+                // 只采信「当前书」的发布：切书后旧组合的迟到发布不得覆盖新书的裁决。
+                // 身份不符即忽略（而不是写成 null）—— 新书自己的发布很快就会到达，
+                // 中途把它清空只会让一次合法的保存被误拒。
+                if (action.bookId == _uiState.value.requestedBookId) {
+                    _replacementAvailability.value = PublishedReplacementAvailability(
+                        bookId = action.bookId,
+                        availability = action.availability,
+                    )
+                }
+            }
 
             // 设置
             is ReaderAction.LoadTxtTocRule -> io {
@@ -527,88 +594,6 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
-    // ── 规则变更 → 搜索索引刷新（P1）────────────────────────────────────
-
-    /** 搜索结果刷新方案；[global] 表示该变更影响全库（GLOBAL 作用域）。 */
-    private data class SearchIndexRefreshPlan(val global: Boolean)
-
-    /**
-     * 判定一条规则命令是否需要刷新搜索索引、是否影响全库。
-     *
-     * 只有**替换（REPLACE）规则**会改变索引内容：搜索索引按内置 TOC 分章、按生效替换规则
-     * 投影显示文通道，故替换规则一变旧 display 行即失真；TOC 规则不参与索引分章，不影响索引。
-     *
-     * 必须在 [RulesRepository.execute] **之前**调用 —— 删除类命令执行后规则行已消失，
-     * 无从再查其类型 / 作用域。
-     */
-    private suspend fun searchIndexRefreshPlan(command: RuleCommand): SearchIndexRefreshPlan? =
-        when (command) {
-            is RuleCommand.SaveCustomReplace ->
-                SearchIndexRefreshPlan(global = command.scope == RuleScope.GLOBAL)
-            is RuleCommand.ToggleCustom -> replaceRulePlan(command.ruleId)
-            is RuleCommand.DeleteCustom -> replaceRulePlan(command.ruleId)
-            // 单处纠错只影响本书 display 文本：保存/撤销/恢复都重建本书索引。
-            is RuleCommand.SaveSingleCorrection,
-            is RuleCommand.UndoCorrection,
-            is RuleCommand.RestoreCorrection,
-            -> SearchIndexRefreshPlan(global = false)
-            else -> null
-        }
-
-    /**
-     * 当前选区的全书 source 半开区间；无可锚定选区返回 null。
-     *
-     * 分页投影路径两种来源：TXT 选区起点在 [ReaderScreenState.selectedRangeStart]，
-     * EPUB 选区起点在 [ReaderScreenState.selectedGlobalOffset]；终点统一在
-     * selectedSourceEnd（旧路径 -1 表示不可锚定）。判别式与
-     * ReaderScaffold / ReaderProgressActions 既有消费点一致。
-     */
-    private fun currentSelectionSourceRange(): Pair<Int, Int>? {
-        val state = _screenState.value
-        val end = state.selectedSourceEnd
-        if (end < 0) return null
-        val start = when {
-            state.selectedRangeStart >= 0 -> state.selectedRangeStart
-            state.selectedGlobalOffset >= 0 -> state.selectedGlobalOffset
-            else -> return null
-        }
-        return if (start in 0 until end) start to end else null
-    }
-
-    private suspend fun replaceRulePlan(ruleId: String): SearchIndexRefreshPlan? {
-        val descriptor: RuleDescriptor = rulesRepository.describeRule(ruleId) ?: return null
-        return if (descriptor.kind == RuleKind.REPLACE) {
-            SearchIndexRefreshPlan(global = descriptor.scope == RuleScope.GLOBAL)
-        } else {
-            null
-        }
-    }
-
-    /**
-     * 执行索引刷新：PER_BOOK 立即重建当前书；GLOBAL 置脏 + 后台 worker 惰性重建全库。
-     *
-     * 一律放到应用级作用域，绝不在阅读器交互路径上同步重建
-     * （全库重建可达数十分钟 / 数 GB，见索引构建真机量化）。
-     */
-    private fun applySearchIndexRefresh(bookId: String, plan: SearchIndexRefreshPlan) {
-        appScope.launch {
-            runCatching {
-                if (plan.global) {
-                    searchIndexRepository.invalidateSweepForFullRebuild()
-                    searchIndexScheduler.enqueueOnce()
-                } else {
-                    searchIndexRepository.reindexBookById(bookId)
-                }
-            }.onFailure {
-                AppLog.e(
-                    "SearchIndex",
-                    "规则变更后刷新索引失败（book=${bookId.take(8)}，global=${plan.global}）：" +
-                        (it.message ?: it.javaClass.simpleName),
-                )
-            }
-        }
-    }
-
     /** 加载 TTS 续读信息并返回。 */
     suspend fun loadTtsResume(): TtsResume? =
         runCatching { settingsStore.loadTtsResume() }.getOrNull()
@@ -616,6 +601,58 @@ class ReaderViewModel @Inject constructor(
     // ── 内部辅助 ─────────────────────────────────────────────────
     private fun updateScreen(transform: (ReaderScreenState) -> ReaderScreenState) {
         _screenState.update(transform)
+    }
+
+    /**
+     * S07-F4.1：当前书的替换能力 —— 直接读生产层发布的事实源，不再按文档类型猜。
+     *
+     * 纵深防御的**判据来源**必须是 UI 用的那一个 `PagedReplacementAvailability`：
+     * - 未发布（初值 / 刚切书 / 引擎尚未裁决）⇒ `SOURCE_UNAVAILABLE` ⇒ 拒绝；
+     * - 发布值与当前书身份不符 ⇒ 视为未发布 ⇒ 拒绝。
+     *
+     * 这就是「默认拒绝」：宁可让一次保存被要求重试，也不把上一本书或估算量纲的
+     * 坐标当锚点写进库。
+     */
+    private fun currentReplacementCapability(): ReaderReplacementCapability {
+        val published = _replacementAvailability.value
+        val availability = if (published != null &&
+            published.bookId == _uiState.value.requestedBookId
+        ) {
+            published.availability
+        } else {
+            PagedReplacementAvailability.SOURCE_UNAVAILABLE
+        }
+        return readerReplacementCapability(availability)
+    }
+
+    /**
+     * F4：单处纠错命令的坐标填充与拒绝（第 2、3 道门）。
+     *
+     * 前置：调用方已确认当前书具备可安全改写的 source 坐标（第 1 道能力门）。
+     * 这里只回答「有没有锚点」与「草稿文字是否就是当前选区文字」，返回 null 表示拒绝。
+     */
+    private fun resolveSingleCorrectionAnchor(
+        draft: RuleCommand.SaveSingleCorrection,
+    ): RuleCommand? {
+        val anchor = ReaderSearchIndexCoordinator.currentSelectionSourceRange(_screenState.value)
+            ?: run {
+                _ruleMutationResult.value = RuleMutationResult.NotAnchorable(
+                    "当前没有可用的选区位置，请先在正文中长按选中要纠错的文字",
+                )
+                return null
+            }
+        if (draft.findText != _screenState.value.selectedText) {
+            _ruleMutationResult.value = RuleMutationResult.NotAnchorable(
+                "单处纠错只作用于当前选区文字；如需修改查找内容，请改用本书替换",
+            )
+            return null
+        }
+        return RuleCommand.SaveSingleCorrection(
+            sourceStart = anchor.first,
+            sourceEnd = anchor.second,
+            findText = draft.findText,
+            replaceText = draft.replaceText,
+        )
     }
 
     private fun io(block: suspend () -> Unit) {
@@ -633,7 +670,15 @@ class ReaderViewModel @Inject constructor(
         }
         // 书内搜索查询按书持有：书身份变化（切书）清空旧 query，避免旧词自动搜索新书；
         // 同书重开/force 重载不清空——只有用户清空查询或切书才清空。
-        if (current.requestedBookId != bookId) {
+        val bookChanged = current.requestedBookId != bookId
+        // 内容身份是否重建：切书必然重建；force 重载（错误页重试）也会重新走
+        // documentLoader.load 并把旧 loadedBook 交给 release()。两者都会让旧选区的
+        // 坐标指向一个已被丢弃的文档实例，因此**都**必须作废选区。
+        //
+        // 这里显式把判据写出来，而不是依赖「切书分支碰巧包含 force」或反之。
+        val documentIdentityRebuilt = bookChanged || force
+
+        if (bookChanged) {
             // 切书重置 chrome：菜单回到可见（用户反馈 4）；同时清空旧书搜索词。
             updateScreen {
                 readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.BookSwitched).into(it)
@@ -641,14 +686,40 @@ class ReaderViewModel @Inject constructor(
             }
             // 切书清空旧书规则写入反馈，避免新书会话展示上一本书的结果
             _ruleMutationResult.value = null
+            // S07-F4.1：旧书的能力裁决一并作废 —— 新书自己的发布到达前一律按
+            // SOURCE_UNAVAILABLE 拒绝，绝不沿用上一本书的 availability。
+            // 这里**只**在切书时清：书身份变化会重发发布（LaunchedEffect 的 key 含
+            // requestedBookId），而 force 重载的书身份不变、不会重发，清掉就再也不会
+            // 被填回来（等于把该书永久判为不可用）。
+            _replacementAvailability.value = null
+        }
+
+        if (documentIdentityRebuilt) {
+            // S07-F4 / F4.1：**同一个 ViewModel 实例跨书（或跨文档实例）复用**时，
+            // 旧书的选区数据必须全部作废，不能只释放快照。理由按顺序叠加三层：
+            //
+            // 1. 活动选区四字段 + showColorRow 属于**上一份文档**的坐标空间。F4 只释放了
+            //    快照，于是旧书的 `selectedText` / 两个起点槽 / `sourceEnd` 仍留在新书
+            //    会话里 —— 工具条会带着上一本的文字显示，保存高亮/笔记/灵感/纠错会
+            //    消费它，而且新书打开消费者时 `withSelectionCaptured()` 会把它**重新
+            //    捕获**成一份看似合法的快照（旧坐标配上新会话，比复用旧快照更糟）。
+            // 2. 消费者快照本身同样必须释放：切书不一定经过 CloseSheet（从书架直接打开
+            //    另一本），旧书的摘录与坐标不能跨书。
+            // 3. `noteOpen` / `noteBody` / `sheet` 是仍持有旧选区语义的消费者 UI 状态：
+            //    笔记弹层带着旧书摘录、规则页带着旧书草稿。
+            updateScreen {
+                it.withSelectionCleared()
+                    .withSelectionSnapshotReleased()
+                    .copy(
+                        sheet = null,
+                        noteOpen = false,
+                        noteBody = "",
+                    )
+            }
         }
         activeBookId.value = bookId
-        // P1-A：切书后，上一本书在途的规则扫描一律失效，迟到结果不得发布
-        txtRuleScanCoordinator.invalidate()
-        // 切书同时取消旧扫描 Job，状态不残留到新书会话
-        txtScanJob?.cancel()
-        txtScanJob = null
-        _txtRuleScanStatus.value = TxtRuleScanStatus.Idle
+        // P1-A：切书后，上一本书在途的规则扫描一律失效，迟到结果不得发布，并重置状态
+        txtScanCoordinator.onBookSwitched()
 
         loadJob?.cancel()
         val generation = loadGeneration.incrementAndGet()
@@ -723,215 +794,56 @@ class ReaderViewModel @Inject constructor(
 
     // ── 章节加载 ─────────────────────────────────────────────
     private fun loadChapter(bookId: String, chapterIndex: Int, persistProgress: Boolean = true) {
-        chapterLoadJob?.cancel()
-        val gen = chapterLoadGeneration.incrementAndGet()
-        _chapterLoadState.value = ChapterLoadResult.Loading(bookId, chapterIndex)
-        chapterLoadJob = viewModelScope.launch(ioDispatcher) {
-            try {
-                val book = _uiState.value.loadedBook ?: return@launch
-                if (book.id != bookId) return@launch
-                val blocks = when (val content = book.content) {
-                    is ReaderLoadedContent.Epub -> content.document.blocks(chapterIndex)
-                    is ReaderLoadedContent.Markdown -> content.document.blocks(chapterIndex)
-                    is ReaderLoadedContent.Text -> return@launch
-                }
-                if (gen != chapterLoadGeneration.get()) return@launch
-                _chapterLoadState.value = ChapterLoadResult.Loaded(bookId, chapterIndex, blocks)
-                runCatching { chapterReadRepository.markRead(bookId, chapterIndex) }
-                    .onFailure { AppLog.w("ReaderVM", "mark chapter read failed: ${it.message}") }
-                // 保存 epub 进度（章号即位置的 legacy 语义）。
-                // persistProgress=false：分页引擎的被动跨章同步——真实落点可能是上一章
-                // 末页而非章首，这里若写 offsetInChapter=0 的章首 locator（merge 无条件
-                // 采信 incoming）会在退出重进时把用户拽回前一章开头；精确进度由分页
-                // 侧的防抖保存落库。
-                if (persistProgress && book.content is ReaderLoadedContent.Epub) {
-                    val epub = book.content
-                    val percent = if (epub.book.chapters.isEmpty()) {
-                        0f
-                    } else {
-                        ((chapterIndex + 1).toFloat() / epub.book.chapters.size) * 100f
-                    }
-                    epubRepository.saveProgress(bookId, chapterIndex, percent)
-                }
-            } catch (_: CancellationException) {
-                // stale load, ignore
-            } catch (e: Exception) {
-                if (gen == chapterLoadGeneration.get()) {
-                    _chapterLoadState.value = ChapterLoadResult.Error(bookId, chapterIndex, e.message ?: "章节加载失败")
-                }
-            }
-        }
+        chapterLoaderCoordinator.loadChapter(
+            scope = viewModelScope,
+            dispatcher = ioDispatcher,
+            loadedBookProvider = { _uiState.value.loadedBook },
+            bookId = bookId,
+            chapterIndex = chapterIndex,
+            persistProgress = persistProgress,
+            chapterReadRepository = chapterReadRepository,
+            epubRepository = epubRepository,
+        )
     }
 
     /** 一次性加载章节块（供搜索/高亮定位等 UI 跳转场景使用，不改变当前章节状态）。 */
-    suspend fun loadChapterBlocks(bookId: String, chapterIndex: Int): List<DocBlock> {
-        val book = _uiState.value.loadedBook ?: return emptyList()
-        if (book.id != bookId) return emptyList()
-        val document = when (val content = book.content) {
-            is ReaderLoadedContent.Epub -> content.document
-            is ReaderLoadedContent.Markdown -> content.document
-            is ReaderLoadedContent.Text -> return emptyList()
-        }
-        return try {
-            document.blocks(chapterIndex)
-        } catch (e: Exception) {
-            AppLog.w("ReaderVM", "loadChapterBlocks failed: ${e.message}")
-            emptyList()
-        }
-    }
+    suspend fun loadChapterBlocks(bookId: String, chapterIndex: Int): List<DocBlock> =
+        chapterLoaderCoordinator.loadChapterBlocks({ _uiState.value.loadedBook }, bookId, chapterIndex)
 
     /** 提取章节纯文本（供锚点解析等场景使用）。 */
-    suspend fun extractChapterText(bookId: String, chapterIndex: Int): String {
-        val book = _uiState.value.loadedBook ?: return ""
-        if (book.id != bookId) return ""
-        val document = when (val content = book.content) {
-            is ReaderLoadedContent.Epub -> content.document
-            is ReaderLoadedContent.Markdown -> content.document
-            is ReaderLoadedContent.Text -> return ""
-        }
-        return try {
-            document.text(chapterIndex)
-        } catch (e: Exception) {
-            AppLog.w("ReaderVM", "extractChapterText failed: ${e.message}")
-            ""
-        }
-    }
+    suspend fun extractChapterText(bookId: String, chapterIndex: Int): String =
+        chapterLoaderCoordinator.extractChapterText({ _uiState.value.loadedBook }, bookId, chapterIndex)
 
     // ── TXT 规则扫描 ──────────────────────────────────────────
-    /**
-     * 死路径（任务 #15 小清理）：生产零派发，TOC 规则切换已改走
-     * ExecuteRuleCommand + [rescanTxtToc]。保留实现仅为扫描状态机
-     * （取消/竞争/进度）的测试驱动入口，与 [rescanTxtToc] 共用同一套
-     * txtScanJob / txtRuleScanCoordinator / 状态发布链路。
-     */
+    @Suppress("DEPRECATION")
     private fun scanTxtTocRule(bookId: String, filePath: String, ruleId: String) {
-        // 新请求立即取消旧 Job；阻塞中的旧扫描靠 monitor 探针协作退出
-        txtScanJob?.cancel()
-        val requestId = txtRuleScanCoordinator.begin(bookId, ruleId)
-        _txtRuleScanStatus.value = TxtRuleScanStatus.Running(bookId, ruleId, progress = null)
-        txtScanJob = viewModelScope.launch(ioDispatcher) {
-            try {
-                val file = File(filePath)
-                val monitor = object : TxtScanMonitor {
-                    override fun isCancelled(): Boolean =
-                        !txtRuleScanCoordinator.isCurrent(bookId, ruleId, requestId)
-
-                    override fun onProgress(fraction: Float?) {
-                        // 迟到进度（取消 / 切书 / 换规则后）一律不发布
-                        if (txtRuleScanCoordinator.isCurrent(bookId, ruleId, requestId)) {
-                            _txtRuleScanStatus.value = TxtRuleScanStatus.Running(bookId, ruleId, fraction)
-                        }
-                    }
-                }
-                val newIndex = txtFileScanner(file, ruleId, monitor)
-                if (!txtRuleScanCoordinator.isCurrent(bookId, ruleId, requestId)) return@launch
-                val newDocument = PlainTextDocument.fromFileIndex(file, newIndex)
-                if (!txtRuleScanCoordinator.isCurrent(bookId, ruleId, requestId)) return@launch
-                _txtRuleScanResult.value = TxtRuleScanResult(
-                    bookId = bookId,
-                    ruleId = ruleId,
-                    requestId = requestId,
-                    fileIndex = newIndex,
-                    document = newDocument,
-                )
-                _txtRuleScanStatus.value = TxtRuleScanStatus.Completed(bookId, ruleId, newIndex.chapters.size)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (e: Exception) {
-                if (!txtRuleScanCoordinator.isCurrent(bookId, ruleId, requestId)) return@launch
-                _txtRuleScanResult.value = TxtRuleScanResult(
-                    bookId = bookId,
-                    ruleId = ruleId,
-                    requestId = requestId,
-                    error = e.message ?: "切换目录规则失败",
-                )
-                _txtRuleScanStatus.value = TxtRuleScanStatus.Failed(
-                    bookId = bookId,
-                    ruleId = ruleId,
-                    message = e.message ?: "切换目录规则失败",
-                )
-            }
-        }
+        txtScanCoordinator.scanTxtTocRule(
+            scope = viewModelScope,
+            dispatcher = ioDispatcher,
+            bookId = bookId,
+            filePath = filePath,
+            ruleId = ruleId,
+        )
     }
 
     /**
      * 多规则目录重扫（P1-A）：规则写入成功后重新识别当前流式 TXT。
-     *
-     * - 权威身份来自 Room 生效规则（effectiveToc → TxtTocProfile.key）；
-     * - [profileKeyHint] 仅作竞态校验：与权威 key 不一致说明规则又变了 / UI
-     *   快照过期，直接丢弃本次请求；
-     * - 协程启动时再核对当前书身份：切书（openBook 已 invalidate）后晚到的
-     *   请求不得重新激活旧书，防止跨书发布。
      */
     private fun rescanTxtToc(bookId: String, filePath: String, profileKeyHint: String) {
-        txtScanJob?.cancel()
-        txtScanJob = viewModelScope.launch(ioDispatcher) {
-            var requestId = 0L
-            var activeKey: String? = null
-            try {
-                if (activeBookId.value != bookId) return@launch
-                val snapshot = rulesRepository.observe(bookId).first()
-                val profile = RuleEngine.tocProfile(snapshot.effectiveToc)
-                if (profile.key != profileKeyHint) return@launch
-
-                activeKey = profile.key
-                requestId = txtRuleScanCoordinator.begin(bookId, profile.key)
-                _txtRuleScanStatus.value = TxtRuleScanStatus.Running(bookId, profile.key, progress = null)
-                val file = File(filePath)
-                val monitor = object : TxtScanMonitor {
-                    override fun isCancelled(): Boolean =
-                        !txtRuleScanCoordinator.isCurrent(bookId, profile.key, requestId)
-
-                    override fun onProgress(fraction: Float?) {
-                        if (txtRuleScanCoordinator.isCurrent(bookId, profile.key, requestId)) {
-                            _txtRuleScanStatus.value = TxtRuleScanStatus.Running(bookId, profile.key, fraction)
-                        }
-                    }
-                }
-                val newIndex = txtFileScannerProfile(file, profile, monitor)
-                if (!txtRuleScanCoordinator.isCurrent(bookId, profile.key, requestId)) return@launch
-                val newDocument = PlainTextDocument.fromFileIndex(file, newIndex)
-                if (!txtRuleScanCoordinator.isCurrent(bookId, profile.key, requestId)) return@launch
-                _txtRuleScanResult.value = TxtRuleScanResult(
-                    bookId = bookId,
-                    ruleId = profile.key,
-                    requestId = requestId,
-                    fileIndex = newIndex,
-                    document = newDocument,
-                )
-                _txtRuleScanStatus.value = TxtRuleScanStatus.Completed(bookId, profile.key, newIndex.chapters.size)
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (e: Exception) {
-                val key = activeKey ?: return@launch
-                if (!txtRuleScanCoordinator.isCurrent(bookId, key, requestId)) return@launch
-                _txtRuleScanResult.value = TxtRuleScanResult(
-                    bookId = bookId,
-                    ruleId = key,
-                    requestId = requestId,
-                    error = e.message ?: "切换目录规则失败",
-                )
-                _txtRuleScanStatus.value = TxtRuleScanStatus.Failed(
-                    bookId = bookId,
-                    ruleId = key,
-                    message = e.message ?: "切换目录规则失败",
-                )
-            }
-        }
+        txtScanCoordinator.rescanTxtToc(
+            scope = viewModelScope,
+            dispatcher = ioDispatcher,
+            activeBookIdProvider = { activeBookId.value },
+            bookId = bookId,
+            filePath = filePath,
+            profileKeyHint = profileKeyHint,
+            rulesRepository = rulesRepository,
+        )
     }
 
     /** 显式取消当前 TXT 规则扫描。 */
     private fun cancelTxtTocScan() {
-        val inFlight = txtScanJob?.isActive == true
-        txtScanJob?.cancel()
-        txtScanJob = null
-        val active = txtRuleScanCoordinator.invalidate()
-        _txtRuleScanStatus.value = if (inFlight && active != null) {
-            TxtRuleScanStatus.Cancelled(active.first, active.second)
-        } else {
-            TxtRuleScanStatus.Idle
-        }
-        // 不发布 result：原 document/fileIndex 保持不变，pending anchor 不被消费
+        txtScanCoordinator.cancelTxtTocScan()
     }
 
     override fun onCleared() {
@@ -943,10 +855,9 @@ class ReaderViewModel @Inject constructor(
             ),
         )
         loadJob?.cancel()
-        chapterLoadJob?.cancel()
-        txtScanJob?.cancel()
+        chapterLoaderCoordinator.clear()
+        txtScanCoordinator.clear()
         loadGeneration.incrementAndGet()
-        chapterLoadGeneration.incrementAndGet()
         release(_uiState.value.loadedBook)
         _uiState.value = ReaderUiState()
         synchronized(readerOpenTraceLock) {
@@ -966,49 +877,3 @@ class ReaderViewModel @Inject constructor(
         const val READER_OPEN_TRACE = "ReaderOpen"
     }
 }
-
-private data class ReaderBookData(
-    val highlights: List<HighlightEntity> = emptyList(),
-    val notes: List<NoteEntity> = emptyList(),
-    val inspirations: List<InspirationEntity> = emptyList(),
-    val sessions: List<ReadingSessionEntity> = emptyList(),
-    val readChapters: List<Int> = emptyList(),
-)
-
-private data class ReaderRouteSources(
-    val document: ReaderUiState,
-    val screen: ReaderScreenState,
-    val book: ReaderBookData,
-    val taxonomy: ReaderTaxonomyData,
-    val auxiliary: ReaderAuxiliaryState,
-)
-
-private data class ReaderTaxonomyData(
-    val categories: List<CategoryEntity> = emptyList(),
-    val tags: List<TagEntity> = emptyList(),
-)
-
-private data class ReaderAuxiliaryState(
-    val txtTocRuleId: String = "builtin",
-    val chapterLoadResult: ChapterLoadResult? = null,
-    val txtRuleScanResult: TxtRuleScanResult? = null,
-    val txtRuleScanStatus: TxtRuleScanStatus = TxtRuleScanStatus.Idle,
-)
-
-data class ReaderRouteUiState(
-    val document: ReaderUiState = ReaderUiState(),
-    val screen: ReaderScreenState = ReaderScreenState(),
-    val highlights: List<HighlightEntity> = emptyList(),
-    val notes: List<NoteEntity> = emptyList(),
-    val inspirations: List<InspirationEntity> = emptyList(),
-    val categories: List<CategoryEntity> = emptyList(),
-    val tags: List<TagEntity> = emptyList(),
-    val sessions: List<ReadingSessionEntity> = emptyList(),
-    val readChapters: List<Int> = emptyList(),
-    val txtTocRuleId: String = "builtin",
-    val chapterLoadResult: ChapterLoadResult? = null,
-    val txtRuleScanResult: TxtRuleScanResult? = null,
-    val txtRuleScanStatus: TxtRuleScanStatus = TxtRuleScanStatus.Idle,
-    val ruleSnapshot: RuleSnapshot = RuleSnapshot.empty(),
-    val ruleMutationResult: RuleMutationResult? = null,
-)

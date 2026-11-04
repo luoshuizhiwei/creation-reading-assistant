@@ -83,6 +83,8 @@ internal fun BatchActionBar(
     modifier: Modifier = Modifier,
 ) {
     val enabled = selectedCount > 0
+    val reducedMotion = rememberReducedMotion()
+    val haptic = rememberHaptic(reducedMotion)
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -107,6 +109,8 @@ internal fun BatchActionBar(
                 text = "加入书单",
                 baseColor = Color(0xFF7C3AED),
                 enabled = enabled,
+                reducedMotion = reducedMotion,
+                haptic = haptic,
                 onClick = onAddToShelf,
             )
             // 设置分类：天蓝底座 + Icons.Outlined.Category
@@ -115,6 +119,8 @@ internal fun BatchActionBar(
                 text = "设置分类",
                 baseColor = Color(0xFF0284C7),
                 enabled = enabled,
+                reducedMotion = reducedMotion,
+                haptic = haptic,
                 onClick = onSetCategory,
             )
             // 标签：暖橙底座 + Icons.AutoMirrored.Outlined.Label
@@ -123,6 +129,8 @@ internal fun BatchActionBar(
                 text = "标签",
                 baseColor = Color(0xFFD97706),
                 enabled = enabled,
+                reducedMotion = reducedMotion,
+                haptic = haptic,
                 onClick = onTag,
             )
             // 下载：墨绿底座 + Icons.Outlined.Download
@@ -131,6 +139,8 @@ internal fun BatchActionBar(
                 text = "下载",
                 baseColor = MaterialTheme.colorScheme.primary,
                 enabled = enabled,
+                reducedMotion = reducedMotion,
+                haptic = haptic,
                 onClick = onDownload,
             )
             // 清缓存：冷灰底座 + Icons.Outlined.DeleteOutline
@@ -139,6 +149,8 @@ internal fun BatchActionBar(
                 text = "清缓存",
                 baseColor = Color(0xFF5A6C7C),
                 enabled = enabled,
+                reducedMotion = reducedMotion,
+                haptic = haptic,
                 onClick = onClearCache,
             )
             // 删除：珊瑚红底座 + Icons.Outlined.DeleteOutline (danger)
@@ -147,6 +159,8 @@ internal fun BatchActionBar(
                 text = "删除",
                 baseColor = AppError,
                 enabled = enabled,
+                reducedMotion = reducedMotion,
+                haptic = haptic,
                 onClick = onDelete,
                 danger = true,
             )
@@ -161,11 +175,11 @@ private fun BatchDockCapsule(
     text: String,
     baseColor: Color,
     enabled: Boolean,
+    reducedMotion: Boolean,
+    haptic: (HapticFeedbackType) -> Unit,
     onClick: () -> Unit,
     danger: Boolean = false,
 ) {
-    val reducedMotion = rememberReducedMotion()
-    val haptic = rememberHaptic(reducedMotion)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(

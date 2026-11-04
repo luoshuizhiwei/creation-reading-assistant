@@ -4,8 +4,11 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +26,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import com.creationreadingassistant.feature.library.ImportBatchSuccesses
 import com.creationreadingassistant.feature.library.deletion.DeletionScope
 import com.creationreadingassistant.feature.library.deletion.deletionConfirmAction
 import com.creationreadingassistant.feature.library.deletion.deletionConfirmBody
@@ -32,11 +36,25 @@ import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.ui.viewmodel.ShelfViewModel
 import com.creationreadingassistant.ui.viewmodel.TaxonomyViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** 首屏骨架最小展示时长：避免数据秒回时骨架一闪而过。 */
-private const val SkeletonMinDisplayMillis = 350L
+/**
+ * S05-④ 复核补强：「查看」点按时取出**与提示所对应批次一致**的成功 id。
+ *
+ * 只有 [successes] 记录的批次就是 [batchId] 时才返回其 id；否则返回**空** ——
+ * 批次已经换代（用户点了旧提示、而期间又开始了新导入）时，绝不能把新批次的成功 id
+ * 当成旧提示的目标，否则用户会被带去这一批根本没导入的书。
+ *
+ * 返回空同时还覆盖「批次一致但 id 列表异常为空」这一路：调用方必须据此给出明确反馈，
+ * 不得静默结束。
+ *
+ * 抽成纯函数以便定向测试：这是「查看」定位里可判定的一步，不需要 Compose 运行时。
+ */
+internal fun focusIdsForBatch(
+    successes: ImportBatchSuccesses,
+    batchId: String,
+): List<String> = if (successes.batchId == batchId) successes.bookIds else emptyList()
+
 /**
  * S04：来源更新确认弹窗对「阅读进度」的说明。
  *
@@ -135,9 +153,11 @@ internal fun ShelfRoute(
     val viewMode = session.viewMode
     val sortMode = session.sortMode
     val statusFilter = session.statusFilter
-    var firstLoad by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) { delay(SkeletonMinDisplayMillis); firstLoad = false }
-    LaunchedEffect(books) { if (books.isNotEmpty()) firstLoad = false }
+    // 骨架门（M-BUG-09）：只由「库数据是否已收到首次真实发射」驱动，**不用计时器**。
+    // 原实现用 350ms 定时器关骨架，冷启动首读慢于 350ms 时骨架先关、而 books 仍为空，
+    // 于是先渲染空态「书架还空着」再跳到列表（真机可复现）。对齐 InspirationRoute 的做法：
+    // 骨架只由首次 emission 驱动，Loaded(空) 才落空态。
+    val libraryLoaded by viewModel.libraryLoaded.collectAsStateWithLifecycle(initialValue = false)
 
     // ======= 顶栏：搜索 / 菜单 / 选择模式 =======
     var showPageMenu by remember { mutableStateOf(false) }
@@ -171,6 +191,17 @@ internal fun ShelfRoute(
     var confirmDeleteIds by remember { mutableStateOf<List<String>?>(null) }
     var restorePromptBookId by remember { mutableStateOf<String?>(null) }
 
+    // ======= 新导入未查看标签 =======
+    val newBookIds by viewModel.newBookIds.collectAsStateWithLifecycle(initialValue = emptySet())
+
+    /**
+     * 导入完成点「查看」后的定位候选（本批成功 id；Screen 处理完即清空）。
+     *
+     * 这里**不**收集导入器的流：定位目标必须在点按那一刻从导入器同步读取并按批次核对，
+     * 见下方 [focusIdsForBatch] 与点击处注释。
+     */
+    var focusNewBookIds by remember { mutableStateOf<List<String>>(emptyList()) }
+
     LaunchedEffect(importBatch.id, importBatch.isRunning) {
         if (
             importBatch.id.isNotBlank() &&
@@ -180,7 +211,38 @@ internal fun ShelfRoute(
         ) {
             val summary = importBatchSnackbarMessage(importBatch)
             viewModel.markImportBatchSummaryNotified(importBatch.id)
-            snackbarHostState.showSnackbar(summary)
+            // 有成功导入时给一个「查看」入口，直接滚到新书位置。
+            // 用户抱怨过「新导入的找不到」，仅靠排序把新书放最前还不够——
+            // 书多了以后列表首屏未必在顶部（上次浏览位置），需要一个显式定位动作。
+            if (importBatch.succeeded > 0) {
+                val result = snackbarHostState.showSnackbar(
+                    message = summary,
+                    actionLabel = "查看",
+                    withDismissAction = false,
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    // 在**点按这一刻同步读**导入器，而不是用 Compose 异步收集到的最近一帧：
+                    // 后者不能保证与「这条提示所对应的批次」原子同步，可能批次 id 已是新的、
+                    // id 列表还是旧的（或反之），从而把用户带去错误批次的书。
+                    val successes = viewModel.importer.batchSuccesses.value
+                    val ids = focusIdsForBatch(successes, importBatch.id)
+                    focusNewBookIds = ids
+                    if (ids.isEmpty()) {
+                        // succeeded > 0 却取不到可定位的 id：批次已换代，或列表异常为空。
+                        // 必须明确反馈且请求已清理，不能静默结束（用户会以为界面卡住了）。
+                        showMessage(
+                            if (successes.batchId != importBatch.id) {
+                                "这一批已不是最近一次导入，请在书架上按「新」角标查找"
+                            } else {
+                                "暂时定位不到这一批新书，请在书架上按「新」角标查找"
+                            },
+                        )
+                    }
+                }
+            } else {
+                snackbarHostState.showSnackbar(summary)
+            }
         }
     }
 
@@ -206,6 +268,7 @@ internal fun ShelfRoute(
         shelfBooks = shelfBooks,
         isRefreshing = isRefreshing,
         contentUpdatedBookIds = contentUpdatedBookIds,
+        newBookIds = newBookIds,
         query = "",
         debouncedQuery = "",
         viewMode = viewMode,
@@ -220,7 +283,7 @@ internal fun ShelfRoute(
         selectedCategoryId = selectedCategoryId,
         selectedTagIds = selectedTagIds,
         filteredBookIds = filteredBookIds,
-        showSkeleton = firstLoad && books.isEmpty(),
+        showSkeleton = !libraryLoaded,
         showSortSheet = showSortSheet,
         showFilterPanel = showFilterPanel,
         showImportHistory = showImportHistory,
@@ -245,10 +308,22 @@ internal fun ShelfRoute(
         CompositionLocalProvider(LocalShelfSnackbar provides snackbarHostState) {
             ShelfScreen(
                 state = uiState,
+                focusBookIds = focusNewBookIds,
+                onFocusHandled = { reached ->
+                    // 无论是否滚动成功都清空：留下的过期定位会在用户之后改筛选时突然触发。
+                    focusNewBookIds = emptyList()
+                    if (!reached) {
+                        // 不能静默无响应：说明为什么没动，以及用户能做什么。
+                        showMessage("新导入的书不在当前筛选结果里，可调整筛选后再查看")
+                    }
+                },
                 onAction = { action ->
                     if (action is ShelfAction.OpenBook &&
                         progressById[action.book.id]?.readingState == ReadingCompletionState.SHELVED
                     ) {
+                        // 搁置的书走「恢复阅读状态？」对话框，不直接进阅读器。
+                        // 「新」角标在此一并清除：用户已经点了这本书，无论是否恢复都算已查看。
+                        viewModel.clearNewBookId(action.book.id)
                         restorePromptBookId = action.book.id
                     } else handleShelfAction(
                         action = action,
@@ -318,7 +393,8 @@ internal fun ShelfRoute(
                 onDelete = { requestDelete(selectedIds.toList()) },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .navigationBarsPadding(),
             )
         }
     }
@@ -351,12 +427,10 @@ internal fun ShelfRoute(
             },
             onOpenDetail = { id -> actionBookId = null; detailBookId = id },
             onDelete = { id -> actionBookId = null; requestDelete(listOf(id)) },
-            onCancelFinished = { book ->
-                viewModel.restoreReading(book.id) { success, message ->
-                    if (success) actionBookId = null
-                    showMessage(message)
-                }
-            },
+            // 状态动作与长按面板内的按钮一一对应；面板只发动作，写库统一走 ViewModel。
+            onMarkFinished = { id -> actionBookId = null; viewModel.markFinished(id) { showMessage(it) } },
+            onMarkReading = { id -> actionBookId = null; viewModel.markReading(id) { showMessage(it) } },
+            onShelve = { id -> actionBookId = null; viewModel.shelveBook(id) { showMessage(it) } },
         )
     }
     if (detailBook != null) {
@@ -698,6 +772,9 @@ private fun handleShelfAction(
         is ShelfAction.ToggleSelected -> toggleSelectedId(action.bookId)
 
         is ShelfAction.OpenBook -> {
+            // 打开即视为「已查看」，清掉「新」角标。放在导航之前：
+            // 正文缺失时用户也已看到这本书，角标继续挂着没有意义。
+            viewModel.clearNewBookId(action.book.id)
             val label = bookNotReadyLabel(action.book)
             if (label == null) navController.navigate("reader/${action.book.id}")
             else showMessage("《${action.book.title}》${label}，暂时无法打开。请检查文件状态或重新导入/下载正文。")
@@ -708,6 +785,7 @@ private fun handleShelfAction(
         }
         is ShelfAction.DismissActionSheet -> setActionBookId(null)
         is ShelfAction.ContinueFromActionSheet -> {
+            viewModel.clearNewBookId(action.book.id)
             if (bookNotReadyLabel(action.book) == null)
                 navController.navigate("reader/${action.book.id}")
             else showMessage("《${action.book.title}》暂无可离线正文，请先导入或下载。")
@@ -719,6 +797,20 @@ private fun handleShelfAction(
         ShelfAction.DismissDetailSheet -> setDetailBookId(null)
         is ShelfAction.DeleteSingle -> setConfirmDeleteIds(listOf(action.bookId))
 
+        // 阅读状态动作：统一在写库后关掉长按面板，并把结果消息交给 snackbar。
+        is ShelfAction.MarkFinished -> {
+            setActionBookId(null)
+            viewModel.markFinished(action.bookId) { showMessage(it) }
+        }
+        is ShelfAction.MarkReading -> {
+            setActionBookId(null)
+            viewModel.markReading(action.bookId) { showMessage(it) }
+        }
+        is ShelfAction.ShelveBook -> {
+            setActionBookId(null)
+            viewModel.shelveBook(action.bookId) { showMessage(it) }
+        }
+
         is ShelfAction.BatchAddToShelf -> setBatchSheet(BatchSheetKind.SHELF)
         is ShelfAction.BatchSetCategory -> setBatchSheet(BatchSheetKind.CATEGORY)
         is ShelfAction.BatchAddTag -> setBatchSheet(BatchSheetKind.TAG)
@@ -729,6 +821,16 @@ private fun handleShelfAction(
             else showMessage("请先选择要清理缓存的书籍")
         }
         is ShelfAction.BatchRequestDelete -> setConfirmDeleteIds(action.ids.toList())
+        is ShelfAction.BatchMarkFinished -> {
+            val ids = action.ids.toList()
+            if (ids.isNotEmpty()) { viewModel.markFinishedBatch(ids) { showMessage(it) }; exitSelection() }
+            else showMessage("请先选择要标记的书籍")
+        }
+        is ShelfAction.BatchMarkReading -> {
+            val ids = action.ids.toList()
+            if (ids.isNotEmpty()) { viewModel.markReadingBatch(ids) { showMessage(it) }; exitSelection() }
+            else showMessage("请先选择要取消的书籍")
+        }
         is ShelfAction.SelectBatchSheetKind -> setBatchSheet(action.kind)
         ShelfAction.DismissBatchSheet -> setBatchSheet(null)
 
@@ -777,6 +879,7 @@ private fun handleShelfAction(
         }
         is ShelfAction.DetailResetCover -> viewModel.resetBookCover(action.bookId) { showMessage(it) }
         is ShelfAction.DetailContinue -> {
+            viewModel.clearNewBookId(action.book.id)
             if (bookNotReadyLabel(action.book) == null)
                 navController.navigate("reader/${action.book.id}")
             else showMessage("《${action.book.title}》暂无可离线正文，请先导入或下载。")

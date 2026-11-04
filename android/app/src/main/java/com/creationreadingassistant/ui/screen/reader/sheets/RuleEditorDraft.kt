@@ -88,6 +88,22 @@ internal fun replaceDraft(rule: ReplaceRule): RuleEditorDraft {
     )
 }
 
+/** 替换规则自动名称最多保留的字数（超出取前 N 个字）。 */
+internal const val REPLACE_RULE_NAME_MAX_CHARS = 3
+
+/**
+ * 替换规则的自动名称：**直接用被替换的文字本身**，超过 [REPLACE_RULE_NAME_MAX_CHARS]
+ * 个字时只保留前 N 个字。
+ *
+ * 只接受**普通文本**（`simpleFind`），绝不接受 `pattern` —— 简单模式下 pattern 是
+ * [Regex.escape] 的产物（形如 `\Q你好\E`），取前 3 个字会得到 `\Q你` 这种无意义的名字。
+ *
+ * 注意：按字面取前 N 个字，可能带出末尾空格（如 "价格 (1+1)" → "价格 "），
+ * 这是刻意与"取前 3 个字"保持字面一致。
+ */
+internal fun replaceRuleAutoName(findLiteral: String): String =
+    findLiteral.trim().take(REPLACE_RULE_NAME_MAX_CHARS)
+
 /**
  * Build a safe per-book replacement draft from a text selection. The selection is a literal, not a
  * regular expression supplied by the user, so quote every regex metacharacter before preview/save.
@@ -97,7 +113,9 @@ internal fun selectionReplaceDraft(selectedText: String): RuleEditorDraft? {
     val literal = selectedText.trim().takeIf { it.isNotEmpty() } ?: return null
     return RuleEditorDraft(
         kind = RuleKind.REPLACE,
-        name = "替换选中文字",
+        // 名称直接用被替换的文字本身（过长时只保留前 3 个字），
+        // 不再用「替换选中文字」这种看不出替换内容的固定名称。
+        name = replaceRuleAutoName(literal),
         pattern = Regex.escape(literal),
         simpleFind = literal,
         scope = RuleScope.PER_BOOK,
@@ -123,7 +141,15 @@ internal fun RuleEditorDraft.toCommand(): RuleCommand? {
         )
     }
     if (pattern.isBlank()) return null
-    val resolvedName = name.trim().ifBlank { pattern.trim() }
+    val trimmedName = name.trim()
+    val resolvedName = when {
+        trimmedName.isNotEmpty() -> trimmedName
+        // 替换规则留空时用「被替换的文字本身」命名，超过 3 个字只保留前 3 个；
+        // 纯正则模式（没有普通文本）仍退回完整 pattern —— 正则截 3 个字毫无意义。
+        kind == RuleKind.REPLACE ->
+            simpleFind.trim().takeIf { it.isNotEmpty() }?.let(::replaceRuleAutoName) ?: pattern.trim()
+        else -> pattern.trim()
+    }
     return when (kind) {
         RuleKind.TOC -> RuleCommand.SaveCustomToc(
             id = id,

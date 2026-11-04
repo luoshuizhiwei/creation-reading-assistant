@@ -1,6 +1,7 @@
 package com.creationreadingassistant.data.settings
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -128,5 +129,108 @@ class ReadingPresetsTest {
         val twice = ReadingPresets.applyTo(once, ReadingPresets.EYE_CARE)
 
         assertEquals(once, twice)
+    }
+
+    // ===================== D-2-A：预设不得静默重置分页引擎 =====================
+    //
+    // 新增两个引擎覆盖键后，「重置全部可覆盖项」会顺带把引擎模式也恢复成结构默认。
+    // 但视觉预设（大字号/护眼/默认）与「恢复全局默认」是**三种不同语义**，必须拆开：
+    // - 视觉预设：只管排版/显示，绝不碰兼容性开关；
+    // - 全部跟随全局：清当前书全部覆盖（含引擎）；
+    // - 恢复全局默认：显式重置全局的全部可覆盖项（含引擎）。
+
+    @Test
+    fun `the preset owned key set excludes the pager engine keys`() {
+        assertFalse(
+            "分页引擎是兼容性开关，不得混入视觉预设",
+            ReaderOverrideKey.PAGER_ENGINE_MODE in ReadingPresets.PRESET_OWNED_KEYS,
+        )
+        assertFalse(
+            ReaderOverrideKey.EPUB_PAGER_ENGINE_MODE in ReadingPresets.PRESET_OWNED_KEYS,
+        )
+    }
+
+    @Test
+    fun `the preset owned key set covers every non engine overridable key`() {
+        // 反向护栏：预设负责键集合必须恰好等于「全部可覆盖项 - 两个引擎键」，
+        // 既不能漏（漏了预设就清不干净旧覆盖），也不能多（多了就会碰引擎）。
+        val expected = ReaderOverrideKey.entries.toSet() -
+            setOf(ReaderOverrideKey.PAGER_ENGINE_MODE, ReaderOverrideKey.EPUB_PAGER_ENGINE_MODE)
+
+        assertEquals(expected, ReadingPresets.PRESET_OWNED_KEYS)
+    }
+
+    @Test
+    fun `applying any preset leaves the pager engine modes untouched`() {
+        val current = ReaderSettings(pagerEngineMode = "off", epubPagerEngineMode = "on")
+
+        ReadingPresets.ALL.forEach { preset ->
+            val out = ReadingPresets.applyTo(current, preset)
+            assertEquals(
+                "${preset.id} 不得改动 TXT/Markdown 引擎模式",
+                "off",
+                out.pagerEngineMode,
+            )
+            assertEquals(
+                "${preset.id} 不得改动 EPUB 引擎模式",
+                "on",
+                out.epubPagerEngineMode,
+            )
+        }
+    }
+
+    @Test
+    fun `applying a preset still resets the keys it owns`() {
+        // 正向护栏：拆开引擎后，预设原本负责的排版项仍必须被重置。
+        val current = ReaderSettings(
+            fontSize = 44f,
+            lineHeight = 2.9f,
+            background = "night",
+            pagerEngineMode = "off",
+        )
+
+        val out = ReadingPresets.applyTo(current, ReadingPresets.DEFAULT)
+
+        assertEquals(ReaderSettings().fontSize, out.fontSize)
+        assertEquals(ReaderSettings().lineHeight, out.lineHeight)
+        assertEquals(ReaderSettings().background, out.background)
+        assertEquals("引擎模式必须保持调用前的值", "off", out.pagerEngineMode)
+    }
+
+    @Test
+    fun `applying a preset keeps device level settings untouched`() {
+        // 既有契约不得回退：设备级偏好（不在预设负责集合里）保持原值。
+        val current = ReaderSettings(brightness = 70, tapZoneMode = "five-zone")
+
+        ReadingPresets.ALL.forEach { preset ->
+            val out = ReadingPresets.applyTo(current, preset)
+            assertEquals("${preset.id} 不得改动亮度", 70, out.brightness)
+            assertEquals("${preset.id} 不得改动点击区域", "five-zone", out.tapZoneMode)
+        }
+    }
+
+    @Test
+    fun `reset global defaults covers every overridable key including the engines`() {
+        // 「恢复全局默认」是显式的全局恢复操作：必须重置**全部可覆盖项**（含两个引擎键），
+        // 而不是复用视觉预设的键集合。这里钉住它覆盖的键集合口径。
+        val current = ReaderSettings(pagerEngineMode = "off", epubPagerEngineMode = "on")
+
+        val out = ReadingPresets.resetAllOverridableKeys(current)
+
+        assertEquals("TXT 引擎必须恢复结构默认", ReaderSettings().pagerEngineMode, out.pagerEngineMode)
+        assertEquals("EPUB 引擎必须恢复结构默认", ReaderSettings().epubPagerEngineMode, out.epubPagerEngineMode)
+        // 两个引擎键必须属于「全部可覆盖项」，对话框项目数因此从 20 变 22
+        assertEquals(22, ReaderOverrideKey.entries.size)
+    }
+
+    @Test
+    fun `reset all overridable keys keeps device level settings untouched`() {
+        val current = ReaderSettings(brightness = 70, ttsPitch = 1.3f, tapZoneMode = "five-zone")
+
+        val out = ReadingPresets.resetAllOverridableKeys(current)
+
+        assertEquals("设备级偏好不属于可覆盖项，必须原样保留", 70, out.brightness)
+        assertEquals(1.3f, out.ttsPitch)
+        assertEquals("five-zone", out.tapZoneMode)
     }
 }

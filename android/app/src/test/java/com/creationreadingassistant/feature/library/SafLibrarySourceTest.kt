@@ -65,6 +65,36 @@ class SafLibrarySourceTest {
         assertTrue(listing.entries.isEmpty())
     }
 
+    @Test
+    fun `added desc sorts newest first`() = runTest {
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor(
+            Row("primary:Books/old.txt", "old.txt", "text/plain", 1, 10),
+            Row("primary:Books/new.epub", "new.epub", "application/epub+zip", 1, 90),
+            Row("primary:Books/mid.md", "mid.md", "text/markdown", 1, 50),
+        )
+
+        val listing = SafLibrarySource(resolver).list(root(LibrarySortMode.ADDED_DESC))
+
+        // 「最近添加」= 来源文件修改时间倒序：文件拷入目录时该时间即拷贝时间。
+        assertEquals(listOf("new.epub", "mid.md", "old.txt"), listing.entries.map { it.displayName })
+    }
+
+    @Test
+    fun `added desc keeps directories first and sinks unknown timestamps last`() = runTest {
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor(
+            Row("primary:Books/小说", "小说", DocumentsContract.Document.MIME_TYPE_DIR, 0, 5),
+            Row("primary:Books/noTime.txt", "noTime.txt", "text/plain", 1, -1),
+            Row("primary:Books/newest.epub", "newest.epub", "application/epub+zip", 1, 90),
+        )
+
+        val listing = SafLibrarySource(resolver).list(root(LibrarySortMode.ADDED_DESC))
+
+        // 目录恒在最前；时间未知（provider 返回负数被过滤成 null）的文件沉底，
+        // 不能因为 null 参与比较而排到最前。
+        assertEquals(listOf("小说", "newest.epub", "noTime.txt"), listing.entries.map { it.displayName })
+        assertTrue(listing.entries.first().isDirectory)
+    }
+
     private fun root(sortMode: LibrarySortMode) = LibraryRoot(
         treeUri = rootUri,
         displayName = "书籍",

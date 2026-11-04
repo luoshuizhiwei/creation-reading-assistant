@@ -14,6 +14,83 @@ import androidx.compose.runtime.withFrameNanos
 import com.creationreadingassistant.feature.log.AppLog
 
 /**
+ * 程序化跳转（底栏进度条 / 目录 / 搜索命中 / 高亮回源）的选区失效通知（S07-F2.2）。
+ *
+ * 只走**选区通道**：一个空文本 `onSelect`，在 F2 已建立的接线里收敛到
+ * `ReaderAction.ClearSelection`（完整五字段清除 + 收起色板行）。
+ *
+ * 为什么不复用 `onGesturePageTurn`：那条链在 VM 里是 `ReaderAction.PageTurn`，
+ * 除了清选区还会**隐藏阅读页顶栏/底栏**。程序化跳转只是让旧选区失效，
+ * 不等于用户执行了一次翻页手势；跨章跳转走 `LoadChapter` 也只清选区、不动 chrome。
+ * 复用 `PageTurn` 会让「同章跳页收起菜单栏、跨章跳页不收起」这种不一致成为用户可见行为。
+ *
+ * 这里返回闭包而不是直接调用，便于 `PagedReaderControllerEffects` 把它当回调注入，
+ * 也便于在 JVM 上断言它究竟走了哪条通道。
+ */
+internal fun programmaticJumpInvalidation(
+    onSelect: (text: String, sourceStart: Int, sourceEnd: Int) -> Unit,
+): () -> Unit = { onSelect("", -1, -1) }
+
+/**
+ * 一次程序化跳转（进度条 / 目录 / 回源）是否会改变**可见页面身份**（S07-F2.1）。
+ *
+ * [currentPageRangeAbs] 是当前可见页覆盖的全书 source 区间，[targetOffset] 是跳转目标。
+ * `PagedReaderController.open()` 是确定性的：它把目标落在「包含该偏移的那一页」上
+ * （`chapterIndexFor(target)` → `globalSourceToLocalDisplay` → `pageIndexFor`）。
+ * 因此当目标仍落在当前可见页区间内时，页号与章号都不会变，此时**不得**发选区失效事件
+ * —— 否则「跳了个没动的位置」会把用户刚选的字清掉。
+ *
+ * 三个必须返回 false 的情形都落在这个判断里：
+ * - 目标仍在当前可见页 → 身份不变；
+ * - 还没有可见页（排版未就绪 / 源为空 / open 被取消）→ [currentPageRangeAbs] 为 null；
+ * - 目标与当前页相同 → 同上。
+ *
+ * 调用点每次跳转只调用一次，所以「恰好发一次」由结构保证，不需要额外的去重状态。
+ */
+internal fun readerJumpClearsSelection(
+    targetOffset: Int,
+    currentPageRangeAbs: IntRange?,
+): Boolean = currentPageRangeAbs != null && targetOffset !in currentPageRangeAbs
+
+/**
+ * 执行一次程序化跳转，并**至多一次**地通知选区失效（S07-F2.1）。
+ *
+ * 把「读当前页区间 → 判定 → open → 通知」四步收在一个函数里，好处是「恰好一次」
+ * 由结构保证：通知只在 [readerJumpClearsSelection] 为 true 时发生，且本函数每次跳转
+ * 只被调用一次（`LaunchedEffect(jumpRequest.value)` 消费后立刻把请求置 null）。
+ *
+ * [open] 与 [invalidateSelection] 都是注入项，因此本函数可在 JVM 上断言调用次数，
+ * 不需要挂载 Compose 或真实分页控制器。
+ *
+ * @return 是否发出了选区失效通知。
+ */
+internal fun applyProgrammaticJump(
+    targetOffset: Int,
+    currentPageRangeAbs: IntRange?,
+    open: (Int) -> Unit,
+    invalidateSelection: () -> Unit,
+): Boolean {
+    val clearsSelection = readerJumpClearsSelection(targetOffset, currentPageRangeAbs)
+    open(targetOffset)
+    if (clearsSelection) {
+        invalidateSelection()
+    }
+    return clearsSelection
+}
+
+/**
+ * VM 清空选区后，宿主本地 `selRange` 的去留（S07-F2.1）。
+ *
+ * `selectionCleared` 派生自 VM 的 `selectedText.isBlank()`。VM 已清而宿主仍画着旧色块，
+ * 用户看到的就仍是残留选区，所以这里必须丢弃；VM 未清时原样保留，不得抢先撤掉
+ * 一个仍然有效的选区。
+ */
+internal fun shouldDropLocalSelection(
+    selectionCleared: Boolean,
+    local: IntRange?,
+): IntRange? = if (selectionCleared) null else local
+
+/**
  * 任务 #15 结构拆分：从 [PagedReaderHost] 抽出的控制器 effect 组
  * （锚点恢复 / 页变化上报 / 外部跳转 / 选区清除 / 外部翻页请求 / 自动翻页揭动画）。
  *
@@ -37,6 +114,14 @@ internal fun PagedReaderControllerEffects(
     autoPageIntervalMillis: Long?,
     onAutoPagingFinished: () -> Unit,
     revealProgressState: MutableFloatState,
+    /**
+     * 选区失效通知（S07-F2.1 / F2.2）：可见页面身份确实变化后调用一次。
+     *
+     * 宿主应当传入 [programmaticJumpInvalidation]（走选区通道 → `ClearSelection`），
+     * **不要**传翻页手势回调 —— 那会在清选区之外顺带隐藏顶栏/底栏，
+     * 而程序化跳转并不等于一次翻页手势。本层不接触任何选区字段清单。
+     */
+    onSelectionInvalidated: () -> Unit = {},
 ) {
     val finishAutoPaging by rememberUpdatedState(onAutoPagingFinished)
     // 上报回调必须在每次重组后取最新：LaunchedEffect(controller) 只启动一次，
@@ -80,15 +165,23 @@ internal fun PagedReaderControllerEffects(
             }
     }
 
-    // 外部跳转（进度条 / 目录）
+    // 外部跳转（进度条 / 目录 / 回源）
     LaunchedEffect(jumpRequest.value) {
         val j = jumpRequest.value ?: return@LaunchedEffect
-        controller.open(j)
+        // S07-F2.1：先读**当前可见页区间**再跳。open 是确定性的（把目标落在包含该偏移的
+        // 那一页上），所以「目标是否落在当前页内」同步决定了这次跳转会不会改变页面身份；
+        // 不必等 open 的异步排版落定。身份确实变化才发一次选区失效事件。
+        applyProgrammaticJump(
+            targetOffset = j,
+            currentPageRangeAbs = controller.currentPageRangeAbs,
+            open = controller::open,
+            invalidateSelection = onSelectionInvalidated,
+        )
         jumpRequest.value = null
     }
 
     // 选区（章内偏移区间）。翻页/外部清除时撤掉。
-    LaunchedEffect(selectionCleared) { if (selectionCleared) selRange.value = null }
+    LaunchedEffect(selectionCleared) { selRange.value = shouldDropLocalSelection(selectionCleared, selRange.value) }
     LaunchedEffect(externalTurnRequest.value) {
         val direction = externalTurnRequest.value ?: return@LaunchedEffect
         turnRequest.intValue = direction

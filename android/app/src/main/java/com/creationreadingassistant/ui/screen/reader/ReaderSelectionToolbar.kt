@@ -53,11 +53,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.creationreadingassistant.data.settings.SelectionActionSettings
 import com.creationreadingassistant.data.settings.SelectionActions
 import com.creationreadingassistant.ui.screen.reader.sheets.HIGHLIGHT_COLORS
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.theme.ReaderPanelSurface
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 
@@ -152,10 +155,12 @@ internal fun SelectionToolbar(
 ) {
     var moreExpanded by remember { mutableStateOf(false) }
     val spec = LocalComponentSpec.current
+    val haptic = rememberHaptic(rememberReducedMotion())
 
     // 单一动作分发：高频槽与「更多」菜单共用同一份 id → 回调映射，
     // 避免「同一个动作换个位置就接错回调」这类只在真机上才暴露的错。
     val onActionClick: (String) -> Unit = { id ->
+        haptic(HapticFeedbackType.TextHandleMove)
         when (id) {
             "highlight" -> onToggleColor()
             "browser" -> onBrowser()
@@ -228,7 +233,10 @@ internal fun SelectionToolbar(
                             modifier = Modifier
                                 .size(46.dp)
                                 .semantics { contentDescription = "高亮颜色 $colorName" }
-                                .clickable { onPickColor(colorName) },
+                                .clickable {
+                                    haptic(HapticFeedbackType.TextHandleMove)
+                                    onPickColor(colorName)
+                                },
                             contentAlignment = Alignment.Center,
                         ) {
                             Box(
@@ -248,7 +256,10 @@ internal fun SelectionToolbar(
                     }
                     Spacer(Modifier.width(8.dp))
                     Surface(
-                        onClick = onToggleColor,
+                        onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            onToggleColor()
+                        },
                         // 微岛收敛：提示岛圆角统一走 hintRadius 令牌（原手写 12dp，取值不变）。
                         shape = RoundedCornerShape(spec.hintRadius),
                         color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),

@@ -13,6 +13,40 @@
 
 $ErrorActionPreference = 'Stop'
 
+# Whether the caller explicitly passed -PackageName. Captured here, at script scope and
+# before the default above is ever consulted: $PSBoundParameters is the only way to tell
+# "caller omitted it" from "caller typed the default literal". The -TestApk guard below
+# depends on that distinction, so it must not read $PackageName itself.
+$packageNameExplicit = $PSBoundParameters.ContainsKey('PackageName')
+
+# androidTest APK guard. -TestApk only adds `adb install -t`; the package name is a
+# separate axis. Build variants may append an applicationIdSuffix ('.test',
+# '.r3gate.test', ...), so the test package is NOT derivable from the main one and the
+# script must not guess. Without a usable -PackageName the confirm loop and the
+# direct-install fallback would verify `pm path com.creationreadingassistant` -- the MAIN
+# app -- and could report a confirm-loop PASS on the strength of a package this run never
+# installed. Fail before the first adb/device call so no install attempt can be
+# misreported as success.
+#
+# Two distinct ways the package name can be unusable, and both must be caught:
+#   1. the caller omitted -PackageName entirely -> ContainsKey is false;
+#   2. the caller passed null / '' / whitespace -> ContainsKey is TRUE, so the
+#      presence check alone lets it through and the script proceeds to touch the
+#      device with an empty package (verified on device-free probes before this fix).
+# IsNullOrWhiteSpace covers null, empty and whitespace-only in one predicate.
+$testPackageNameMissing =
+    -not $packageNameExplicit -or
+    [string]::IsNullOrWhiteSpace($PackageName)
+
+if ($TestApk -and $testPackageNameMissing) {
+    Write-Host "ERROR: -TestApk requires a non-empty -PackageName."
+    Write-Host "The androidTest APK's package name cannot be derived from the main package: build variants may append an applicationIdSuffix (for example '.test' or '.r3gate.test')."
+    Write-Host "Pass the test APK's real package name, for example:"
+    Write-Host "  -TestApk -PackageName com.creationreadingassistant.test"
+    Write-Host "RESULT: FAILED (-TestApk requires a non-empty -PackageName; the test APK package name cannot be inferred)"
+    exit 1
+}
+
 if ([string]::IsNullOrWhiteSpace($Apk)) {
     $Apk = Join-Path $PSScriptRoot '..\app\build\outputs\apk\debug\app-debug.apk'
 }

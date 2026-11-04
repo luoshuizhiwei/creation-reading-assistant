@@ -67,11 +67,13 @@ internal class SystemTtsEngineWrapper(
     override fun nextSentence() = delegate.next()
     override fun prevSentence() = delegate.prev()
 
-    override fun setSpeechRate(rate: Float) { delegate.rate = rate; if (delegate.status == "playing") delegate.resume() }
+    override fun setSpeechRate(rate: Float) = delegate.updateSpeechRate(rate)
     override fun setPitch(pitch: Float) = delegate.updatePitch(pitch)
     override fun setVolume(volume: Float) = delegate.updateVolume(volume)
     override fun setVoice(voiceId: String) = delegate.updateVoiceId(voiceId)
     override fun setTimedStop(minutes: Int) = delegate.setTimedStop(minutes)
+    override val timedStopRemainingSeconds: Int get() = delegate.timedStopRemainingSeconds
+    override fun extendTimedStop(additionalMinutes: Int) = delegate.extendTimedStop(additionalMinutes)
 
     override val playbackStatus: String get() = delegate.status
     override val progressPercent: Float get() = delegate.progressPercent

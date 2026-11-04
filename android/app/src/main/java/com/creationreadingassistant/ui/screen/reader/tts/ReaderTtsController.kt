@@ -8,6 +8,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
@@ -15,6 +18,7 @@ import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
+import android.view.KeyEvent
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,6 +42,7 @@ internal class TtsController(context: Context) : TtsStatus {
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var tts: TextToSpeech? = null
     private val statusHolder = TtsStatusHolder()
+    var availableVoices: List<Voice> by mutableStateOf(emptyList())
 
     /** 引擎可用性（Compose 可观察），透传 [TtsStatusHolder]。 */
     override val availability: TtsAvailability get() = statusHolder.availability
@@ -68,8 +73,11 @@ internal class TtsController(context: Context) : TtsStatus {
     var pitch by mutableFloatStateOf(1f)
     var volume by mutableFloatStateOf(1f) // 0..1
     var voiceId by mutableStateOf("") // 语音名称
-    var availableVoices by mutableStateOf(emptyList<Voice>())
     var timedStopMinutes by mutableIntStateOf(0)
+    /** 睡眠定时剩余秒数，供界面动态展示倒计时微胶囊与快捷延长（R3+）。 */
+    var timedStopRemainingSeconds by mutableIntStateOf(0)
+    private var timedStopEndTimestamp = 0L
+    private var countdownRunnable: Runnable? = null
     /** 当前朗读句在播放文本中的 [start, end) 偏移，供阅读器高亮与滚动（R2）。 */
     var currentSentenceRange by mutableStateOf(0 to 0)
     /** 句变化回调：用于高亮/滚动与跨会话续读持久化（R2/R3）。 */
@@ -86,51 +94,142 @@ internal class TtsController(context: Context) : TtsStatus {
     private var timedStopRunnable: Runnable? = null
     private val media = TtsMediaSession(appContext, ::onMediaPlay, ::pause, ::next, ::prev, ::stop)
 
-    private val initListener = TextToSpeech.OnInitListener { code ->
-        if (code == TextToSpeech.SUCCESS) {
-            tts?.language = Locale.CHINESE
-            tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) {
-                    statusHolder.markPlaying()
-                    media.updateState(PlaybackState.STATE_PLAYING)
-                }
+    private var focusRequest: AudioFocusRequest? = null
+    private var focusGainLegacy: Boolean = false
+    private var wasPlayingBeforeFocusLoss: Boolean = false
 
-                override fun onDone(utteranceId: String?) {
-                    if (index < sentences.lastIndex) {
-                        index += 1
-                        speakCurrent()
-                    } else {
-                        statusHolder.markIdle()
-                        progressPercent = 100f
-                        media.updateState(PlaybackState.STATE_STOPPED)
-                        media.hideNotification()
-                        clearTimedStop()
-                        restoreVolume()
-                        onFinished?.invoke()
+    private val afChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                wasPlayingBeforeFocusLoss = false
+                pause()
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                wasPlayingBeforeFocusLoss = (status == "playing")
+                pause()
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                if (wasPlayingBeforeFocusLoss) {
+                    wasPlayingBeforeFocusLoss = false
+                    resume()
+                }
+            }
+        }
+    }
+
+    private fun requestFocus(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (focusRequest == null) {
+                focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).run {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build(),
+                    )
+                    setAcceptsDelayedFocusGain(true)
+                    setOnAudioFocusChangeListener(afChangeListener)
+                    build()
+                }
+            }
+            val r = audioManager.requestAudioFocus(focusRequest!!)
+            r == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            @Suppress("DEPRECATION")
+            val r = audioManager.requestAudioFocus(
+                afChangeListener,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN,
+            )
+            focusGainLegacy = (r == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
+            focusGainLegacy
+        }
+    }
+
+    private fun abandonFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            focusRequest?.let { runCatching { audioManager.abandonAudioFocusRequest(it) } }
+        } else {
+            if (focusGainLegacy) {
+                @Suppress("DEPRECATION")
+                runCatching { audioManager.abandonAudioFocus(afChangeListener) }
+                focusGainLegacy = false
+            }
+        }
+    }
+
+    private val initListener = TextToSpeech.OnInitListener { code ->
+        handler.post {
+            if (code == TextToSpeech.SUCCESS) {
+                // 语言梯度兼容回退：CHINA -> SIMPLIFIED_CHINESE -> CHINESE -> 默认语言
+                var langSet = false
+                val candidates = listOf(Locale.CHINA, Locale.SIMPLIFIED_CHINESE, Locale.CHINESE, Locale.getDefault())
+                for (loc in candidates) {
+                    val res = tts?.setLanguage(loc) ?: TextToSpeech.LANG_NOT_SUPPORTED
+                    if (res != TextToSpeech.LANG_MISSING_DATA && res != TextToSpeech.LANG_NOT_SUPPORTED) {
+                        langSet = true
+                        break
                     }
                 }
-
-                @Suppress("DEPRECATION")
-                override fun onError(utteranceId: String?) {
-                    failPlayback(MSG_ENGINE_ERROR)
+                if (!langSet) {
+                    tts?.language = Locale.getDefault()
                 }
 
-                override fun onError(utteranceId: String?, errorCode: Int) {
-                    failPlayback(MSG_ENGINE_ERROR)
-                }
-            })
-            availableVoices = tts?.voices?.toList() ?: emptyList()
-            statusHolder.onInitSuccess()
-        } else {
-            statusHolder.onInitFailure(MSG_INIT_FAILED)
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        handler.post {
+                            statusHolder.markPlaying()
+                            media.updateState(PlaybackState.STATE_PLAYING)
+                        }
+                    }
+
+                    override fun onDone(utteranceId: String?) {
+                        handler.post {
+                            if (index < sentences.lastIndex) {
+                                index += 1
+                                speakCurrent()
+                            } else {
+                                statusHolder.markIdle()
+                                progressPercent = 100f
+                                media.updateState(PlaybackState.STATE_STOPPED)
+                                media.hideNotification()
+                                clearTimedStop()
+                                restoreVolume()
+                                abandonFocus()
+                                onFinished?.invoke()
+                            }
+                        }
+                    }
+
+                    @Suppress("DEPRECATION")
+                    override fun onError(utteranceId: String?) {
+                        handler.post {
+                            abandonFocus()
+                            failPlayback(MSG_ENGINE_ERROR)
+                        }
+                    }
+
+                    override fun onError(utteranceId: String?, errorCode: Int) {
+                        handler.post {
+                            abandonFocus()
+                            failPlayback(MSG_ENGINE_ERROR)
+                        }
+                    }
+                })
+                availableVoices = tts?.voices?.toList() ?: emptyList()
+                statusHolder.onInitSuccess()
+            } else {
+                statusHolder.onInitFailure(MSG_INIT_FAILED)
+            }
         }
     }
 
     // 拔出耳机/断开蓝牙时自动暂停（AUDIO_BECOMING_NOISY），避免朗读突然外放。
-    // 系统广播不受 exported 标志影响；NOT_EXPORTED 拒绝其他 App 伪造同名广播。
+    // 该广播由系统进程派发，在 Android 14+ 需指定 RECEIVER_EXPORTED 接收。
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context?, intent: Intent?) {
-            if (intent?.action == android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY && status == "playing") {
+            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY && status == "playing") {
                 pause()
             }
         }
@@ -141,8 +240,8 @@ internal class TtsController(context: Context) : TtsStatus {
         ContextCompat.registerReceiver(
             appContext,
             noisyReceiver,
-            IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY),
-            ContextCompat.RECEIVER_NOT_EXPORTED,
+            IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY),
+            ContextCompat.RECEIVER_EXPORTED,
         )
     }
 
@@ -159,6 +258,7 @@ internal class TtsController(context: Context) : TtsStatus {
         sentences = splitSentencesWithOffsets(text)
         if (sentences.isEmpty()) return TtsPlayResult.Rejected("当前没有可朗读的文字。")
         index = sentences.indexOfFirst { it.second >= startOffset }.coerceAtLeast(0)
+        requestFocus()
         media.updateMetadata(chapterLabel.ifBlank { "朗读" }, bookTitle.ifBlank { "创作阅读助手" })
         media.updateState(PlaybackState.STATE_PLAYING)
         media.showNotification()
@@ -203,6 +303,7 @@ internal class TtsController(context: Context) : TtsStatus {
             tts?.voices?.firstOrNull { it.name == voiceId }?.let { tts?.setVoice(it) }
         }
         applyVolume()
+        media.updateCurrentSentence(sentence)
         val engine = tts
         if (engine == null) {
             failPlayback(MSG_ENGINE_ERROR)
@@ -222,18 +323,102 @@ internal class TtsController(context: Context) : TtsStatus {
         stop()
     }
 
+    private var fadeOutRunnable: Runnable? = null
+    private var preFadeVolume: Float? = null
+
+    /** 取消当前正在执行的音量淡出任务并恢复淡出前音量。 */
+    private fun cancelFadeOut() {
+        fadeOutRunnable?.let { handler.removeCallbacks(it) }
+        fadeOutRunnable = null
+        preFadeVolume?.let { saved ->
+            volume = saved
+            applyVolume()
+            preFadeVolume = null
+        }
+    }
+
+    /**
+     * 平滑淡出并终止播放（柔和入眠体验）。
+     *
+     * 在设定的毫秒内（默认 3 秒）将音量从当前值阶梯衰减至 0，随后执行 stop()。
+     * 完成后将控制器内部记录的音量值恢复为淡出前的值，确保下一次启动时声音不为 0。
+     */
+    private fun fadeOutAndStop(durationMs: Long = 3000L) {
+        if (status != "playing") {
+            stop()
+            return
+        }
+        val initialVol = volume
+        preFadeVolume = initialVol
+        val intervalMs = 100L
+        val totalSteps = (durationMs / intervalMs).coerceAtLeast(1).toInt()
+        var step = 0
+
+        val runnable = object : Runnable {
+            override fun run() {
+                step++
+                if (step >= totalSteps || status != "playing") {
+                    fadeOutRunnable = null
+                    val saved = preFadeVolume
+                    preFadeVolume = null
+                    stop()
+                    saved?.let { volume = it }
+                    return
+                }
+                val ratio = 1f - (step.toFloat() / totalSteps)
+                volume = (initialVol * ratio).coerceIn(0f, 1f)
+                applyVolume()
+                handler.postDelayed(this, intervalMs)
+            }
+        }
+        fadeOutRunnable = runnable
+        handler.post(runnable)
+    }
+
     private fun scheduleTimedStop() {
         clearTimedStop()
         if (timedStopMinutes > 0) {
-            val runnable = Runnable { stop() }
+            val totalDelay = timedStopMinutes * 60_000L
+            val fadeDuration = 3000L
+            val triggerDelay = if (totalDelay > fadeDuration) totalDelay - fadeDuration else totalDelay
+            timedStopEndTimestamp = System.currentTimeMillis() + totalDelay
+            val runnable = Runnable {
+                fadeOutAndStop(fadeDuration.coerceAtMost(totalDelay))
+            }
             timedStopRunnable = runnable
-            handler.postDelayed(runnable, timedStopMinutes * 60_000L)
+            handler.postDelayed(runnable, triggerDelay)
+            startCountdown()
         }
+    }
+
+    private fun startCountdown() {
+        stopCountdown()
+        val tick = object : Runnable {
+            override fun run() {
+                val rem = ((timedStopEndTimestamp - System.currentTimeMillis()) / 1000L).coerceAtLeast(0L).toInt()
+                timedStopRemainingSeconds = rem
+                if (rem > 0 && status != "idle") {
+                    handler.postDelayed(this, 1000L)
+                } else {
+                    stopCountdown()
+                }
+            }
+        }
+        countdownRunnable = tick
+        handler.post(tick)
+    }
+
+    private fun stopCountdown() {
+        countdownRunnable?.let { handler.removeCallbacks(it) }
+        countdownRunnable = null
+        timedStopRemainingSeconds = 0
     }
 
     private fun clearTimedStop() {
         timedStopRunnable?.let { handler.removeCallbacks(it) }
         timedStopRunnable = null
+        stopCountdown()
+        cancelFadeOut()
     }
 
     fun setTimedStop(min: Int) {
@@ -241,15 +426,36 @@ internal class TtsController(context: Context) : TtsStatus {
         if (status != "idle") scheduleTimedStop()
     }
 
+    /**
+     * 快捷延长续听：若已有定时则在剩余时间基础上追加 minutes 分钟；若当前未定时则设定 minutes 分钟。
+     */
+    fun extendTimedStop(additionalMinutes: Int = 15) {
+        val currentRemMin = if (timedStopRemainingSeconds > 0) (timedStopRemainingSeconds + 59) / 60 else 0
+        val target = (currentRemMin + additionalMinutes).coerceIn(1, 180)
+        setTimedStop(target)
+    }
+
     /** 实时调节音量：立即作用到 STREAM_MUSIC（不会等到下一句）。 */
     fun updateVolume(v: Float) {
+        cancelFadeOut()
         volume = v.coerceIn(0f, 1f)
         if (status != "idle") applyVolume()
     }
 
+    /** 实时调节语速：当前句立即以新语速重读，反馈实时敏捷。 */
+    fun updateSpeechRate(v: Float) {
+        val target = v.coerceIn(0.5f, 3.0f)
+        if (kotlin.math.abs(rate - target) < 0.02f) return
+        rate = target
+        tts?.setSpeechRate(target)
+        if (status == "playing") speakCurrent()
+    }
+
     /** 实时调节音调：当前句立即以新音调重读，反馈更直观。 */
     fun updatePitch(v: Float) {
-        pitch = v.coerceIn(0.5f, 2f)
+        val target = v.coerceIn(0.5f, 2f)
+        if (kotlin.math.abs(pitch - target) < 0.02f) return
+        pitch = target
         if (status == "playing") speakCurrent()
     }
 
@@ -276,6 +482,7 @@ internal class TtsController(context: Context) : TtsStatus {
             }
             is TtsPlayResult.Accepted -> Unit
         }
+        requestFocus()
         media.updateState(PlaybackState.STATE_PLAYING)
         media.showNotification()
         speakCurrent()
@@ -286,6 +493,8 @@ internal class TtsController(context: Context) : TtsStatus {
         clearTimedStop()
         tts?.stop()
         restoreVolume()
+        abandonFocus()
+        wasPlayingBeforeFocusLoss = false
         statusHolder.markIdle()
         progressPercent = 0f
         currentSentenceRange = 0 to 0
@@ -311,6 +520,7 @@ internal class TtsController(context: Context) : TtsStatus {
         clearTimedStop()
         tts?.stop()
         restoreVolume()
+        abandonFocus()
         tts?.shutdown()
         media.release()
         runCatching { appContext.unregisterReceiver(noisyReceiver) }
@@ -325,6 +535,7 @@ internal class TtsController(context: Context) : TtsStatus {
         clearTimedStop()
         tts?.stop()
         restoreVolume()
+        abandonFocus()
         tts?.shutdown()
         statusHolder.reinitialize()
         media.updateState(PlaybackState.STATE_STOPPED)
@@ -380,6 +591,53 @@ internal class TtsMediaSession(
             override fun onSkipToNext() = this@TtsMediaSession.onNext()
             override fun onSkipToPrevious() = this@TtsMediaSession.onPrev()
             override fun onStop() = this@TtsMediaSession.onStop()
+
+            override fun onMediaButtonEvent(mediaButtonIntent: Intent): Boolean {
+                val keyEvent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    mediaButtonIntent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    mediaButtonIntent.getParcelableExtra(Intent.EXTRA_KEY_EVENT)
+                } ?: return super.onMediaButtonEvent(mediaButtonIntent)
+
+                if (keyEvent.action == KeyEvent.ACTION_UP) {
+                    when (keyEvent.keyCode) {
+                        KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                        KeyEvent.KEYCODE_HEADSETHOOK -> {
+                            val state = mediaSession.controller.playbackState?.state
+                            if (state == PlaybackState.STATE_PLAYING) {
+                                this@TtsMediaSession.onPause()
+                            } else {
+                                this@TtsMediaSession.onPlay()
+                            }
+                            return true
+                        }
+                        KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                            this@TtsMediaSession.onPlay()
+                            return true
+                        }
+                        KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                            this@TtsMediaSession.onPause()
+                            return true
+                        }
+                        KeyEvent.KEYCODE_MEDIA_NEXT,
+                        KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                            this@TtsMediaSession.onNext()
+                            return true
+                        }
+                        KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+                        KeyEvent.KEYCODE_MEDIA_REWIND -> {
+                            this@TtsMediaSession.onPrev()
+                            return true
+                        }
+                        KeyEvent.KEYCODE_MEDIA_STOP -> {
+                            this@TtsMediaSession.onStop()
+                            return true
+                        }
+                    }
+                }
+                return super.onMediaButtonEvent(mediaButtonIntent)
+            }
         })
         val filter = IntentFilter().apply {
             addAction(ACTION_PLAY); addAction(ACTION_PAUSE); addAction(ACTION_NEXT)
@@ -416,14 +674,35 @@ internal class TtsMediaSession(
         )
     }
 
+    private var currentTitle: String = "朗读"
+    private var currentAuthor: String = "创作阅读助手"
+
     fun updateMetadata(title: String, subtitle: String) {
+        currentTitle = title.ifBlank { "朗读" }
+        currentAuthor = subtitle.ifBlank { "创作阅读助手" }
         mediaSession.setMetadata(
             MediaMetadata.Builder()
-                .putString(MediaMetadata.METADATA_KEY_TITLE, title)
-                .putString(MediaMetadata.METADATA_KEY_ARTIST, subtitle)
-                .putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, subtitle)
+                .putString(MediaMetadata.METADATA_KEY_TITLE, currentTitle)
+                .putString(MediaMetadata.METADATA_KEY_ARTIST, currentAuthor)
+                .putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, currentAuthor)
                 .build(),
         )
+    }
+
+    /** 实时锁屏歌词式同步：将正在朗读的句子推送到 MediaSession 并刷新通知 */
+    fun updateCurrentSentence(sentence: String) {
+        if (sentence.isBlank()) return
+        mediaSession.setMetadata(
+            MediaMetadata.Builder()
+                .putString(MediaMetadata.METADATA_KEY_TITLE, currentTitle)
+                .putString(MediaMetadata.METADATA_KEY_ARTIST, currentAuthor)
+                .putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, sentence)
+                .build(),
+        )
+        val state = mediaSession.controller.playbackState?.state
+        if (state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_PAUSED) {
+            showNotification()
+        }
     }
 
     fun showNotification() {
@@ -433,10 +712,13 @@ internal class TtsMediaSession(
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val metaTitle = mediaSession.controller.metadata?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "朗读"
-        val metaSub = mediaSession.controller.metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
+        val metaSub = mediaSession.controller.metadata?.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE)
+            ?: mediaSession.controller.metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
         val playing = mediaSession.controller.playbackState?.state == PlaybackState.STATE_PLAYING
 
-        val style = Notification.MediaStyle().setMediaSession(mediaSession.sessionToken)
+        val style = Notification.MediaStyle()
+            .setMediaSession(mediaSession.sessionToken)
+            .setShowActionsInCompactView(0, 1, 2)
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(appContext, channelId)
         } else {
@@ -446,6 +728,7 @@ internal class TtsMediaSession(
             .setContentTitle(metaTitle)
             .setContentText(metaSub)
             .setContentIntent(contentIntent)
+            .setDeleteIntent(pending(ACTION_STOP))
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setStyle(style)
             .setOngoing(playing)
@@ -501,26 +784,72 @@ internal class TtsMediaSession(
     }
 }
 
-/** 将正文切分为「句（句文本, 句首在原文中的偏移）」列表，保留标点。 */
+/**
+ * 将正文按句切分为「(句文本, 句首在原文中的绝对偏移)」列表。
+ *
+ * 针对中文小说深度优化：
+ * 1. 贪婪吸收后置引号/括号：如“你好啊！”末尾的双引号将跟随包含在本句，绝不被截断到下一句；
+ * 2. 连续省略号与复合标点合并：如“……”、“？！”作为统一断句边界，杜绝切出只有单个符号的空顿挫句；
+ * 3. 过滤纯标点空句，前导空白偏移精确换算，朗读发音与阅读高亮严丝合缝。
+ */
 internal fun splitSentencesWithOffsets(text: String): List<Pair<String, Int>> {
     val result = mutableListOf<Pair<String, Int>>()
     var offset = 0
-    for (para in text.split("\n")) {
-        if (para.isBlank()) { offset += para.length + 1; continue }
+    val paragraphs = text.split("\n")
+    for (para in paragraphs) {
+        val paraLen = para.length
+        if (para.isBlank()) {
+            offset += paraLen + 1
+            continue
+        }
         var start = 0
-        for (i in para.indices) {
+        var i = 0
+        while (i < paraLen) {
             val c = para[i]
-            if (c == '。' || c == '！' || c == '？' || c == '!' || c == '?' || c == '；' || c == ';' || c == '…') {
-                val sentence = para.substring(start, i + 1).trim()
-                if (sentence.isNotBlank()) result.add(sentence to (offset + start))
-                start = i + 1
+            if (isPunctuationBreak(c)) {
+                // 1. 贪婪跳过连续的断句标点（如多个 !? 或连续 ……）
+                var end = i + 1
+                while (end < paraLen && isPunctuationBreak(para[end])) {
+                    end++
+                }
+                // 2. 贪婪吸收紧随其后的闭引号/括号（如 ” ’ ） 」 等）
+                while (end < paraLen && isTrailingClosingSymbol(para[end])) {
+                    end++
+                }
+                val rawSegment = para.substring(start, end)
+                val trimmed = rawSegment.trim()
+                if (hasSpokenContent(trimmed)) {
+                    val leadingSpaces = rawSegment.indexOfFirst { !it.isWhitespace() }.coerceAtLeast(0)
+                    result.add(trimmed to (offset + start + leadingSpaces))
+                }
+                start = end
+                i = end
+            } else {
+                i++
             }
         }
-        if (start < para.length) {
-            val sentence = para.substring(start).trim()
-            if (sentence.isNotBlank()) result.add(sentence to (offset + start))
+        if (start < paraLen) {
+            val rawSegment = para.substring(start)
+            val trimmed = rawSegment.trim()
+            if (hasSpokenContent(trimmed)) {
+                val leadingSpaces = rawSegment.indexOfFirst { !it.isWhitespace() }.coerceAtLeast(0)
+                result.add(trimmed to (offset + start + leadingSpaces))
+            }
         }
-        offset += para.length + 1
+        offset += paraLen + 1
     }
     return result
 }
+
+private fun isPunctuationBreak(c: Char): Boolean =
+    c == '。' || c == '！' || c == '？' || c == '!' || c == '?' ||
+    c == '；' || c == ';' || c == '…' || c == '\u2026'
+
+private fun isTrailingClosingSymbol(c: Char): Boolean =
+    c == '”' || c == '’' || c == '"' || c == '\'' ||
+    c == '）' || c == ')' || c == '】' || c == ']' ||
+    c == '》' || c == '」' || c == '』'
+
+private fun hasSpokenContent(text: String): Boolean =
+    text.any { !isPunctuationBreak(it) && !isTrailingClosingSymbol(it) && !it.isWhitespace() }
+

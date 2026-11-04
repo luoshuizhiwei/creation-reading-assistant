@@ -17,13 +17,12 @@ import com.creationreadingassistant.ui.util.copyText
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.settings.PerBookOverrides
+import com.creationreadingassistant.data.settings.ReaderDayNightToggle
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.data.settings.ReaderSettingsScope
 import com.creationreadingassistant.data.settings.SelectionActionSettings
 import com.creationreadingassistant.data.settings.SelectionActions
 import com.creationreadingassistant.domain.model.EpubBook
-import com.creationreadingassistant.feature.annotations.AnnotationType
-import com.creationreadingassistant.feature.annotations.navigationTargetId
 import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
@@ -115,8 +114,15 @@ internal fun buildReaderContentHostCallbacks(
     onToggleControls = { onAction(ReaderAction.ToggleControls()) },
     // 翻页后立即隐藏菜单：走状态机 PageTurn，与 autoHideSeconds 是否 0 无关。
     onHideControls = { onAction(ReaderAction.PageTurn) },
+    // S07-F2：空文本的 onSelect 就是「撤掉选区」的信号（单击/双击撤选、滚动单元回收、
+    // 以及分页表面在提交翻页时的主动通知）。它必须收敛到唯一的完整清除语义
+    // ClearSelection，而不是走 SetSelectedText 只复位四个字段、把 showColorRow 留在打开态。
     onSelect = { text, globalOffset, rangeStart, sourceEnd ->
-        onAction(ReaderAction.SetSelectedText(text, rangeStart, globalOffset, sourceEnd))
+        if (text.isBlank()) {
+            onAction(ReaderAction.ClearSelection)
+        } else {
+            onAction(ReaderAction.SetSelectedText(text, rangeStart, globalOffset, sourceEnd))
+        }
     },
     onAutoPagingFinished = {
         onAutoPagingActiveChange(false)
@@ -130,6 +136,17 @@ internal fun buildReaderContentHostCallbacks(
 
 /** 翻页节流保存间隔：同章 ≥ 5 秒落库一次；跨章立即落库。 */
 private const val THROTTLE_SAVE_MS = 5_000L
+
+/**
+ * 「复制」动作的用户提示。
+ *
+ * [Clipboard.copyText] 的返回值就是**内容是否真的进了剪贴板**：空白选区直接返回 false
+ * （且不触碰剪贴板，见 [copyableSelection]），系统剪贴板服务异常也会降级为 false。
+ * 忽略它并无条件提示「已复制」，会在内容根本没写进去时给出一次虚假成功 ——
+ * 用户不会再去重新复制，等于静默丢内容。
+ */
+internal fun readerCopyNotice(succeeded: Boolean): String =
+    if (succeeded) "已复制" else "复制失败，请重试"
 
 /**
  * 构造覆盖层所需的只读展示数据。`isFirstChapter` / `isLastChapter` / `isEpub` / `isMarkdown` /
@@ -160,7 +177,29 @@ internal fun buildReaderInteractionLayerState(
     selectionActions: SelectionActionSettings = SelectionActionSettings(),
     /** R3-X1：AI 是否已配置可用；未配置时「AI 解读」不会进入选区工具条。 */
     aiConfigured: Boolean = true,
-): ReaderInteractionLayerState = ReaderInteractionLayerState(
+    /**
+     * M-BUG-08：TXT 书的当前章序号与章总数。
+     *
+     * 仅当「既非 EPUB 也非 Markdown」（即纯 TXT）时参与上一章/下一章按钮的边界判定——
+     * EPUB 与 Markdown 仍走各自的索引口径，行为不变。
+     */
+    txtChapterIndex: Int = 0,
+    txtChapterCount: Int = 0,
+    /** 外壳当前是否深色；仅用于解析 `follow` 纸张的明暗（一键日/夜灯绳的当前态）。 */
+    appDark: Boolean = false,
+): ReaderInteractionLayerState = run {
+    // M-BUG-08：章节导航口径。**纯 TXT**（既非 EPUB 也非 Markdown）用 txt 索引/总数，
+    // 修掉原先 `isLastChapter = epubBook == null || …` 导致 TXT 恒为末章、两个按钮都禁用的问题。
+    // EPUB 沿用 chapterIndex / epubBook.chapters（原本就正确）；Markdown 的章总数此处不可得，
+    // 维持原有行为，不回退、不新增风险。
+    val usesTxtChapterNav = epubBook == null && !isMarkdown
+    val navChapterIndex = if (usesTxtChapterNav) txtChapterIndex else chapterIndex
+    val navChapterCount = if (usesTxtChapterNav) txtChapterCount else (epubBook?.chapters?.size ?: 0)
+    // 口径转换：[readerChapterNavBounds] 返回「能否上/下一章」，而 [ReaderInteractionLayerState]
+    // 的字段是「是否首章/末章」，消费方按 `enabled = !isFirstChapter` 取反。两者语义相反，
+    // 直接透传会让中间章同时被判为首章+末章 → 两个按钮一起禁用、点击穿透到翻页手势。
+    val navBounds = readerChapterEdgeFlags(navChapterIndex, navChapterCount)
+    ReaderInteractionLayerState(
     controlsVisible = controlsVisible,
     selectedText = selectedText,
     showColorRow = showColorRow,
@@ -175,8 +214,8 @@ internal fun buildReaderInteractionLayerState(
     bookTitle = bookTitle,
     currentChapterTitle = currentChapterTitle,
     chapterProgress = chapterProgress,
-    isFirstChapter = chapterIndex <= 0,
-    isLastChapter = epubBook == null || chapterIndex >= epubBook.chapters.lastIndex,
+    isFirstChapter = navBounds.first,
+    isLastChapter = navBounds.second,
     isEpub = epubBook != null,
     isMarkdown = isMarkdown,
     isLoading = isLoading,
@@ -185,7 +224,11 @@ internal fun buildReaderInteractionLayerState(
     paper = paper,
     temporaryInspection = temporaryInspection,
     hasReturnableTarget = hasReturnableTarget,
-)
+    // 一键日/夜灯绳的当前态：按**纸张明暗**判定（`follow` 交给外壳解析），
+    // 与用户实际看到的内容一致，而不是外壳的 themeMode。
+    isNight = ReaderDayNightToggle.isNight(readerSettings.background, appDark),
+    )
+}
 
 /**
  * 构造覆盖层所需的回调集合。`onPickColor` 的完整高亮保存逻辑逐字搬运：locator 快照、
@@ -220,17 +263,63 @@ internal fun buildReaderInteractionLayerCallbacks(
     selectionActions: SelectionActionSettings = SelectionActionSettings(),
     /** R3-X1：首选词典＝离线时，用选中文字打开阅读器内词典面板。 */
     onOpenDictionary: (String) -> Unit = {},
+    /**
+     * M-BUG-08：纯 TXT 的章节导航素材。
+     *
+     * 当 [usesTxtChapterNav] 为 true 时，上一章/下一章改为按 [txtChapters] 的章首偏移
+     * 走 [jumpToPlainOffset]——因为 `goToChapter` 对「非 EPUB 且非 Markdown」直接 return，
+     * 点下去不会有任何反应。
+     */
+    usesTxtChapterNav: Boolean = false,
+    txtChapters: List<com.creationreadingassistant.feature.reader.doc.DocChapter> = emptyList(),
+    txtChapterIndex: Int = 0,
+    jumpToPlainOffset: (Int) -> Unit = {},
+    /**
+     * M-BUG-08：「上一章」专用跳章——落到目标章**末尾**。
+     * 非 TXT（EPUB/Markdown）路径用它，对齐 md3 `moveToPrevChapter(toLast = true)`。
+     */
+    goToPrevChapter: (Int) -> Unit = {},
+    /**
+     * 拉灯绳：一键切换日间 / 夜间（阅读纸张 + 应用外壳联动）。
+     *
+     * 实现在 [com.creationreadingassistant.ui.screen.reader.ReaderScaffold]（那里同时持有
+     * 有效设置、全局设置、作用范围与 settingsVm），本层只透传触发入口。
+     */
+    onToggleDayNight: () -> Unit = {},
 ): ReaderInteractionLayerCallbacks = ReaderInteractionLayerCallbacks(
+    onToggleDayNight = onToggleDayNight,
     onOverflowExpandedChange = { onAction(ReaderAction.SetShowOverflow(it)) },
     onChromeAction = handleChromeAction,
     onProgressScrubberInteractionStarted = { onAction(ReaderAction.ProgressScrubberInteractionStarted) },
     onSeekChapterPercent = { seekToChapterPercent(it) },
-    onPrevChapter = { goToChapter(chapterIndex - 1) },
-    onNextChapter = { goToChapter(chapterIndex + 1) },
+    onPrevChapter = {
+        // M-BUG-08：「上一章」统一落到**上一章末尾**（对齐 md3 moveToPrevChapter(toLast = true)）。
+        if (usesTxtChapterNav) {
+            // S07-F2：TXT 路径走 jumpToPlainOffset，不经过 LoadChapter，必须显式清选区；
+            // 无可跳目标时（首章 / 目录未识别）什么都不发生，也就**不清**。
+            txtScrollChapterTargetOffset(-1, txtChapters, txtChapterIndex)?.let { target ->
+                onAction(ReaderAction.ClearSelection)
+                jumpToPlainOffset(target)
+            }
+        } else {
+            goToPrevChapter(chapterIndex - 1)
+        }
+    },
+    onNextChapter = {
+        if (usesTxtChapterNav) {
+            txtScrollChapterTargetOffset(1, txtChapters, txtChapterIndex)?.let { target ->
+                onAction(ReaderAction.ClearSelection)
+                jumpToPlainOffset(target)
+            }
+        } else {
+            goToChapter(chapterIndex + 1)
+        }
+    },
     onAutoPageSpeedChange = onAutoPageSpeedChange,
-    onPersistTts = { p, v, id, t, e ->
+    onPersistTts = { r, p, v, id, t, e ->
         settingsVm.updateReader {
             copy(
+                ttsSpeechRate = r,
                 ttsPitch = p,
                 ttsVolume = v,
                 ttsVoiceId = id,
@@ -270,7 +359,10 @@ internal fun buildReaderInteractionLayerCallbacks(
     onAiExplain = { onAction(ReaderAction.OpenSheet(ReaderSheet.AI_EXPLAIN)) },
     onInspiration = { onAction(ReaderAction.OpenSheet(ReaderSheet.INSPIRATION)) },
     onNote = { onAction(ReaderAction.SetNoteOpen(true)) },
-    onCopy = { clipboard.copyText(selectedText, label = "reader_selection"); showNotice("已复制") },
+    onCopy = {
+        val copied = clipboard.copyText(selectedText, label = "reader_selection")
+        showNotice(readerCopyNotice(copied))
+    },
     onBrowser = {
         context.executeSelectionBrowser(
             selectedText = selectedText,
@@ -465,8 +557,14 @@ internal fun buildReaderSheetHostCallbacks(
                 selectedIndex = it,
             )
         ) {
+            // Chapter 分支经 goToChapter → LoadChapter，清选区已在 VM 侧收敛。
             is ReaderTocPickTarget.Chapter -> goToChapter(target.index)
-            is ReaderTocPickTarget.PlainOffset -> jumpToPlainOffset(target.offset)
+            // S07-F2：纯 TXT 走 jumpToPlainOffset，不经过 LoadChapter，必须显式清选区。
+            is ReaderTocPickTarget.PlainOffset -> {
+                onAction(ReaderAction.ClearSelection)
+                jumpToPlainOffset(target.offset)
+            }
+            // 没有任何可跳目标（未识别出目录等）→ 什么都没发生，不得清选区。
             ReaderTocPickTarget.None -> Unit
         }
         onAction(ReaderAction.CloseSheet)
@@ -481,12 +579,22 @@ internal fun buildReaderSheetHostCallbacks(
     },
     onCancelTxtScan = onCancelTxtScan,
     onPersistProgress = onPersistProgress,
+    // A01：标注回源统一收**已带类型前缀的 typed 目标**。
+    //
+    // 旧实现拆成两条回调：高亮写裸 rawId、书签写 bookmark:{id}。裸 rawId 在阅读器侧
+    // 走「先高亮、后笔记」的兼容回退，因此普通笔记若借道书签回调、或高亮与笔记同 rawId，
+    // 就会跳错表。收敛成单一 typed 入参后，调用方无法再传裸 id。
+    // 无 locator 的历史记录仍由 SE4 按其 locator / progress 降级，不伪造偏移。
     onJumpToTypedAnnotation = { typedTarget ->
         onPendingHighlightIdChange(typedTarget)
         onAction(ReaderAction.CloseSheet)
     },
     // 书摘/笔记/书签/灵感的导出（SAF 写 .md + 分享）已内聚在 NotesSheet，
     // 不再经由回调上抛组装。
+    /**
+     * S07-F2.4：AI 解读 / 灵感是长生命周期消费者——摘录文字与 locator **由弹层按打开时
+     * 快照传入**，二者同源，不得回读实时活动选区（后者会被 ReadingUnit dispose 清空）。
+     */
     onSaveAiExplainInspiration = { body, excerpt, locatorJson, tags, categoryIds ->
         val snapshotText = excerpt
         onAction(
@@ -511,6 +619,7 @@ internal fun buildReaderSheetHostCallbacks(
         showNotice("已存入灵感")
     },
     onSaveInspiration = { title, body, excerpt, locatorJson, tags, categoryIds ->
+        // 文字与 locator 都来自弹层传入的同一份快照（要求 7）。
         val snapshotText = excerpt
         onAction(
             ReaderAction.SaveInspiration(

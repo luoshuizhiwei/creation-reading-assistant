@@ -28,11 +28,60 @@ internal data class ReaderDerivedState(
 )
 
 /**
+ * 章节元数据：各章起始偏移 + 各章标题。
+ *
+ * 两者必须出自**同一个章节源**：偏移用来把全书字符位置反推成章号（进度落库、
+ * 跳章、TTS 章基址），标题用来渲染同一批章号。分头各选一次源，一旦某条回退链
+ * 走岔，就会出现「目录第 5 章、进度卡第 2 章」这类无法自证一致的状态。
+ */
+internal data class ChapterMetadata(
+    val startOffsets: List<Int>,
+    val titles: List<String>,
+)
+
+private fun chapterMetadataOf(chapters: List<DocChapter>): ChapterMetadata =
+    ChapterMetadata(
+        startOffsets = chapters.map { it.startOffset },
+        titles = chapters.map { it.title },
+    )
+
+/**
+ * 章节元数据的源选择。优先级即语义，勿调换：
+ *
+ * 1. [bookIndex] —— EPUB 全书索引（估算量纲，与历史 locator 同源）；
+ * 2. [markdownChapters] —— Markdown 文档的规范文本章表；
+ * 3. [txtStreamingChapters] —— 流式（大文件）TXT 章表；
+ * 4. [smallTxtChapters] —— 小 TXT 滚动路径的章节识别结果（`plainContent` 字符量纲）；
+ * 5. 空 —— 以上源都不在场（章节识别失败的小 TXT 如实降级为空表）。
+ *
+ * 前 3 档按**源是否在场**裁决（`null` 才继续下探），不是按列表是否为空：
+ * 文档在场但章表为空是解析器的诚实结论，回退到别的源会掺进不同量纲的偏移。
+ *
+ * 第 4 档是本文件的修复点。此前回退链止于 `emptyList()`，而小 TXT 的章表要等到
+ * [rememberReaderDerivedState] 里的 `txtChapters` 才算出来 —— 于是进度保存用空表
+ * 调 [com.creationreadingassistant.feature.reader.locator.EpubLocatorMapping.toChapterOffset]，
+ * 该函数对空表恒返回 `ci = 0`，书架进度卡因此恒显示「第 1 章」。
+ * 正文侧的 `readingUnits` 早已按真实逻辑章切块，量纲与 `smallTxtChapters` 一致，
+ * 补上这一档不会引入新的坐标系。
+ */
+internal fun selectChapterMetadata(
+    bookIndex: BookIndex?,
+    markdownChapters: List<DocChapter>?,
+    txtStreamingChapters: List<DocChapter>?,
+    smallTxtChapters: List<DocChapter>,
+): ChapterMetadata = when {
+    bookIndex != null -> ChapterMetadata(bookIndex.chapterStartOffsets, bookIndex.chapterTitles)
+    markdownChapters != null -> chapterMetadataOf(markdownChapters)
+    txtStreamingChapters != null -> chapterMetadataOf(txtStreamingChapters)
+    else -> chapterMetadataOf(smallTxtChapters)
+}
+
+/**
  * Phase 7 结构拆分：从 [com.creationreadingassistant.ui.screen.ReaderScreen] 抽出的「纯计算派生状态」
  * 逻辑（原 L365-402 的 chapterStartOffsets / chapterTitles / readingUnits 块）。
  *
- * 包含：chapterStartOffsets / chapterTitles（val 派生）、readingUnits（身份绑定裁决，
- * 只读，不再写回 document）。
+ * 包含：chapterStartOffsets / chapterTitles（由 [selectChapterMetadata] 一次性选定同源的
+ * 偏移与标题）、readingUnits（身份绑定裁决，只读，不再写回 document）。
  *
  * ## readingUnits 的单一真相
  *
@@ -58,16 +107,6 @@ internal fun rememberReaderDerivedState(
     tocProfile: TxtTocProfile,
     textContent: ReaderLoadedContent.Text?,
 ): ReaderDerivedState {
-    // 书内搜索：EPUB 不再常驻全本文本（会 OOM），改为搜索时按需逐章流式抽取（见 computeEpubSearch）；
-    // 这里只暴露各章偏移与标题，供跳章 / 命中映射使用。
-    val chapterStartOffsets = bookIndex?.chapterStartOffsets
-        ?: markdownDocument?.chapters?.map { it.startOffset }
-        ?: txtStreamingDocument?.chapters?.map { it.startOffset }
-        ?: emptyList()
-    val chapterTitles = bookIndex?.chapterTitles
-        ?: markdownDocument?.chapters?.map { it.title }
-        ?: txtStreamingDocument?.chapters?.map { it.title }
-        ?: emptyList()
     // 读取单元：惰性加载的元数据列表，不持有文本。
     // 流式 TXT 的单一真相在文档构造层（fromFileIndex 构造时构建），组合层只读查询，
     // 不在 composition 期间写回 document；小文件路径按章节对齐切块派生
@@ -98,6 +137,20 @@ internal fun rememberReaderDerivedState(
             emptyList()
         }
     }
+    // 章节元数据（跳章 / 命中映射 / 进度章号反推 / 目录标题；EPUB 侧只暴露偏移与标题，
+    // 全本文本改为搜索时逐章流式抽取，见 computeEpubSearch）。必须在 txtChapters 之后选取
+    // —— 小 TXT 的章表是那里才算出来的第四档源。
+    // remember 不是为了省算力：chapterStartOffsets 同时是 LaunchedEffect / remember 的 key
+    // （ReaderProgressEffects 的防抖落库、ReaderEyeCareFocusState），每次重组现算会给出新
+    // 列表实例。三份 document 的 chapters 都是实例内 val，按实例身份缓存不会读到旧章表。
+    val chapterMetadata = remember(bookIndex, markdownDocument, txtStreamingDocument, txtChapters) {
+        selectChapterMetadata(
+            bookIndex = bookIndex,
+            markdownChapters = markdownDocument?.chapters,
+            txtStreamingChapters = txtStreamingDocument?.chapters,
+            smallTxtChapters = txtChapters,
+        )
+    }
     val externallyDerivedUnits = remember(plainContent, txtChapters, txtStreamingDocument, txtStreamingFileIndex) {
         if (txtStreamingDocument == null && plainContent.isNotEmpty()) {
             // 小文件：按真实逻辑章对齐切块（章节识别失败时回退全文切块，诚实降级）
@@ -112,8 +165,8 @@ internal fun rememberReaderDerivedState(
         externallyDerivedUnits = externallyDerivedUnits,
     )
     return ReaderDerivedState(
-        chapterStartOffsets = chapterStartOffsets,
-        chapterTitles = chapterTitles,
+        chapterStartOffsets = chapterMetadata.startOffsets,
+        chapterTitles = chapterMetadata.titles,
         readingUnits = readingUnits,
         txtChapters = txtChapters,
     )

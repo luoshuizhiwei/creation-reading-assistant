@@ -78,14 +78,6 @@ class SearchIndexRepositoryRebuildConcurrencyTest {
             rows.removeIf { it.book_id == bookId && it.text_basis == textBasis }
         }
 
-        override suspend fun deleteByChapter(bookId: String, chapterIndex: Int) {
-            rows.removeIf { it.book_id == bookId && it.chapter_index == chapterIndex }
-        }
-
-        override suspend fun countTerms(): Long = rows.size.toLong()
-
-        override suspend fun rowsByTerm(term: String): List<SearchTermRow> = rows.filter { it.term == term }
-
         override suspend fun countIndexedBooks(): Long = rows.map { it.book_id }.distinct().size.toLong()
 
         override suspend fun rowsByTermForBasis(term: String, textBasis: String): List<SearchTermRow> =

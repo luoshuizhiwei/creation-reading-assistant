@@ -4,8 +4,8 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Upsert
 import androidx.room.Update
+import androidx.room.Upsert
 import androidx.room.Transaction
 import com.creationreadingassistant.data.local.entity.BookContentEntity
 import com.creationreadingassistant.data.local.entity.BookEntity
@@ -78,7 +78,6 @@ interface BookDao {
      */
     @Query("SELECT id FROM books WHERE deleted_at IS NULL")
     suspend fun activeIds(): List<String>
-
 
     /** 批量按 id 查询（调用方需保证 ids 非空），用于消除逐条 getById 的 N+1 查询。 */
     @Query("SELECT * FROM books WHERE id IN (:ids) AND deleted_at IS NULL")

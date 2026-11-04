@@ -115,7 +115,8 @@ class RuleEditorDraftTest {
         val draft = selectionReplaceDraft("  价格 (1+1) = 2?  ")!!
 
         assertEquals(RuleKind.REPLACE, draft.kind)
-        assertEquals("替换选中文字", draft.name)
+        // 名称取被替换文字的前 3 个字（"价格 (1+1) = 2?" → "价格 "，第 3 个是空格，属字面截取）。
+        assertEquals("价格 ", draft.name)
         assertEquals(Regex.escape("价格 (1+1) = 2?"), draft.pattern)
         assertEquals(RuleScope.PER_BOOK, draft.scope)
         assertNull(selectionReplaceDraft("  \n  "))
@@ -450,5 +451,62 @@ class RuleEditorDraftTest {
     fun `not anchorable feedback surfaces reason as error`() {
         val result = RuleMutationResult.NotAnchorable("当前没有可用的选区位置")
         assertEquals("当前没有可用的选区位置", result.feedbackText())
+    }
+
+    // ── M-BUG-13：替换规则名称 = 被替换的文字本身（过长取前 3 个字）──────
+
+    @Test
+    fun `auto rule name keeps only the first three characters of a long literal`() {
+        assertEquals("这是一", replaceRuleAutoName("这是一个很长的被替换句子"))
+    }
+
+    @Test
+    fun `auto rule name keeps a short literal as is`() {
+        assertEquals("广告", replaceRuleAutoName("广告"))
+        assertEquals("嗯", replaceRuleAutoName("嗯"))
+    }
+
+    @Test
+    fun `auto rule name trims the literal before truncating`() {
+        assertEquals("价格", replaceRuleAutoName("  价格  "))
+    }
+
+    @Test
+    fun `auto rule name of blank literal is empty`() {
+        assertEquals("", replaceRuleAutoName("   "))
+    }
+
+    @Test
+    fun `replace command with blank name is named after the replaced literal`() {
+        val command = RuleEditorDraft(
+            kind = RuleKind.REPLACE,
+            name = "",
+            pattern = Regex.escape("这是一个很长的被替换句子"),
+            simpleFind = "这是一个很长的被替换句子",
+        ).toCommand()
+        assertEquals("这是一", (command as RuleCommand.SaveCustomReplace).name)
+    }
+
+    @Test
+    fun `regex only replace keeps the whole pattern as fallback name`() {
+        // 纯正则没有「被替换的文字」，截 3 个字毫无意义，保留完整 pattern。
+        val command = RuleEditorDraft(
+            kind = RuleKind.REPLACE,
+            name = "   ",
+            pattern = "第[0-9]+章",
+            simpleFind = "",
+        ).toCommand()
+        assertEquals("第[0-9]+章", (command as RuleCommand.SaveCustomReplace).name)
+    }
+
+    @Test
+    fun `an explicit rule name is still respected`() {
+        val command = RuleEditorDraft(
+            kind = RuleKind.REPLACE,
+            name = "净化广告",
+            pattern = Regex.escape("这是一段广告词"),
+            simpleFind = "这是一段广告词",
+        ).toCommand()
+        assertEquals("净化广告", (command as RuleCommand.SaveCustomReplace).name)
     }
 }

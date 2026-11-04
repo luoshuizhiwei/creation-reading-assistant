@@ -110,4 +110,56 @@ class ReaderHardwareKeysTest {
             ReaderHardwareKeys.handler = null
         }
     }
+
+    @Test
+    fun `PAGE SPACE DPAD 键按方向表翻页并遵守同一序列规则`() {
+        val directions = mutableListOf<Int>()
+        ReaderHardwareKeys.handler = { direction -> directions += direction; true }
+        try {
+            assertTrue(down(KeyEvent.KEYCODE_PAGE_UP))
+            assertTrue(up(KeyEvent.KEYCODE_PAGE_UP))
+            assertTrue(down(KeyEvent.KEYCODE_PAGE_DOWN))
+            assertTrue(up(KeyEvent.KEYCODE_PAGE_DOWN))
+            assertTrue(down(KeyEvent.KEYCODE_SPACE))
+            assertTrue(up(KeyEvent.KEYCODE_SPACE))
+            assertTrue(down(KeyEvent.KEYCODE_DPAD_LEFT))
+            assertTrue(up(KeyEvent.KEYCODE_DPAD_LEFT))
+            assertTrue(down(KeyEvent.KEYCODE_DPAD_RIGHT))
+            assertTrue(up(KeyEvent.KEYCODE_DPAD_RIGHT))
+            assertEquals(listOf(-1, 1, 1, -1, 1), directions)
+            // 长按 SPACE 的 repeat DOWN：消费但不再次翻页。
+            assertTrue(down(KeyEvent.KEYCODE_SPACE))
+            assertTrue(down(KeyEvent.KEYCODE_SPACE, repeat = 1))
+            assertEquals(6, directions.size)
+            assertTrue(up(KeyEvent.KEYCODE_SPACE))
+        } finally {
+            ReaderHardwareKeys.handler = null
+        }
+    }
+
+    @Test
+    fun `滚轮下滚下一页上滚上一页零轴不消费`() {
+        val directions = mutableListOf<Int>()
+        ReaderHardwareKeys.handler = { direction -> directions += direction; true }
+        try {
+            assertTrue(ReaderHardwareKeys.dispatchScroll(1f))
+            assertTrue(ReaderHardwareKeys.dispatchScroll(-1f))
+            assertFalse(ReaderHardwareKeys.dispatchScroll(0f))
+            assertEquals(listOf(1, -1), directions)
+        } finally {
+            ReaderHardwareKeys.handler = null
+        }
+    }
+
+    @Test
+    fun `滚轮不登记按键序列`() {
+        ReaderHardwareKeys.handler = { true }
+        try {
+            assertTrue(ReaderHardwareKeys.dispatchScroll(1f))
+            // 滚动后普通键的 UP 不应被误消费。
+            assertFalse(up(KeyEvent.KEYCODE_PAGE_DOWN))
+        } finally {
+            ReaderHardwareKeys.handler = null
+        }
+    }
 }

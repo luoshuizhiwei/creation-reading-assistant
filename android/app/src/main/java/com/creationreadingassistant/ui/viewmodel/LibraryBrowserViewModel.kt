@@ -67,6 +67,11 @@ class LibraryBrowserViewModel @Inject constructor(
         val isLoading: Boolean = false,
         val truncated: Boolean = false,
         val unreadable: Boolean = false,
+        /**
+         * 用户刚选择的排序。DataStore 写入是异步的，`rootStore.root` 发射新值前
+         * 这里先顶住 UI，避免排序选中态滞后一帧。null = 尚未切换过，跟随根配置。
+         */
+        val sortModeOverride: LibrarySortMode? = null,
     )
 
     private val core = MutableStateFlow(BrowserCore())
@@ -124,7 +129,9 @@ class LibraryBrowserViewModel @Inject constructor(
                 },
             selection = snapshot.selection,
             query = snapshot.query,
-            sortMode = root?.sortMode ?: LibrarySortMode.NAME,
+            // 优先用本地覆盖值：切换排序后 DataStore 经 StateFlow 发射有延迟，
+            // 直接读 root.sortMode 会让选中态滞后（见 BrowserCore.sortModeOverride）。
+            sortMode = snapshot.sortModeOverride ?: root?.sortMode ?: LibrarySortMode.NAME,
             isLoading = snapshot.isLoading,
             truncated = snapshot.truncated,
             unreadable = snapshot.unreadable,
@@ -249,10 +256,20 @@ class LibraryBrowserViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 切换排序并立即按新规则重列当前目录。
+     *
+     * 必须把 [mode] 显式传给 [loadDirectory]，不能写完 DataStore 再回读
+     * `rootStore.root.value`：该 StateFlow 由 ApplicationScope（IO）异步发射，
+     * 写入返回时它的 `.value` 往往仍是旧值，重列会继续用旧排序 —— 用户看到的
+     * 就是「点了排序但列表没变」。这里绕开异步回读，直接按用户刚选的规则列出。
+     */
     fun setSortMode(mode: LibrarySortMode) {
         viewModelScope.launch {
+            // 先乐观写本地：DataStore 新值经 StateFlow 发射前，选中态与列表都已按新规则。
+            core.update { it.copy(sortModeOverride = mode) }
             rootStore.setSortMode(mode)
-            loadDirectory(currentDocumentId())
+            loadDirectory(currentDocumentId(), sortMode = mode)
         }
     }
 
@@ -404,15 +421,27 @@ class LibraryBrowserViewModel @Inject constructor(
             .toSet()
     }
 
-    private suspend fun loadDirectory(documentId: String?) {
+    /**
+     * 列出 [documentId] 目录。
+     *
+     * [sortMode] 非 null 时用它覆盖根配置里的排序 —— 排序切换后 DataStore 的新值
+     * 尚未经 StateFlow 发射到 `rootStore.root.value`，只有显式传入才能保证本次
+     * 重列用的是用户刚选的规则（见 [setSortMode]）。
+     */
+    private suspend fun loadDirectory(documentId: String?, sortMode: LibrarySortMode? = null) {
         val root = rootStore.root.value
         if (root == null) {
             core.value = BrowserCore()
             return
         }
+        val effectiveRoot = if (sortMode != null && root.sortMode != sortMode) {
+            root.copy(sortMode = sortMode)
+        } else {
+            root
+        }
         core.update { it.copy(isLoading = true) }
         val listing = try {
-            librarySource.list(root, documentId)
+            librarySource.list(effectiveRoot, documentId)
         } catch (error: CancellationException) {
             throw error
         } catch (_: Throwable) {
@@ -440,7 +469,7 @@ class LibraryBrowserViewModel @Inject constructor(
                 selection = if (unreadable) emptySet() else snapshot.selection,
             )
         }
-        observeListing(root, listing)
+        observeListing(effectiveRoot, listing)
     }
 
     /**

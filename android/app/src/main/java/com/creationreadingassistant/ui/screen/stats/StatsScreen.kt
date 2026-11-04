@@ -21,6 +21,7 @@ import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.screen.stats.components.CharacterTopologySection
 import com.creationreadingassistant.ui.screen.stats.components.CreationSection
 import com.creationreadingassistant.ui.screen.stats.components.GoalRingSection
 import com.creationreadingassistant.ui.screen.stats.components.PeriodSelector
@@ -103,6 +104,9 @@ internal fun StatsScreen(
                 }
                 item(key = "creation") {
                     CreationSection(stats = stats)
+                }
+                item(key = "character-topology") {
+                    CharacterTopologySection()
                 }
                 item(key = "heatmap") {
                     HeatmapSection(heatmap = state.heatmap)

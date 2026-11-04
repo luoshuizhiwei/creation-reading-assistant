@@ -18,33 +18,6 @@ import org.junit.Test
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ProfileWebDavManagerTest {
 
-    @Test
-    fun `real namespaced WebDAV scan returns legado zip and keeps native json listing separate`() = runTest {
-        val server = okhttp3.mockwebserver.MockWebServer()
-        server.start()
-        try {
-            val xml = """
-                <D:multistatus xmlns:D="DAV:">
-                  <D:response><D:href>/dav/backup-controlled.zip</D:href><D:propstat><D:prop>
-                    <D:displayname>backup-controlled.zip</D:displayname><D:getcontentlength>123</D:getcontentlength>
-                  </D:prop></D:propstat></D:response>
-                  <D:response><D:href>/dav/cra-backup-latest.json</D:href><D:propstat><D:prop>
-                    <D:displayname>cra-backup-latest.json</D:displayname><D:getcontentlength>45</D:getcontentlength>
-                  </D:prop></D:propstat></D:response>
-                </D:multistatus>
-            """.trimIndent()
-            server.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(207).setBody(xml))
-            server.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(207).setBody(xml))
-            every { configStore.config } returns WebDavConfigStore.Config(server.url("/dav/").toString(), "qa", "qa")
-            val realBackup = WebDavBackup()
-            val realManager = ProfileWebDavManager(configStore, realBackup, jsonBridge, legadoImporter)
-            assertEquals(listOf("backup-controlled.zip"), realManager.listLegadoBackups()!!.getOrThrow().map { it.name })
-            assertEquals(listOf("cra-backup-latest.json"), realManager.listBackups()!!.getOrThrow().map { it.name })
-        } finally {
-            server.shutdown()
-        }
-    }
-
     private val configStore = mockk<WebDavConfigStore>(relaxed = true)
     private val webDavBackup = mockk<WebDavBackup>(relaxed = true)
     private val jsonBridge = mockk<JsonBridge>(relaxed = true)

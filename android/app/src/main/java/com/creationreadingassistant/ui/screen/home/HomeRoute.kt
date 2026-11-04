@@ -26,7 +26,6 @@ import com.creationreadingassistant.ui.theme.LocalVisualStyle
 import com.creationreadingassistant.ui.viewmodel.BookViewModel
 import com.creationreadingassistant.ui.viewmodel.HomeViewModel
 import com.creationreadingassistant.ui.util.bookNotReadyLabel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -42,7 +41,7 @@ import kotlinx.coroutines.launch
  * - MainActivity 的 onHomeContentReady 回调（首屏骨架超时）
  *
  * ## 数据流
- * ViewModel.HomeUiState → 本 Route 合并纯 UI 状态（showSkeleton；sheet 开关只留在本层）
+ * ViewModel.HomeUiState → 本 Route 合并纯 UI 状态（showSkeleton 由 data.isReady 推导；sheet 开关只留在本层）
  *                      → com.creationreadingassistant.ui.screen.home.HomeUiState
  *                      → HomeScreen(uiState, onAction)（纯渲染）
  *
@@ -59,15 +58,17 @@ fun HomeRoute(
 ) {
     val data by homeViewModel.uiState.collectAsStateWithLifecycle()
 
-    // 纯 UI 状态（骨架、sheet 开关）——非业务数据，由 Route 自己维护，不进 ViewModel
-    var showSkeleton by remember { mutableStateOf(true) }
+    // 纯 UI 状态（sheet 开关）——非业务数据，由 Route 自己维护，不进 ViewModel
     var isContinueSheetOpen by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // 首屏骨架超时：首次组合 350ms 后自动关闭（如果 books 仍为空，就直接显示空态）
-    LaunchedEffect(Unit) { delay(350); showSkeleton = false }
-    LaunchedEffect(data.books) { if (data.books.isNotEmpty()) showSkeleton = false }
+    // 首屏骨架只由**数据源首次真实发射**驱动（M-BUG-09 同款口径，与 ShelfRoute 对齐）。
+    // HomeViewModel 的 initialValue 是 HomeUiState()（isReady=false），而 buildHomeUiState
+    // 只在 combine{}.mapLatest{} 里被调用 ⇒ isReady == true 恰好就是「首帧真实数据已到」。
+    // 旧实现是 `delay(350)` 定时器关骨架：数据晚于 350ms 到达时会先闪一下空态再出内容；
+    // 而「空书架」与「还没加载」在 UI 层本就不可区分，计时器正是这个混淆的来源。
+    val showSkeleton = !data.isReady
 
     // MainActivity 首屏渲染回调（旧 HomeScreen 行为保留）
     val activity = LocalContext.current.findActivity()
@@ -88,6 +89,7 @@ fun HomeRoute(
         readingCount = data.readingCount,
         completedCount = data.completedBooks.size,
         totalReadBooksCount = data.totalReadBooksCount,
+        shelfBookCount = data.shelfBookCount,
         totalReadingMs = data.totalReadingMs,
         todayReadingMs = data.todayReadingMs,
         dailyGoalMinutes = data.dailyGoalMinutes,

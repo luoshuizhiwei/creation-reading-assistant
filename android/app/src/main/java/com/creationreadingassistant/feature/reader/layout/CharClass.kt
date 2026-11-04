@@ -70,7 +70,7 @@ object CharClass {
     /** 其中真正的**人名**间隔号。只有这些才让「A·B」成为不可拆的原子单元。 */
     private const val S_NAME_SEP = "·・‧"
 
-    private const val S_DASH = "—―"
+    private const val S_DASH = "—―─━"
     private const val S_ELLIPSIS = "…‥"
 
     /** 半角句读，见 [HALF_PUNCT]。 */

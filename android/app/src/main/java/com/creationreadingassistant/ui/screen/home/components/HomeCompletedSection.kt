@@ -74,6 +74,7 @@ fun HomeCompletedSection(
     Column(modifier) {
         SectionHeader(
             title = stringResource(R.string.home_completed),
+            compact = true,
             modifier = Modifier
                 .animateEnter(240, reducedMotion)
                 .testTag("completed-header"),

@@ -24,7 +24,10 @@ import kotlinx.collections.immutable.persistentListOf
  */
 @Immutable
 data class HomeUiState(
-    /** 首屏骨架显示（= 数据未到且书籍为空，350ms 超时之前）。Route 生成，Screen 纯消费。 */
+    /**
+     * 首屏骨架显示（= 数据源尚未首次真实发射，即 ViewModel 的 `isReady` 仍为 false）。
+     * 由 Route 从 `!data.isReady` 推导，Screen 纯消费 —— 不再有 350ms 计时器兜底。
+     */
     val showSkeleton: Boolean = true,
 
     // ——— 以下字段直接来自 ViewModel.HomeUiState（纯搬运，无业务逻辑）———
@@ -36,6 +39,8 @@ data class HomeUiState(
     val readingCount: Int = 0,
     val completedCount: Int = 0,
     val totalReadBooksCount: Int = 0,
+    /** 书架可展示书总数：>0 时「继续阅读」空态不能说"书架还空着"。 */
+    val shelfBookCount: Int = 0,
     val totalReadingMs: Long = 0L,
     val todayReadingMs: Long = 0L,
     val dailyGoalMinutes: Int = 0,

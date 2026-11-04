@@ -1,12 +1,18 @@
 package com.creationreadingassistant.ui.theme
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
+import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -65,7 +71,7 @@ data class ReaderPaperPalette(
     fun highlightSolid(color: String): Color = indexOf(color).let { highlightColors.getOrElse(it) { highlightColors[0] } }
 
     /** 长按选句底色：accent @0.25（收敛自原硬编码 0x40365B7E，随纸变化）。 */
-    val selectionScrim: Color get() = accent.copy(alpha = 0.25f)
+    val selectionScrim: Color get() = accent.copy(alpha = 0.22f)
 
     /** TTS 朗读句高亮底：accent @0.20（收敛自原硬编码 0x33365B7E）。 */
     val ttsSentenceScrim: Color get() = accent.copy(alpha = 0.2f)
@@ -89,6 +95,22 @@ data class ReaderPaperPalette(
     val divider: Color get() = outlineVariant
     /** sheet 内区块底色：随纸 panel 纸面。 */
     val sheetSectionBg: Color get() = panel
+    /** 更高一级突出容器底色（用于输入框底色、工具栏按压背景等，与 panelStrong 拉开色阶）。亮纸下深一阶，夜读下提亮一阶。 */
+    val panelHighest: Color get() = if (isLight) {
+        Color(
+            red = (panelStrong.red * 0.93f).coerceIn(0f, 1f),
+            green = (panelStrong.green * 0.93f).coerceIn(0f, 1f),
+            blue = (panelStrong.blue * 0.93f).coerceIn(0f, 1f),
+            alpha = panelStrong.alpha,
+        )
+    } else {
+        Color(
+            red = (panelStrong.red + 0.08f).coerceIn(0f, 1f),
+            green = (panelStrong.green + 0.08f).coerceIn(0f, 1f),
+            blue = (panelStrong.blue + 0.08f).coerceIn(0f, 1f),
+            alpha = panelStrong.alpha,
+        )
+    }
 
     private fun indexOf(color: String): Int = when (color) {
         "yellow" -> 0
@@ -232,13 +254,78 @@ private val SEPIA_DARK = ReaderPaperPalette(
     ),
 )
 
+/** 羊皮纸（light）——典雅仿古纸感，温润金黄与深沉古墨，具有极佳护眼与厚重书卷感 */
+private val PARCHMENT = ReaderPaperPalette(
+    key = "parchment",
+    bg = Color(0xFFF4ECD8),
+    fg = Color(0xFF2C2218),
+    fgMuted = Color(0xFF7C6E5A),
+    accent = Color(0xFF8C5E28),
+    outlineVariant = Color(0xFFE5DAC0),
+    outline = Color(0xFFC7B99A),
+    panel = Color(0xFFEDE3CC),
+    panelStrong = Color(0xFFE2D6BC),
+    onAccent = Color.White,
+    isLight = true,
+    highlightColors = listOf(
+        Color(0xFFD4AC3B), // 黄
+        Color(0xFFBA6954), // 红
+        Color(0xFF768F55), // 绿
+        Color(0xFF5F82A8), // 蓝
+        Color(0xFF9E7498), // 紫
+    ),
+)
+
+/** 水墨青瓷（light）——清冷淡青灰，黛墨青字，宛如宋瓷茶盏般文雅素净 */
+private val CELADON = ReaderPaperPalette(
+    key = "celadon",
+    bg = Color(0xFFE5ECE8),
+    fg = Color(0xFF1B2421),
+    fgMuted = Color(0xFF5D6B66),
+    accent = Color(0xFF2D5D4E),
+    outlineVariant = Color(0xFFD3DED8),
+    outline = Color(0xFFB5C4BD),
+    panel = Color(0xFFDAE4DF),
+    panelStrong = Color(0xFFCCD8D2),
+    onAccent = Color.White,
+    isLight = true,
+    highlightColors = listOf(
+        Color(0xFFC8B350), // 黄
+        Color(0xFFB86D60), // 红
+        Color(0xFF5B8869), // 绿（青翠）
+        Color(0xFF5B7E98), // 蓝（霁蓝）
+        Color(0xFF8C7392), // 紫
+    ),
+)
+
+/** 幽夜墨青（dark）——水墨调沉浸夜读，深青墨色底与淡玉冷光正文，比纯黑更柔和舒缓 */
+private val INK_NIGHT = ReaderPaperPalette(
+    key = "ink_night",
+    bg = Color(0xFF141918),
+    fg = Color(0xFFD2DAD6),
+    fgMuted = Color(0xFF8A9691),
+    accent = Color(0xFF7FA89B),
+    outlineVariant = Color(0xFF222B29),
+    outline = Color(0xFF35423F),
+    panel = Color(0xFF1A211F),
+    panelStrong = Color(0xFF232B29),
+    onAccent = Color(0xFF0C100F),
+    isLight = false,
+    highlightColors = listOf(
+        Color(0xFFD4B858), // 黄
+        Color(0xFFC5786C), // 红
+        Color(0xFF769E85), // 绿
+        Color(0xFF7B98B6), // 蓝
+        Color(0xFFA88EB0), // 紫
+    ),
+)
+
 /**
  * 按 key 解析阅读器纸张调色板。
  *
- * - `white` / `warm` / `green` / `night` / `sepia_dark`：固定档。
- * - `sepia_dark`（暮棕）：暖色深色纸张，比 DARK_FOLLOW 更有纸感、比 night 更柔和。
- * - `follow`（跟随应用外观）：浅色外壳 → 白纸；深色外壳 → **独立 DARK_FOLLOW 温和深灰**（比 night 更柔和，用户选 night 才切到 OLED 近纯黑）。
- * - 未知值（理论上 migration 后不会出现）：按 [darkTheme] 回退到白纸 / 夜读。
+ * - `white` / `warm` / `green` / `night` / `sepia_dark` / `parchment` / `celadon` / `ink_night`：固定档。
+ * - `follow`（跟随应用外观）：浅色外壳 → 白纸；深色外壳 → **独立 DARK_FOLLOW 温和深灰**。
+ * - 未知值：按 [darkTheme] 回退到白纸 / 夜读。
  */
 fun paperPalette(key: String, darkTheme: Boolean): ReaderPaperPalette = when (key) {
     "white" -> WHITE
@@ -246,8 +333,53 @@ fun paperPalette(key: String, darkTheme: Boolean): ReaderPaperPalette = when (ke
     "green" -> GREEN
     "night" -> NIGHT
     "sepia_dark" -> SEPIA_DARK
+    "parchment" -> PARCHMENT
+    "celadon" -> CELADON
+    "ink_night" -> INK_NIGHT
     "follow" -> if (darkTheme) DARK_FOLLOW else WHITE
     else -> if (darkTheme) NIGHT else WHITE
+}
+
+/**
+ * 阅读器纸张色彩水墨平滑过渡动画：
+ * 在用户拉动灯绳或切换阅读纸张时，将调色板的核心语义色（背景、正文文字、次级文字、面板底色、强调色等）
+ * 进行 240ms 水墨平滑插值过渡，彻底根除高对比度硬切导致的屏幕刺眼爆闪或骤暗。
+ * 当系统开启减弱动效（enabled = false）时，直接返回目标调色板，完全尊重无障碍偏好。
+ */
+@Composable
+fun animateReaderPaperPaletteAsState(
+    target: ReaderPaperPalette,
+    enabled: Boolean = true,
+): State<ReaderPaperPalette> {
+    if (!enabled) return rememberUpdatedState(target)
+
+    val duration = 240
+    val animSpec = tween<Color>(durationMillis = duration, easing = FastOutSlowInEasing)
+
+    val animBg by animateColorAsState(target.bg, animSpec, label = "paper_bg")
+    val animFg by animateColorAsState(target.fg, animSpec, label = "paper_fg")
+    val animFgMuted by animateColorAsState(target.fgMuted, animSpec, label = "paper_fg_muted")
+    val animAccent by animateColorAsState(target.accent, animSpec, label = "paper_accent")
+    val animOutlineVariant by animateColorAsState(target.outlineVariant, animSpec, label = "paper_outline_var")
+    val animOutline by animateColorAsState(target.outline, animSpec, label = "paper_outline")
+    val animPanel by animateColorAsState(target.panel, animSpec, label = "paper_panel")
+    val animPanelStrong by animateColorAsState(target.panelStrong, animSpec, label = "paper_panel_strong")
+    val animOnAccent by animateColorAsState(target.onAccent, animSpec, label = "paper_on_accent")
+
+    val animatedPalette = remember(target.key, target.isLight, animBg, animFg, animPanel) {
+        target.copy(
+            bg = animBg,
+            fg = animFg,
+            fgMuted = animFgMuted,
+            accent = animAccent,
+            outlineVariant = animOutlineVariant,
+            outline = animOutline,
+            panel = animPanel,
+            panelStrong = animPanelStrong,
+            onAccent = animOnAccent,
+        )
+    }
+    return rememberUpdatedState(animatedPalette)
 }
 
 /**
@@ -264,9 +396,12 @@ val ReaderPaperOptions = listOf(
     ReaderPaperOption("follow", "跟随外观"),
     ReaderPaperOption("white", "白纸"),
     ReaderPaperOption("warm", "暖纸"),
+    ReaderPaperOption("parchment", "羊皮纸"),
+    ReaderPaperOption("celadon", "青瓷灰"),
     ReaderPaperOption("green", "护眼"),
-    ReaderPaperOption("night", "夜读"),
     ReaderPaperOption("sepia_dark", "暮棕"),
+    ReaderPaperOption("ink_night", "墨青夜读"),
+    ReaderPaperOption("night", "极黑夜读"),
 )
 
 /**
@@ -294,7 +429,7 @@ fun ReaderPaperTheme(
         surfaceContainerLow = palette.panel,
         surfaceContainer = palette.panel,
         surfaceContainerHigh = palette.panelStrong,
-        surfaceContainerHighest = palette.panelStrong,
+        surfaceContainerHighest = palette.panelHighest,
         outline = palette.outline,
         outlineVariant = palette.outlineVariant,
     ) }

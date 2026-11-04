@@ -62,6 +62,53 @@ class ReaderVolumeKeyTurnPolicyTest {
         assertEquals(ReaderVolumeTurnPlan.UseSystemVolume, plan(direction = 0))
     }
 
+    @Test
+    fun `effectiveVolumeTurnDirection maps directions according to invert setting`() {
+        assertEquals(-1, effectiveVolumeTurnDirection(-1, invert = false))
+        assertEquals(1, effectiveVolumeTurnDirection(1, invert = false))
+        assertEquals(1, effectiveVolumeTurnDirection(-1, invert = true))
+        assertEquals(-1, effectiveVolumeTurnDirection(1, invert = true))
+        assertEquals(0, effectiveVolumeTurnDirection(0, invert = true))
+    }
+
+    @Test
+    fun `inverted volume keys reverse paged turn direction`() {
+        // 音量上键 (-1) 开启反转后应当触发下一页 (+1)
+        assertEquals(
+            ReaderVolumeTurnPlan.Paged(1),
+            plan(direction = -1, pagerEngineOn = true, volumeKeyInvert = true),
+        )
+        // 音量下键 (1) 开启反转后应当触发上一页 (-1)
+        assertEquals(
+            ReaderVolumeTurnPlan.Paged(-1),
+            plan(direction = 1, pagerEngineOn = true, volumeKeyInvert = true),
+        )
+    }
+
+    @Test
+    fun `inverted volume keys reverse scroll and chapter navigation`() {
+        // 滚动模式：音量上键在反转下向下滚动 (Scroll(1))
+        assertEquals(
+            ReaderVolumeTurnPlan.Scroll(1),
+            plan(direction = -1, canScroll = true, volumeKeyInvert = true),
+        )
+        // 跨章导航：音量上键在反转下跨向下一章 (Chapter(2))
+        assertEquals(
+            ReaderVolumeTurnPlan.Chapter(2),
+            plan(direction = -1, canScroll = false, chapterIndex = 1, chapterCount = 3, volumeKeyInvert = true),
+        )
+        // 跨章边界：末章按音量上键（反转下试图向后）无下一章，回退系统音量
+        assertEquals(
+            ReaderVolumeTurnPlan.UseSystemVolume,
+            plan(direction = -1, canScroll = false, chapterIndex = 2, chapterCount = 3, volumeKeyInvert = true),
+        )
+        // 首章按音量下键（反转下试图向前）无上一章，回退系统音量
+        assertEquals(
+            ReaderVolumeTurnPlan.UseSystemVolume,
+            plan(direction = 1, canScroll = false, chapterIndex = 0, chapterCount = 3, volumeKeyInvert = true),
+        )
+    }
+
     private fun plan(
         direction: Int = 1,
         volumeKeyPaging: Boolean = true,
@@ -72,6 +119,7 @@ class ReaderVolumeKeyTurnPolicyTest {
         canScroll: Boolean = false,
         chapterIndex: Int = 0,
         chapterCount: Int = 0,
+        volumeKeyInvert: Boolean = false,
     ): ReaderVolumeTurnPlan = readerVolumeTurnPlan(
         direction = direction,
         volumeKeyPaging = volumeKeyPaging,
@@ -82,5 +130,6 @@ class ReaderVolumeKeyTurnPolicyTest {
         canScroll = canScroll,
         chapterIndex = chapterIndex,
         chapterCount = chapterCount,
+        volumeKeyInvert = volumeKeyInvert,
     )
 }

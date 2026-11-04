@@ -254,6 +254,8 @@ internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // 当前章书签线：全表只在一个位置使用强调色，形成纸质目录的定位锚点。
+            // 它已是「当前章」的视觉标识（叠加主色序号 + 加粗主色标题），右侧再渲染「阅读中」
+            // 属第四重重复；故删去字样，无障碍语义改挂这里，读屏仍能播报「当前章节」。
             Box(
                 modifier = Modifier
                     .width(3.dp)
@@ -261,6 +263,13 @@ internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
                     .background(
                         if (entry.isCurrent) MaterialTheme.colorScheme.primary else Color.Transparent,
                         PillShape,
+                    )
+                    .then(
+                        if (entry.isCurrent) {
+                            Modifier.semantics { contentDescription = "当前章节" }
+                        } else {
+                            Modifier
+                        },
                     ),
             )
 
@@ -309,15 +318,10 @@ internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
                     )
                 }
 
-                when {
-                    entry.isCurrent -> Text(
-                        text = "阅读中",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.semantics { contentDescription = "当前章节" },
-                    )
-                    entry.isRead -> Text(
+                // 当前章不再渲染状态字样（改由左侧书签线 + 主色序号 + 加粗主色标题标识）。
+                // 保留 `!entry.isCurrent`：当前章即便已读，也不被「已读」标记覆盖当前章样式。
+                if (entry.isRead && !entry.isCurrent) {
+                    Text(
                         text = "已读",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFF059669),

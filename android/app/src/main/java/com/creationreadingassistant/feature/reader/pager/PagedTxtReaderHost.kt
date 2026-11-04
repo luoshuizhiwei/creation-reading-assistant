@@ -30,6 +30,7 @@ import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -53,6 +54,7 @@ import com.creationreadingassistant.feature.reader.layout.android.PaintTextRuler
 import com.creationreadingassistant.feature.reader.layout.isHeading
 import java.io.File
 import kotlin.math.roundToInt
+import com.creationreadingassistant.data.settings.BatteryTipStyle
 import com.creationreadingassistant.data.settings.HeaderFooterItem
 import com.creationreadingassistant.ui.theme.LocalReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPaperSurfaceSpec
@@ -92,6 +94,7 @@ fun PagedReaderHost(
     chineseTypography: Boolean,
     /** 点按分区：three-zone 左右边缘；five-zone 追加上=上一页、下=下一页。 */
     tapZoneMode: String,
+    tapActionPreset: String = TapActionPreset.STANDARD,
     /** 翻页效果：none 直接切页；fade 柔和淡入（Crossfade 单页画布，无位移不残影）。 */
     pageTurnEffect: String,
     /** 翻页动画基础时长（ms），由设置层注入；透传至 [PagedReaderPageSurface] → PageTurner(speed = ...)。 */
@@ -137,6 +140,13 @@ fun PagedReaderHost(
     footerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
     /** 页脚右侧内容条目 */
     footerRight: HeaderFooterItem = HeaderFooterItem.PROGRESS,
+    customTipHeaderLeft: String = "",
+    customTipHeaderCenter: String = "",
+    customTipHeaderRight: String = "",
+    customTipFooterLeft: String = "",
+    customTipFooterCenter: String = "",
+    customTipFooterRight: String = "",
+    batteryTipStyle: BatteryTipStyle = BatteryTipStyle.ICON_ONLY,
     /** 书名（用于页眉/页脚显示） */
     bookName: String = "",
 ) {
@@ -171,6 +181,12 @@ fun PagedReaderHost(
     PagedReaderClockEffects(currentTime = currentTime, batteryLevel = batteryLevel, context = context)
 
     // 位置锚点：当前页首字符的全书偏移。改字号/转屏/菜单导致重排后，靠它回到同一句。
+    //
+    // 这里 key 在 `source` 上是**有意的**（一度被误判为 M-BUG-11 的成因，已证伪）：
+    // `initialOffset` 在正常阅读中恒等于实时偏移（`ReaderContentHostPagedBranch` 的第一分支
+    // `pagedAbsOffset >= 0` 命中，且 `pagedAbsOffsetState` 是 remember 无 key、只由分页回调写入，
+    // 不会中途回到 -1），因此 source 重建导致的锚点重置落回的是**同一个位置**，不会造成回退。
+    // 保留 `remember(source)`，避免引入未经编译/真机验证的分页核心行为变更。
     val anchor = remember(source) { mutableIntStateOf(initialOffset) }
     // 页眉/页脚需要的分页信息（章号、页号、总页数、进度）
     val pageInfo = remember { mutableStateOf(PageInfo()) }
@@ -193,6 +209,10 @@ fun PagedReaderHost(
             bookName = bookName,
             textColor = textColor,
             modifier = Modifier.padding(horizontal = pageMarginDp.dp),
+            customTipHeaderLeft = customTipHeaderLeft,
+            customTipHeaderCenter = customTipHeaderCenter,
+            customTipHeaderRight = customTipHeaderRight,
+            batteryTipStyle = batteryTipStyle,
         )
 
         // 顶部留白 = 自适应页眉行高 + 固定小间距，与自适应页脚视觉对称；
@@ -284,6 +304,10 @@ fun PagedReaderHost(
                     autoPageIntervalMillis = autoPageIntervalMillis,
                     onAutoPagingFinished = onAutoPagingFinished,
                     revealProgressState = revealProgress,
+                    // S07-F2.2：程序化跳转只让旧选区失效，**不**当作一次翻页手势。
+                    // 复用宿主已有的 onSelect 通道（空文本 → ClearSelection），
+                    // 避免顺带隐藏顶栏/底栏，也避免为这一个回调扩大宿主 API。
+                    onSelectionInvalidated = programmaticJumpInvalidation(onSelect),
                 )
 
                 PagedReaderPageSurface(
@@ -296,6 +320,7 @@ fun PagedReaderHost(
                     turnRequest = turnRequest,
                     revealProgress = revealProgress.floatValue,
                     tapZoneMode = tapZoneMode,
+                    tapActionPreset = tapActionPreset,
                     density = density,
                     horizontalInsetDp = horizontalInsetDp,
                     contentWidthDp = contentWidthDp,
@@ -331,6 +356,10 @@ fun PagedReaderHost(
             bookName = bookName,
             textColor = textColor,
             modifier = Modifier.padding(horizontal = pageMarginDp.dp),
+            customTipFooterLeft = customTipFooterLeft,
+            customTipFooterCenter = customTipFooterCenter,
+            customTipFooterRight = customTipFooterRight,
+            batteryTipStyle = batteryTipStyle,
         )
     }
 }
@@ -412,15 +441,37 @@ internal fun PageLayer(
                 )
             }
         }
-        // 选区把手圆点：主题色填充 + 纸色描边，深浅两种纸面下都可见
+        // 选区把手：圆头光标竖线（覆盖字符行高）+ 底部圆形握柄。
+        // 旧版「竖线 + 行内居中圆点」的圆点压在文字上、且与竖线视觉打架；
+        // 改为握柄落在行框底缘（Material 水滴把手的落位习惯），并随纸张 accent 取色。
         handles?.takeIf { it.isActive }?.let { h ->
-            val handleColor = MaterialTheme.colorScheme.primary
+            val handleColor = paper.accent
             Canvas(Modifier.fillMaxSize()) {
-                val rPx = 9.dp.toPx()
-                val ringPx = 2.dp.toPx()
+                val barWidth = 2.5.dp.toPx()
+                val haloWidth = 1.5.dp.toPx()
+                val knobRadius = 6.dp.toPx()
                 listOfNotNull(h.left, h.right).forEach { p ->
-                    drawCircle(color = paper.bg, radius = rPx + ringPx, center = Offset(p.x, p.y))
-                    drawCircle(color = handleColor, radius = rPx, center = Offset(p.x, p.y))
+                    // 纸色光晕垫底，保证深色/高亮文字上把手依旧清晰
+                    drawLine(
+                        color = paper.bg,
+                        start = Offset(p.x, p.top),
+                        end = Offset(p.x, p.bottom),
+                        strokeWidth = barWidth + haloWidth * 2f,
+                        cap = StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = handleColor,
+                        start = Offset(p.x, p.top),
+                        end = Offset(p.x, p.bottom),
+                        strokeWidth = barWidth,
+                        cap = StrokeCap.Round,
+                    )
+                    drawCircle(
+                        color = paper.bg,
+                        radius = knobRadius + haloWidth,
+                        center = Offset(p.x, p.bottom),
+                    )
+                    drawCircle(color = handleColor, radius = knobRadius, center = Offset(p.x, p.bottom))
                 }
             }
         }
@@ -479,11 +530,18 @@ private fun PageCanvas(
 
     Canvas(modifier) {
         underlays.forEach { (color, rects) ->
+            // 圆角色块：行级矩形带 4dp 圆角（行高不足时收缩到行高的 1/4），
+            // 多行选区呈「一行一块」的现代阅读器质感，不再是贴死行框的直角条。
             rects.forEach { r ->
-                drawRect(
+                val h = r.bottom - r.top
+                drawRoundRect(
                     color = color,
                     topLeft = androidx.compose.ui.geometry.Offset(r.left, r.top),
-                    size = androidx.compose.ui.geometry.Size(r.right - r.left, r.bottom - r.top),
+                    size = androidx.compose.ui.geometry.Size(r.right - r.left, h),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                        4.dp.toPx().coerceAtMost(h / 4f),
+                        4.dp.toPx().coerceAtMost(h / 4f),
+                    ),
                 )
             }
         }

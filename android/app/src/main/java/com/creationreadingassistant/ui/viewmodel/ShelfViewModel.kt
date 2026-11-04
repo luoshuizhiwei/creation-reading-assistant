@@ -53,6 +53,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -179,6 +180,34 @@ class ShelfViewModel @Inject constructor(
     private val _session = MutableStateFlow(ShelfSessionState())
     internal val session: StateFlow<ShelfSessionState> = _session.asStateFlow()
 
+    init {
+        // 冷启动自动同步持久化的排序模式与视图模式到会话状态，消除 UI 展示与底层排序列脱节
+        viewModelScope.launch {
+            shelfPrefs.sortMode.collect { modeStr ->
+                val mode = when (modeStr.trim().lowercase()) {
+                    "title" -> ShelfSortMode.TITLE
+                    "progress" -> ShelfSortMode.PROGRESS
+                    "imported" -> ShelfSortMode.IMPORTED
+                    else -> ShelfSortMode.RECENT
+                }
+                if (_session.value.sortMode != mode) {
+                    _session.value = _session.value.copy(sortMode = mode)
+                }
+            }
+        }
+        viewModelScope.launch {
+            shelfPrefs.viewMode.collect { modeStr ->
+                val mode = when (modeStr.trim().lowercase()) {
+                    "list" -> ShelfViewMode.LIST
+                    else -> ShelfViewMode.GRID
+                }
+                if (_session.value.viewMode != mode) {
+                    _session.value = _session.value.copy(viewMode = mode)
+                }
+            }
+        }
+    }
+
     val recentSearches: StateFlow<List<String>> = shelfPrefs.recentSearches
     val privateSearch: StateFlow<Boolean> = shelfPrefs.privateSearch
 
@@ -276,7 +305,23 @@ class ShelfViewModel @Inject constructor(
         _session.value = _session.value.clearFilters()
     }
 
+    /**
+     * 书架库数据是否已收到**首次真实发射**（骨架门用，M-BUG-09）。
+     *
+     * [books] 是 `stateIn(..., emptyList())`，其合成初值与「书架真的没有书」在 UI 层**不可区分**，
+     * 所以 Route 不能拿 `books.isEmpty()` 当「还没加载」用。冷启动时 Room 首读若慢于骨架超时，
+     * 书架会先渲染空态「书架还空着」再跳到真实列表（真机可复现）。
+     *
+     * 因此在**冷流源头**翻一次标志位：只有 `observeBooks()` 真正吐过一次值（哪怕空表）才算加载完成。
+     * 用 `onEach` 挂在 `stateIn` 之前，不额外订阅一次 Room 查询。
+     *
+     * 置真后**不回落**：ViewModel 存活期间数据已就绪，反复进出书架不该再闪骨架。
+     */
+    private val _libraryLoaded = MutableStateFlow(false)
+    val libraryLoaded: StateFlow<Boolean> = _libraryLoaded.asStateFlow()
+
     val books: StateFlow<List<BookEntity>> = repository.observeBooks()
+        .onEach { _libraryLoaded.value = true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val tags: StateFlow<List<TagEntity>> = taxonomyRepository.observeTags()
@@ -379,7 +424,10 @@ class ShelfViewModel @Inject constructor(
         .distinctUntilChanged()
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
+            // 书架与首页共用 books 表，但卡片还要经过投影/排序。让这条派生流在
+            // ViewModel 创建后立即订阅，避免首个 UI collector 的生命周期切换使它
+            // 长时间停留在 emptyList；之后必须等一次导入写入才收到 Room 失效通知。
+            started = SharingStarted.Eagerly,
             initialValue = emptyList(),
         )
 
@@ -387,6 +435,17 @@ class ShelfViewModel @Inject constructor(
     val importTasks: StateFlow<List<ImportTaskUi>> = importer.importTasks
     val importBatch: StateFlow<ImportBatchUiState> = importer.importBatch
     val importHistory: StateFlow<List<ImportHistoryEntry>> = importer.importHistory
+
+    /**
+     * 尚未打开过的新导入书籍 id（书卡「新」角标）。
+     *
+     * 持久化在 [ShelfPrefs]：导入后直接杀进程再打开，角标仍在，
+     * 否则「哪几本是刚加的」这个信息会在重启后丢失。
+     */
+    val newBookIds: StateFlow<Set<String>> = shelfPrefs.newBookIds
+
+    /** 用户打开某本书后清除其「新」角标。 */
+    fun clearNewBookId(id: String) = viewModelScope.launch { shelfPrefs.clearNewBookId(id) }
 
     /** 兼容单文件入口；实际统一走顺序批处理，避免同时解析多本大书抢占内存。 */
     fun importFile(uri: Uri) = importFiles(listOf(uri))
@@ -482,6 +541,26 @@ class ShelfViewModel @Inject constructor(
         bookActions.restoreReading(id)
             .onSuccess { onResult(true, it) }
             .onFailure { onResult(false, "恢复失败：${it.message}") }
+    }
+
+    /** 标记单本为已读完。 */
+    fun markFinished(id: String, onResult: (String) -> Unit = {}) = viewModelScope.launch {
+        onResult(bookActions.markFinished(id))
+    }
+
+    /** 取消单本的已读完状态。 */
+    fun markReading(id: String, onResult: (String) -> Unit = {}) = viewModelScope.launch {
+        onResult(bookActions.markReading(id))
+    }
+
+    /** 批量标记读完（书架编辑模式的批量动作）。 */
+    fun markFinishedBatch(ids: Collection<String>, onResult: (String) -> Unit = {}) = viewModelScope.launch {
+        onResult(bookActions.markFinishedBatch(ids))
+    }
+
+    /** 批量取消读完。 */
+    fun markReadingBatch(ids: Collection<String>, onResult: (String) -> Unit = {}) = viewModelScope.launch {
+        onResult(bookActions.markReadingBatch(ids))
     }
 
     /** 更新书名/作者/简介。 */
@@ -751,6 +830,9 @@ class ShelfViewModel @Inject constructor(
 
     init {
         importer.booksProvider = { books.value }
+        // 成功导入一本新书即登记「新」角标。写 DataStore 是短事务，
+        // 即使用户在导入途中切走页面，已发出的写入仍会完成。
+        importer.onBookImported = { bookId -> viewModelScope.launch { shelfPrefs.addNewBookIds(listOf(bookId)) } }
         viewModelScope.launch {
             shelfViewMode.collect { raw ->
                 val value = ShelfViewMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: ShelfViewMode.GRID
@@ -759,7 +841,9 @@ class ShelfViewModel @Inject constructor(
         }
         viewModelScope.launch {
             shelfSortMode.collect { raw ->
-                val value = ShelfSortMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: ShelfSortMode.RECENT
+                // 兜底与 ShelfPrefs.DEFAULT_SORT_MODE 保持一致：未读新书 last_read_at 为空，
+                // 按 RECENT 倒序会沉底，故默认取 IMPORTED（M-FEAT-01）。
+                val value = ShelfSortMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: ShelfSortMode.IMPORTED
                 _session.value = _session.value.copy(sortMode = value)
             }
         }

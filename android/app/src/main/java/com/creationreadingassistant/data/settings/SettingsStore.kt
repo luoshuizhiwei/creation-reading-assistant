@@ -40,6 +40,29 @@ enum class HeaderFooterItem(val label: String) {
 }
 
 /**
+ * 页眉/页脚里 `{BatteryPercent}` 的呈现方式。
+ *
+ * 默认 [ICON_ONLY]（电量内显：数字画进电池轮廓里）。[ICON_WITH_TEXT] 是此前的行为
+ * （电池图标 + 旁边的数字），保留为可选项。这套功能尚未提交过、没有存量用户，
+ * 因此换默认值不会打扰任何人。
+ */
+enum class BatteryTipStyle(val label: String) {
+    /** 数字嵌在电池轮廓内，不另配文字。 */
+    ICON_ONLY("电量内显"),
+
+    /** 电池图标在前、百分比在后（历史默认）。 */
+    ICON_WITH_TEXT("图标 + 数字"),
+
+    /** 只有百分比文字，不画图标。 */
+    TEXT_ONLY("仅文字");
+
+    companion object {
+        fun fromString(value: String): BatteryTipStyle =
+            entries.firstOrNull { it.name == value } ?: ICON_ONLY
+    }
+}
+
+/**
  * 应用设置持久层（DataStore Preferences，单事实源）。
  * 取代此前 ProfileScreen / ReaderScreen 内的会话态设置，做到重启保持。
  *
@@ -66,6 +89,7 @@ private val KEY_PAGER_ENGINE = stringPreferencesKey("pager_engine_mode")       /
 private val KEY_PAGE_TURN_EFFECT = stringPreferencesKey("reader_page_turn_effect")
 private val KEY_PAGE_TURN_SPEED = floatPreferencesKey("reader_page_turn_speed")
 private val KEY_TAP_ZONE_MODE = stringPreferencesKey("reader_tap_zone_mode")
+private val KEY_TAP_ACTION_PRESET = stringPreferencesKey("reader_tap_action_preset")
 private val KEY_SCREEN_ORIENTATION = stringPreferencesKey("reader_screen_orientation")
 internal val KEY_FONT_SIZE = floatPreferencesKey("reader_font_size")
 private val KEY_CUSTOM_FONT_PATH = stringPreferencesKey("reader_custom_font_path")  // 空 = 系统字体；否则为 filesDir/fonts 下的 .ttf/.otf 绝对路径
@@ -73,6 +97,9 @@ private val KEY_LINE_HEIGHT = floatPreferencesKey("reader_line_height")
 private val KEY_PARAGRAPH_SPACING = floatPreferencesKey("reader_paragraph_spacing")
 private val KEY_PAGE_MARGIN = floatPreferencesKey("reader_page_margin")
 private val KEY_READER_BG = stringPreferencesKey("reader_background")          // white | warm | green | night | follow
+/** 一键日/夜切换的「上次亮纸 / 上次暗纸」记忆（对齐 QQ 阅读阅读页的灯绳）。 */
+private val KEY_DAY_NIGHT_LIGHT_PAPER = stringPreferencesKey("reader_day_night_light_paper")
+private val KEY_DAY_NIGHT_DARK_PAPER = stringPreferencesKey("reader_day_night_dark_paper")
 internal val KEY_IMMERSIVE = booleanPreferencesKey("reader_immersive")
 private val KEY_SHOW_READER_INFO = booleanPreferencesKey("reader_show_info")
 private val KEY_CHINESE_TYPO = booleanPreferencesKey("reader_chinese_typo")
@@ -85,6 +112,7 @@ private val KEY_LAST_FIXED_BRIGHTNESS = intPreferencesKey("reader_last_fixed_bri
 private val KEY_VOLUME_PAGE = booleanPreferencesKey("reader_volume_page")
 private val KEY_TRADITIONAL_CHINESE = booleanPreferencesKey("reader_traditional_chinese")
 private val KEY_VOLUME_PAGE_DURING_TTS = booleanPreferencesKey("reader_volume_page_during_tts")
+private val KEY_VOLUME_PAGE_INVERT = booleanPreferencesKey("reader_volume_page_invert")
 private val KEY_AUTO_PAGE_SPEED = intPreferencesKey("reader_auto_page_speed")
 // 阅读提醒（对照 web eyeCareReminderMinutes / readingRhythmReminder*）
 private val KEY_EYE_CARE_MIN = intPreferencesKey("reader_eye_care_minutes")
@@ -98,7 +126,8 @@ private val KEY_EYE_FILTER_OLED = booleanPreferencesKey("reader_eye_filter_oled"
 private val KEY_EYE_FILTER_SYNC_PAPER = booleanPreferencesKey("reader_eye_filter_sync_paper")
 private val KEY_RHYTHM_ENABLED = booleanPreferencesKey("reader_rhythm_enabled")
 private val KEY_RHYTHM_MIN = intPreferencesKey("reader_rhythm_minutes")
-// TTS 高级（对照 web TTSSettings：pitch / volume / voiceId / 定时停止）
+// TTS 高级（对照 web TTSSettings：speechRate / pitch / volume / voiceId / 定时停止）
+private val KEY_TTS_SPEECH_RATE = floatPreferencesKey("tts_speech_rate")
 private val KEY_TTS_PITCH = floatPreferencesKey("tts_pitch")
 private val KEY_TTS_VOLUME = floatPreferencesKey("tts_volume")
 private val KEY_TTS_VOICE = stringPreferencesKey("tts_voice_id")
@@ -113,6 +142,13 @@ private val KEY_HEADER_LEFT = stringPreferencesKey("reader_header_left")
 private val KEY_HEADER_RIGHT = stringPreferencesKey("reader_header_right")
 private val KEY_FOOTER_LEFT = stringPreferencesKey("reader_footer_left")
 private val KEY_FOOTER_RIGHT = stringPreferencesKey("reader_footer_right")
+private val KEY_CUSTOM_TIP_HEADER_LEFT = stringPreferencesKey("reader_custom_tip_header_left")
+private val KEY_CUSTOM_TIP_HEADER_RIGHT = stringPreferencesKey("reader_custom_tip_header_right")
+private val KEY_CUSTOM_TIP_FOOTER_LEFT = stringPreferencesKey("reader_custom_tip_footer_left")
+private val KEY_CUSTOM_TIP_FOOTER_RIGHT = stringPreferencesKey("reader_custom_tip_footer_right")
+private val KEY_CUSTOM_TIP_HEADER_CENTER = stringPreferencesKey("reader_custom_tip_header_center")
+private val KEY_CUSTOM_TIP_FOOTER_CENTER = stringPreferencesKey("reader_custom_tip_footer_center")
+private val KEY_BATTERY_TIP_STYLE = stringPreferencesKey("reader_battery_tip_style")
 
 // ---- 灵感 ----
 private val KEY_INSPIRATION_SORT = stringPreferencesKey("inspiration_sort")   // updated | created | title | source
@@ -174,6 +210,7 @@ data class ReaderSettings(
      */
     val pageTurnSpeed: Float = 400f,
     val tapZoneMode: String = "three-zone",      // three-zone | five-zone
+    val tapActionPreset: String = "standard",   // standard | left_hand | both_next
     /** 屏幕方向锁定：system 跟随系统 | portrait 竖屏 | landscape 横屏（仅阅读器内生效）。 */
     val screenOrientation: String = "system",
     val fontSize: Float = 25f,
@@ -182,6 +219,15 @@ data class ReaderSettings(
     val paragraphSpacing: Float = 1.15f,
     val pageMargin: Float = 22f,
     val background: String = "follow",           // white | warm | green | night | follow
+    /**
+     * 一键日/夜切换的「上次亮纸」记忆（对齐 QQ 阅读阅读页的灯绳）。
+     *
+     * 灯绳切到夜间、再切回日间时用它还原用户自己的选择，避免把「暖纸 / 护眼」静默变成白纸。
+     * 只在用户主动选中**明确属于亮纸**的纸张时更新（见 [ReaderDayNightToggle.rememberPaper]）。
+     */
+    val dayNightLightPaper: String = ReaderDayNightToggle.DEFAULT_LIGHT_PAPER,
+    /** 一键日/夜切换的「上次暗纸」记忆。理由同 [dayNightLightPaper]。 */
+    val dayNightDarkPaper: String = ReaderDayNightToggle.DEFAULT_DARK_PAPER,
     val immersiveMode: Boolean = true,
     val showReaderInfo: Boolean = true,
     val chineseTypography: Boolean = true,
@@ -195,6 +241,7 @@ data class ReaderSettings(
     val lastFixedBrightness: Int = 65,      // 关闭「跟随系统」时回退到的上次固定亮度（0..100）
     val volumeKeyPaging: Boolean = true,
     val volumeKeyPagingDuringTts: Boolean = false,
+    val volumeKeyInvert: Boolean = false,
     val autoPageSpeed: Int = 5,            // 1..10；是否正在自动翻页仅为会话态，不持久化
     // 阅读提醒
     val eyeCareReminderMinutes: Int = 30,
@@ -209,19 +256,54 @@ data class ReaderSettings(
     val readingRhythmReminderEnabled: Boolean = true,
     val readingRhythmReminderMinutes: Int = 30,
     // TTS 高级
+    val ttsSpeechRate: Float = 1f,
     val ttsPitch: Float = 1f,
     val ttsVolume: Float = 1f,
     val ttsVoiceId: String = "",
     val ttsTimedStopMinutes: Int = 0,
     /** TTS 引擎："system" | "edge"（见 TtsEngineId.key）。 */
     val ttsEngine: String = "system",
-    // 页眉页脚：页眉显示书名、页脚显示章节+进度，避免章节名上下重复
-    // （对照起点/番茄等主流：页眉信息栏、页脚进度栏）。
     val headerLeft: HeaderFooterItem = HeaderFooterItem.BOOK_NAME,
     val headerRight: HeaderFooterItem = HeaderFooterItem.NONE,
     val footerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
     val footerRight: HeaderFooterItem = HeaderFooterItem.PROGRESS,
-)
+    val customTipHeaderLeft: String = "",
+    val customTipHeaderRight: String = "",
+    val customTipFooterLeft: String = "",
+    val customTipFooterRight: String = "",
+    val customTipHeaderCenter: String = "",
+    val customTipFooterCenter: String = "",
+    /** `{BatteryPercent}` 在页眉/页脚里的呈现方式。 */
+    val batteryTipStyle: BatteryTipStyle = BatteryTipStyle.ICON_ONLY,
+) {
+    fun effectiveHeaderLeft(): String =
+        customTipHeaderLeft.ifBlank { headerItemToTemplate(headerLeft) }
+
+    fun effectiveHeaderRight(): String =
+        customTipHeaderRight.ifBlank { headerItemToTemplate(headerRight) }
+
+    /** 中间槽没有旧的 [HeaderFooterItem] 对应物，因此只回落到空串。 */
+    fun effectiveHeaderCenter(): String = customTipHeaderCenter
+
+    fun effectiveFooterLeft(): String =
+        customTipFooterLeft.ifBlank { headerItemToTemplate(footerLeft) }
+
+    fun effectiveFooterRight(): String =
+        customTipFooterRight.ifBlank { headerItemToTemplate(footerRight) }
+
+    fun effectiveFooterCenter(): String = customTipFooterCenter
+}
+
+internal fun headerItemToTemplate(item: HeaderFooterItem): String = when (item) {
+    HeaderFooterItem.NONE -> ""
+    HeaderFooterItem.CHAPTER_TITLE -> "{ChapterTitle}"
+    HeaderFooterItem.BOOK_NAME -> "{BookName}"
+    HeaderFooterItem.TIME -> "{Time}"
+    HeaderFooterItem.BATTERY -> "{BatteryPercent}"
+    HeaderFooterItem.PAGE_NUMBER -> "{PageIndex}/{PageSize}"
+    HeaderFooterItem.PROGRESS -> "{ReadProgress}"
+}
+
 
 data class AISettings(
     val enabled: Boolean = false,
@@ -442,9 +524,16 @@ class SettingsStore @Inject constructor(
             },
             pageTurnSpeed = (prefs[KEY_PAGE_TURN_SPEED] ?: 400f).coerceIn(150f, 800f),
             tapZoneMode = prefs[KEY_TAP_ZONE_MODE] ?: "three-zone",
+            tapActionPreset = prefs[KEY_TAP_ACTION_PRESET] ?: "standard",
             screenOrientation = prefs[KEY_SCREEN_ORIENTATION] ?: "system",
             fontSize = prefs[KEY_FONT_SIZE] ?: 25f,
             background = migrateReaderBg(prefs[KEY_READER_BG]),
+            // 记忆值只收下「明确属于该侧」的纸色：旧版本没有这两个键时落默认值，
+            // 手改/未来版本写下的脏值也在这里被挡掉（否则灯绳会把非法 key 当成目标纸色）。
+            dayNightLightPaper = prefs[KEY_DAY_NIGHT_LIGHT_PAPER]
+                ?.takeIf { it in ReaderDayNightToggle.LIGHT_PAPERS } ?: ReaderDayNightToggle.DEFAULT_LIGHT_PAPER,
+            dayNightDarkPaper = prefs[KEY_DAY_NIGHT_DARK_PAPER]
+                ?.takeIf { it in ReaderDayNightToggle.DARK_PAPERS } ?: ReaderDayNightToggle.DEFAULT_DARK_PAPER,
             customFontPath = prefs[KEY_CUSTOM_FONT_PATH] ?: "",
             lineHeight = prefs[KEY_LINE_HEIGHT] ?: 1.85f,
             paragraphSpacing = prefs[KEY_PARAGRAPH_SPACING] ?: 1.15f,
@@ -461,6 +550,7 @@ class SettingsStore @Inject constructor(
             lastFixedBrightness = (prefs[KEY_LAST_FIXED_BRIGHTNESS] ?: 65).coerceIn(0, 100),
             volumeKeyPaging = prefs[KEY_VOLUME_PAGE] ?: true,
             volumeKeyPagingDuringTts = prefs[KEY_VOLUME_PAGE_DURING_TTS] ?: false,
+            volumeKeyInvert = prefs[KEY_VOLUME_PAGE_INVERT] ?: false,
             autoPageSpeed = (prefs[KEY_AUTO_PAGE_SPEED] ?: 5).coerceIn(1, 10),
             eyeCareReminderMinutes = prefs[KEY_EYE_CARE_MIN] ?: 30,
             eyeCareFilterEnabled = prefs[KEY_EYE_FILTER_ENABLED] ?: false,
@@ -473,6 +563,7 @@ class SettingsStore @Inject constructor(
             eyeCareSyncPaperPreview = prefs[KEY_EYE_FILTER_SYNC_PAPER] ?: true,
             readingRhythmReminderEnabled = prefs[KEY_RHYTHM_ENABLED] ?: true,
             readingRhythmReminderMinutes = prefs[KEY_RHYTHM_MIN] ?: 30,
+            ttsSpeechRate = prefs[KEY_TTS_SPEECH_RATE] ?: 1f,
             ttsPitch = prefs[KEY_TTS_PITCH] ?: 1f,
             ttsVolume = prefs[KEY_TTS_VOLUME] ?: 1f,
             ttsVoiceId = prefs[KEY_TTS_VOICE] ?: "",
@@ -482,6 +573,15 @@ class SettingsStore @Inject constructor(
             headerRight = HeaderFooterItem.fromString(prefs[KEY_HEADER_RIGHT] ?: HeaderFooterItem.NONE.name),
             footerLeft = HeaderFooterItem.fromString(prefs[KEY_FOOTER_LEFT] ?: HeaderFooterItem.CHAPTER_TITLE.name),
             footerRight = HeaderFooterItem.fromString(prefs[KEY_FOOTER_RIGHT] ?: HeaderFooterItem.PROGRESS.name),
+            customTipHeaderLeft = prefs[KEY_CUSTOM_TIP_HEADER_LEFT] ?: "",
+            customTipHeaderRight = prefs[KEY_CUSTOM_TIP_HEADER_RIGHT] ?: "",
+            customTipFooterLeft = prefs[KEY_CUSTOM_TIP_FOOTER_LEFT] ?: "",
+            customTipFooterRight = prefs[KEY_CUSTOM_TIP_FOOTER_RIGHT] ?: "",
+            customTipHeaderCenter = prefs[KEY_CUSTOM_TIP_HEADER_CENTER] ?: "",
+            customTipFooterCenter = prefs[KEY_CUSTOM_TIP_FOOTER_CENTER] ?: "",
+            batteryTipStyle = BatteryTipStyle.fromString(
+                prefs[KEY_BATTERY_TIP_STYLE] ?: BatteryTipStyle.ICON_ONLY.name,
+            ),
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(5000), bootReader)
 
@@ -575,6 +675,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_PAGE_TURN_EFFECT] = next.pageTurnEffect
             prefs[KEY_PAGE_TURN_SPEED] = next.pageTurnSpeed.coerceIn(150f, 800f)
             prefs[KEY_TAP_ZONE_MODE] = next.tapZoneMode
+            prefs[KEY_TAP_ACTION_PRESET] = next.tapActionPreset
             prefs[KEY_SCREEN_ORIENTATION] = next.screenOrientation
             prefs[KEY_FONT_SIZE] = next.fontSize
             prefs[KEY_CUSTOM_FONT_PATH] = next.customFontPath
@@ -582,6 +683,8 @@ class SettingsStore @Inject constructor(
             prefs[KEY_PARAGRAPH_SPACING] = next.paragraphSpacing
             prefs[KEY_PAGE_MARGIN] = next.pageMargin
             prefs[KEY_READER_BG] = next.background
+            prefs[KEY_DAY_NIGHT_LIGHT_PAPER] = next.dayNightLightPaper
+            prefs[KEY_DAY_NIGHT_DARK_PAPER] = next.dayNightDarkPaper
             prefs[KEY_IMMERSIVE] = next.immersiveMode
             prefs[KEY_SHOW_READER_INFO] = next.showReaderInfo
             prefs[KEY_CHINESE_TYPO] = next.chineseTypography
@@ -596,6 +699,7 @@ class SettingsStore @Inject constructor(
             }
             prefs[KEY_VOLUME_PAGE] = next.volumeKeyPaging
             prefs[KEY_VOLUME_PAGE_DURING_TTS] = next.volumeKeyPagingDuringTts
+            prefs[KEY_VOLUME_PAGE_INVERT] = next.volumeKeyInvert
             prefs[KEY_AUTO_PAGE_SPEED] = next.autoPageSpeed.coerceIn(1, 10)
             prefs[KEY_EYE_CARE_MIN] = next.eyeCareReminderMinutes
             prefs[KEY_EYE_FILTER_ENABLED] = next.eyeCareFilterEnabled
@@ -608,6 +712,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_EYE_FILTER_SYNC_PAPER] = next.eyeCareSyncPaperPreview
             prefs[KEY_RHYTHM_ENABLED] = next.readingRhythmReminderEnabled
             prefs[KEY_RHYTHM_MIN] = next.readingRhythmReminderMinutes
+            prefs[KEY_TTS_SPEECH_RATE] = next.ttsSpeechRate
             prefs[KEY_TTS_PITCH] = next.ttsPitch
             prefs[KEY_TTS_VOLUME] = next.ttsVolume
             prefs[KEY_TTS_VOICE] = next.ttsVoiceId
@@ -617,6 +722,13 @@ class SettingsStore @Inject constructor(
             prefs[KEY_HEADER_RIGHT] = next.headerRight.name
             prefs[KEY_FOOTER_LEFT] = next.footerLeft.name
             prefs[KEY_FOOTER_RIGHT] = next.footerRight.name
+            prefs[KEY_CUSTOM_TIP_HEADER_LEFT] = next.customTipHeaderLeft
+            prefs[KEY_CUSTOM_TIP_HEADER_RIGHT] = next.customTipHeaderRight
+            prefs[KEY_CUSTOM_TIP_FOOTER_LEFT] = next.customTipFooterLeft
+            prefs[KEY_CUSTOM_TIP_FOOTER_RIGHT] = next.customTipFooterRight
+            prefs[KEY_CUSTOM_TIP_HEADER_CENTER] = next.customTipHeaderCenter
+            prefs[KEY_CUSTOM_TIP_FOOTER_CENTER] = next.customTipFooterCenter
+            prefs[KEY_BATTERY_TIP_STYLE] = next.batteryTipStyle.name
         }
     }
 

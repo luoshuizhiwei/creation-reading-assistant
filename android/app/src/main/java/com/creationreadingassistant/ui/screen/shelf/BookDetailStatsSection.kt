@@ -55,6 +55,7 @@ import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.util.formatRelativeTime
 import com.creationreadingassistant.ui.util.LocalDurationUnit
 import com.creationreadingassistant.ui.util.LocalDurationUnitToggle
 import com.creationreadingassistant.ui.util.durationUnitToggle
@@ -152,7 +153,7 @@ internal fun BookDetailStatsSection(
                 BookDetailStatCell(
                     icon = Icons.Outlined.CalendarToday,
                     label = "上次阅读",
-                    value = if (progress?.last_read_at != null) progress.last_read_at.take(10) else "从未阅读",
+                    value = if (progress?.last_read_at != null) formatRelativeTime(progress.last_read_at) else "从未阅读",
                     tint = Color(0xFF059669),
                     modifier = Modifier.weight(1f),
                 )

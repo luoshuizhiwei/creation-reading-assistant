@@ -30,14 +30,18 @@ object LocatorBuilder {
      * 继续工作；并附带嵌套 v2 locator（"locator_v2"），restore 端优先读它以保持跨格式一致。
      *
      * @param legacyOffset 顶部 "offset" 值（旧版语义：TXT 全书偏移 / EPUB 章内偏移）
-     * @param globalOffset v2.legacyOffset，跨格式统一绝对偏移（默认等于 [legacyOffset]）
+     * @param globalOffset v2 "offset"，**全书字符偏移**。默认等于 [legacyOffset]——TXT/Markdown
+     *   是单一坐标空间（chapterStart[0]=0），两者本就相同。EPUB 调用方在**拿不到章起点表**时
+     *   必须显式传 null：v2 将省略 "offset" 字段，读侧按 `chapterStart[ci] + co` 派生。
+     *   绝不允许把章内偏移当全局写入（违反 `offset == chapterStart[ci] + co` 不变式，
+     *   是 S12-① 导入 locator 被回源跳转一致性校验拒绝的根因）。
      * @param legacyChapter EPUB 顶部 "chapter" 字段；TXT / Markdown 传 null
      */
     fun progressJson(
         legacyOffset: Int,
         chapterIndex: Int,
         charOffset: Int,
-        globalOffset: Int = legacyOffset,
+        globalOffset: Int? = legacyOffset,
         space: String? = null,
         legacyChapter: Int? = null,
         excerpt: String? = null,

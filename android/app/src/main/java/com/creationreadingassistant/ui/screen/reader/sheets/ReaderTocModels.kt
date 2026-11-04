@@ -80,9 +80,30 @@ internal fun groupChaptersByVolume(titles: List<String>): List<Pair<String, List
     return result
 }
 
+/** 卷标里的编号：阿拉伯、全角、汉字大小写都有人用。 */
+private const val VOL_NUM = "[0-9０-９零〇一二三四五六七八九十百千两]"
+
+/** 卷标形态：整行是一则卷标，允许再跟一段不超过 10 字的副标题。 */
+private val VOLUME_HEADER = Regex(
+    "^(?:第$VOL_NUM{1,6}[卷部]|卷之?$VOL_NUM{1,6}|[上中下][卷部])" +
+        "(?:[ \\t　:：，,、—·-].{0,10})?\$" +
+        "|^(?:vol|volume|part)[ .．、:：_-]*[0-9ivxlcdm]{1,8}\$",
+    RegexOption.IGNORE_CASE,
+)
+
+/** 卷标不可能长到这个数；先按长度挡一道，省掉逐标题的正则开销。 */
+private const val VOLUME_HEADER_MAX_LENGTH = 24
+
+/**
+ * 整行**就是**一则卷标，才算分卷。
+ *
+ * 旧实现写作 `contains("卷") || contains("部")`，是子串判据：于是「举报试卷怎么样呢」
+ * 「她没去拳击部」「系统的部分规则」「长谷部同学来了」（姓氏里的「部」）这类正文标题
+ * 都会被判成卷名，而 [readerTocEntries] 对卷名返回 null——等于把这些章节从目录里整条
+ * 删掉，并把后续章节挂到一个错误的分组名下。
+ */
 internal fun isVolumeHeader(title: String): Boolean {
-    if (title.isBlank()) return false
-    return title.contains("卷") || title.contains("部") ||
-        title.contains("Part", ignoreCase = true) || title.contains("Volume", ignoreCase = true) ||
-        Regex("^第[一二三四五六七八九十\\d]+[卷部]").containsMatchIn(title)
+    val t = title.trim()
+    if (t.isEmpty() || t.length > VOLUME_HEADER_MAX_LENGTH) return false
+    return VOLUME_HEADER.matches(t)
 }

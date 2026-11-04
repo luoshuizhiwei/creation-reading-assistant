@@ -189,6 +189,7 @@ internal fun ReaderContentHostEpubBranch(
             pageMargin = settings.readerSettings.pageMargin,
             paperFg = settings.paperFg,
             tapZoneMode = settings.readerSettings.tapZoneMode,
+            tapActionPreset = settings.readerSettings.tapActionPreset,
             pageTurnEffect = settings.readerSettings.pageTurnEffect,
             chapterIndex = s.chapterIndex,
             canPrev = s.chapterIndex > 0,

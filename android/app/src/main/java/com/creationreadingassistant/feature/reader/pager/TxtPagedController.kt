@@ -157,7 +157,7 @@ class PagedReaderController(
     // 用队列而非最后一次方向，保证连续点按仍按输入顺序执行。
     private val pendingPageTurns = ArrayDeque<Int>()
     private val layoutMutex = Mutex()
-    private val chapterCache = LinkedHashMap<Int, CachedChapter>(3, 0.75f, true)
+    private val chapterCache = LinkedHashMap<Int, CachedChapter>(5, 0.75f, true)
     private val actualCharCounts = LinkedHashMap<Int, Int>()
     private var persistedMetricsLoaded = false
     var cacheRevision by mutableIntStateOf(0)
@@ -200,8 +200,9 @@ class PagedReaderController(
 
         val target = absOffset.coerceIn(0, (source.totalChars - 1).coerceAtLeast(0))
         val chIdx = source.chapterIndexFor(target)
-        loadChapter(chIdx, isFirstOpen = true) { l ->
-            l.pageIndexFor(globalSourceToLocalDisplay(chIdx, target))
+        val localTarget = globalSourceToLocalDisplay(chIdx, target)
+        loadChapter(chIdx, isFirstOpen = true, targetLocalOffset = localTarget) { l ->
+            l.pageIndexFor(localTarget)
         }
     }
 
@@ -236,33 +237,62 @@ class PagedReaderController(
     }
 
     fun nextPage() {
-        if (isLayingOut || layout == null) {
+        val l = layout
+        if (l == null) {
             pendingPageTurns.addLast(1)
             return
         }
-        val l = layout ?: return
-        when {
-            pageIndex < l.pages.size - 1 -> pageIndex++
-            chapterIndex < source.chapterCount - 1 -> {
-                val next = chapterCache[chapterIndex + 1]
-                if (next != null) applyChapter(chapterIndex + 1, next, 0)
-                else loadChapter(chapterIndex + 1, isFirstOpen = false) { 0 }
-            }
+        if (pageIndex < l.pages.size - 1) {
+            pageIndex++
+            return
+        }
+        if (isLayingOut) {
+            pendingPageTurns.addLast(1)
+            return
+        }
+        if (chapterIndex < source.chapterCount - 1) {
+            val next = chapterCache[chapterIndex + 1]
+            if (next != null) applyChapter(chapterIndex + 1, next, 0)
+            else loadChapter(chapterIndex + 1, isFirstOpen = false, targetLocalOffset = 0) { 0 }
         }
     }
 
     fun prevPage() {
-        if (isLayingOut || layout == null) {
+        val l = layout
+        if (l == null) {
             pendingPageTurns.addLast(-1)
             return
         }
-        when {
-            pageIndex > 0 -> pageIndex--
-            chapterIndex > 0 -> {
-                val previous = chapterCache[chapterIndex - 1]
-                if (previous != null) applyChapter(chapterIndex - 1, previous, previous.layout.pages.lastIndex)
-                else loadChapter(chapterIndex - 1, isFirstOpen = false) { it.pages.size - 1 }
-            }
+        if (pageIndex > 0) {
+            pageIndex--
+            return
+        }
+        if (isLayingOut) {
+            pendingPageTurns.addLast(-1)
+            return
+        }
+        if (chapterIndex > 0) {
+            val previous = chapterCache[chapterIndex - 1]
+            if (previous != null) applyChapter(chapterIndex - 1, previous, previous.layout.pages.lastIndex)
+            else loadChapter(chapterIndex - 1, isFirstOpen = false, targetLocalOffset = 0) { it.pages.size - 1 }
+        }
+    }
+
+    /** 首批（前两页或目标页）页面就绪后立即应用，实现正文秒开。此时 isLayingOut 仍保持 true 直到全量完成。 */
+    private fun applyInterim(chIdx: Int, text: String, interimLayout: ChapterPaginator.ChapterLayout, targetPage: Int) {
+        if (layout != null && chapterIndex == chIdx) return
+        chapterText = text
+        chapterIndex = chIdx
+        layout = interimLayout
+        pageIndex = targetPage.coerceIn(0, interimLayout.pages.lastIndex.coerceAtLeast(0))
+        loadError = null
+
+        // ── TxtFirstPageReady: 首页就绪，结束异步 trace ──
+        if (firstPageReadyTraceActive) {
+            endAsyncTrace("TxtFirstPageReady", firstPageReadyCookie)
+            firstPageReadyTraceActive = false
+            val readyEndNs = SystemClock.elapsedRealtimeNanos()
+            AppLog.debug("TxtPerfTrace", "TxtFirstPageReady: ${(readyEndNs - firstPageReadyStartNs) / 1_000_000} ms")
         }
     }
 
@@ -299,7 +329,12 @@ class PagedReaderController(
      * 排版 [chIdx] 章，完成后用 [pickPage] 决定停在哪页。
      * 并发纪律：新请求取消旧请求（快速连续翻章只保留最后一次）。
      */
-    private fun loadChapter(chIdx: Int, isFirstOpen: Boolean = false, pickPage: (ChapterPaginator.ChapterLayout) -> Int) {
+    private fun loadChapter(
+        chIdx: Int,
+        isFirstOpen: Boolean = false,
+        targetLocalOffset: Int = 0,
+        pickPage: (ChapterPaginator.ChapterLayout) -> Int,
+    ) {
         if (chIdx !in 0 until source.chapterCount) return
         layoutJob?.cancel()
         prefetchJob?.cancel()
@@ -342,7 +377,17 @@ class PagedReaderController(
                                 val layoutStartNs = SystemClock.elapsedRealtimeNanos()
                                 Trace.beginSection("TxtFirstPageLayout")
                                 val pages = try {
-                                    ChapterPaginator.paginateBlocks(loaded.blocks, cfg, ruler, oracle)
+                                    ChapterPaginator.paginateProgressive(
+                                        loaded.blocks,
+                                        cfg,
+                                        ruler,
+                                        oracle,
+                                        targetOffset = targetLocalOffset,
+                                        initialPageThreshold = 2,
+                                        onInitialPages = { interim ->
+                                            applyInterim(chIdx, loaded.text, interim, pickPage(interim))
+                                        },
+                                    )
                                 } finally {
                                     Trace.endSection()
                                 }
@@ -350,7 +395,17 @@ class PagedReaderController(
                                 AppLog.debug("TxtPerfTrace", "TxtFirstPageLayout: ${(layoutEndNs - layoutStartNs) / 1_000_000} ms")
                                 pages
                             } else {
-                                ChapterPaginator.paginateBlocks(loaded.blocks, cfg, ruler, oracle)
+                                ChapterPaginator.paginateProgressive(
+                                    loaded.blocks,
+                                    cfg,
+                                    ruler,
+                                    oracle,
+                                    targetOffset = targetLocalOffset,
+                                    initialPageThreshold = 2,
+                                    onInitialPages = { interim ->
+                                        applyInterim(chIdx, loaded.text, interim, pickPage(interim))
+                                    },
+                                )
                             }
                         }
                         loaded to laidOut
@@ -405,7 +460,10 @@ class PagedReaderController(
     private fun prefetchNeighbors(center: Int) {
         prefetchJob?.cancel()
         prefetchJob = scope.launch {
-            for (index in listOf(center - 1, center + 1)) {
+            // 绝大多数读者均按顺序向后阅读：优先预排下一章 (center + 1)，确保翻到章末时 100% 命中缓存，消除白屏等待；
+            // 随后预排前一章 (center - 1) 与更后一章 (center + 2)。
+            val prefetchTargets = listOf(center + 1, center - 1, center + 2)
+            for (index in prefetchTargets) {
                 if (index !in 0 until source.chapterCount || chapterCache.containsKey(index)) continue
                 try {
                     val (content, chapterLayout) = layoutMutex.withLock {
@@ -417,7 +475,7 @@ class PagedReaderController(
                     }
                     chapterCache[index] = CachedChapter(content, chapterLayout)
                     actualCharCounts[index] = content.text.length
-                    val keep = setOf(center - 1, center, center + 1)
+                    val keep = setOf(center - 2, center - 1, center, center + 1, center + 2)
                     chapterCache.keys.toList().filterNot { it in keep }.forEach(chapterCache::remove)
                     cacheRevision++
                     val s = store

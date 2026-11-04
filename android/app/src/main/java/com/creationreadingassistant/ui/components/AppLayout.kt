@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.navigation.LocalAppChrome
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
@@ -86,6 +89,8 @@ private fun PaddingValues.structurallyEquals(other: PaddingValues, layoutDirecti
  * **切勿**把 viewportPadding 再叠加到 `LazyColumn.contentPadding` 或 `Modifier.padding` 第二次。
  *
  * @param title 顶部栏标题
+ * @param compactTopBar 二级子页用的紧凑页头：标题降到 18sp 无衬线、栏高走
+ *   `LayoutTokens.compactTopBarHeight`。顶级页保持 false，勿为了"看起来更挤"批量打开。
  * @param topBarSupportingContent 附在 TopAppBar 下方的补充区域（例如搜索框/分段控件）；会计入 viewportPadding。
  * @param content 接收 viewport 避让用 PaddingValues；不得重复消费外层 `LocalAppChrome.navLayerPadding`。
  */
@@ -99,6 +104,7 @@ fun AppScreenScaffold(
     actions: @Composable RowScope.() -> Unit = {},
     snackbarHost: @Composable () -> Unit = {},
     topBarSupportingContent: (@Composable () -> Unit)? = null,
+    compactTopBar: Boolean = false,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val layoutDirection = LocalLayoutDirection.current
@@ -117,6 +123,7 @@ fun AppScreenScaffold(
                     navigationIcon = navigationIcon,
                     titleContent = titleContent,
                     actions = actions,
+                    compact = compactTopBar,
                 )
                 topBarSupportingContent?.invoke()
             }
@@ -161,6 +168,8 @@ fun AppScreenScaffold(
  * 想让列表第一项距离顶部栏再多 12dp、或最后一项距离底部再多 12dp → 调 [contentPadding]。
  *
  * @throws IllegalArgumentException 当两个参数结构完全相等（疑似重复叠加）时抛出。
+ * @param listState 外部持有的列表状态。设置子页需要它来做「搜索命中项滚动定位」
+ *   （见 `SettingsFocusController`）；不传时自建，行为与改动前完全一致。
  */
 @Composable
 fun PageLazyColumn(
@@ -168,6 +177,7 @@ fun PageLazyColumn(
     scaffoldPadding: PaddingValues = PaddingValues(0.dp),
     contentPadding: PaddingValues? = null,
     verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(LocalLayoutTokens.current.contentGap),
+    listState: LazyListState = rememberLazyListState(),
     content: LazyListScope.() -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
@@ -189,6 +199,7 @@ fun PageLazyColumn(
     }
 
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .padding(paddingValues = scaffoldPadding),
@@ -208,18 +219,29 @@ fun SectionHeader(
     title: String,
     modifier: Modifier = Modifier,
     action: (@Composable RowScope.() -> Unit)? = null,
+    compact: Boolean = false,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 32.dp),
+            .heightIn(min = if (compact) 26.dp else 32.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(LocalLayoutTokens.current.relatedGap),
     ) {
         Text(
             text = title,
-            // 区块标题用展示衬线（书卷气），与正文黑体形成层次；字号沿用 headlineSmall 节奏。
-            style = MaterialTheme.typography.headlineSmall.copy(fontFamily = DisplayFontFamily),
+            // 区块标题用展示衬线（书卷气），与正文黑体形成层次。
+            // compact 只降字号与行盒、保留衬线：首页一屏有 5 个区块头，18sp 会把版面压成"报纸大标题"，
+            // 但换成黑体会连带丢掉品牌字形，所以只收字号。
+            style = if (compact) {
+                MaterialTheme.typography.headlineSmall.copy(
+                    fontFamily = DisplayFontFamily,
+                    fontSize = 15.sp,
+                    lineHeight = 21.sp,
+                )
+            } else {
+                MaterialTheme.typography.headlineSmall.copy(fontFamily = DisplayFontFamily)
+            },
             modifier = Modifier.weight(1f),
         )
         action?.invoke(this)
@@ -249,16 +271,17 @@ fun AppTopBar(
 ) {
     val tokens = LocalLayoutTokens.current
     val titleStyle = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineLarge
+    val barMinHeight = if (compact) tokens.compactTopBarHeight else tokens.topBarHeight
 
     // 不使用 Material3 TopAppBar 的内部标题槽：它会把自定义中文 lineHeight
     // 重新限制在单行栏的裁剪层中，高状态栏设备上仍可能切掉字形上沿。
-    // 这里明确拆开「状态栏安全区」和「64dp 标题内容区」，并给文字保留垂直呼吸空间。
+    // 这里明确拆开「状态栏安全区」和「标题内容区」，并给文字保留垂直呼吸空间。
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
             .windowInsetsPadding(WindowInsets.statusBars)
-            .heightIn(min = tokens.topBarHeight)
+            .heightIn(min = barMinHeight)
             .padding(
                 start = if (navigationIcon == null) 16.dp else 4.dp,
                 end = 4.dp,
@@ -276,12 +299,13 @@ fun AppTopBar(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .padding(vertical = 8.dp),
+                .padding(vertical = if (compact) 4.dp else 8.dp),
             contentAlignment = Alignment.CenterStart,
         ) {
+            // compact 档去展示衬线：二级子页标题是导航信息而非版面主角，无衬线 18sp 更克制。
             titleContent?.invoke() ?: Text(
                 text = title,
-                style = titleStyle.copy(fontFamily = DisplayFontFamily),
+                style = if (compact) titleStyle else titleStyle.copy(fontFamily = DisplayFontFamily),
                 maxLines = 1,
             )
         }

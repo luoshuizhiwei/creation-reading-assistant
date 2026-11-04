@@ -27,8 +27,16 @@ internal fun RulesSheet(
     onCommand: (RuleCommand) -> Unit,
     onBack: () -> Unit,
 ) {
-    val pinnedReplaceText = remember { initialReplaceText }
     val replacementAvailable = replacementCapability is ReaderReplacementCapability.Available
+    // S07-F2.4：把「打开时的预填文本」钉成宿主生命周期内的**常量**。
+    //
+    // 原实现把 `initialReplaceText` 直接当 remember key，而它来自实时活动选区 ——
+    // TTS 跟读导致 ReadingUnit dispose 会清空活动选区，`initialReplaceText` 随之由
+    // 「一段文字」变成 null，三个 remember 全部重建：tab 从 REPLACE 跳回 TOC、
+    // editing 被重置、用户正在编辑的草稿整份丢掉（Qoder 复核 ST-1）。
+    //
+    // 钉住后 key 恒不变：正文选区怎么清都不影响本页的 tab / editing / 草稿。
+    val pinnedReplaceText = remember { initialReplaceText }
     val initialReplaceDraft = remember(pinnedReplaceText, replacementAvailable) {
         pinnedReplaceText
             ?.takeIf { replacementAvailable }
@@ -87,6 +95,7 @@ internal fun RulesSheet(
                 effectiveReplace = snapshot.effectiveReplace,
                 mutationResult = mutationResult,
                 replacementCapability = replacementCapability,
+                // 同样用钉住值：正文选区被清后不得收回「单处纠错」许可。
                 allowCorrection = pinnedReplaceText != null,
                 onSave = {
                     val command = currentDraft.toCommand()

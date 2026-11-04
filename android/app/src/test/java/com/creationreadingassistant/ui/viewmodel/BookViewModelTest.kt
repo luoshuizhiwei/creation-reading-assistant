@@ -44,6 +44,8 @@ class BookViewModelTest {
             coEvery { deleteBook(any()) } returns Unit
             coEvery { updateReadingProgress(any(), any(), any()) } returns Unit
             coEvery { setReadingState(any(), any()) } returns Unit
+            // markRead 现在走这里（不刷新 last_read_at）
+            coEvery { markFinished(any()) } returns Unit
         }
         continueStore = mockk {
             every { removedIds } returns flowOf(emptyMap())
@@ -104,7 +106,10 @@ class BookViewModelTest {
         vm.markUnread("b2")
         testScheduler.advanceUntilIdle()
 
-        coVerify(exactly = 1) { repository.updateReadingProgress("b1", 100f, "finished") }
+        // markRead 改走 markFinished：不再用 updateReadingProgress(100f,"finished")，
+        // 因为后者会把 last_read_at 刷成当下，让没读过的书跳到「最近阅读」榜首。
+        coVerify(exactly = 1) { repository.markFinished("b1") }
+        coVerify(exactly = 0) { repository.updateReadingProgress("b1", any(), any()) }
         coVerify(exactly = 1) { repository.updateReadingProgress("b2", 0f, "reading") }
     }
 

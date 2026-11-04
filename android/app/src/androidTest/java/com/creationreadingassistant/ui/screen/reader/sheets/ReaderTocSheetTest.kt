@@ -39,9 +39,8 @@ class ReaderTocSheetTest {
         }
         composeRule.onNodeWithText("目录与标记").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("当前章节").assertIsDisplayed()
-        // 候选保留当前章阅读中提示：必须唯一且可见，不将视觉重构假设当作契约。
-        composeRule.onAllNodesWithText("阅读中").assertCountEquals(1)
-        composeRule.onNodeWithText("阅读中").assertIsDisplayed()
+        // 当前章已由书签线 + 主色序号 + 加粗主色标题标识，右侧不再重复渲染「阅读中」。
+        composeRule.onAllNodesWithText("阅读中").assertCountEquals(0)
         composeRule.onNodeWithText("最近浏览").assertIsDisplayed()
     }
 

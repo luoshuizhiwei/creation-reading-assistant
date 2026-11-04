@@ -1,6 +1,7 @@
 package com.creationreadingassistant.ui.screen.reader
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -72,7 +73,11 @@ class ReaderSelectionExternalActionsTest {
         assertEquals("", normalizedSelectionQuery("字", -3))
     }
 
-    // ===================== 外部动作轻量提示与调度器测试 =====================
+    // ===================== 外部动作提示：结果确定后只发一条（S07-F4.1） =====================
+    //
+    // 旧形态（F1 报告 Q-3 提出、F4 误记为「已固化」）：先无条件提示「正在打开浏览器…」，
+    // 拿到 NO_HANDLER 后再补一条失败 —— 一次什么都没发生的操作给出两条互相矛盾的提示。
+    // 在线词典失败还复用「未找到可用浏览器」，把用户引向错误的排查方向。
 
     @Test
     fun `executeSelectionBrowser intercepts blank selection without invoking launcher`() {
@@ -94,7 +99,7 @@ class ReaderSelectionExternalActionsTest {
     }
 
     @Test
-    fun `executeSelectionBrowser shows opening prompt and no error when opened successfully`() {
+    fun `executeSelectionBrowser reports one success notice and passes the query through`() {
         val notices = mutableListOf<String>()
         var passedText = ""
         var passedTemplate = ""
@@ -110,13 +115,14 @@ class ReaderSelectionExternalActionsTest {
             },
         )
 
-        assertEquals(listOf(NOTICE_OPENING_BROWSER), notices)
+        assertEquals(listOf(NOTICE_BROWSER_OPENED), notices)
         assertEquals("测试查询", passedText)
         assertEquals("https://example.com/search?q={q}", passedTemplate)
     }
 
     @Test
-    fun `executeSelectionBrowser shows opening prompt then error notice when no handler available`() {
+    fun `executeSelectionBrowser never announces success before the result is known`() {
+        // 失败路径只允许出现**一条**提示，且不得包含任何成功/进行中文案。
         val notices = mutableListOf<String>()
 
         executeSelectionBrowser(
@@ -126,11 +132,33 @@ class ReaderSelectionExternalActionsTest {
             launcher = { _, _ -> SelectionExternalLaunchResult.NO_HANDLER },
         )
 
-        assertEquals(listOf(NOTICE_OPENING_BROWSER, NOTICE_NO_BROWSER), notices)
+        assertEquals(listOf(NOTICE_BROWSER_UNAVAILABLE), notices)
+        assertFalse(
+            "失败时不得预报成功或「正在打开」",
+            notices.any { it.contains("正在打开") || it == NOTICE_BROWSER_OPENED },
+        )
     }
 
     @Test
-    fun `executeSelectionDictionary system mode shows opening prompt and fallback notice when web fallback used`() {
+    fun `the browser result notice is a total function of the launch result`() {
+        // 三种返回各自对应一条确定文案；成功与失败必须可区分。
+        assertEquals(NOTICE_BROWSER_OPENED, selectionBrowserResultNotice(SelectionExternalLaunchResult.OPENED))
+        assertEquals(
+            NOTICE_BROWSER_OPENED,
+            selectionBrowserResultNotice(SelectionExternalLaunchResult.OPENED_WEB_FALLBACK),
+        )
+        assertEquals(
+            NOTICE_BROWSER_UNAVAILABLE,
+            selectionBrowserResultNotice(SelectionExternalLaunchResult.NO_HANDLER),
+        )
+        assertFalse(
+            selectionBrowserResultNotice(SelectionExternalLaunchResult.OPENED) ==
+                selectionBrowserResultNotice(SelectionExternalLaunchResult.NO_HANDLER),
+        )
+    }
+
+    @Test
+    fun `system dictionary mode reports the web fallback as a fallback`() {
         val notices = mutableListOf<String>()
 
         executeSelectionDictionary(
@@ -143,11 +171,28 @@ class ReaderSelectionExternalActionsTest {
             onlineLauncher = { _, _ -> error("在线独立分支不应被调用") },
         )
 
-        assertEquals(listOf(NOTICE_OPENING_SYSTEM_DICT, NOTICE_DICT_FALLBACK), notices)
+        assertEquals(listOf(NOTICE_DICT_FALLBACK), notices)
     }
 
     @Test
-    fun `executeSelectionDictionary system mode shows no handler error when completely unavailable`() {
+    fun `system dictionary mode reports a plain success without a fallback claim`() {
+        val notices = mutableListOf<String>()
+
+        executeSelectionDictionary(
+            selectedText = "测试词语",
+            mode = com.creationreadingassistant.data.settings.SelectionActions.MODE_SYSTEM,
+            template = "https://example.com/dict?word={q}",
+            onOpenOffline = { error("离线分支不应被调用") },
+            showNotice = { notices += it },
+            systemLauncher = { _, _ -> SelectionExternalLaunchResult.OPENED },
+            onlineLauncher = { _, _ -> error("在线独立分支不应被调用") },
+        )
+
+        assertEquals(listOf(NOTICE_SYSTEM_DICT_OPENED), notices)
+    }
+
+    @Test
+    fun `system dictionary mode says both are unavailable only when nothing worked`() {
         val notices = mutableListOf<String>()
 
         executeSelectionDictionary(
@@ -160,34 +205,64 @@ class ReaderSelectionExternalActionsTest {
             onlineLauncher = { _, _ -> error("在线独立分支不应被调用") },
         )
 
-        assertEquals(listOf(NOTICE_OPENING_SYSTEM_DICT, NOTICE_NO_DICT_OR_BROWSER), notices)
+        assertEquals(listOf(NOTICE_DICT_OR_BROWSER_UNAVAILABLE), notices)
     }
 
     @Test
-    fun `executeSelectionDictionary online mode shows opening prompt and handles failure`() {
-        val successNotices = mutableListOf<String>()
+    fun `online dictionary mode reports one success notice`() {
+        val notices = mutableListOf<String>()
         executeSelectionDictionary(
             selectedText = "测试词语",
             mode = com.creationreadingassistant.data.settings.SelectionActions.MODE_ONLINE,
             template = "https://example.com/dict?word={q}",
             onOpenOffline = { error("离线分支不应被调用") },
-            showNotice = { successNotices += it },
+            showNotice = { notices += it },
             systemLauncher = { _, _ -> error("系统分支不应被调用") },
             onlineLauncher = { _, _ -> SelectionExternalLaunchResult.OPENED_WEB_FALLBACK },
         )
-        assertEquals(listOf(NOTICE_OPENING_ONLINE_DICT), successNotices)
+        assertEquals(listOf(NOTICE_ONLINE_DICT_OPENED), notices)
+    }
 
-        val failNotices = mutableListOf<String>()
+    @Test
+    fun `online dictionary failure never blames the browser`() {
+        // 这是 F4 账本 L7 的原始缺陷：在线词典失败复用「未找到可用浏览器」。
+        val notices = mutableListOf<String>()
         executeSelectionDictionary(
             selectedText = "测试词语",
             mode = com.creationreadingassistant.data.settings.SelectionActions.MODE_ONLINE,
             template = "https://example.com/dict?word={q}",
             onOpenOffline = { error("离线分支不应被调用") },
-            showNotice = { failNotices += it },
+            showNotice = { notices += it },
             systemLauncher = { _, _ -> error("系统分支不应被调用") },
             onlineLauncher = { _, _ -> SelectionExternalLaunchResult.NO_HANDLER },
         )
-        assertEquals(listOf(NOTICE_OPENING_ONLINE_DICT, NOTICE_NO_BROWSER), failNotices)
+
+        assertEquals(listOf(NOTICE_ONLINE_DICT_UNAVAILABLE), notices)
+        assertFalse(
+            "在线词典失败不得只说「未找到可用浏览器」",
+            notices.any { it == NOTICE_BROWSER_UNAVAILABLE },
+        )
+        assertFalse("失败时不得出现「正在打开」", notices.any { it.contains("正在打开") })
+    }
+
+    @Test
+    fun `both dictionary modes intercept a blank selection before any launcher runs`() {
+        listOf(
+            com.creationreadingassistant.data.settings.SelectionActions.MODE_SYSTEM,
+            com.creationreadingassistant.data.settings.SelectionActions.MODE_ONLINE,
+        ).forEach { mode ->
+            val notices = mutableListOf<String>()
+            executeSelectionDictionary(
+                selectedText = " \n ",
+                mode = mode,
+                template = "https://example.com/dict?word={q}",
+                onOpenOffline = { error("离线分支不应被调用") },
+                showNotice = { notices += it },
+                systemLauncher = { _, _ -> error("空选区不得调用系统词典") },
+                onlineLauncher = { _, _ -> error("空选区不得调用在线词典") },
+            )
+            assertEquals("$mode 的空选区提示", listOf(NOTICE_BLANK_SELECTION), notices)
+        }
     }
 
     @Test

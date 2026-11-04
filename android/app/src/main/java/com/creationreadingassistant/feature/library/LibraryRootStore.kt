@@ -27,8 +27,17 @@ private val KEY_DISPLAY_NAME = stringPreferencesKey("display_name")
 private val KEY_LAST_LOCATION_DOCUMENT_ID = stringPreferencesKey("last_location_document_id")
 private val KEY_SORT_MODE = stringPreferencesKey("sort_mode")
 
-/** The sort choices shared by the future directory browser and its saved state. */
+/**
+ * The sort choices shared by the future directory browser and its saved state.
+ *
+ * [ADDED_DESC] 与 [MODIFIED_DESC] 排序键相同：SAF 只提供 `COLUMN_LAST_MODIFIED`，
+ * 系统层面没有「文件加入该文件夹的时间」。文件被拷进目录时其修改时间就是拷贝时间，
+ * 因此「最近添加」以修改时间呈现，语义与用户预期一致，且对尚未导入书架的文件同样有效。
+ * 保留两项是因为用户按不同心智检索（「我刚放进去的」vs「最近改过的」），文案差异有意义。
+ */
 enum class LibrarySortMode(val storageValue: String) {
+    /** 最近添加（按来源文件修改时间倒序）。 */
+    ADDED_DESC("added_desc"),
     NAME("name"),
     MODIFIED_DESC("modified_desc"),
     SIZE_DESC("size_desc"),

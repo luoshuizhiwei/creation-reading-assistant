@@ -77,6 +77,43 @@ class ShelfBookActions(
         continueReadingStore.clear(id)
     }.map { "已恢复为在读" }
 
+    /**
+     * 标记为已读完。
+     *
+     * 不清 `continueReadingStore`：读完的书仍可出现在「继续阅读」里回看，
+     * 这与「搁置」不同——搁置是明确不再继续，读完是已完成的阅读行为。
+     */
+    suspend fun markFinished(id: String): String = runCatching {
+        repository.markFinished(id)
+    }.fold(
+        onSuccess = { "已标记为读完" },
+        onFailure = { "标记失败：${it.message}" },
+    )
+
+    /** 取消已读完，回到在读。清空 `completed_at` 由 `setReadingState` 负责。 */
+    suspend fun markReading(id: String): String = runCatching {
+        repository.setReadingState(id, ReadingCompletionState.READING)
+    }.fold(
+        onSuccess = { "已取消读完" },
+        onFailure = { "取消失败：${it.message}" },
+    )
+
+    /** 批量标记读完。 */
+    suspend fun markFinishedBatch(ids: Collection<String>): String = runCatching {
+        ids.distinct().forEach { repository.markFinished(it) }
+    }.fold(
+        onSuccess = { "已将 ${ids.distinct().size} 本标记为读完" },
+        onFailure = { "批量标记失败：${it.message}" },
+    )
+
+    /** 批量取消读完。 */
+    suspend fun markReadingBatch(ids: Collection<String>): String = runCatching {
+        ids.distinct().forEach { repository.setReadingState(it, ReadingCompletionState.READING) }
+    }.fold(
+        onSuccess = { "已取消 ${ids.distinct().size} 本的读完状态" },
+        onFailure = { "批量取消失败：${it.message}" },
+    )
+
     /** 更新书名/作者/简介，返回结果消息。 */
     suspend fun updateBookInfo(
         bookId: String,

@@ -36,6 +36,7 @@ internal fun ReaderContentHostPagedBranch(
         showReaderInfo = settings.readerSettings.showReaderInfo,
         chineseTypography = settings.readerSettings.chineseTypography,
         tapZoneMode = settings.readerSettings.tapZoneMode,
+        tapActionPreset = settings.readerSettings.tapActionPreset,
         pageTurnEffect = settings.readerSettings.pageTurnEffect,
         pageTurnSpeed = settings.readerSettings.pageTurnSpeed,
         textColor = settings.paperFg,
@@ -44,6 +45,13 @@ internal fun ReaderContentHostPagedBranch(
         headerRight = settings.readerSettings.headerRight,
         footerLeft = settings.readerSettings.footerLeft,
         footerRight = settings.readerSettings.footerRight,
+        customTipHeaderLeft = settings.readerSettings.customTipHeaderLeft,
+        customTipHeaderCenter = settings.readerSettings.customTipHeaderCenter,
+        customTipHeaderRight = settings.readerSettings.customTipHeaderRight,
+        customTipFooterLeft = settings.readerSettings.customTipFooterLeft,
+        customTipFooterCenter = settings.readerSettings.customTipFooterCenter,
+        customTipFooterRight = settings.readerSettings.customTipFooterRight,
+        batteryTipStyle = settings.readerSettings.batteryTipStyle,
         bookName = s.bookTitle,
         initialOffset = when {
             paging.pagedAbsOffset >= 0 -> paging.pagedAbsOffset
@@ -115,7 +123,8 @@ internal fun ReaderContentHostPagedBranch(
             }
         },
         selectionCleared = selectionState.selectedText.isBlank(),
-        selectionColor = settings.paper.accent.copy(alpha = 0.30f),
+        // 选区底色统一走纸张 selectionScrim（与滚动正文、外壳同源），不再在此覆写 alpha
+        selectionColor = settings.paper.selectionScrim,
         ttsHighlightColor = settings.sentenceHighlightBg,
         searchHitRangeAbs = s.searchHitRangeAbs,
         searchHighlightColor = settings.searchHighlightBg,

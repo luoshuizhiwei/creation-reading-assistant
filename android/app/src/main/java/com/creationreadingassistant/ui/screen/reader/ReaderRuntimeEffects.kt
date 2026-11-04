@@ -62,6 +62,13 @@ internal fun ReaderRuntimeEffects(
     jumpToPlainOffset: (Int) -> Unit,
     txtStreamingDocumentState: MutableState<PlainTextDocument?>,
     txtStreamingFileIndexState: MutableState<TxtFileIndex?>,
+    /**
+     * M-BUG-09：用户**此刻**的纯文本 source 偏移。
+     *
+     * 规则重扫完成后的重新定位用它而不是旧锚点：重扫期间用户可能已继续读很远，
+     * 固定跳回锚点会表现为「阅读中途毫无征兆地回到之前的进度」。
+     */
+    currentVisiblePlainOffset: Int = 0,
     autoPagingActiveState: MutableState<Boolean>,
     autoPagingPaused: Boolean,
     epubListState: LazyListState,
@@ -116,9 +123,15 @@ internal fun ReaderRuntimeEffects(
                 pending = pending,
             )
             if (restoreTarget != null && pending != null) {
+                // M-BUG-09：落到用户**此刻**的位置，而不是重扫开始时捕获的旧锚点 ——
+                // 大文件重扫耗时期间用户往往继续读了很远，固定跳回锚点会让他毫无征兆地回退。
+                val restoreOffset = txtRuleRestoreOffset(
+                    anchorOffset = pending.offset,
+                    currentOffset = currentVisiblePlainOffset,
+                )
                 when (restoreTarget) {
-                    TxtRuleRestoreTarget.PagedJump -> pagedJumpRequest.value = pending.offset
-                    TxtRuleRestoreTarget.ScrollJump -> jumpToPlainOffset(pending.offset)
+                    TxtRuleRestoreTarget.PagedJump -> pagedJumpRequest.value = restoreOffset
+                    TxtRuleRestoreTarget.ScrollJump -> jumpToPlainOffset(restoreOffset)
                 }
                 pendingTxtRuleAnchorState.value = null
             }

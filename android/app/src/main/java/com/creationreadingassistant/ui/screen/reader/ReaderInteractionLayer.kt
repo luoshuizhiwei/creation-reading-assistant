@@ -1,23 +1,38 @@
 package com.creationreadingassistant.ui.screen.reader
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.mandatorySystemGestures
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import com.creationreadingassistant.ui.onboarding.isCordHintSeen
+import com.creationreadingassistant.ui.onboarding.markCordHintSeen
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.screen.reader.ReaderBottomActions
@@ -70,6 +85,13 @@ internal data class ReaderInteractionLayerState(
     val temporaryInspection: Boolean = false,
     /** 临时查阅协调器是否存在可返回目标（临时返回栈非空）。 */
     val hasReturnableTarget: Boolean = false,
+    /**
+     * 当前是否夜间态（一键日/夜灯绳用）。
+     *
+     * 由纸张明暗（`follow` 交给外壳解析）判定，与用户看到的内容一致，
+     * 见 [com.creationreadingassistant.data.settings.ReaderDayNightToggle.isNight]。
+     */
+    val isNight: Boolean = false,
 )
 
 /**
@@ -85,7 +107,7 @@ internal data class ReaderInteractionLayerCallbacks(
     val onPrevChapter: () -> Unit,
     val onNextChapter: () -> Unit,
     val onAutoPageSpeedChange: (Int) -> Unit,
-    val onPersistTts: (Float, Float, String, Int, String) -> Unit,
+    val onPersistTts: (Float, Float, Float, String, Int, String) -> Unit,
     val onCloseTts: () -> Unit,
     val onToggleColor: () -> Unit,
     val onPickColor: (String) -> Unit,
@@ -100,6 +122,12 @@ internal data class ReaderInteractionLayerCallbacks(
     val onClearSelection: () -> Unit,
     /** 返回阅读处（临时查阅 LIFO 返回一层）。 */
     val onReturnToReading: () -> Unit = {},
+    /**
+     * 拉灯绳：一键切换日间 / 夜间模式（阅读纸张 + 应用外壳联动）。
+     *
+     * 落地逻辑在外层（要同时改两个偏好并做本书/全局路由），本层只暴露触发入口。
+     */
+    val onToggleDayNight: () -> Unit = {},
 )
 
 /** 顶部阅读器标题栏展示的文档格式标签。 */
@@ -150,44 +178,124 @@ internal fun BoxScope.ReaderInteractionLayer(
 ) {
     val reducedMotion = rememberReducedMotion()
 
-    // 显示进度条：正文底部 2dp 细线（此前该开关是摆设）
-    if (state.showProgressBar && !state.isLoading && state.error == null) {
-        LinearProgressIndicator(
-            progress = { (state.progressPercent / 100f).coerceIn(0f, 1f) },
-            modifier = Modifier.fillMaxWidth().height(2.dp).align(Alignment.BottomCenter),
-            color = state.paper.accent,
-            trackColor = Color.Transparent,
-        )
-    }
+    // M-BUG-06：全书进度细线原先贴在这里（正文底部 2dp、始终压在文字上）。
+    // 已移入菜单栏内的 ReaderBottomActions（底栏「本章进度滑块」上方）；
+    // 这里不再渲染任何覆盖在正文之上的进度条。
 
+    // 一键日/夜「灯绳」（对齐 QQ 阅读）：绳子的出现/消失时机与菜单栏完全一致——
+    // 它就在顶栏 AnimatedVisibility 的节点内（见下方顶栏 Column），与菜单栏同一帧
+    // 出现、同一帧收起，只是位置不同：从顶栏底缘垂下，坠子挂在绳子下端，
+    // 绳头平齐栏底缘（上移 6dp 抵销顶栏容器内衬），只露出栏底以下的部分。
+    //
+    // 拉动动效的进度状态提在这一层（而非灯绳组件内部）：灯绳位于 AnimatedVisibility 内，
+    // 菜单每次显隐都会重建子组合，状态留在组件里会在唤出菜单时被重置成 0（绳子自己动一下）。
+    val cordPull = remember { Animatable(0f) }
+    // 首帧只登记当前态、不播动画：进入阅读器时绳子不该自己动一下。
+    // 该标记与本层同寿命（ReaderInteractionLayer 始终在组合树里），不受菜单显隐影响。
+    val cordSettled = remember { mutableStateOf(false) }
+    // 引导气泡只在**首次使用应用**时出现一次（用户 2026-09-18 反馈：此前每次进书都弹，
+    // 且没有关闭按钮）。持久化在 onboarding 的 prefs 里 —— 该文件已在 App.attachBaseContext
+    // 预热，这里的读取是内存命中，不构成首帧 I/O。
+    val cordHintContext = LocalContext.current
+    val cordHintDismissed = remember { mutableStateOf(isCordHintSeen(cordHintContext)) }
+    val dismissCordHint: () -> Unit = {
+        if (!cordHintDismissed.value) {
+            cordHintDismissed.value = true
+            runCatching { markCordHintSeen(cordHintContext) }
+        }
+    }
+    LaunchedEffect(state.isNight) {
+        if (!cordSettled.value) {
+            cordSettled.value = true
+            return@LaunchedEffect
+        }
+        if (reducedMotion) return@LaunchedEffect
+        cordPull.snapTo(0f)
+        cordPull.animateTo(1f, tween(durationMillis = 130))
+        cordPull.animateTo(0f, tween(durationMillis = 190))
+    }
     // 阅读控制区是正文之上的覆盖层。显示或隐藏不会改变正文容器尺寸，
     // 因而不会把当前页挤回中间或触发无关分页。
     AnimatedVisibility(
         visible = state.controlsVisible,
-        modifier = Modifier.align(Alignment.TopCenter),
-        enter = if (reducedMotion) fadeIn(tween(0)) else fadeIn(tween(160)) + slideInVertically(initialOffsetY = { -it / 4 }),
-        exit = if (reducedMotion) fadeOut(tween(0)) else fadeOut(tween(120)) + slideOutVertically(targetOffsetY = { -it / 4 }),
+        modifier = Modifier
+            .align(Alignment.TopCenter),
+        enter = if (reducedMotion) fadeIn(tween(0)) else fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) + slideInVertically(
+            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+            initialOffsetY = { -it / 3 },
+        ),
+        exit = if (reducedMotion) fadeOut(tween(0)) else fadeOut(spring(stiffness = Spring.StiffnessMedium)) + slideOutVertically(
+            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+            targetOffsetY = { -it / 3 },
+        ),
     ) {
-        ReaderTopChrome(
-            bookTitle = state.bookTitle,
-            formatLabel = readerFormatLabel(state.isEpub, state.isMarkdown),
-            chapterTitle = state.currentChapterTitle,
-            progressPercent = state.progressPercent,
-            paper = state.paper,
-            overflowExpanded = state.showReaderOverflow,
-            autoPagingActive = state.autoPagingActive,
-            onOverflowExpandedChange = callbacks.onOverflowExpandedChange,
-            onAction = callbacks.onChromeAction,
-            temporaryInspection = state.temporaryInspection,
-            hasReturnableTarget = state.hasReturnableTarget,
-        )
+        // 灯绳挂在顶栏底缘之下（对齐 QQ 阅读真机截图 2026-09-18：绳上端平齐顶栏
+        // 面板可见底缘、钟形坠子垂在绳子下端），并且就在顶栏这个 AnimatedVisibility
+        // 节点之内——与菜单栏同一条 slide/fade 弹簧，同一帧出现、同一帧收起。
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            ReaderTopChrome(
+                bookTitle = state.bookTitle,
+                formatLabel = readerFormatLabel(state.isEpub, state.isMarkdown),
+                chapterTitle = state.currentChapterTitle,
+                progressPercent = state.progressPercent,
+                paper = state.paper,
+                overflowExpanded = state.showReaderOverflow,
+                autoPagingActive = state.autoPagingActive,
+                onOverflowExpandedChange = callbacks.onOverflowExpandedChange,
+                onAction = callbacks.onChromeAction,
+                temporaryInspection = state.temporaryInspection,
+                hasReturnableTarget = state.hasReturnableTarget,
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(CORD_HEIGHT),
+            ) {
+                ReaderDayNightCord(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        // 与 QQ nightdialog.xml 同位：贴页面右缘（marginEnd=4dp）；
+                        // 上移 6dp 抵销顶栏容器的纵向内衬，让绳头平齐面板可见底缘
+                        //（真机像素核对）。
+                        .padding(end = 4.dp)
+                        .offset(y = (-6).dp),
+                    paper = state.paper,
+                    isNight = state.isNight,
+                    onToggle = {
+                        dismissCordHint()
+                        callbacks.onToggleDayNight()
+                    },
+                    pull = cordPull.value,
+                )
+                // 引导气泡（对齐 QQ nightdialog.xml 的「拉拉灯绳…」引导行）：
+                // 落在下坠的坠子左侧，让开绳子占位（右缘 4dp + 绳宽 30dp）再留 4dp 缝。
+                // 与顶栏同一节点、同时显隐，不再单独做淡入。
+                // 只在首次使用应用时出现；自带关闭按钮，拉绳也会一并消掉。
+                if (!cordHintDismissed.value) {
+                    ReaderDayNightHint(
+                        paper = state.paper,
+                        onClose = dismissCordHint,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(end = 38.dp, top = 64.dp),
+                    )
+                }
+            }
+        }
     }
 
     AnimatedVisibility(
         visible = state.controlsVisible && state.selectedText.isBlank(),
-        modifier = Modifier.align(Alignment.BottomCenter),
-        enter = if (reducedMotion) fadeIn(tween(0)) else fadeIn(tween(160)) + slideInVertically(initialOffsetY = { it / 4 }),
-        exit = if (reducedMotion) fadeOut(tween(0)) else fadeOut(tween(120)) + slideOutVertically(targetOffsetY = { it / 4 }),
+        modifier = Modifier
+            .align(Alignment.BottomCenter),
+        enter = if (reducedMotion) fadeIn(tween(0)) else fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) + slideInVertically(
+            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+            initialOffsetY = { it / 3 },
+        ),
+        exit = if (reducedMotion) fadeOut(tween(0)) else fadeOut(spring(stiffness = Spring.StiffnessMedium)) + slideOutVertically(
+            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+            targetOffsetY = { it / 3 },
+        ),
     ) {
         // 微岛收敛：底部操作栏容器是覆盖在阅读页之上的 reader 专属面板，统一走 ReaderPanelSurface
         //（随纸 panel 纸面 + 0.5dp 发丝边 + panelElevation 0dp）。原手写 panel@0.98 半透与 1dp 实边
@@ -205,7 +313,7 @@ internal fun BoxScope.ReaderInteractionLayer(
                     paper = state.paper,
                     tts = tts,
                     chapterLabel = state.currentChapterTitle.ifBlank { "正文" },
-                    onPersistTts = { p, v, id, t, e -> callbacks.onPersistTts(p, v, id, t, e) },
+                    onPersistTts = { r, p, v, id, t, e -> callbacks.onPersistTts(r, p, v, id, t, e) },
                 ) {
                     tts.stop()
                     callbacks.onCloseTts()
@@ -220,7 +328,11 @@ internal fun BoxScope.ReaderInteractionLayer(
 
                 ReaderBottomChromeMode.NORMAL -> ReaderBottomActions(
                     onAction = callbacks.onChromeAction,
-                    chapterProgress = state.chapterProgress,
+                    // M-BUG-07：底栏进度条统一为**全书**口径。
+                    // 原先传的是 state.chapterProgress（本章百分比），而底栏跳转走
+                    // seekToPercent（全书口径）——「显示本章、按全书跳」是错配的根源。
+                    bookProgress = state.progressPercent,
+                    showProgressBar = state.showProgressBar,
                     onProgressInteractionStarted = callbacks.onProgressScrubberInteractionStarted,
                     onSeekProgress = { callbacks.onSeekChapterPercent(it) },
                     onPreviousChapter = callbacks.onPrevChapter,
@@ -239,7 +351,9 @@ internal fun BoxScope.ReaderInteractionLayer(
     // 选中文字工具条（对照 web 选中工具栏）：带入场动效（尊重「减少动态效果」）
     AnimatedVisibility(
         visible = state.selectedText.isNotBlank(),
-        modifier = Modifier.align(Alignment.BottomCenter),
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .navigationBarsPadding(),
         enter = if (reducedMotion) fadeIn(tween(120)) else (slideInVertically(initialOffsetY = { it / 3 }) + fadeIn(tween(160))),
         exit = if (reducedMotion) fadeOut(tween(120)) else (slideOutVertically(targetOffsetY = { it / 3 }) + fadeOut(tween(120))),
     ) {

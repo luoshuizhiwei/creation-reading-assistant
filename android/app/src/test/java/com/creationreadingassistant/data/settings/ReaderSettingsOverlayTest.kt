@@ -172,6 +172,121 @@ class ReaderSettingsOverlayTest {
         assertEquals(b, d)
     }
 
+    @Test
+    fun `screen orientation override applies and rejects invalid`() {
+        val out = ReaderSettingsOverlay.apply(global, mapOf(ReaderOverrideKey.SCREEN_ORIENTATION to "landscape"))
+        assertEquals("landscape", out.screenOrientation)
+        // 其余项不受影响
+        assertEquals(global.fontSize, out.fontSize)
+        // 非法方向被拒绝（write 返回 null，叠加时跳过）
+        assertNull(ReaderOverrideKey.SCREEN_ORIENTATION.write(ReaderSettings(), "upside-down"))
+        val skipped = ReaderSettingsOverlay.apply(global, mapOf(ReaderOverrideKey.SCREEN_ORIENTATION to "upside-down"))
+        assertEquals(global.screenOrientation, skipped.screenOrientation)
+    }
+
+    @Test
+    fun `every paper option is accepted as a per-book background override`() {
+        // 锁定 BACKGROUND_VALUES 与 9 档纸色一致：任意纸色都能作为本书覆盖持久化生效
+        val paperKeys = listOf(
+            "follow", "white", "warm", "parchment", "celadon",
+            "green", "sepia_dark", "ink_night", "night",
+        )
+        paperKeys.forEach { key ->
+            val written = ReaderOverrideKey.BACKGROUND.write(ReaderSettings(), key)
+            assertNotNull("纸色 $key 应被接受为合法本书覆盖", written)
+            assertEquals(key, written?.background)
+        }
+    }
+
+    // ===================== D-2-A：分页引擎兼容模式的本书覆盖 =====================
+    //
+    // 产品契约：高级设置文案明确写「特定书籍分页异常时，可临时切回」，
+    // 因此 TXT/Markdown 与 EPUB 的引擎模式必须是**真正的** per-book 设置，
+    // 而不是「在本书作用域下编辑、实际写全局」。
+
+    @Test
+    fun `pager engine keys exist with ids matching the ReaderSettings field names`() {
+        // id 必须与 ReaderSettings 字段口径一致，不得创建第二套名称
+        // （PerBookSettingsStore 的 DataStore 键由 `book_reader_override_<bookId>_<id>` 生成）。
+        assertEquals("pagerEngineMode", ReaderOverrideKey.PAGER_ENGINE_MODE.id)
+        assertEquals("epubPagerEngineMode", ReaderOverrideKey.EPUB_PAGER_ENGINE_MODE.id)
+    }
+
+    @Test
+    fun `pager engine keys accept exactly off auto and on`() {
+        listOf(
+            ReaderOverrideKey.PAGER_ENGINE_MODE,
+            ReaderOverrideKey.EPUB_PAGER_ENGINE_MODE,
+        ).forEach { key ->
+            listOf("off", "auto", "on").forEach { value ->
+                val written = key.write(ReaderSettings(), value)
+                assertNotNull("$key 必须接受合法值 $value", written)
+                assertEquals("$key 写入 $value 后读回必须一致", value, key.read(written!!))
+            }
+        }
+    }
+
+    @Test
+    fun `pager engine keys reject illegal values instead of approximating`() {
+        listOf(
+            ReaderOverrideKey.PAGER_ENGINE_MODE,
+            ReaderOverrideKey.EPUB_PAGER_ENGINE_MODE,
+        ).forEach { key ->
+            listOf("maybe", "ON", "true", "1", "", "off ", " garbage").forEach { bad ->
+                assertNull("$key 必须拒绝非法值 `$bad`（不得近似修正）", key.write(ReaderSettings(), bad))
+            }
+        }
+    }
+
+    @Test
+    fun `the two pager engine keys write to their own ReaderSettings fields`() {
+        // 交叉验证：两个键不能写错字段（写错会让 TXT 与 EPUB 互相串台）。
+        val txt = ReaderOverrideKey.PAGER_ENGINE_MODE.write(ReaderSettings(), "off")
+        assertEquals("off", txt?.pagerEngineMode)
+        assertEquals(ReaderSettings().epubPagerEngineMode, txt?.epubPagerEngineMode)
+
+        val epub = ReaderOverrideKey.EPUB_PAGER_ENGINE_MODE.write(ReaderSettings(), "on")
+        assertEquals("on", epub?.epubPagerEngineMode)
+        assertEquals(ReaderSettings().pagerEngineMode, epub?.pagerEngineMode)
+    }
+
+    @Test
+    fun `a book override of the pager engine wins over global and leaves siblings alone`() {
+        val globalSettings = ReaderSettings(pagerEngineMode = "on", epubPagerEngineMode = "auto")
+
+        val out = ReaderSettingsOverlay.apply(
+            globalSettings,
+            mapOf(ReaderOverrideKey.PAGER_ENGINE_MODE to "off"),
+        )
+
+        assertEquals("本书覆盖必须生效", "off", out.pagerEngineMode)
+        assertEquals("另一格式的引擎模式不得被连带改动", "auto", out.epubPagerEngineMode)
+    }
+
+    @Test
+    fun `an invalid pager engine override falls back to global`() {
+        val globalSettings = ReaderSettings(pagerEngineMode = "on")
+
+        val out = ReaderSettingsOverlay.apply(
+            globalSettings,
+            mapOf(ReaderOverrideKey.PAGER_ENGINE_MODE to "bogus"),
+        )
+
+        assertEquals("非法覆盖必须回退全局，不得近似修正", "on", out.pagerEngineMode)
+    }
+
+    @Test
+    fun `sanitize keeps a valid pager engine override and drops an invalid one`() {
+        val kept = ReaderSettingsOverlay.sanitize(
+            mapOf("pagerEngineMode" to "off", "epubPagerEngineMode" to "on"),
+        )
+        assertEquals("off", kept[ReaderOverrideKey.PAGER_ENGINE_MODE])
+        assertEquals("on", kept[ReaderOverrideKey.EPUB_PAGER_ENGINE_MODE])
+
+        val dropped = ReaderSettingsOverlay.sanitize(mapOf("pagerEngineMode" to "sometimes"))
+        assertTrue("非法引擎值必须被 sanitize 丢弃", dropped.isEmpty())
+    }
+
     private companion object {
         /** 自由格式字符串项：无法离线判定「非法」，故不参与严格拒绝断言。 */
         val FREE_FORM_KEYS = setOf(ReaderOverrideKey.CUSTOM_FONT_PATH)

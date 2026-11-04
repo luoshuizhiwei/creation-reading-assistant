@@ -24,11 +24,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Palette
+import com.creationreadingassistant.ui.theme.ReaderPaperOptions
+import com.creationreadingassistant.ui.theme.paperPalette
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -68,6 +71,12 @@ internal fun AppearanceSubPage(
     scaffoldPadding: PaddingValues,
 ) {
     val reducedMotion = rememberReducedMotion()
+    // 设置子页共用 Route 下发的列表状态：搜索命中项需要它来滚动定位
+    val settingsListState = rememberSettingsPageListState()
+    // 时长显示单位：与「在任意时长文本上长按」共用同一全局状态源（DurationPrefs）。
+    // 这里提供显式开关，是因为长按属于隐藏手势，用户不会自己发现。
+    val durationUnit = LocalDurationUnit.current
+    val toggleDurationUnit = LocalDurationUnitToggle.current
     val dynamicColorActive = state.appearance.useDynamicColor &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val currentPalette = AppPalette.fromStored(state.appearance.colorPalette)
@@ -76,139 +85,180 @@ internal fun AppearanceSubPage(
         "light" -> false
         else -> isSystemInDarkTheme()
     }
-    // 时长显示单位：与「在任意时长文本上长按」共用同一全局状态源（DurationPrefs）。
-    // 这里提供显式开关，是因为长按属于隐藏手势，用户不会自己发现。
-    val durationUnit = LocalDurationUnit.current
-    val toggleDurationUnit = LocalDurationUnitToggle.current
 
     PageLazyColumn(
         scaffoldPadding = scaffoldPadding,
+        listState = settingsListState,
         modifier = Modifier.fillMaxSize(),
     ) {
         // 1. 提示微岛：独立外壳配色与阅读器纸张的作用域说明
         item(key = "appearance_scope_note") {
             DegradedNote(
-                text = "应用外壳配色仅影响首页、书架、灵感、统计和设置；正文阅读纸张与夜读遮罩在阅读器内独立控制。",
+                text = "外壳配色不影响阅读器内的纸张与夜读遮罩。",
                 modifier = Modifier.animateEnter(reducedMotion = reducedMotion),
             )
         }
 
         // 2. 微岛分节：外观模式与材质
         item(key = "appearance_mode_section") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    SubPageSectionTitle(
-                        title = "外观模式",
-                        icon = Icons.Outlined.DarkMode,
-                        iconTint = Color(0xFF6366F1),
-                    )
+        SettingsAnchor("appearance_mode_section") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        SubPageSectionTitle(
+                            title = "外观模式",
+                            icon = Icons.Outlined.DarkMode,
+                            iconTint = Color(0xFF6366F1),
+                        )
 
-                    // 现代化平滑导轨三态分段选择微岛
-                    ThemeModeRailSegment(
-                        currentMode = state.appearance.themeMode,
-                        onModeChange = { newMode ->
-                            onAction(ProfileAction.UpdateAppearance { copy(themeMode = newMode) })
-                        },
-                    )
+                        // 现代化平滑导轨三态分段选择微岛
+                        ThemeModeRailSegment(
+                            currentMode = state.appearance.themeMode,
+                            onModeChange = { newMode ->
+                                onAction(ProfileAction.UpdateAppearance { copy(themeMode = newMode) })
+                            },
+                        )
 
-                    SectionDivider()
+                        SectionDivider()
 
-                    SettingSwitchRow(
-                        title = "AMOLED 纯黑",
-                        subtitle = "深色模式下将背景底色收敛为纯黑，OLED 屏更省电且对比度更纯粹；不影响阅读正文纸张",
-                        checked = state.appearance.amoledPureBlack,
-                        onCheckedChange = { checked ->
-                            onAction(ProfileAction.UpdateAppearance { copy(amoledPureBlack = checked) })
-                        },
-                    )
+                        SettingsAnchor("appearance_amoled") {
+                            SettingSwitchRow(
+                                title = "AMOLED 纯黑",
+                                subtitle = "深色时背景转纯黑，更省电",
+                                checked = state.appearance.amoledPureBlack,
+                                onCheckedChange = { checked ->
+                                    onAction(ProfileAction.UpdateAppearance { copy(amoledPureBlack = checked) })
+                                },
+                            )
+                        }
 
-                    SectionDivider()
+                        SectionDivider()
 
-                    SettingSwitchRow(
-                        title = "纸张质感底纹",
-                        subtitle = "在界面卡片与底层叠加极淡素笺纸纹与柔和漫反射，提升温润雅致质感",
-                        checked = state.appearance.paperTexture,
-                        onCheckedChange = { checked ->
-                            onAction(ProfileAction.UpdateAppearance { copy(paperTexture = checked) })
-                        },
-                    )
+                        SettingsAnchor("appearance_paper_texture") {
+                            SettingSwitchRow(
+                                title = "纸张质感底纹",
+                                subtitle = "卡片叠加极淡纸纹，观感更柔和",
+                                checked = state.appearance.paperTexture,
+                                onCheckedChange = { checked ->
+                                    onAction(ProfileAction.UpdateAppearance { copy(paperTexture = checked) })
+                                },
+                            )
+                        }
 
-                    SectionDivider()
+                        SectionDivider()
 
-                    SettingSwitchRow(
-                        title = "时长按「天」显示",
-                        subtitle = "关闭后按「小时」显示；长按时长文本可切换",
-                        checked = durationUnit == DurationUnit.DAYS,
-                        onCheckedChange = { toggleDurationUnit() },
-                    )
+                        SettingsAnchor("appearance_duration_day") {
+                            SettingSwitchRow(
+                                title = "时长按「天」显示",
+                                subtitle = "关闭后按「小时」显示；长按时长文本可切换",
+                                checked = durationUnit == DurationUnit.DAYS,
+                                onCheckedChange = { toggleDurationUnit() },
+                            )
+                        }
+                    }
                 }
             }
         }
 
         // 3. 微岛分节：外壳配色调色板
         item(key = "appearance_palette_section") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    SubPageSectionTitle(
-                        title = "配色主题",
-                        icon = Icons.Outlined.Palette,
-                        iconTint = Color(0xFFEC4899),
-                        trailing = {
-                            if (dynamicColorActive) {
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                                ) {
-                                    Text(
-                                        text = "动态壁纸取色中",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                                        color = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    )
+        SettingsAnchor("appearance_palette_section") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        SubPageSectionTitle(
+                            title = "配色主题",
+                            icon = Icons.Outlined.Palette,
+                            iconTint = Color(0xFFEC4899),
+                            trailing = {
+                                if (dynamicColorActive) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                                    ) {
+                                        Text(
+                                            text = "动态壁纸取色中",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                        )
+                                    }
                                 }
-                            }
-                        },
-                    )
+                            },
+                        )
 
-                    // 动态壁纸取色（Material You）微岛
-                    SettingSwitchRow(
-                        title = "跟随系统壁纸取色",
-                        subtitle = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            "Material You 动态色彩：自动从当前系统壁纸提取柔和主色调"
-                        } else {
-                            "需要 Android 12 (API 31) 及以上系统，当前系统版本不支持"
-                        },
-                        checked = dynamicColorActive,
-                        onCheckedChange = { checked ->
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                onAction(ProfileAction.UpdateAppearance { copy(useDynamicColor = checked) })
-                            }
-                        },
-                    )
+                        // 动态壁纸取色（Material You）微岛
+                        SettingsAnchor("appearance_wallpaper_color") {
+                            SettingSwitchRow(
+                                title = "跟随系统壁纸取色",
+                                subtitle = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    "自动从系统壁纸提取主色调"
+                                } else {
+                                    "需 Android 12 及以上，当前系统不支持"
+                                },
+                                checked = dynamicColorActive,
+                                onCheckedChange = { checked ->
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                        onAction(ProfileAction.UpdateAppearance { copy(useDynamicColor = checked) })
+                                    }
+                                },
+                            )
+                        }
 
-                    SectionDivider()
+                        SectionDivider()
 
-                    Text(
-                        text = "预置微胶囊色板",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                        Text(
+                            text = "预置微胶囊色板",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
 
-                    // 圆润微胶囊色板（纸墨、清爽蓝、雾青、暖杏、黛檀、松玉）
-                    PaletteGrid(
-                        currentPalette = currentPalette,
-                        isDark = isDark,
-                        disabled = dynamicColorActive,
-                        onSelect = { palette ->
-                            onAction(ProfileAction.UpdateAppearance { copy(colorPalette = palette.storageId) })
-                        },
-                    )
+                        // 圆润微胶囊色板（纸墨、清爽蓝、雾青、暖杏、黛檀、松玉）
+                        PaletteGrid(
+                            currentPalette = currentPalette,
+                            isDark = isDark,
+                            disabled = dynamicColorActive,
+                            onSelect = { palette ->
+                                onAction(ProfileAction.UpdateAppearance { copy(colorPalette = palette.storageId) })
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
+        // 4. 微岛分节：阅读纸张预览与预置
+        item(key = "appearance_reader_paper_section") {
+            SettingsAnchor("appearance_reader_paper_section") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        SubPageSectionTitle(
+                            title = "阅读纸张",
+                            icon = Icons.Outlined.AutoStories,
+                            iconTint = Color(0xFF8B5CF6),
+                        )
+
+                        Text(
+                            text = "轻触切换阅读器默认纸张；夜读系列深色下自动沉浸。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+
+                        ReaderPaperGrid(
+                            currentKey = state.reader.background,
+                            isDark = isDark,
+                            onSelect = { key ->
+                                onAction(ProfileAction.UpdateReader { copy(background = key) })
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -504,3 +554,174 @@ private fun PaletteCapsuleCard(
         }
     }
 }
+
+/**
+ * 阅读纸张预置与预览矩阵（双列布局）。
+ */
+@Composable
+private fun ReaderPaperGrid(
+    currentKey: String,
+    isDark: Boolean,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        val options = ReaderPaperOptions
+        for (i in options.indices step 2) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val left = options[i]
+                ReaderPaperCapsuleCard(
+                    option = left,
+                    isSelected = currentKey == left.key,
+                    isDark = isDark,
+                    onClick = { onSelect(left.key) },
+                    modifier = Modifier.weight(1f),
+                )
+                if (i + 1 < options.size) {
+                    val right = options[i + 1]
+                    ReaderPaperCapsuleCard(
+                        option = right,
+                        isSelected = currentKey == right.key,
+                        isDark = isDark,
+                        onClick = { onSelect(right.key) },
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 单个阅读纸张圆润微胶囊卡片。
+ */
+@Composable
+private fun ReaderPaperCapsuleCard(
+    option: com.creationreadingassistant.ui.theme.ReaderPaperOption,
+    isSelected: Boolean,
+    isDark: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val reducedMotion = rememberReducedMotion()
+    val haptic = rememberHaptic(reducedMotion)
+    val interactionSource = remember { MutableInteractionSource() }
+    val capsuleShape = RoundedCornerShape(14.dp)
+    val paper = remember(option.key, isDark) { paperPalette(option.key, darkTheme = isDark) }
+
+    val subtitle = when {
+        option.key == "follow" -> "跟随系统外观"
+        paper.isLight -> "日间温润纸面"
+        else -> "沉浸夜读深色"
+    }
+
+    val containerColor = if (isSelected) {
+        paper.accent.copy(alpha = if (isDark) 0.16f else 0.10f)
+    } else {
+        MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f)
+    }
+
+    Box(
+        modifier = modifier
+            .then(
+                if (isSelected) {
+                    Modifier.border(
+                        width = 2.dp,
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                paper.accent.copy(alpha = 0.55f),
+                                paper.accent.copy(alpha = 0.15f),
+                            ),
+                        ),
+                        shape = capsuleShape,
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .padding(if (isSelected) 1.5.dp else 0.dp),
+    ) {
+        Surface(
+            shape = capsuleShape,
+            color = containerColor,
+            border = BorderStroke(
+                width = if (isSelected) 1.dp else 0.6.dp,
+                color = if (isSelected) {
+                    paper.accent.copy(alpha = 0.85f)
+                } else {
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)
+                },
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .bounceable(interactionSource)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                ) {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    onClick()
+                },
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // 纸张真实背景取色色块
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(paper.bg)
+                        .border(
+                            1.dp,
+                            paper.outlineVariant,
+                            CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isSelected) {
+                        Icon(
+                            imageVector = Icons.Outlined.Check,
+                            contentDescription = null,
+                            tint = paper.accent,
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = option.label,
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        ),
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+

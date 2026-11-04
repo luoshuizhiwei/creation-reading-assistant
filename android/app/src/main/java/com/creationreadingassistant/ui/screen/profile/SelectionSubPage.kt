@@ -47,6 +47,7 @@ import com.creationreadingassistant.data.settings.SelectionActionSettings
 import com.creationreadingassistant.data.settings.SelectionActions
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.settingsMetrics
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.components.SettingSegmentedRow
@@ -79,276 +80,294 @@ internal fun SelectionSubPage(
     scaffoldPadding: PaddingValues,
 ) {
     val reducedMotion = rememberReducedMotion()
+    // 设置子页共用 Route 下发的列表状态：搜索命中项需要它来滚动定位
+    val settingsListState = rememberSettingsPageListState()
     val layout = LocalLayoutTokens.current
     val settings = state.selectionActions
 
     PageLazyColumn(
         scaffoldPadding = scaffoldPadding,
+        listState = settingsListState,
         modifier = Modifier.fillMaxSize(),
     ) {
         // 1. 常用动作（工具条第一屏）
         item(key = "selection_primary_section") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    SubPageSectionTitle(
-                        title = "常用动作（第一屏）",
-                        icon = Icons.Outlined.Tune,
-                        iconTint = Color(0xFF6750A4),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
+        SettingsAnchor("selection_primary_section") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        SubPageSectionTitle(
+                            title = "常用动作（第一屏）",
+                            icon = Icons.Outlined.Tune,
+                            iconTint = Color(0xFF6750A4),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
 
-                    Text(
-                        text = "选中文字后直接铺在工具条上的动作，最多 ${SelectionActions.MAX_PRIMARY_SLOTS} 个、" +
-                            "至少保留 ${SelectionActions.MIN_PRIMARY_SLOTS} 个。" +
-                            "想换「搜索提供方」，把「书内搜索」或「浏览器」放进这一排即可。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 18.sp,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
+                        Text(
+                            text = "直接铺在工具条上的动作，最多 ${SelectionActions.MAX_PRIMARY_SLOTS} 个、" +
+                                "至少保留 ${SelectionActions.MIN_PRIMARY_SLOTS} 个。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
 
-                    ActionPillGroup(
-                        defs = SelectionActions.pickableDefs(),
-                        selectedIds = settings.enabledPrimary,
-                        // 已达上限时不能继续加；已选中的永远可取消
-                        canToggle = { id ->
-                            id in settings.enabledPrimary ||
-                                settings.enabledPrimary.size < SelectionActions.MAX_PRIMARY_SLOTS
-                        },
-                        onToggle = { id, enabled -> onAction(ProfileAction.TogglePrimarySelectionAction(id, enabled)) },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    )
+                        ActionPillGroup(
+                            defs = SelectionActions.pickableDefs(),
+                            selectedIds = settings.enabledPrimary,
+                            // 已达上限时不能继续加；已选中的永远可取消
+                            canToggle = { id ->
+                                id in settings.enabledPrimary ||
+                                    settings.enabledPrimary.size < SelectionActions.MAX_PRIMARY_SLOTS
+                            },
+                            onToggle = { id, enabled -> onAction(ProfileAction.TogglePrimarySelectionAction(id, enabled)) },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        )
 
-                    Text(
-                        text = "当前第一屏：" + SelectionActions.effectivePrimary(settings)
-                            .joinToString(" · ") { it.label },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
+                        Text(
+                            text = "当前第一屏：" + SelectionActions.effectivePrimary(settings)
+                                .joinToString(" · ") { it.label },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
 
-                    Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(8.dp))
+                    }
                 }
             }
         }
 
         // 2. 「更多」菜单
         item(key = "selection_more_section") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    SubPageSectionTitle(
-                        title = "「更多」菜单",
-                        icon = Icons.Outlined.MoreHoriz,
-                        iconTint = Color(0xFF00639B),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
+        SettingsAnchor("selection_more_section") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        SubPageSectionTitle(
+                            title = "「更多」菜单",
+                            icon = Icons.Outlined.MoreHoriz,
+                            iconTint = Color(0xFF00639B),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
 
-                    Text(
-                        text = "收在「更多」里的动作。「取消选择」固定保留、不可隐藏，否则收不起选区。" +
-                            "已经放进第一屏的动作不会在这里重复出现。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 18.sp,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
+                        Text(
+                            text = "收在「更多」里的动作；「取消选择」固定保留，" +
+                                "第一屏已有的动作不在此重复出现。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
 
-                    ActionPillGroup(
-                        defs = SelectionActions.pickableDefs().filterNot { it.id in settings.enabledPrimary },
-                        selectedIds = settings.enabledMore,
-                        canToggle = { true },
-                        onToggle = { id, enabled -> onAction(ProfileAction.ToggleMoreSelectionAction(id, enabled)) },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    )
+                        ActionPillGroup(
+                            defs = SelectionActions.pickableDefs().filterNot { it.id in settings.enabledPrimary },
+                            selectedIds = settings.enabledMore,
+                            canToggle = { true },
+                            onToggle = { id, enabled -> onAction(ProfileAction.ToggleMoreSelectionAction(id, enabled)) },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        )
 
-                    Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(8.dp))
+                    }
                 }
             }
         }
 
         // 3. 搜索与查词
         item(key = "selection_query_section") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    SubPageSectionTitle(
-                        title = "搜索与查词",
-                        icon = Icons.Outlined.Language,
-                        iconTint = Color(0xFF00897B),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    )
-
-                    UrlTemplateRow(
-                        title = "浏览器搜索地址",
-                        subtitle = "用 {q} 代表查词内容，必须换成你自己的搜索引擎地址",
-                        value = settings.browserUrlTemplate,
-                        icon = Icons.Outlined.Search,
-                        onCommit = { onAction(ProfileAction.SetBrowserUrlTemplate(it)) },
-                    )
-
-                    SectionDivider()
-
-                    SettingSegmentedRow(
-                        title = "首选词典",
-                        options = SelectionActions.MODES.map { it to dictionaryModeLabel(it) },
-                        selected = settings.dictionaryMode,
-                        subtitle = "内置离线词库断网可用；系统词典交给已安装的词典应用；在线词典走下面的网址",
-                        onSelect = { onAction(ProfileAction.SetDictionaryMode(it)) },
-                    )
-
-                    if (settings.dictionaryMode == SelectionActions.MODE_OFFLINE && state.dictionaries.isEmpty()) {
-                        Text(
-                            text = "还没有离线词库，选区菜单点「字典」会提示你先导入词库。" +
-                                "导入 StarDict 词库后即可断网查词。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            lineHeight = 18.sp,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+        SettingsAnchor("selection_query_section") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        SubPageSectionTitle(
+                            title = "搜索与查词",
+                            icon = Icons.Outlined.Language,
+                            iconTint = Color(0xFF00897B),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                         )
+
+                        SettingsAnchor("selection_browser_url") {
+                            UrlTemplateRow(
+                                title = "浏览器搜索地址",
+                                subtitle = "用 {q} 代表查词内容，必须换成你自己的搜索引擎地址",
+                                value = settings.browserUrlTemplate,
+                                icon = Icons.Outlined.Search,
+                                onCommit = { onAction(ProfileAction.SetBrowserUrlTemplate(it)) },
+                            )
+                        }
+
+                        SectionDivider()
+
+                        SettingsAnchor("selection_dict_mode") {
+                            SettingSegmentedRow(
+                                title = "首选词典",
+                                options = SelectionActions.MODES.map { it to dictionaryModeLabel(it) },
+                                selected = settings.dictionaryMode,
+                                subtitle = "离线词库断网可用；在线词典走下方网址",
+                                onSelect = { onAction(ProfileAction.SetDictionaryMode(it)) },
+                            )
+                        }
+
+                        if (settings.dictionaryMode == SelectionActions.MODE_OFFLINE && state.dictionaries.isEmpty()) {
+                            Text(
+                                text = "还没有离线词库，选区菜单点「字典」会提示你先导入词库。" +
+                                    "导入 StarDict 词库后即可断网查词。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                lineHeight = 18.sp,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            )
+                        }
+
+                        SectionDivider()
+
+                        SettingsAnchor("selection_dict_url") {
+                            UrlTemplateRow(
+                                title = "在线词典地址",
+                                subtitle = "用 {q} 代表查词内容；只在首选词典选「在线词典」时使用",
+                                value = settings.dictionaryUrlTemplate,
+                                icon = Icons.AutoMirrored.Outlined.MenuBook,
+                                onCommit = { onAction(ProfileAction.SetDictionaryUrlTemplate(it)) },
+                            )
+                        }
+
+                        Spacer(Modifier.height(8.dp))
                     }
-
-                    SectionDivider()
-
-                    UrlTemplateRow(
-                        title = "在线词典地址",
-                        subtitle = "用 {q} 代表查词内容；只在首选词典选「在线词典」时使用",
-                        value = settings.dictionaryUrlTemplate,
-                        icon = Icons.AutoMirrored.Outlined.MenuBook,
-                        onCommit = { onAction(ProfileAction.SetDictionaryUrlTemplate(it)) },
-                    )
-
-                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
 
         // 4. 离线词库
         item(key = "selection_dictionary_section") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
-                ) {
-                    SubPageSectionTitle(
-                        title = "离线词库",
-                        icon = Icons.AutoMirrored.Outlined.MenuBook,
-                        iconTint = Color(0xFF6A1B9A),
-                    )
+        SettingsAnchor("selection_dictionary_section") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
+                    ) {
+                        SubPageSectionTitle(
+                            title = "离线词库",
+                            icon = Icons.AutoMirrored.Outlined.MenuBook,
+                            iconTint = Color(0xFF6A1B9A),
+                        )
 
-                    Text(
-                        text = "词库只存在应用私有目录，不联网、不上传。压缩包里每个词库需要同名三件套" +
-                            "（.ifo + .idx + .dict，或 .dict.dz）。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 18.sp,
-                    )
-
-                    if (state.dictionaries.isEmpty()) {
                         Text(
-                            text = "暂无已安装词库。",
+                            text = "词库只存本机、不联网。每个词库需同名三件套" +
+                                "（.ifo + .idx + .dict，或 .dict.dz）。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
                         )
-                    } else {
-                        state.dictionaries.forEach { dict ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = dict.bookName,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    Text(
-                                        text = "${dict.wordCount} 词条",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                Spacer(Modifier.width(8.dp))
-                                TextButton(onClick = { onAction(ProfileAction.UninstallDictionary(dict.baseName)) }) {
-                                    Icon(
-                                        Icons.Outlined.DeleteOutline,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(
-                                        "卸载",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+
+                        if (state.dictionaries.isEmpty()) {
+                            Text(
+                                text = "暂无已安装词库。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            state.dictionaries.forEach { dict ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = dict.bookName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                        Text(
+                                            text = "${dict.wordCount} 词条",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Spacer(Modifier.width(8.dp))
+                                    TextButton(onClick = { onAction(ProfileAction.UninstallDictionary(dict.baseName)) }) {
+                                        Icon(
+                                            Icons.Outlined.DeleteOutline,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            "卸载",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    OutlinedButton(
-                        onClick = { onAction(ProfileAction.ImportDictionary) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Icon(
-                            Icons.Outlined.FileDownload,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(Modifier.width(6.dp))
+                        OutlinedButton(
+                            onClick = { onAction(ProfileAction.ImportDictionary) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                        ) {
+                            Icon(
+                                Icons.Outlined.FileDownload,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "导入词库（.zip）",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+
                         Text(
-                            text = "导入词库（.zip）",
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.primary,
+                            text = "导入大词库会在后台解压，完成后会自动重查当前查询词。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-
-                    Text(
-                        text = "导入大词库会在后台解压，完成后会自动重查当前查询词。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         }
 
         // 5. 恢复默认
         item(key = "selection_reset_section") {
-            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
-                ) {
-                    SubPageSectionTitle(
-                        title = "重置",
-                        icon = Icons.Outlined.RestartAlt,
-                        iconTint = MaterialTheme.colorScheme.error,
-                    )
-
-                    Text(
-                        text = "只恢复选区动作清单、查询地址与首选词典；不会删除已导入的离线词库，" +
-                            "也不影响阅读进度与笔记。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 18.sp,
-                    )
-
-                    OutlinedButton(
-                        onClick = { onAction(ProfileAction.ResetSelectionActions) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+        SettingsAnchor("selection_reset_section") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
                     ) {
-                        Text(
-                            text = "恢复选区默认设置",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        SubPageSectionTitle(
+                            title = "重置",
+                            icon = Icons.Outlined.RestartAlt,
+                            iconTint = MaterialTheme.colorScheme.error,
                         )
+
+                        Text(
+                            text = "只恢复动作清单、查询地址与首选词典，" +
+                                "不动已导入的词库、阅读进度与笔记。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                        )
+
+                        OutlinedButton(
+                            onClick = { onAction(ProfileAction.ResetSelectionActions) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                        ) {
+                            Text(
+                                text = "恢复选区默认设置",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                            )
+                        }
                     }
                 }
             }
@@ -410,10 +429,12 @@ private fun UrlTemplateRow(
     val valid = SelectionActions.isValidTemplate(trimmed)
     val dirty = trimmed != value
 
+    val metrics = settingsMetrics()
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = metrics.horizontalPadding, vertical = metrics.verticalPadding),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(
@@ -428,15 +449,20 @@ private fun UrlTemplateRow(
             )
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = metrics.titleSize,
+                    lineHeight = metrics.titleLineHeight,
+                ),
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
         Text(
             text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = metrics.subtitleSize,
+                lineHeight = metrics.subtitleLineHeight,
+            ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            lineHeight = 17.sp,
         )
         OutlinedTextField(
             value = draft,

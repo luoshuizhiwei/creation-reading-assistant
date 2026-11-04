@@ -175,4 +175,43 @@ class TimeUtilsTest {
         text.contains("小时") || text.contains("时") -> "小时"
         else -> "分钟"
     }
+
+    @Test
+    fun `formatRelativeTime handles null and empty safely`() {
+        assertEquals("", formatRelativeTime(null))
+        assertEquals("", formatRelativeTime(""))
+        assertEquals("", formatRelativeTime("   "))
+    }
+
+    @Test
+    fun `formatRelativeTime formats recent intervals accurately`() {
+        val now = 1_700_000_000_000L // arbitrary epoch millis
+
+        // 30 seconds ago -> 刚刚
+        assertEquals("刚刚", formatRelativeTime((now - 30_000L).toString(), now))
+        // future timestamp -> 刚刚
+        assertEquals("刚刚", formatRelativeTime((now + 10_000L).toString(), now))
+
+        // 15 minutes ago
+        assertEquals("15 分钟前", formatRelativeTime((now - 15 * 60_000L).toString(), now))
+
+        // 3 hours ago (same day)
+        assertEquals("3 小时前", formatRelativeTime((now - 3 * 3_600_000L).toString(), now))
+
+        // 1 day ago -> 昨天
+        assertEquals("昨天", formatRelativeTime((now - 24 * 3_600_000L).toString(), now))
+
+        // 2 days ago -> 前天
+        assertEquals("前天", formatRelativeTime((now - 48 * 3_600_000L).toString(), now))
+
+        // 4 days ago -> 4 天前
+        assertEquals("4 天前", formatRelativeTime((now - 4 * 24 * 3_600_000L).toString(), now))
+    }
+
+    @Test
+    fun `formatRelativeTime falls back on invalid input`() {
+        assertEquals("2026-01-01", formatRelativeTime("2026-01-01-invalid-tail"))
+        assertEquals("random-str", formatRelativeTime("random-string-that-fails-parsing"))
+    }
 }
+

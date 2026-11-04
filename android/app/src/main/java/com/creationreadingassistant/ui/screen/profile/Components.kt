@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.creationreadingassistant.ui.components.IslandSectionHeader
-import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.theme.animateEnter
@@ -35,27 +34,24 @@ import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 @Composable
 internal fun DegradedNote(text: String, modifier: Modifier = Modifier) {
-    SectionCard(
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = 12.dp,
+    // 注释级信息不占一张卡：卡外一行弱化文本，视觉重量降到与正文同级。
+    Row(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Row(
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                androidx.compose.material.icons.Icons.Outlined.Info,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(16.dp).padding(top = 2.dp),
-            )
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 18.sp,
-            )
-        }
+        Icon(
+            Icons.Outlined.Info,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(14.dp).padding(top = 2.dp),
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = 16.sp,
+        )
     }
 }
 
@@ -72,8 +68,8 @@ internal fun SubPageSectionTitle(
     trailing: @Composable (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    // 微岛化收敛：委托共享 IslandSectionHeader（32dp IconPedestal 底座 + pedestalRadius），
-    // 一处改动统一 13 个 profile 子页区块头；保持既有调用方签名兼容。
+    // 微岛化收敛：委托共享 IslandSectionHeader，一处改动统一 profile 子页区块头；
+    // compact 档把图标底座收到 24dp（统计/灵感页仍走默认 32dp，不受影响）。
     if (icon != null) {
         IslandSectionHeader(
             title = title,
@@ -81,6 +77,7 @@ internal fun SubPageSectionTitle(
             modifier = modifier,
             tint = iconTint,
             trailing = trailing,
+            compact = true,
         )
     } else {
         // 无图标退化：纯标题 + trailing，间距仍走布局令牌节奏。

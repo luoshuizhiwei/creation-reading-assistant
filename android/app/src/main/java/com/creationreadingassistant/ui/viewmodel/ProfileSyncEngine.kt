@@ -3,6 +3,7 @@ package com.creationreadingassistant.ui.viewmodel
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.remote.SyncConfigStore
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.SyncOptions
 import com.creationreadingassistant.data.repository.SyncRepository
 import java.time.Instant
 import kotlinx.coroutines.flow.first
@@ -28,8 +29,13 @@ class ProfileSyncEngine(
     private val bookRepository: BookRepository,
 ) {
 
-    /** 单次全量同步：pull → push →（可选）下载待同步正文，返回结果 + 展示消息 + 日志行。 */
-    suspend fun runSync(autoDownloadBooks: Boolean): SyncRunOutcome {
+    /**
+     * 单次全量同步：pull → push →（可选）下载待同步正文，返回结果 + 展示消息 + 日志行。
+     *
+     * [options] 承载「我的 · 同步」子页的 3 个同步项开关与冲突策略，原样透传给 pull/push；
+     * 默认 [SyncOptions] = 历史全类别同步 + 较新者胜，因此无参调用（含单测）表现完全不变。
+     */
+    suspend fun runSync(autoDownloadBooks: Boolean, options: SyncOptions = SyncOptions()): SyncRunOutcome {
         val startedAt = System.currentTimeMillis()
         val timestamp = Instant.now().toString()
         val allFailures = mutableListOf<SyncFailedItem>()
@@ -37,14 +43,14 @@ class ProfileSyncEngine(
         var downloadedBookFiles = 0
         val logs = mutableListOf<String>()
         try {
-            val pulled = syncRepository.pull()
+            val pulled = syncRepository.pull(options)
             allFailures += pulled.failedItems.map { toUiFailedItem(it) }
             logs += "拉取完成：${pulled.books} 本 / ${pulled.inspirations} 条 / ${pulled.progress} 进度 / ${pulled.sessions} 会话"
             if (pulled.failedItems.isNotEmpty()) {
                 logs += "  拉取失败 ${pulled.failedItems.size} 项"
             }
 
-            val pushed = syncRepository.push()
+            val pushed = syncRepository.push(options)
             allFailures += pushed.failedItems.map { toUiFailedItem(it) }
             allConflicts = pushed.conflicts.map {
                 SyncConflictItem(

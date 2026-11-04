@@ -74,23 +74,41 @@ class PerBookSettingsStore @Inject constructor(
     }
 
     /**
-     * 把预设套用到**本书**：先清本书全部覆盖，再逐项写入预设值。
-     * 「默认」预设值为空 → 等价于 [clearAllOverrides]，回到全局。
+     * 把预设套用到**本书**：只清除**预设负责的**覆盖键，再逐项写入预设值。
+     *
+     * **不清 [ReadingPresets.ENGINE_KEYS]**（D-2-A）：分页引擎是兼容性救急开关，
+     * 不属于视觉预设。旧实现无条件 `clearAllOverrides`，会让「套用一次大字号」
+     * 顺手抹掉用户为这本书设的引擎回退。
+     *
+     * 「默认」预设值为空 → 等价于「清除预设负责的覆盖」，**不是** [clearAllOverrides]。
+     * 要让整本书回到全局（含引擎），用 [clearAllOverrides]。
      */
     suspend fun applyPresetToBook(bookId: String, preset: ReadingPreset) {
         if (bookId.isBlank()) return
-        clearAllOverrides(bookId)
-        preset.values.forEach { (key, value) -> setOverride(bookId, key, value) }
+        ds.edit { prefs ->
+            ReadingPresets.PRESET_OWNED_KEYS.forEach { prefs.remove(overrideKey(bookId, it)) }
+            // 与 setOverride 同口径：非法值不落盘（预设是常量，但校验口径不能两套）。
+            preset.values.forEach { (key, value) ->
+                if (key.write(ReaderSettings(), value) != null) {
+                    prefs[overrideKey(bookId, key)] = value
+                }
+            }
+        }
     }
 
     /**
-     * 恢复默认（全局）：把**可覆盖项**（排版 / 显示，见 [ReaderOverrideKey]）恢复为结构默认。
+     * 恢复默认（全局）：把**全部可覆盖项**（排版 / 显示 / 两个分页引擎，见 [ReaderOverrideKey]）
+     * 恢复为结构默认。
+     *
+     * D-2-A：改用 [ReadingPresets.resetAllOverridableKeys] 的**显式**重置，
+     * 不再复用视觉预设的键集合 —— 否则「恢复全局默认」会不会重置引擎模式，
+     * 会变成「碰巧取决于预设键集合怎么算」的隐式行为。
      *
      * 作用范围**不含**亮度、TTS、护眼、音量键翻页等设备相关项 —— 那些是跨书共享的设备偏好，
      * 一并清掉会丢用户设置。本书覆盖也不受影响（清本书覆盖用 [clearAllOverrides]）。
      */
     suspend fun resetGlobalReaderToDefaults() {
-        settingsStore.updateReader { ReadingPresets.applyTo(this, ReadingPresets.DEFAULT) }
+        settingsStore.updateReader { ReadingPresets.resetAllOverridableKeys(this) }
     }
 
     private fun readOverrides(prefs: Preferences, bookId: String): PerBookOverrides {

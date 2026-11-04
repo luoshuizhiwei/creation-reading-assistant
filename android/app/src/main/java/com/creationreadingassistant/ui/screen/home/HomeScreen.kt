@@ -130,6 +130,7 @@ fun HomeScreen(
                         onOpenBook = { onAction(HomeAction.OpenBook(it)) },
                         onOpenContinueSheet = { onAction(HomeAction.OpenContinueSheet) },
                         onEmptyNavigateShelf = { onAction(HomeAction.NavigateToShelf) },
+                        shelfBookCount = state.shelfBookCount,
                     )
                 }
 
@@ -197,6 +198,7 @@ private fun InspirationHeaderRow(
 ) {
     SectionHeader(
         title = stringResource(R.string.home_recent_inspiration),
+        compact = true,
         modifier = Modifier
             .animateEnterOptimized(180, reducedMotion)
             .testTag("home-insp-header"),

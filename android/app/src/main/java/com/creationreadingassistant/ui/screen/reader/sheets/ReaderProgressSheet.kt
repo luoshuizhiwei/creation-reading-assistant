@@ -54,6 +54,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.ui.components.CraSlider
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.ui.screen.reader.formatDuration
 import com.creationreadingassistant.ui.util.LocalDurationUnit
@@ -457,7 +458,7 @@ internal fun ProgressSheet(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.outline,
                             )
-                            Slider(
+                            CraSlider(
                                 value = slider,
                                 onValueChange = { slider = it },
                                 valueRange = 0f..100f,

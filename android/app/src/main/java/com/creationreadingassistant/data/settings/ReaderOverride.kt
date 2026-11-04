@@ -22,15 +22,35 @@ enum class ReaderOverrideKey(val id: String, val label: String) {
     TRADITIONAL_CHINESE("traditionalChinese", "繁体显示"),
     CUSTOM_FONT_PATH("customFontPath", "自定义字体"),
     READER_MODE("readerMode", "阅读模式"),
+    /**
+     * TXT / Markdown 的自研分页引擎开关（D-2-A）。
+     *
+     * 为什么它必须是可覆盖项：高级设置文案把该开关定位为「**特定书籍**分页异常时
+     * 可临时切回」。它不是全局排版偏好，而是**单书兼容性救急开关** ——
+     * 在此之前它不可覆盖，导致用户在「本书」作用域下改动会写进全局、影响所有书。
+     *
+     * [id] 必须与 [ReaderSettings.pagerEngineMode] 字段名一致：
+     * 本书覆盖的 DataStore 键是 `book_reader_override_<bookId>_<id>`，
+     * 换名会创建第二套命名口径。
+     */
+    PAGER_ENGINE_MODE("pagerEngineMode", "分页引擎（TXT/Markdown）"),
+    /**
+     * EPUB 的自研分页引擎开关（D-2-A）。理由同 [PAGER_ENGINE_MODE]。
+     *
+     * 与 [PAGER_ENGINE_MODE] 分开是既有设计：TXT/Markdown 与 EPUB 分开灰度，
+     * 避免其中一种格式的问题迫使另一种一起回退。
+     */
+    EPUB_PAGER_ENGINE_MODE("epubPagerEngineMode", "分页引擎（EPUB）"),
     PAGE_TURN_EFFECT("pageTurnEffect", "翻页效果"),
     IMMERSIVE("immersiveMode", "沉浸模式"),
     SHOW_READER_INFO("showReaderInfo", "页眉页脚"),
-    SHOW_PROGRESS("showProgressBar", "底部进度条"),
+    SHOW_PROGRESS("showProgressBar", "进度条"),
     AUTO_HIDE_SECONDS("autoHideSeconds", "菜单自动隐藏"),
     HEADER_LEFT("headerLeft", "页眉左侧"),
     HEADER_RIGHT("headerRight", "页眉右侧"),
     FOOTER_LEFT("footerLeft", "页脚左侧"),
     FOOTER_RIGHT("footerRight", "页脚右侧"),
+    SCREEN_ORIENTATION("screenOrientation", "屏幕方向"),
     ;
 
     /** 读取该项在当前设置里的落盘表示。 */
@@ -45,6 +65,8 @@ enum class ReaderOverrideKey(val id: String, val label: String) {
         TRADITIONAL_CHINESE -> settings.traditionalChinese.toString()
         CUSTOM_FONT_PATH -> settings.customFontPath
         READER_MODE -> settings.readerMode
+        PAGER_ENGINE_MODE -> settings.pagerEngineMode
+        EPUB_PAGER_ENGINE_MODE -> settings.epubPagerEngineMode
         PAGE_TURN_EFFECT -> settings.pageTurnEffect
         IMMERSIVE -> settings.immersiveMode.toString()
         SHOW_READER_INFO -> settings.showReaderInfo.toString()
@@ -54,6 +76,7 @@ enum class ReaderOverrideKey(val id: String, val label: String) {
         HEADER_RIGHT -> settings.headerRight.name
         FOOTER_LEFT -> settings.footerLeft.name
         FOOTER_RIGHT -> settings.footerRight.name
+        SCREEN_ORIENTATION -> settings.screenOrientation
     }
 
     /**
@@ -71,6 +94,12 @@ enum class ReaderOverrideKey(val id: String, val label: String) {
         TRADITIONAL_CHINESE -> raw.toBooleanStrictOrNull()?.let { settings.copy(traditionalChinese = it) }
         CUSTOM_FONT_PATH -> settings.copy(customFontPath = raw)
         READER_MODE -> raw.takeIf { it in READER_MODE_VALUES }?.let { settings.copy(readerMode = it) }
+        PAGER_ENGINE_MODE ->
+            raw.takeIf { it in PAGER_ENGINE_MODE_VALUES }?.let { settings.copy(pagerEngineMode = it) }
+
+        EPUB_PAGER_ENGINE_MODE ->
+            raw.takeIf { it in PAGER_ENGINE_MODE_VALUES }?.let { settings.copy(epubPagerEngineMode = it) }
+
         PAGE_TURN_EFFECT -> raw.takeIf { it in PAGE_TURN_EFFECT_VALUES }?.let { settings.copy(pageTurnEffect = it) }
         IMMERSIVE -> raw.toBooleanStrictOrNull()?.let { settings.copy(immersiveMode = it) }
         SHOW_READER_INFO -> raw.toBooleanStrictOrNull()?.let { settings.copy(showReaderInfo = it) }
@@ -80,16 +109,27 @@ enum class ReaderOverrideKey(val id: String, val label: String) {
         HEADER_RIGHT -> headerFooter(raw)?.let { settings.copy(headerRight = it) }
         FOOTER_LEFT -> headerFooter(raw)?.let { settings.copy(footerLeft = it) }
         FOOTER_RIGHT -> headerFooter(raw)?.let { settings.copy(footerRight = it) }
+        SCREEN_ORIENTATION -> raw.takeIf { it in SCREEN_ORIENTATION_VALUES }?.let { settings.copy(screenOrientation = it) }
     }
 
     private fun headerFooter(raw: String): HeaderFooterItem? =
         HeaderFooterItem.entries.firstOrNull { it.name == raw }
 
     companion object {
-        /** 纸张体系：与 `migrateReaderBg` 收敛后的 4 档 + 跟随外观一致。 */
-        val BACKGROUND_VALUES = setOf("white", "warm", "green", "night", "follow")
+        /** 纸张体系：与 ReaderPaperOptions 的 9 档纸色 key 一致（含跟随外观）。 */
+        val BACKGROUND_VALUES = setOf(
+            "follow", "white", "warm", "parchment", "celadon",
+            "green", "sepia_dark", "ink_night", "night",
+        )
         val READER_MODE_VALUES = setOf("paged", "scroll")
+        /**
+         * 分页引擎开关的合法值，与 `SettingsStore` 的 `pagerEngineMode` /
+         * `epubPagerEngineMode` 落盘口径一致（`off | auto | on`）。
+         * 其他值一律拒绝、回退全局，不做近似修正。
+         */
+        val PAGER_ENGINE_MODE_VALUES = setOf("off", "auto", "on")
         val PAGE_TURN_EFFECT_VALUES = setOf("none", "fade", "slide", "cover", "reveal")
+        val SCREEN_ORIENTATION_VALUES = setOf("system", "portrait", "landscape")
 
         fun fromId(id: String): ReaderOverrideKey? = entries.firstOrNull { it.id == id }
 

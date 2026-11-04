@@ -1,26 +1,24 @@
 package com.creationreadingassistant.ui.screen.profile
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.AutoAwesome
@@ -29,7 +27,6 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
@@ -39,196 +36,175 @@ import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.TouchApp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.settings.SelectionActionSettings
 import com.creationreadingassistant.data.settings.SelectionActions
+import com.creationreadingassistant.ui.components.CompactItemDivider
+import com.creationreadingassistant.ui.components.CompactSettingRow
+import com.creationreadingassistant.ui.components.CompactSettingsGroup
 import com.creationreadingassistant.ui.components.PageLazyColumn
-import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
-import com.creationreadingassistant.ui.util.DURATION_UNIT_TOGGLE_LABEL
 import com.creationreadingassistant.ui.util.LocalDurationUnit
-import com.creationreadingassistant.ui.util.LocalDurationUnitToggle
+import com.creationreadingassistant.ui.util.durationUnitToggle
 import com.creationreadingassistant.ui.util.formatDuration
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ProfileHomeScreen(
     state: ProfileUiState,
     onAction: (ProfileAction) -> Unit,
     scaffoldPadding: PaddingValues,
+    searchActive: Boolean = false,
+    searchQuery: String = "",
+    onQueryChange: (String) -> Unit = {},
+    onCloseSearch: () -> Unit = {},
 ) {
     val reducedMotion = rememberReducedMotion()
     val summary = state.homeSummary
+    val results = remember(searchQuery) { SettingsSearchIndex.search(searchQuery) }
 
     // 阅读时长按当前单位（天/小时/分钟）呈现，供顶部档案卡的统计行使用。
     // S15-F1/F2：改用公共 formatter，不再本地重写 when 分支（本地版缺 ms<=0 保护，
-    // 且与公共策略分叉）。
+    // 且与公共策略分叉）；长按能力由 ArchiveStat 的 valueModifier 提供。
     val durationUnit = LocalDurationUnit.current
-    // 长按切换由档案卡统一承载（见下方 combinedClickable），子文本不再单独挂手势。
-    val toggleDurationUnit = LocalDurationUnitToggle.current
+    val durationText = formatDuration(summary.totalDurationMs, durationUnit)
 
     PageLazyColumn(
         scaffoldPadding = scaffoldPadding,
         modifier = Modifier.fillMaxSize(),
     ) {
-        // 顶部同步状态卡（对应 ProfileHome 的 compact-profile-card + profile-grid）
-        // 点击进入「我的阅读」：像开源阅读一样按书查看累计阅读时长 / 进度 / 最近阅读。
-        item(key = "header-card") {
-            // G6（行为保留版）：整卡是这块档案卡**唯一**的手势层——普通点击打开
-            // 「我的阅读」（保留改动前的整卡点击区域，含空白处），长按切换全局时长单位。
-            // 与 MyReadingScreen 的记录行同款：行内时长文本刻意不带任何手势——
-            // 空 onClick 的子节点会截获父级点击，父子两层重复挂切换会让读屏
-            // 在同一张卡里读到多个操作。两个 label 让读屏用户预先知道有哪些动作。
-            SectionCard(
-                modifier = Modifier.combinedClickable(
-                    onClickLabel = "查看阅读档案",
-                    onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) },
-                    onLongClickLabel = DURATION_UNIT_TOGGLE_LABEL,
-                    onLongClick = toggleDurationUnit,
-                ),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+        if (searchActive) {
+            // 搜索模式下：主屏作为纯净的搜索结果承载容器
+            if (searchQuery.isNotBlank()) {
+                item(key = "settings-search-results") {
+                    SettingsSearchResults(
+                        results = results,
+                        emptyQuery = searchQuery,
+                        onPick = { entry ->
+                            onCloseSearch()
+                            onAction(ProfileAction.OpenSettingsEntry(entry.page, entry.anchor))
+                        },
+                    )
+                }
+            } else {
+                // 搜索输入为空时：展示快捷热搜词胶囊微岛
+                item(key = "settings-search-suggestions") {
+                    CompactSettingsGroup(title = "快捷搜索") {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                        ) {
+                            val suggestions = listOf("字号", "行距", "阅读纸张", "护眼滤镜", "翻页效果", "语速", "听书", "WebDAV", "存储管理")
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                suggestions.forEach { tag ->
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),
+                                        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                                        modifier = Modifier.clickable { onQueryChange(tag) },
+                                    ) {
+                                        Text(
+                                            tag,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // 阅读档案：身份行 + 一行三格统计，整卡点击进入「我的阅读」。
+            // 统计只在此处呈现一次，下方「我的阅读」行不再重复。
+            item(key = "profile-archive") {
+                CompactSettingsGroup(
+                    modifier = Modifier.animateEnter(reducedMotion = reducedMotion),
                 ) {
-                    Box(
+                    Row(
                         modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center,
+                            .fillMaxWidth()
+                            .clickable { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         Icon(
-                            Icons.Outlined.Book,
+                            imageVector = Icons.Outlined.Book,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(26.dp),
+                            modifier = Modifier.size(18.dp),
                         )
-                    }
-                    Column(modifier = Modifier.padding(start = 14.dp).weight(1f)) {
-                        Text(
-                            "创作阅读助手",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = (-0.3).sp,
-                            ),
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            "本地优先 · 点击查看阅读档案",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Icon(
-                        Icons.Outlined.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-
-                androidx.compose.material3.HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 12.dp),
-                    thickness = 0.6.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    // 列宽由**最终值**格式化后的隐形占位文本定宽（见 HomeStat），
-                    // 所以 count-up 过程里文本形状变化不会挤动相邻统计项。
-                    val totalMinutes = (summary.totalDurationMs / 60000).toInt()
-                    HomeStat(
-                        "阅读时长",
-                        totalMinutes,
-                        // S15-F1/F2：走公共 formatter，跟随全局时长单位（小时/天），
-                        // 不再本地按 totalMinutes 重写 when 分支（本地版缺 ms<=0 保护且与公共策略分叉）。
-                        // 长按切换挂在卡片手势层（见上），时长文本本身不带任何手势。
-                        { v -> formatDuration(v * 60_000L, durationUnit) },
-                        reducedMotion = reducedMotion,
-                        countUpKey = "profile.home.duration",
-                    )
-                    HomeStat(
-                        "累计读完",
-                        summary.completedBookCount,
-                        reducedMotion = reducedMotion,
-                        countUpKey = "profile.home.completed",
-                    )
-                    // 灵感数量可点直达灵感中心：显示了数量就要有对应的入口（同类反馈：灵感在哪）
-                    HomeStat(
-                        "灵感数量",
-                        summary.inspirationCount,
-                        reducedMotion = reducedMotion,
-                        onClick = { onAction(ProfileAction.OpenInspirations) },
-                        countUpKey = "profile.home.inspirations",
-                    )
-                }
-            }
-        }
-
-        // 快捷导航磁贴（产品规划无独立笔记概念：原「笔记」磁贴改为灵感中心直达）
-        item(key = "quick-tiles") {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                QuickTile(
-                    icon = Icons.Outlined.Refresh,
-                    label = "局域网同步",
-                    value = if (state.paired) "已连接电脑" else "从未同步",
-                    iconTint = Color(0xFF1967D2),
-                    statusIndicator = {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (state.paired) Color(0xFF10B981)
-                                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
-                                ),
-                        )
-                    },
-                    onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SYNC)) },
-                )
-                QuickTile(
-                    icon = Icons.Outlined.AutoAwesome,
-                    label = "灵感工坊",
-                    value = if (summary.inspirationCount > 0) "已记录 ${summary.inspirationCount} 条" else "记录创作灵感",
-                    iconTint = MaterialTheme.colorScheme.primary,
-                    statusIndicator = {
-                        if (summary.inspirationCount > 0) {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "${summary.inspirationCount}",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                                text = "创作阅读助手",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "本地优先 · 点击查看阅读档案",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                    },
-                    onClick = { onAction(ProfileAction.OpenInspirations) },
-                )
+                        Icon(
+                            imageVector = Icons.Outlined.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                    CompactItemDivider()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        ArchiveStat(durationText, "阅读时长", valueModifier = Modifier.durationUnitToggle())
+                        ArchiveStat("${summary.completedBookCount} 本", "读完")
+                        ArchiveStat("${summary.inspirationCount} 条", "灵感")
+                    }
+                }
             }
-        }
+
+            // 快捷导航磁贴已移除（用户 2026-09-18 反馈首屏重复）：「阅读设置」与下方
+            // 「阅读与外观」组首项重复；「灵感工坊」是创作工具不是设置，入口在灵感 Tab。
+            // 首屏因此直接露出分组列表，最常用的前几项无需滚动。
 
         // 阅读与外观
         item(key = "reading-appearance") {
@@ -242,7 +218,13 @@ internal fun ProfileHomeScreen(
                     onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SELECTION)) },
                 )
                 MenuItem(Icons.Outlined.DarkMode, "应用外观", state.appThemeLabel, iconTint = Color(0xFF00639B), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.APPEARANCE)) })
-                MenuItem(Icons.AutoMirrored.Outlined.MenuBook, "我的阅读", "进度、时长、书籍状态", iconTint = Color(0xFF006874), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) })
+                MenuItem(
+                    Icons.AutoMirrored.Outlined.MenuBook,
+                    "我的阅读",
+                    "进度、时长、书籍状态",
+                    iconTint = Color(0xFF006874),
+                    onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) },
+                )
                 MenuItem(
                     Icons.Outlined.Flag,
                     "阅读目标",
@@ -254,20 +236,20 @@ internal fun ProfileHomeScreen(
             }
         }
 
-        // 数据与存储
-        item(key = "data-storage") {
-            MenuGroup(title = "数据与存储") {
-                MenuItem(Icons.Outlined.Storage, "存储管理", "导出 / 导入数据快照", iconTint = Color(0xFF4C626B), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.STORAGE)) })
-                MenuItem(Icons.Outlined.Delete, "清理缓存", "清理阅读器正文缓存", danger = true, onClick = { onAction(ProfileAction.ClearReaderCache) })
+        // 数据与同步 / 内容整理
+        // 「内容整理」独立成组（用户 2026-09-18 反馈）：标签/分类/书单是内容整理不是存储。
+        // 「存储与备份」原先独占一张卡却只有一行 —— 与同步同为数据搬运语义，合并进同组。
+        item(key = "content-organize") {
+            MenuGroup(title = "内容整理") {
                 MenuItem(Icons.Outlined.Sell, "标签管理", "书籍 / 灵感 / 笔记标签", iconTint = Color(0xFF5B5B7E), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.TAGS)) })
-                MenuItem(Icons.Outlined.Folder, "分类管理", "整理书籍分类", iconTint = Color(0xFF386568), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.CATEGORIES)) })
-                MenuItem(Icons.Outlined.Book, "书单管理", "自定义书单", iconTint = Color(0xFF6B5778), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SHELVES)) })
+                MenuItem(Icons.Outlined.Folder, "分类管理", desc = null, iconTint = Color(0xFF386568), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.CATEGORIES)) })
+                MenuItem(Icons.Outlined.Book, "书单管理", desc = null, iconTint = Color(0xFF6B5778), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SHELVES)) })
             }
         }
 
-        // 同步与工具
-        item(key = "sync-tools") {
-            MenuGroup(title = "同步与工具") {
+        item(key = "data-storage") {
+            MenuGroup(title = "数据与同步") {
+                MenuItem(Icons.Outlined.Storage, "存储管理", "导出 / 导入快照，清缓存", iconTint = Color(0xFF4C626B), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.STORAGE)) })
                 MenuItem(Icons.Outlined.Refresh, "局域网同步", if (state.paired) "已连接电脑" else "从未同步", iconTint = Color(0xFF1967D2), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SYNC)) })
                 MenuItem(Icons.Outlined.Cloud, "WebDAV 设置", if (state.webDavConfigured) "已配置" else "未配置", iconTint = Color(0xFF0284C7), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.WEBDAV)) })
                 MenuItem(Icons.Outlined.AutoAwesome, "AI 助手", if (state.aiConfigured) "已配置 Key" else "未配置", iconTint = Color(0xFF7B1FA2), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.AI)) })
@@ -279,9 +261,10 @@ internal fun ProfileHomeScreen(
             MenuGroup(title = "帮助与关于") {
                 MenuItem(Icons.Outlined.BugReport, "日志与诊断", "运行环境与问题记录", iconTint = Color(0xFF4A6572), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.DIAGNOSTICS)) })
                 MenuItem(Icons.Outlined.Security, "隐私安全", "本地优先", iconTint = Color(0xFF2E7D32), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.PRIVACY)) })
-                MenuItem(Icons.Outlined.Info, "关于", "版本与开源许可", iconTint = Color(0xFF5E6266), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.ABOUT)) })
+                MenuItem(Icons.Outlined.Info, "关于", desc = null, iconTint = Color(0xFF5E6266), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.ABOUT)) })
             }
         }
+        } // 有查询词时，以上 4 个菜单组让位给搜索结果
     }
 }
 
@@ -302,130 +285,37 @@ private fun selectionSummary(settings: SelectionActionSettings, dictionaryCount:
     }
     return "第一屏 $primaryCount 个动作 · $dict"
 }
-@Composable
-private fun HomeStat(
-    label: String,
-    value: Int,
-    format: (Int) -> String = { "$it" },
-    reducedMotion: Boolean = false,
-    onClick: (() -> Unit)? = null,
-    /**
-     * count-up 的跨重建记忆 key。默认取 [label] 保证不同卡片天然不同；
-     * 显式传入可以避免文案调整（含多语言）后 key 跟着变、导致数字又从 0 重播一次。
-     */
-    countUpKey: String = label,
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        // onClick 非空时该项自身可点（如灵感数量→灵感中心），内层点击优先于顶卡点击
-        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            val valueStyle = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp)
-            // 隐形占位文本按最终值定宽：count-up 从 0 滚动时槽位宽度恒定，
-            // 相邻统计项不再被滚动过程挤来挤去（真机反馈）。
-            //
-            // 它是**纯装饰**：文字 `Color.Transparent` 不可见，只为测量占位，因此必须
-            // 退出无障碍语义树（[clearAndSetSemantics]）。否则它会带着与可见值**同文本
-            // 同坐标**的节点并入卡片合并语义：读屏在同一张卡里把同一个时长朗读两遍，
-            // 自动化也无法唯一定位可见值。清除语义只影响语义树，不改变测量与布局，
-            // count-up 动画与整卡手势都不受影响。
-            Text(
-                format(value),
-                style = valueStyle,
-                fontWeight = FontWeight.Bold,
-                color = Color.Transparent,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier.clearAndSetSemantics { },
-            )
-            Text(
-                rememberCountUp(value, countUpKey, reducedMotion).let { format(it) },
-                style = valueStyle,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                softWrap = false,
-            )
-        }
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
+
 
 @Composable
-private fun RowScope.QuickTile(
-    icon: ImageVector,
-    label: String,
+private fun RowScope.ArchiveStat(
     value: String,
-    iconTint: Color,
-    statusIndicator: (@Composable () -> Unit)? = null,
-    onClick: () -> Unit,
+    label: String,
+    /** 时长行用它挂长按切换；「读完 / 灵感」两格不传，保持纯文本。 */
+    valueModifier: Modifier = Modifier,
 ) {
-    val haptic = rememberHaptic(rememberReducedMotion())
-    SectionCard(
-        modifier = Modifier.weight(1f),
-        onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(iconTint.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-            statusIndicator?.invoke()
-        }
-        Spacer(Modifier.height(10.dp))
+    Column(modifier = Modifier.weight(1f)) {
         Text(
-            label,
-            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+            text = value,
+            modifier = valueModifier,
+            style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
         )
         Text(
-            value,
-            style = MaterialTheme.typography.bodySmall,
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 2.dp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
 @Composable
 private fun MenuGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(LocalLayoutTokens.current.relatedGap)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.padding(horizontal = 4.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(width = 3.dp, height = 12.dp)
-                    .clip(RoundedCornerShape(1.5.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
-            )
-            Text(
-                title,
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        SectionCard(contentPadding = 0.dp, content = content)
-    }
+    CompactSettingsGroup(
+        title = title,
+        content = content,
+    )
 }
 
 @Composable
@@ -439,14 +329,14 @@ private fun ColumnScope.MenuItem(
     onClick: () -> Unit,
 ) {
     val actualTint = if (danger) MaterialTheme.colorScheme.error else (iconTint ?: MaterialTheme.colorScheme.primary)
-    SettingRow(
+    CompactSettingRow(
         title = label,
         subtitle = desc,
         leading = {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(actualTint.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -454,7 +344,7 @@ private fun ColumnScope.MenuItem(
                     icon,
                     contentDescription = null,
                     tint = actualTint,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(16.dp),
                 )
             }
         },
@@ -462,17 +352,87 @@ private fun ColumnScope.MenuItem(
             Icon(
                 Icons.Outlined.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                modifier = Modifier.size(16.dp),
             )
         },
         onClick = onClick,
     )
     if (showDivider) {
-        androidx.compose.material3.HorizontalDivider(
-            modifier = Modifier.padding(start = 58.dp),
-            thickness = 0.6.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-        )
+        CompactItemDivider(startIndent = 52.dp, endIndent = 14.dp)
+    }
+}
+
+/**
+ * 顶栏内嵌胶囊搜索输入框（点击右上角放大镜后展开）。
+ */
+@Composable
+internal fun ProfileTopBarSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
+        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(40.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                Icons.Outlined.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                decorationBox = { innerTextField ->
+                    if (query.isEmpty()) {
+                        Text(
+                            "搜索设置项，如字号、护眼、纸张...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            maxLines = 1,
+                        )
+                    }
+                    innerTextField()
+                },
+            )
+            if (query.isNotEmpty()) {
+                IconButton(
+                    onClick = { onQueryChange("") },
+                    modifier = Modifier.size(24.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "清空",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
     }
 }
