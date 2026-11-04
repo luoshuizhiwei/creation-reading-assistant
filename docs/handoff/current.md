@@ -20,6 +20,8 @@
 
 执行顺序 RD-A → RD-B → RD-G → RD-C；报告落 `E:/creation-reading-assistant/coordination/root-decision-batch-20261104/REPORT.md`；全部 commit 仅本地，不 push。
 
+**RD-C 分歧裁决（2026-11-05 补）**：RD-A/B/G 已执行（commit `3751b41` / `35ed1a5`），RD-C 锚点核验证伪了原合同假设——恢复成果唯一载体是 E candidate（only-in-E 123 文件 = 207/209/NB 线成果；D 树侧 89 个差异为 10 月初独立演进，验收归属无法建立）。裁决取落地路线：[RD-C-LAND 合同](../coordination/2026-11-05-rdc-landing.md)——先 archive commit 保全 D 树分歧谱系，再整体落地 candidate 快照并以 treediff 零差异为硬门；恢复期"不回灌 D"隔离措施于收官解除（理由见合同）。落地后 D 仓库为后续源码主载体，E candidate 转为冻结已接受基线（只读参照）。
+
 ## 设备与权限（仍然有效）
 
 - MuMu instance 1 启动/验收/各批 166+R2 恢复已获用户同意（[权限纠正](../coordination/2026-11-02-mumu-acceptance-authorization-clarification.md)）；serial/boot 由执行者 fresh 探测，禁止转向实体手机，一切设备证据只能称模拟器。
@@ -63,6 +65,7 @@ D 仓库：`D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919`�
 - 11-03 夜间 ZCode 接任：保护基线 18 文件恢复 → AR03/04/05 真实闭合 → AR08 终裁 V0_ACCEPTED_WITH_SCOPE_DEVICE。
 - 11-04 Wave1-5：NB01-15（见头部 NB 线台账）。其 AR03-05 设备报告被审计证伪：`E:/creation-reading-assistant/task209-navigation-coverage-v1/continuation-20261102/next-v2/ar03/RETRACTION-20261103.md`（原文件保全）。
 - 11-04 收官+全面复审+NB16 打包验收闭合后，Root 决策批七项裁决落盘（[RD-20261104](../coordination/2026-11-04-root-decision-batch.md)），ZCode 执行 RD-A/B/G/C。
+- 11-05 RD-C 分歧裁决：恢复成果载体实测为 E candidate；授权 archive+落地两段式入库（[RD-C-LAND](../coordination/2026-11-05-rdc-landing.md)）。
 
 ## 执行与状态入口
 
