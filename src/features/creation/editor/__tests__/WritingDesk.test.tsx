@@ -341,11 +341,12 @@ describe("WritingDesk 内嵌大纲安全重组", () => {
     expect(actions.loadOutline.mock.calls.length).toBeGreaterThan(initialRefreshes);
 
     // BD-145：视图切换此前只靠 .active 类，读屏器不知道当前停在哪一栏。
+    // BD-247：这一栏的措辞与大纲页那套统一到「场景卡板」（3.2.4 文字维度），名字跟着改。
     expect(screen.getByRole("button", { name: "大纲树" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "卡片板" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: "场景卡板" }).getAttribute("aria-pressed")).toBe("false");
 
-    fireEvent.click(screen.getByRole("button", { name: "卡片板" }));
-    expect(screen.getByRole("button", { name: "卡片板" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "场景卡板" }));
+    expect(screen.getByRole("button", { name: "场景卡板" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "大纲树" }).getAttribute("aria-pressed")).toBe("false");
     expect(outlineHarness.boardProps?.previewStructure).toBe(actions.previewStructure);
     expect(outlineHarness.boardProps?.applyStructureWithProtection).toEqual(expect.any(Function));

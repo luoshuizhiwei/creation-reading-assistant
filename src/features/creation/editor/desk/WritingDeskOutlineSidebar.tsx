@@ -106,7 +106,12 @@ export function WritingDeskOutlineSidebar({
           options={projects.map((item) => ({ value: item.id, label: item.title }))}
         />
       </div>
-      <div className="writing-outline-view-switch" role="group" aria-label="大纲视图">
+      {/* BD-247（WCAG 3.2.4 一致地识别·文字维度）：这两颗切的正是大纲页那对组件
+       （本文件 180/191 行与 OutlinePage.tsx 329/340 行都是 OutlineTree ↔ CardBoard
+       二选一），运行时实测（/tmp/bd247-probe3b.log）却与大纲页叫法不同——组名「大纲视图」vs
+       「大纲视图切换」、第二档「卡片板」vs「场景卡板」。同一功能要学两遍，正是这条 SC 的反面。
+       统一到大屏那一套：大纲页的岛是全应用可见的主入口，措辞也更具体（板上是场景卡）。 */}
+      <div className="writing-outline-view-switch" role="group" aria-label="大纲视图切换">
         <button
           type="button"
           className={outlineView === "tree" ? "active" : ""}
@@ -121,7 +126,7 @@ export function WritingDeskOutlineSidebar({
           aria-pressed={outlineView === "board"}
           onClick={() => setOutlineView("board")}
         >
-          卡片板
+          场景卡板
         </button>
       </div>
       {/* BD-187：「安全重组已应用」横幅在拖拽落定后才连 role=status 一起挂载，

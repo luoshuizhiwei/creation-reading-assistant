@@ -119,7 +119,8 @@
     "audit:multiple-ways": "node scripts/audit-multiple-ways.mjs",
     "audit:error-identification": "node scripts/audit-error-identification.mjs",
     "audit:keyboard-reach": "node scripts/audit-keyboard-reach.mjs",
-    "audit:context-change": "node scripts/audit-context-change.mjs"
+    "audit:context-change": "node scripts/audit-context-change.mjs",
+    "audit:consistent-labels": "node scripts/audit-consistent-labels.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",
