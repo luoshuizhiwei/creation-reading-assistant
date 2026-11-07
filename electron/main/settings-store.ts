@@ -59,6 +59,9 @@ export function defaultReaderSettings(): ReaderSettings {
     epubStyleMode: "publisher",
     textConversion: "none",
     restoreLastPosition: true,
+    // BD-250（WCAG 2.1.4）：空格翻页是单字符键快捷键，规范要求提供关断退路；默认开，
+    // 保持既有手感，用户可按需关掉（关掉后空格交回浏览器原生滚动）。
+    spacePaging: true,
     readingMode: "scroll",
     presets: [
       {
@@ -182,6 +185,7 @@ export function normalizeReaderSettings(value: unknown): ReaderSettings {
     textConversion: raw.textConversion === "none" || raw.textConversion === "s2t" || raw.textConversion === "t2s" ? raw.textConversion : defaults.textConversion,
     theme: legacyTheme,
     restoreLastPosition: typeof raw.restoreLastPosition === "boolean" ? raw.restoreLastPosition : defaults.restoreLastPosition,
+    spacePaging: typeof raw.spacePaging === "boolean" ? raw.spacePaging : defaults.spacePaging,
     readingMode: "scroll",
     presets: Array.isArray(raw.presets) ? raw.presets : defaults.presets,
     fontFamily: typeof raw.fontFamily === "string" ? raw.fontFamily : undefined,

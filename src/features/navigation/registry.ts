@@ -147,6 +147,7 @@ const SETTING_ENTRIES: NavEntry[] = [
   S("reader", "epubStyleMode", "格式与行为", "EPUB 样式", "原书样式 统一样式 epub"),
   S("reader", "textConversion", "格式与行为", "繁简转换", "繁体 简体 转换"),
   S("reader", "restoreLastPosition", "格式与行为", "自动恢复上次位置", "位置 进度 恢复"),
+  S("reader", "spacePaging", "格式与行为", "空格翻页", "空格 翻页 快捷键 单键 误触发 epub"),
   S("reader", "trackReadingSessions", "阅读记录", "自动记录阅读会话", "阅读记录 计时 会话"),
   S("reader", "presets", "预设", "阅读预设", "预设 场景 preset"),
 

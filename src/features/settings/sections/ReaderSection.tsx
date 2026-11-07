@@ -134,6 +134,18 @@ export function ReaderSection({
               label="自动恢复上次位置"
             />
           </div>
+          {/* BD-250（WCAG 2.1.4）：空格是「一个字符键」的快捷键，焦点不在任何控件上也会翻页，
+              开关式输入者与打字时会误触发；规范给的三条退路里本仓取「可关掉」这条——
+              默认开（不改既有手感），关掉后空格交回浏览器原生滚动，翻页仍有 →/PgDn 可用
+              （方向键与功能键不属单字符键，不受该条约束）。 */}
+          <div data-setting-id="reader.spacePaging">
+            <Switch
+              checked={settings.reader.spacePaging}
+              onChange={(spacePaging) => patchReader({ spacePaging })}
+              label="空格翻页"
+              description="EPUB 阅读时按空格翻到下一页。只靠一个字符键的快捷键容易误触发，不需要时可关掉。"
+            />
+          </div>
         </div>
       </SettingsGroup>
 

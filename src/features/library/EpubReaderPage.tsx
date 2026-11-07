@@ -551,7 +551,11 @@ export function EpubReaderPage() {
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
       if (shouldIgnoreKeydown(event) || !renditionRef.current) return;
-      if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+      // BD-250（WCAG 2.1.4 单键快捷键）：空格是一个字符键，焦点不在任何控件上也会翻页，
+      // 三条例外都不成立（例外③要求「同类控件获得焦点才生效」，这支挂在 window 上）。
+      // 因此走例外①：由设置项 reader.spacePaging 提供关断退路，默认开、关掉后空格
+      // 交回浏览器原生滚动。方向键与 PgUp/PgDn 不属单字符键，不受该条约束，保持全局可用。
+      if (event.key === "ArrowRight" || event.key === "PageDown" || (event.key === " " && settings?.spacePaging !== false)) {
         event.preventDefault();
         void turnPage("next");
       }
@@ -573,7 +577,7 @@ export function EpubReaderPage() {
     };
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [turnPage, settingsDrawerOpen]);
+  }, [turnPage, settingsDrawerOpen, settings?.spacePaging]);
 
   useEffect(() => {
     if (!selectionToolbar?.visible) return;

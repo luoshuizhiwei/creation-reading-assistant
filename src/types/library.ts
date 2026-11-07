@@ -224,6 +224,13 @@ export interface ReaderSettings {
   theme?: "light" | "dark";
   textConversion: TextConversionMode;
   restoreLastPosition: boolean;
+  /**
+   * BD-250（WCAG 2.1.4 单键快捷键）：EPUB 阅读器的「空格＝下一页」是一个字符键的快捷键，
+   * 焦点在 body 上也生效（EpubReaderPage.tsx 的 window 级监听），三条例外都不成立，
+   * 因此规范要求的「能关掉」这条退路必须由设置兑现。默认开（不改既有手感），
+   * 关掉后空格交回浏览器原生行为。
+   */
+  spacePaging: boolean;
   readingMode: "scroll";
   tracking: ReaderTrackingSettings;
   presets?: ReaderPreset[];

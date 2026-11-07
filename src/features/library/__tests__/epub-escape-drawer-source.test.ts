@@ -19,7 +19,10 @@ describe("BD-203 账本：EPUB 宿主 Escape 逐层收，与 TXT/MD 同构", () 
       /if \(event\.key === "Escape"\) \{\s*(\/\/[^\n]*\s*)*if \(settingsDrawerOpen\) \{\s*setSettingsDrawerOpen\(false\);\s*return;\s*\}\s*setSelectionToolbar\(null\);\s*setShowColorPicker\(false\);/.test(src),
       "回退：EPUB 侧 Escape 的抽屉优先层被拆或 return 缺失（会把选区清理一起执行）"
     ).toBe(true);
-    expect(/addEventListener\("keydown", handleKeydown\);\s*return \(\) => window\.removeEventListener\("keydown", handleKeydown\);\s*\}, \[turnPage, settingsDrawerOpen\]\);/.test(src), "回退：effect 依赖没带上 settingsDrawerOpen，监听器会读陈旧开合态").toBe(true);
+    // BD-250 在这同一个 effect 上又挂了一项依赖（空格翻页的关断开关 settings?.spacePaging），
+    // 依赖表因此多一格；本条要钉的仍然是「settingsDrawerOpen 必须在表里」——少它监听器就会
+    // 一直读着陈旧的抽屉开合态（Escape 收不到抽屉）。所以这里是「包含」而不是「整表逐字相等」。
+    expect(/addEventListener\("keydown", handleKeydown\);\s*return \(\) => window\.removeEventListener\("keydown", handleKeydown\);\s*\}, \[turnPage, settingsDrawerOpen(, [^\]]+)?\]\);/.test(src), "回退：effect 依赖没带上 settingsDrawerOpen，监听器会读陈旧开合态").toBe(true);
   });
 
   it("TXT/MD 宿主同形不破：抽屉支收 open 后 return", () => {

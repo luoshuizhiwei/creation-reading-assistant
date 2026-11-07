@@ -71,6 +71,10 @@ const ORIGINAL_SETTINGS = [
   { id: "reader.epubStyleMode", section: "reader", group: "格式与行为", label: "EPUB 样式", keywords: "原书样式 统一样式 epub" },
   { id: "reader.textConversion", section: "reader", group: "格式与行为", label: "繁简转换", keywords: "繁体 简体 转换" },
   { id: "reader.restoreLastPosition", section: "reader", group: "格式与行为", label: "自动恢复上次位置", keywords: "位置 进度 恢复" },
+  // 批次 BD-250（WCAG 2.1.4 单键快捷键）有意新增的一条退路：按本文件开头立的规矩，
+  // 有意的增减必须在这里同步期望值并在提交信息里写明改了哪界面的哪句话——这句是设置页
+  // 「阅读器 → 格式与行为」里多出来的一行「空格翻页」。
+  { id: "reader.spacePaging", section: "reader", group: "格式与行为", label: "空格翻页", keywords: "空格 翻页 快捷键 单键 误触发 epub" },
   { id: "reader.trackReadingSessions", section: "reader", group: "阅读记录", label: "自动记录阅读会话", keywords: "阅读记录 计时 会话" },
   { id: "reader.presets", section: "reader", group: "预设", label: "阅读预设", keywords: "预设 场景 preset" },
   { id: "ai.enabled", section: "ai", group: "服务连接", label: "启用 AI 助手", keywords: "ai 开关 启用" },
@@ -123,7 +127,7 @@ describe("派生视图与原三份名单逐字段相等（合并 = 零改动）"
     expect(PROJECT_NAV_ITEMS).toEqual(ORIGINAL_PROJECT_NAV);
   });
 
-  it("SETTINGS_SEARCH_REGISTRY 与合并前的 31 条设置项完全一致（含 group 子分组名与 keywords）", () => {
+  it("SETTINGS_SEARCH_REGISTRY 与合并前的 31 条完全一致（BD-250 起再加 1 条空格翻页，共 32 条；含 group 子分组名与 keywords）", () => {
     expect(SETTINGS_SEARCH_REGISTRY).toEqual(ORIGINAL_SETTINGS);
   });
 });

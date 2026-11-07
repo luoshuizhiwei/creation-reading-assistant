@@ -25,6 +25,8 @@ const settings: ReaderSettings = {
   epubStyleMode: "publisher",
   textConversion: "none",
   restoreLastPosition: true,
+  // BD-250（WCAG 2.1.4）：空格翻页的关断退路，默认开
+  spacePaging: true,
   readingMode: "scroll",
   tracking: {
     trackReadingSessions: true,

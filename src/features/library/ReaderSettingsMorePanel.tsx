@@ -65,6 +65,18 @@ export function ReaderSettingsMorePanel({ settings, onChange, onReset, format = 
         label="自动恢复上次位置"
       />
 
+      {/* BD-250（WCAG 2.1.4）：与设置页 reader.spacePaging 同一开关的另一条入口——
+          阅读抽屉里也要能当场关掉空格翻页（设置页那条带 data-setting-id 供搜索定位，
+          这里不重复登记，免得同一 id 出现两处）。 */}
+      {format === "epub" && (
+        <Switch
+          checked={settings.spacePaging}
+          onChange={(spacePaging) => onChange({ spacePaging })}
+          label="空格翻页"
+          description="按空格翻到下一页。只靠一个字符键的快捷键容易误触发，不需要时可关掉。"
+        />
+      )}
+
       <div className="grid gap-3 border-t border-paper-line pt-4">
         <div className="text-sm font-semibold text-paper-ink">阅读记录</div>
         <ReaderTrackingControls
