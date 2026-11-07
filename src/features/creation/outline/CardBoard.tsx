@@ -298,7 +298,9 @@ export function CardBoard({
   return (
     <div className="card-board">
       <div className="card-board-toolbar">
-        <span className="outline-toolbar-label">卡片板</span>
+        {/* BD-248（WCAG 3.2.4 判据④）：名牌原先写「卡片板」，通往它的两把切换都叫「场景卡板」
+            （BD-247 刚把侧栏那一把统一到这个说法），这里别再留第三种称呼。*/}
+        <span className="outline-toolbar-label">场景卡板</span>
         {/* BD-246：常驻可见的「事先说明」，就是下面每枚卡上那颗「移章」下拉框的
             aria-describedby 目标。复用现成的 .outline-page-hint 声明组，不新增间距值。 */}
         <p className="outline-page-hint" id={adviceId}>移章会先弹影响预览，确认后才写入。</p>
@@ -310,7 +312,7 @@ export function CardBoard({
             { id: "chapter", label: "按章节" },
             { id: "status", label: "按状态" }
           ]}
-          ariaLabel="卡片板分组方式"
+          ariaLabel="场景卡板分组方式"
         />
       </div>
       {error && (

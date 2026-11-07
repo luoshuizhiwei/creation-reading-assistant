@@ -793,7 +793,10 @@ export function OutlineTree({
   return (
     <div className="outline-tree" ref={treeRef} tabIndex={-1}>
       <div className="outline-toolbar">
-        <span className="outline-toolbar-label">大纲</span>
+        {/* BD-248（WCAG 3.2.4 判据④「档名点进去，目的地的名牌要同名」）：这块地方的名牌原先写
+            「大纲」，而通往它的两把切换（大纲页 Tabs、写作台侧栏）都叫它「大纲树」——用户在同一
+            个功能上学两次名字。统一到档名。*/}
+        <span className="outline-toolbar-label">大纲树</span>
         {/* BD-246：这行不是装饰——它就是那三颗下拉框的「事先说明」，见上面 adviceId 的注释。
             复用现成的 .outline-page-hint 声明组（margin 0 / 12px / --paper-muted），不新增间距值。 */}
         <p className="outline-page-hint" id={adviceId}>移卷、移章、改编号会先弹影响预览，确认后才写入。</p>

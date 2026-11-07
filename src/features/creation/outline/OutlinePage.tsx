@@ -292,7 +292,9 @@ export function OutlinePage({ project }: OutlinePageProps) {
           ]}
           ariaLabel="大纲视图切换"
         />
-        <p className="outline-page-hint">树与卡片板共享同一数据与排序；选中场景后可编辑任务卡字段。</p>
+        {/* BD-248：这句提示原先写「树与卡片板」，与上面两把切换的档名（「大纲树」／「场景卡板」）
+            又是第三种称呼。说明文字里指认功能，也该用用户刚学到的那两个字。*/}
+        <p className="outline-page-hint">大纲树与场景卡板共享同一数据与排序；选中场景后可编辑任务卡字段。</p>
         <span className="outline-book-word-count">全书 {Number(outline?.wordCount ?? 0).toLocaleString("zh-CN")} 字</span>
         {/* 原本是描边表面按钮，按规格 §3.1 等价映射为 outline（不是 primary，避免抢走页面主操作权重） */}
         <Button variant="outline" disabled={!outline || exportingOutline} className="whitespace-nowrap" onClick={() => void exportMarkdownOutline()}>

@@ -105,7 +105,8 @@ describe("BD-217 普查判据：1.3.3 感官特性", () => {
     expect(cardTypeEditor).toContain("每个字段的 key 都必须在类型内唯一且创建后保持稳定。");
     expect(proofPanel).toContain("因此不计入总计。");
     expect(proofIgnore).toContain("可在「超长段落阈值」中调整");
-    expect(writingMargin).toContain("卷章结构可在「大纲树」或「卡片板」中管理。");
+    // BD-248：这句里的目的地名字改成切换档名「场景卡板」——第三种称呼不再出现。
+    expect(writingMargin).toContain("卷章结构可在「大纲树」或「场景卡板」中管理。");
     expect(aiSection).toContain("请先填写「API Key」并保存才能使用 AI 打磨");
   });
 

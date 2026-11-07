@@ -22,6 +22,17 @@ const census = read("../../../../scripts/audit-consistent-labels.mjs");
 const pkg = read("../../../../package.json");
 const deskSrc = read("../editor/desk/WritingDeskOutlineSidebar.tsx");
 const pageSrc = read("../outline/OutlinePage.tsx");
+// BD-248 判据④要读的两块目的地与一条散文
+const treeSrc = read("../outline/OutlineTree.tsx");
+const boardSrc = read("../outline/CardBoard.tsx");
+const marginSrc = read("../editor/desk/WritingDeskMargin.tsx");
+
+/** 目的地的名牌：.outline-toolbar-label 那一行写的是什么（判据④的量测口径同款）。 */
+function nameplateOf(src: string, file: string): string {
+  const m = /className="outline-toolbar-label">([^<]+)<\/span>/.exec(src);
+  expect(m, `${file} 里找不到 .outline-toolbar-label 那块名牌（名牌槽漂了，普查会当场报「全程没量到」）`).toBeTruthy();
+  return m![1].trim();
+}
 
 /** 写作台侧栏那把岛：组名 + 两颗档的可见文本。 */
 function deskNames(src: string) {
@@ -131,7 +142,7 @@ describe("BD-247 同一说法普查：口径与基准", () => {
     expect(census, "档序签名要按档位先后列出共有族").toContain("c.perOption.map");
     expect(census, "身份桶按共同族集合建，次序在桶内单独比").toContain('const id = c.shared.join(",")');
     expect(census, "自证针 F（档序对调）不见了").toContain("needleOrd");
-    expect(census, "针 F 没进 ok 式（等于白跑）").toContain("a && b && c && d && f && !e");
+    expect(census, "针 F 没进 ok 式（等于白跑）").toContain("a && b && c && d && f && g && i && !e && !h");
   });
 
   it("普查头注留下了本轮实测的账（文档与判据不许脱节）", () => {
@@ -142,5 +153,59 @@ describe("BD-247 同一说法普查：口径与基准", () => {
     expect(census, "头注的站点数与 SITES 表不符（文档漂了就当没测过）").toContain(`站点 ${sites} 个｜档记录`);
     expect(census, "头注要留下干净那轮的出处").toContain("干净那轮实测");
     expect(census).toContain("LABELS_OK/exit 0");
+  });
+});
+
+/**
+ * BD-248：判据④「档名点进去，目的地的名牌要同名」。
+ *
+ * 这条是 BD-247 收口时明着留给下一批的形状——切换控件的名字统一了，目的地自己挂的区名
+ * 还留着第三种称呼（.outline-toolbar-label 写「大纲」／「卡片板」）。量它必须先进目的地：
+ * 大纲屏默认停在「大纲树」，不点「场景卡板」那块地方根本不渲染（探针①就是这么漏的，
+ * /tmp/bd248c-probe1.log），所以运行时账本 + 源码账两头都要钉住。
+ */
+describe("BD-248 判据④：名牌槽登记与两道闸门", () => {
+  it("名牌槽是登记制，口径三处钉死", () => {
+    expect(census, "名牌槽登记表不见了").toContain('const NAMEPLATE_CLASSES = ["outline-toolbar-label"];');
+    expect(census, "量名牌必须把切换控件自己排除掉（那是档名，不是目的地的名字）").toContain(
+      'el.closest("[data-cl]") || el.closest("[data-clopt]")'
+    );
+    expect(census, "超过 12 字的是说明文字，不当区名").toContain("if (!t || t.length > 12) continue;");
+    expect(census, "每档按完要顺手抄名牌").toContain("plates: await platesNow()");
+  });
+
+  it("闸门一：只有真的会换目的地的控件才判这条；闸门二：两档共有的外层标题不判", () => {
+    expect(census, "量不出独有族的控件不该判④").toContain("if (fams.some((f) => f.length === 0)) continue;");
+    expect(census, "族有重叠 = 换的是参数不是地方（写作统计「字数指标预览」那种），不该判④").toContain(
+      "if (new Set(flat).size !== flat.length) continue;"
+    );
+    expect(census, "本控件档间只出现一次的名牌才算这块地方的名字").toContain("if (howMany.get(p.text) !== 1) continue;");
+    expect(census, "名牌与档名不符要按槽 class 点名").toContain("目的地的名牌（.${p.cls}）写的是");
+  });
+
+  it("失明分支：登记的名牌槽全程没量到要出声", () => {
+    expect(census, "名牌槽失明不许安静通过").toContain("登记的名牌槽");
+    expect(census, "针 I 必须把正式表的槽名牌摘干净再喂（直接看正式表等于白跑）").toContain(
+      'plates: (r.plates || []).filter((p) => p.cls !== "outline-toolbar-label")'
+    );
+    expect(census).toContain("findings(icopy)");
+    expect(census, "针 G（名牌漂移）不见了").toContain("needlePlate-left");
+    expect(census, "针 H（外层标题不误伤）不见了").toContain("needleOuter-left");
+    expect(census, "针 H 的反向断言没进 ok 式（等于白跑）").toContain("!e && !h");
+  });
+
+  it("登记的名牌槽、切换档名与两处区名钉成同一份", () => {
+    const b = baseline(census);
+    expect(nameplateOf(treeSrc, "OutlineTree.tsx"), "大纲树的名牌与档名不符").toBe(b.order[0]);
+    expect(nameplateOf(boardSrc, "CardBoard.tsx"), "场景卡板的名牌与档名不符").toBe(b.order[1]);
+    // BD-247 那批统一了档名，BD-248 补齐目的地自称：旧第三种称呼一处不许留。
+    expect(boardSrc, "卡板名牌退回旧叫法").not.toContain('outline-toolbar-label">卡片板<');
+    expect(treeSrc, "大纲树名牌退回光板「大纲」").not.toContain('outline-toolbar-label">大纲<');
+    expect(boardSrc, "板内分组控件的组名也要跟着改口").toContain('ariaLabel="场景卡板分组方式"');
+  });
+
+  it("散文里指认功能，用的也是用户学到的那两个名字", () => {
+    expect(pageSrc, "大纲页提示行又退回「树与卡片板」").toContain("大纲树与场景卡板共享同一数据与排序");
+    expect(marginSrc, "写作页边注又退回「或「卡片板」中管理」").toContain("或「场景卡板」中管理");
   });
 });

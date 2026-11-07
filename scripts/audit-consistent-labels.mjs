@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * 同一功能的说法普查（WCAG 3.2.4 Consistent Identification，AA · **文字维度**）。批次 BD-247 立。
+ * 同一功能的说法普查（WCAG 3.2.4 Consistent Identification，AA · **文字维度**）。批次 BD-247 立，
+ * 判据④（目的地自称）批次 BD-248 立。
  *
  * 与既有那本 3.2.4 账的分工：scripts/audit-consistent-identification.mjs（BD-226 立）量的是
  * **图案**——把每个可交互件里的 <svg> 求美术签名（几何属性＋CSS 朝向），判「同一功能是否始终
@@ -14,7 +15,7 @@
  * JSX，渲染出来切的是同一对组件。本普查把「同一功能」做成量出来的：每档真按下去，看**这一档
  * 独有**的组件根 class（语义词），两处的语义词族相交就是同一对目的地。判据全靠这份指纹。
  *
- * 判据（三条，任一不成立即红；红因按目的地族／控件点名）：
+ * 判据（四条，任一不成立即红；红因按目的地族／控件／名牌槽点名）：
  *   【同一目的地只许一个名字】按「这档独有的语义词」聚合出来的目的地族，在全程走查里被叫成
  *      两个以上名字即红；只挂了一个名字但与登记的基准不符，也算红（基准不许悄悄过期）。
  *   【同一套切换只许一个组名与档序】两套分段控件如果有 ≥2 个**共同覆盖**的目的地族（同一功能
@@ -28,6 +29,16 @@
  *      这条分工本身就是一颗牙：初版把「可见文本为空」也算红，「应用主题」三颗色块在 12 个站点
  *      各刷一条，36 条假红把真红埋了（/tmp/bd247-labels-1.log）；改口径后加了自证针 E，
  *      专门盯着「色块档不许再被这条判据变红」，口径漂回去当场就响。
+ *   【档名点进去，目的地的名牌要同名】判据④（批次 BD-248 立）。前三条量的是控件之间的说法，
+ *      这一条量「控件说的」与「地方自己招牌上写的」是否一致：档名按下去以后，那块地方挂的
+ *      名牌（登记槽里的 class，见下）必须写着同一句话。理由不是美学——用户按下「场景卡板」，
+ *      读屏念的档名是「场景卡板」，抬眼看见的区名是「卡片板」，两块地方两个说法，学到的一次
+ *      不够用（3.2.4 原文要的正是 identified with consistent descriptive text）。
+ *      两道闸门都在结构上，不靠模糊字符串比对：闸一要求这控件真的会换目的地（各档独有族非空
+ *      且两两不相交——只换参数的切换如「字数指标预览」不进这条）；闸二要求这条名牌在本控件
+ *      的档之间只出现一次（两档都挂着的那条是外层面板的标题，不是这块地方的自称）。
+ *      另配一支失明红：登记的名牌槽全程一条都没量到，说明这族 class 被改名／删掉了或走查不再
+ *      经过它——判据④就此悄悄失效，必须出声（针 I 专门测这一支）。
  *
  * 清点口径（实测出来的取舍，不是纸面偏好）：
  *   · 候选 = role=group 且有 aria-label，组内 ≥2 颗**带 aria-pressed** 的可见未禁用钮——
@@ -48,6 +59,12 @@
  *     空跑必须出声——BD-246 首跑漏了一句 site.open()，12 站全在启动屏空跑照样打 OK）。
  *   · 只有可及名、没有可见文本的档（「应用主题」那种色块钮）ℹ️ 另账记名、不判红；判据③只量
  *     真有文本的那些。这条分工见判据③，配了自证针 E 守着。
+ *   · 判据④的名牌走登记制（NAMEPLATE_CLASSES），不做结构猜测：探针④（/tmp/bd248c-probe4.log）
+ *     试过「类名以 -label/-title 结尾＋泡在 toolbar/header 里＋只在这一档出现」这套纯结构条件，
+ *     量出 12 条「不同名」，其中 8 条是 设定卡·看板 的列名「角色」「地点」「组织」「物品」
+ *     「世界规则」「情节事件」「伏笔线索」「资料」——那是用户自己起的卡片类型名（数据），不是
+ *     目的地的自称；结构条件分不清「区名」与「数据」，只有登记分得清。新增槽位先跑探针确认那行
+ *     写的确实是区名，再登记进来；登记了却没量到 → 失明红（上面那条）。
  *
  * 摸底实测（/tmp/bd247-probe1.mjs ~ probe3b.log，13 屏、64 条档记录、120 个语义词）先认出
  * 成对的那两处切换；正式走查的账记在下面「干净那轮实测」。
@@ -60,12 +77,16 @@
  *   「场景卡板」），措辞也更具体（板上装的是场景卡）。
  *   扫过判为干净的：应用主题、界面缩放、写作模式切换、快捷分类、按状态筛选收件箱、卡片视图、
  *   字数指标预览、历史视图、场景信息页签——各自在全程同名同序；「大纲树」这一档两处本来就同名。
- *   记档不当红：目的地**自己的题头**还留着第三种叫法（卡板工具条 .outline-toolbar-label 写
- *   「卡片板」、两处文案写「树与卡片板…」）——那是标题与散文，不是识别功能的控件；本普查只量
- *   控件，题头与散文的措辞统一留给 2.4.6 那一族一起理。
+ *   BD-247 收口时明着留给下一批的形状（原判据④）：目的地**自己的招牌**还留着第三种叫法——
+ *   卡板工具条 .outline-toolbar-label 写「卡片板」、大纲树那条写「大纲」，两处文案写
+ *   「树与卡片板…」。当时把它推给 2.4.6，是把它当「标题与散文」；BD-248 重看：这块地方的自称
+ *   正是用户按下档名后要确认「我到了哪儿」的那句话，属于 3.2.4 的第二形状 ⇒ 立判据④，
+ *   产品改口（大纲树／场景卡板，含卡板内分组控件的组名「场景卡板分组方式」与两处散文）。
+ *   判据④动手前先量出 4 条真红（写作与大纲两处 × 两档），修完 0 条。
  *
- * 干净那轮实测（产品改好后重跑，/tmp/bd247-rt-r0-fr.log 与还原后的 /tmp/bd247-rt-r5b-fr.log）：
- * 站点 12 个｜档记录 64 条｜ℹ️ 另账 12 条（每屏一组「应用主题」的三颗色块）｜红 0 条 → LABELS_OK/exit 0。
+ * 干净那轮实测（产品改好后重跑，/tmp/bd248-labels-2.log 与牙齿还原后的 /tmp/bd248-rt-r9.log、
+ * 第二趟的 /tmp/bd248-rt2-c0.log／-c9.log）：站点 12 个｜档记录 64 条｜ℹ️ 另账 12 条（每屏一组
+ * 「应用主题」的三颗色块）｜红 0 条 → LABELS_OK/exit 0。
  * 牙齿（每档跑完逐字节还原，RESTORE_IDENTICAL；数字出自 /tmp/bd247-teeth-runtime*.log 与
  * /tmp/bd247-teeth-static.log）：
  *   R1b 侧栏措辞退回旧叫法 → 红 2 条：判据①点名 .card-board-* 被叫成 ["卡片板","场景卡板"]，
@@ -78,14 +99,34 @@
  *   静态牙：S1 侧栏退回旧叫法红 5 条（本批两份新账＋WritingDesk 那一栏）、S2 只改普查基准红 1 条
  *   （单位账读 DOM、源码账读基准，各管一头）、S3 拆掉「按完退回原档」红 1 条、S4 判据③回到
  *   「可见文本为空即红」的旧口径红 1 条、S5 把常驻命令从 package.json 摘掉红 1 条。
+ *   BD-248 牙齿（运行时 /tmp/bd248-teeth-runtime.log 与第二趟 /tmp/bd248-teeth-runtime2.log，
+ *   静态 /tmp/bd248-teeth-static.log；每档跑完逐字节还原，RESTORE_IDENTICAL）：
+ *   T1 大纲树名牌退回「大纲」→ 红 2（写作台侧栏与大纲页两条路径各一条）；
+ *   T2 卡板名牌退回「卡片板」→ 红 2；
+ *   T3 两处一起退回（＝本批动手前的产品状态）→ 红 4，正是本批治的缺陷；
+ *   C4b 把登记的名牌槽改成产品里不存在的 class → 红 1「登记的名牌槽…全程一条都没量到」；
+ *   C5b 撤掉闸一 → 红 0：当前产品上它不改变结论（会换参数的切换本来就没挂登记名牌），
+ *       登记为防御性闸门——诚实记档，不当已证有效；
+ *   C6b 撤掉闸二 → 多红 2 条假红（写作·组「场景信息页签」的「场景雷达」「批注与引用」撞上
+ *       内嵌大纲树的「大纲树」名牌），并且 LABELS_NEEDLE_FAIL 当场抓住（针 H 依赖闸二）；
+ *   R9／C9 全部还原复跑 → LABELS_OK、红 0。
+ *   静态牙 S1 名牌退回旧叫法红 1 条、S2 名牌槽掏空红 1 条、S3 拆掉 ok 式里的「&& !h」红 2 条
+ *   （判据②那条用例也钉着同一个表达式）、S4 大纲页说明退旧措辞红 1 条、S5 拆掉闸二红 1 条、
+ *   S6 还原复核 0 条。S4 只红源码账：单位账（sensory-instructions-1-3-3）钉的是同段的另一句
+ *   「选中场景后可编辑任务卡字段。」，与本批改口的名字无关——不是漏牙。
+ *   一趟教训（已改脚本）：第一趟把 C 段排在 T3 之后、而 C 段只改普查脚本不重建，out/ 还留着
+ *   T3 的旧名牌，于是 C5／C6 的差分全被旧产品背景带着走（C5 报出的正是 T3 那 4 条）。
+ *   「只改普查脚本」不等于「可以站在脏构建上」——第二趟在 R9 重建之后重跑，才是上面这些数。
  *
  * 需要 Xvfb 与已构建的 out/：
  *   timeout 900 xvfb-run -a --server-args="-screen 0 1600x1000x24" node scripts/audit-consistent-labels.mjs
  * 退出码：有红 → LABELS_RED / exit 1；有站点或控件被跳过 → LABELS_SKIP / exit 2；全绿 → LABELS_OK / exit 0。
- * 自证针（文末 runNeedles）：喂进正式统计表的**副本**、跑同一个 findings()，三条判据各造一个
- * 红形状（A 异名／B 异组名／C 文本看不见／F 档序对调），再加两支口径针——D 证明「基准不许悄悄
+ * 自证针（文末 runNeedles）：喂进正式统计表的**副本**、跑同一个 findings()，四条判据各造一个
+ * 红形状（A 异名／B 异组名／C 文本看不见／F 档序对调／G 名牌漂移），再加四支口径针——D 证明「基准不许悄悄
  * 过期」真会响（先把该族的正式行摘掉再喂，否则族挂上两个名字就落进 A 的分支，D 空判过去：实测过），
- * E 证明纯色块档不会被判据③误伤。抓不到／误伤即 LABELS_NEEDLE_FAIL / exit 1。
+ * E 证明纯色块档不会被判据③误伤，H 证明两档共有的外层标题不会被判据④误伤（闸二撤掉它就红），
+ * I 证明名牌槽失明会出声（必须把正式表的槽名牌摘干净再喂——直接看正式表等于白跑：产品改好后
+ * 正式表本来就 0 条名牌红，既证不了针会响也证不了没失明）。抓不到／误伤即 LABELS_NEEDLE_FAIL / exit 1。
  * 针不许污染正式表，也不许为针另写判定条件；先看 needleSelfTest.ran 再判红——
  * 把针体整段短路也别想全绿（BD-226 的牙齿自检 T-C 实测过）。
  */
@@ -126,6 +167,14 @@ const DECLARED_CONTROLS = [
     why: "BD-247：大纲页（Tabs）与写作台侧栏（.writing-outline-view-switch）切的是同一对组件，必须同名同序。"
   }
 ];
+
+// 名牌槽（判据④）：挂这些 class 的元素，写的就是「这块地方叫什么」。登记制，不是结构猜测——
+// 探针④（/tmp/bd248c-probe4.log）曾用纯结构条件（类名以 -label/-title 结尾＋泡在 toolbar/head 里
+// ＋只在这一档出现）量出 12 条「不同名」，其中 8 条是 设定卡·看板 的列名「角色」「地点」「组织」
+// 「物品」「世界规则」「情节事件」「伏笔线索」「资料」——那是用户自己的卡片类型名（数据），
+// 不是目的地的名字；结构条件分不清「区名」与「数据」，只有登记分得清。
+// 新增槽位先跑探针确认那行写的确实是区名，再登记进来。
+const NAMEPLATE_CLASSES = ["outline-toolbar-label"];
 
 /* ---------- 起 app ---------- */
 
@@ -228,6 +277,28 @@ const tokensNow = () =>
   }, NOISE_PREFIX);
 
 /**
+ * 名牌（判据④）：登记槽里的元素此刻写着什么。排除切换控件自己内部（那是档名，不是目的地的名字）、
+ * 排除看不见的、排除长句（>12 字是说明，不是名字）。同一个 class 在一屏写两次也只记一份。
+ */
+const platesNow = () =>
+  page.evaluate((slots) => {
+    const out = [];
+    for (const el of document.querySelectorAll("[class]")) {
+      if (el.closest("[data-cl]") || el.closest("[data-clopt]")) continue;
+      if (!slots.some((s) => el.classList.contains(s))) continue;
+      const cs = getComputedStyle(el);
+      if (cs.display === "none" || cs.visibility === "hidden") continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) continue;
+      const t = (el.textContent || "").replace(/\s+/g, " ").trim();
+      if (!t || t.length > 12) continue;
+      out.push({ cls: [...el.classList].find((c) => slots.includes(c)), text: t });
+    }
+    const seen = new Set();
+    return out.filter((p) => !seen.has(`${p.cls}|${p.text}`) && seen.add(`${p.cls}|${p.text}`));
+  }, NAMEPLATE_CLASSES);
+
+/**
  * 找分段控件，并顺手量这颗档位「看不看得见」：按钮有没有盒子、文本节点有没有被
  * visibility:hidden／display:none 藏掉、有没有整块跑到屏外。textContent 为空但挂了 aria-label 的
  * （纯色块、纯图标那一族）只记名不判红——那是图案维度的账（见头注判据③的分工）。
@@ -292,7 +363,7 @@ const clickOption = (key) =>
     return true;
   }, key);
 
-const records = []; // {screen, group, cls, label, own:[语义词], vis:{box,textMode,hidden,offscreen,noBox}}
+const records = []; // {screen, group, cls, label, own:[语义词], vis:{box,textMode,hidden,offscreen,noBox}, plates:[{cls,text}]}
 
 const sweepSite = async (screen) => {
   await settle();
@@ -304,7 +375,7 @@ const sweepSite = async (screen) => {
       const hit = await clickOption(opt.k);
       if (!hit) { site.skips.push(`组「${sw.group}」档「${opt.label}」（按下去时这颗钮已经不在了）`); continue; }
       await settle();
-      snaps.push({ label: opt.label, tokens: await tokensNow(), vis: opt.vis });
+      snaps.push({ label: opt.label, tokens: await tokensNow(), vis: opt.vis, plates: await platesNow() });
     }
     const origin = sw.opts.find((o) => o.pressed) || sw.opts[0];
     if (origin) { await clickOption(origin.k); await settle(); }
@@ -319,7 +390,8 @@ const sweepSite = async (screen) => {
         cls: sw.cls,
         label: snap.label,
         own: snap.tokens.filter((t) => !rest.has(t)),
-        vis: snap.vis
+        vis: snap.vis,
+        plates: snap.plates || []
       });
     }
   }
@@ -363,7 +435,7 @@ function findings(rows) {
     if (!controls.has(key)) controls.set(key, { screen: r.screen, cls: r.cls, group: r.group, fams: new Set(), order: [], perOption: [] });
     const c = controls.get(key);
     c.order.push(r.label);
-    c.perOption.push({ label: r.label, fams: [...new Set(r.own.map(familyOf))] });
+    c.perOption.push({ label: r.label, fams: [...new Set(r.own.map(familyOf))], plates: r.plates || [] });
     for (const t of r.own) c.fams.add(familyOf(t));
   }
   const famControls = new Map(); // 目的地族 → 覆盖它的控件集合
@@ -414,6 +486,40 @@ function findings(rows) {
   for (const [key, a] of ariaOnly) {
     const [screen, group] = key.split("|");
     infos.push(`ℹ️ 另账（图案维度）：${screen}·组「${group}」的 ${a.n} 档只有可及名、没有可见文本（${a.names.join("／")}）——色块／图标的一致性由 audit-consistent-identification（BD-226）管，本账不判红`);
+  }
+  // 【档名点进去，目的地的名牌要同名】判据④（BD-248 立）。两道闸门都在结构上，不靠模糊字符串：
+  //   闸一（这控件真的会换目的地）：各档的独有族必须非空且两两不相交——只有换参数的切换
+  //     （写作统计「字数指标预览」那种）才出现族重叠／为空；
+  //   闸二（这条名牌真的是这块地方的名字）：它在本控件的档之间只出现一次——两档都挂的那条
+  //     是外层面板的标题（设定卡「关联卡片」实测如此），不是目的地的自称。
+  const plateSlots = new Map(); // 槽 class → 量到几次
+  for (const c of controls.values()) {
+    for (const o of c.perOption) {
+      for (const p of o.plates) plateSlots.set(p.cls, (plateSlots.get(p.cls) || 0) + 1);
+    }
+  }
+  for (const slot of NAMEPLATE_CLASSES) {
+    if (!plateSlots.has(slot)) {
+      reds.push(`登记的名牌槽 .${slot} 全程一条都没量到——判据④就此失明：要么这族 class 被改名／删掉了，要么走查再也没走到它所在的地方。先跑探针确认，再决定改产品还是撤登记。`);
+    }
+  }
+  for (const c of controls.values()) {
+    if (c.perOption.length < 2) continue;
+    const fams = c.perOption.map((o) => [...new Set(o.fams)]);
+    if (fams.some((f) => f.length === 0)) continue; // 有档量不出独有族 = 没证明它会换目的地
+    const flat = fams.flat();
+    if (new Set(flat).size !== flat.length) continue; // 族有重叠 = 换的是参数不是地方
+    const howMany = new Map();
+    for (const o of c.perOption) {
+      for (const t of new Set(o.plates.map((p) => p.text))) howMany.set(t, (howMany.get(t) || 0) + 1);
+    }
+    for (const o of c.perOption) {
+      for (const p of o.plates) {
+        if (howMany.get(p.text) !== 1) continue; // 两档都挂 = 外层面板的标题，不算这块地方的名字
+        if (p.text === o.label) continue;
+        reds.push(`档「${o.label}」点进去，目的地的名牌（.${p.cls}）写的是「${p.text}」——同一块地方两个说法（${c.screen}·组「${c.group}」）`);
+      }
+    }
   }
   return { reds, infos, fam, controls, byIdentity };
 }
@@ -480,8 +586,15 @@ function runNeedles() {
   copy.push({ screen: "针F·甲屏", group: "针F切换", cls: "needle-h", label: "针正二", own: ["needleOrd-b"], vis });
   copy.push({ screen: "针F·乙屏", group: "针F切换", cls: "needle-i", label: "针正二", own: ["needleOrd-b"], vis });
   copy.push({ screen: "针F·乙屏", group: "针F切换", cls: "needle-i", label: "针正一", own: ["needleOrd-a"], vis });
+  // 针 G（判据④）：换目的地的一档，目的地的名牌写着另一个名字——判据④该响。
+  copy.push({ screen: "针G·甲屏", group: "针G切换", cls: "needle-j", label: "针G一档", own: ["needlePlate-left"], plates: [{ cls: "outline-toolbar-label", text: "针G旧称呼" }], vis });
+  copy.push({ screen: "针G·甲屏", group: "针G切换", cls: "needle-j", label: "针G二档", own: ["needlePlate-right"], plates: [], vis });
+  // 针 H（判据④的闸二）：两档都挂着同一条名牌——那是外层面板的标题，不是这块地方的名字，不许红。
+  copy.push({ screen: "针H·甲屏", group: "针H切换", cls: "needle-k", label: "针H一档", own: ["needleOuter-left"], plates: [{ cls: "outline-toolbar-label", text: "外层面板标题" }], vis });
+  copy.push({ screen: "针H·甲屏", group: "针H切换", cls: "needle-k", label: "针H二档", own: ["needleOuter-right"], plates: [{ cls: "outline-toolbar-label", text: "外层面板标题" }], vis });
   const found = findings(copy);
-  const a = found.reds.some((x) => x.includes("目的地族 .needle-dest") && x.includes("针甲名") && x.includes("针乙名"));  const b = found.reds.some((x) => x.includes("同一套切换") && x.includes("needlePair") && x.includes("针B一组") && x.includes("针B二组"));
+  const a = found.reds.some((x) => x.includes("目的地族 .needle-dest") && x.includes("针甲名") && x.includes("针乙名"));
+  const b = found.reds.some((x) => x.includes("同一套切换") && x.includes("needlePair") && x.includes("针B一组") && x.includes("针B二组"));
   const c = found.reds.some((x) => x.includes("识别文本看不见") && x.includes("藏起来的档名"));
   const e = found.reds.some((x) => x.includes("识别文本看不见") && (x.includes("针浅色") || x.includes("针深色")));
   // 针 D：基准悄悄过期——族只挂一个名字、且与登记的不是同一个。
@@ -492,9 +605,16 @@ function runNeedles() {
   const dfound = findings(dcopy);
   const d = dfound.reds.some((x) => x.includes("基准不许悄悄过期") && x.includes(".outline-tree") && x.includes("旧称呼"));
   const f = found.reds.some((x) => x.includes("同一套切换") && x.includes("needleOrd") && x.includes("针正一") && x.includes("档序"));
+  const g = found.reds.some((x) => x.includes("名牌") && x.includes("针G一档") && x.includes("针G旧称呼"));
+  const h = found.reds.some((x) => x.includes("名牌") && x.includes("针H"));
+  // 针 I（判据④的失明分支）：把正式表里所有登记槽的名牌摘干净再喂——「全程没量到」该响。
+  // 不许直接看正式表：产品改好后正式表本来就是 0 条名牌红，那既证明不了针会响，也证明不了没失明。
+  const icopy = records.map((r) => ({ ...r, plates: (r.plates || []).filter((p) => p.cls !== "outline-toolbar-label") }));
+  const ifound = findings(icopy);
+  const i = ifound.reds.some((x) => x.includes("登记的名牌槽") && x.includes("outline-toolbar-label"));
   needleSelfTest.ran = true;
-  needleSelfTest.ok = a && b && c && d && f && !e;
-  needleSelfTest.why = `A(同目的地异名)=${a} B(同控件异组名)=${b} C(说了看不见)=${c} D(基准过期)=${d} E(色块不误伤)=${!e}${e ? "（判据③又把纯图标算红了）" : ""} F(档序对调)=${f}`;
+  needleSelfTest.ok = a && b && c && d && f && g && i && !e && !h;
+  needleSelfTest.why = `A(同目的地异名)=${a} B(同控件异组名)=${b} C(说了看不见)=${c} D(基准过期)=${d} E(色块不误伤)=${!e}${e ? "（判据③又把纯图标算红了）" : ""} F(档序对调)=${f} G(名牌漂移)=${g} H(外层标题不误伤)=${!h}${h ? "（判据④把两档共有的外层标题算红了）" : ""} I(名牌槽失明)=${i}`;
 }
 runNeedles();
 
