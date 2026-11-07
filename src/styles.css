@@ -3509,6 +3509,18 @@ button:disabled {
   padding-inline: 6px;
 }
 
+/* 批次 BD-249（1.4.1 选中态不许只靠颜色，更不许一点都不许）：这排「字数指标预览」页签
+ * 历史上**根本没写过激活态声明**——实测形状状态通道 0 条、颜色状态通道也 0 条
+ * （/tmp/bd249-probe4.log 里唯一一条「完全看不出选中态」），按下去只换下面的数字，
+ * 钮自己一个像素都不动：视障用户、色觉丧失者、乃至注意力在这排字上的任何人都无从确认
+ * 「现在看的是哪个口径」。补齐到岛内页签的同族口径（底色＋墨色＋字重 600，见
+ * editorial-studio.css 的 .writing-mode-switch button.active）。 */
+.stats-metric-switch button.active {
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-weight: 600;
+}
+
 .stats-card > h2 svg,
 .stats-card h3 svg {
   /* BD-29 摘死色：color: var(--copper) 从未渲染——「.stats-card h3 svg」 在产物里被 editorial-studio.css:794 同键更晚的一条整条压住 */

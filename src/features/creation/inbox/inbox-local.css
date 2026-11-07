@@ -74,10 +74,14 @@
   color: var(--paper-ink, currentColor);
 }
 
+/* 批次 BD-249（1.4.1 选中态不许只靠颜色）：这排状态药丸的「当前筛的是哪一档」原先全靠
+ * 铜底＋反白文字（实测形状状态通道 0 条、颜色 5 条，/tmp/bd249-probe4.log）。补一档几何：
+ * 字重 600，em 里的计数跟着走（em 自己没写 font-weight，继承本条）。 */
 .inbox-filter-chip.active {
   background: var(--copper, #8a5a2b);
   border-color: var(--copper, #8a5a2b);
   color: var(--fg-on-solid);
+  font-weight: 600;
 }
 
 .inbox-filter-chip em {

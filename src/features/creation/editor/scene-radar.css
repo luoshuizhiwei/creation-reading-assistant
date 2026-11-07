@@ -63,9 +63,13 @@
   cursor: pointer;
 }
 
+/* 批次 BD-249（1.4.1 选中态不许只靠颜色）：这两个页签的「正在看哪个」原先只有底色＋墨色
+ * 两笔，实测形状状态通道 0 条（/tmp/bd249-probe4.log）——灰阶下两页签一个样。补一档几何：
+ * 字重 600（岛内页签同族口径，见 editorial-studio.css 的 .writing-mode-switch button.active）。 */
 .writing-margin-tabs button.active {
   background: var(--bg-surface);
   color: var(--text-main);
+  font-weight: 600;
 }
 
 .scene-radar {

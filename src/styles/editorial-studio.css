@@ -449,8 +449,15 @@ select:focus-visible,
   background: transparent;
 }
 
+/* 批次 BD-249（1.4.1 选中态不许只靠颜色）：这颗点的「正在生效」原先只由环的**颜色**指认
+ * （BD-210 把边界从 transparent 抬成 --border-field 时，激活态就只剩 .active 换色一条路）。
+ * 实测（/tmp/bd249-probe4.log）：形状状态通道 0 条、颜色状态通道 2 条 ⇒ 全仓唯一一把
+ * 连文字都没有的切换，色觉丧失/灰阶下完全分不出哪颗是按下的。加一档几何：环宽 1px→2px，
+ * 灰阶下也能认出「这颗粗一圈」。box-sizing 全站 border-box（styles.css:80），外框恒 20×20、
+ * 12px 色块居中不动，非激活钮仍是 BD-210 的 1px 字段档环。 */
 .desktop-dock-dot.active {
   border-color: var(--studio-seal);
+  border-width: 2px;
 }
 
 .desktop-dock-swatch {
@@ -1559,11 +1566,18 @@ select:focus-visible,
   border-radius: 6px;
 }
 
+/* 批次 BD-249（1.4.1 选中态不许只靠颜色）：这条岛内激活态原本只有「底色＋墨色」两笔，
+ * 实测写作模式切换（.writing-mode-switch）形状状态通道 0 条、颜色 1 条（/tmp/bd249-probe4.log）
+ * ——灰阶下两档一模一样。同族另两条（大纲视图、卡片视图）早就靠 4438 那条 !important 副本
+ * 拿到 600 的字重，所以这条补齐后三座岛同口径：字重 550/常规 → 600 与底色同批换。
+ * 为什么补在这条而不是单独写一条 .writing-mode-switch：三座岛本来就共用这一条壳规则
+ * （BD-53 记过这条是三胞胎），拆开等于给同角色造两个档。 */
 .writing-mode-switch button.active,
 .writing-outline-view-switch button.active,
 .cards-view-switch button.active {
   background: var(--bg-surface);
   color: var(--text-main);
+  font-weight: 600;
 }
 
 .writing-scroll {
