@@ -126,7 +126,8 @@
     "audit:edit-focus": "node scripts/audit-edit-focus.mjs",
     "audit:confirm-state": "node scripts/audit-confirm-state.mjs",
     "audit:status-messages": "node scripts/audit-status-messages.mjs",
-    "audit:table-relationships": "node scripts/audit-table-relationships.mjs"
+    "audit:table-relationships": "node scripts/audit-table-relationships.mjs",
+    "audit:input-purpose": "node scripts/audit-input-purpose.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",

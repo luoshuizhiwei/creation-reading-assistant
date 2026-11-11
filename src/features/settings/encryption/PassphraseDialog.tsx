@@ -110,13 +110,18 @@ export function PassphraseDialog({
           </p>
         )}
 
+        {/* BD-255（WCAG 1.3.5 输入用途可识别）：解锁框收集的是用户**已有**的那把口令，
+            用途词就该是 current-password。原先写 off，是把「别让密码管理器建议新口令」
+            这个正当顾虑用「干脆谁都别填」来实现——机器从此认不出这一格要填什么，
+            用户只能凭记忆逐字敲。current-password 既拦住新口令建议，又让管理器把存好的
+            口令填进来。下面确认口令那框仍是 new-password：语义相反，不能混。 */}
         <label className="pe-field mt-3 block">
           <span>{isCreate ? "口令" : "解锁口令"}</span>
           <input
             type="password"
             className="pe-input"
             data-testid="pe-passphrase"
-            autoComplete={isCreate ? "new-password" : "off"}
+            autoComplete={isCreate ? "new-password" : "current-password"}
             value={passphrase}
             disabled={busy}
             aria-invalid={tooShort}

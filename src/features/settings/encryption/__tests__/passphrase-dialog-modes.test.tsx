@@ -17,9 +17,14 @@ describe("PassphraseDialog 扩展（mode / minLength / description）", () => {
     expect(onConfirm).toHaveBeenCalledWith("s");
   });
 
-  it("confirm 模式：autoComplete 不为 new-password，避免密码管理器建议新口令", () => {
+  // BD-255（1.3.5）：原先这里钉的是 "off"，顾虑是「别让密码管理器建议新口令」。
+  // 那个顾虑用 current-password 正好解决，而 off 会让机器认不出这一格的用途。
+  it("confirm 模式：autoComplete 为 current-password（填已有口令，且不主张新口令）", () => {
     render(<PassphraseDialog open mode="confirm" onConfirm={vi.fn()} />);
-    expect(screen.getByTestId("pe-passphrase").getAttribute("autoComplete")).toBe("off");
+    const ac = screen.getByTestId("pe-passphrase").getAttribute("autoComplete");
+    expect(ac).toBe("current-password");
+    expect(ac).not.toBe("new-password");
+    expect(ac).not.toBe("off");
   });
 
   it("create 模式：minLength 不足时显示提示并禁用提交", () => {
