@@ -124,7 +124,8 @@
     "audit:selected-state": "node scripts/audit-selected-state.mjs",
     "audit:character-keys": "node scripts/audit-character-keys.mjs",
     "audit:edit-focus": "node scripts/audit-edit-focus.mjs",
-    "audit:confirm-state": "node scripts/audit-confirm-state.mjs"
+    "audit:confirm-state": "node scripts/audit-confirm-state.mjs",
+    "audit:status-messages": "node scripts/audit-status-messages.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",

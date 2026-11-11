@@ -59,7 +59,13 @@ export function InboxItemDetail({
           <h2 className="paper-title mt-1 text-xl font-semibold">条目正文</h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`inbox-save-status inbox-save-status--${saveStatus}`}>
+          {/* BD-253（WCAG 4.1.3 状态消息·非错误维度）：这盏灯是「未保存→保存中…→已保存」
+              的唯一播报口，收件箱页里没有第二个 live 区替它说话（实测三次状态变化，
+              live 宿主=无）。写法照编辑器行内那条双胞胎 SceneEditor 的 .scene-save-status：
+              只挂 aria-live="polite"，灯本身常驻在详情头里（不是随内容一起插入），
+              所以每一次文本变化都在已存在的 polite 区里发生，读屏器听得到。
+              不加 role="status"：与双胞胎逐字一致，避免同一族两种写法。 */}
+          <span className={`inbox-save-status inbox-save-status--${saveStatus}`} aria-live="polite">
             {saveStatus === "saving"
               ? "保存中…"
               : saveStatus === "saved"
