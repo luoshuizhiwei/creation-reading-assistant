@@ -13,6 +13,7 @@ import type {
 import { computeBatchStatusImpact, computeSceneMoveImpact } from "./outline-impact";
 import { reorderTarget } from "./outline-reorder";
 import { StructureImpactDialog } from "./StructureImpactDialog";
+import { useEditFocusHandoff } from "./use-edit-focus-handoff";
 import { SCENE_STATUS_OPTIONS } from "@/features/creation/scene-status";
 import "./outline-reorg.css";
 
@@ -76,6 +77,12 @@ export function CardBoard({
   // 出路：常驻可见提示 + aria-describedby。旁边那颗「批量状态」下拉框本来就有显式的
   // 「应用」钮（本文件 :325），它不是这一族的形状，不动。
   const adviceId = useId();
+  // BD-251（2.4.3）：runEdit 的 busy 会把状态下拉与重排钮整片禁用，握在上面的焦点被浏览器
+  // 吐回 body；事务完成后没人接回来（实测 /tmp/bd251-red2.log：卡板状态下拉／上移／下移场景）。
+  // 「落定」信号取 [outline, busy]：busy 进出各翻一次，之后还有一次结构刷新会搬动卡片
+  // DOM 节点、把刚接回去的焦点再撞掉一次，两拍都得重试（见钩子里的重试阶梯注释）。
+  const boardRef = useRef<HTMLDivElement>(null);
+  const editFocusHandoff = useEditFocusHandoff(boardRef, [outline, busy], ".card-board-card, .card-board-group");
 
   /**
    * 统一的编辑事务包装：进入 busy、清除旧错误、执行回调。
@@ -296,7 +303,7 @@ export function CardBoard({
   };
 
   return (
-    <div className="card-board">
+    <div className="card-board" ref={boardRef} {...editFocusHandoff}>
       <div className="card-board-toolbar">
         {/* BD-248（WCAG 3.2.4 判据④）：名牌原先写「卡片板」，通往它的两把切换都叫「场景卡板」
             （BD-247 刚把侧栏那一把统一到这个说法），这里别再留第三种称呼。*/}

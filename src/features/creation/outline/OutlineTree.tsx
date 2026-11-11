@@ -35,6 +35,7 @@ import {
   findSceneLocation
 } from "./outline-impact";
 import { StructureImpactDialog } from "./StructureImpactDialog";
+import { useEditFocusHandoff } from "./use-edit-focus-handoff";
 import { reorderTarget } from "./outline-reorder";
 import "./outline-reorg.css";
 
@@ -226,6 +227,10 @@ export function OutlineTree({
   // 焦点交给原位置的下一个删除钮（末尾向前退一位）；树删空时退到树容器。
   // 条目没走（失败/未刷新）就不动焦点，避免结构刷新把焦点抢走。
   const treeRef = useRef<HTMLDivElement>(null);
+  // BD-251（2.4.3）：重排钮把条目挪到边界后自己变 disabled，浏览器把焦点吐回 body，
+  // 条目却还在（实测 /tmp/bd251-red2.log：下移卷／上移章节／上移场景三处）。
+  // 与上面 BD-220 的删除交接分工：那支管条目卸载，这支管条目还在、控件被禁用。
+  const editFocusHandoff = useEditFocusHandoff(treeRef, [outline], "li");
   const pendingDeleteFocusRef = useRef<{ key: string; order: string[] } | null>(null);
   useEffect(() => {
     const pending = pendingDeleteFocusRef.current;
@@ -791,7 +796,7 @@ export function OutlineTree({
   };
 
   return (
-    <div className="outline-tree" ref={treeRef} tabIndex={-1}>
+    <div className="outline-tree" ref={treeRef} tabIndex={-1} {...editFocusHandoff}>
       <div className="outline-toolbar">
         {/* BD-248（WCAG 3.2.4 判据④「档名点进去，目的地的名牌要同名」）：这块地方的名牌原先写
             「大纲」，而通往它的两把切换（大纲页 Tabs、写作台侧栏）都叫它「大纲树」——用户在同一

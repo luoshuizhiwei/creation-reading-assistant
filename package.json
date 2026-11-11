@@ -122,7 +122,8 @@
     "audit:context-change": "node scripts/audit-context-change.mjs",
     "audit:consistent-labels": "node scripts/audit-consistent-labels.mjs",
     "audit:selected-state": "node scripts/audit-selected-state.mjs",
-    "audit:character-keys": "node scripts/audit-character-keys.mjs"
+    "audit:character-keys": "node scripts/audit-character-keys.mjs",
+    "audit:edit-focus": "node scripts/audit-edit-focus.mjs"
   },
   "dependencies": {
     "@tiptap/core": "3.31.3",
