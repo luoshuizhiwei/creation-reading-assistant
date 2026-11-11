@@ -301,7 +301,13 @@ export function LibraryPage() {
                 </div>
                 {filteredAndSorted.length === 0 ? (
                   <div role="row">
-                    <div role="cell" className="py-10 text-center text-sm text-paper-muted">
+                    {/* BD-254（WCAG 1.3.1 信息关系·表格行列对应）：这一行只有一个格子，却坐在
+                        6 个列头底下——读屏器会把「没有匹配搜索结果的书」念成「格式」列的值。
+                        补 aria-colspan 让它横跨全部 6 列（列头就是上面那 6 个 columnheader）。
+                        这是 ARIA 表格（div + role），HTML 的 colspan 在 role=cell 上不生效；
+                        也不把空态行搬出表格：那会改掉 display:grid 的列轨与面板视觉，
+                        而 1.3.1 要的是关系正确、不是 DOM 重排。 */}
+                    <div role="cell" aria-colspan={6} className="py-10 text-center text-sm text-paper-muted">
                       {hasActiveFilters ? "没有匹配搜索结果的书。试试调整筛选条件。" : "书库暂无数据。"}
                     </div>
                   </div>
