@@ -73,6 +73,25 @@
   background: var(--proof-mark);
   color: var(--fg-on-solid);
   border-color: var(--proof-mark);
+  /* 批次 BD-252（1.4.1 确认态不许只靠颜色）：卡片类型/关系类型编辑器的删除钮是纯图标，
+   * 确认态此前只有「浅底 → 实色红填充」这一件事在动。实测（/tmp/bd252-red.log）形状通道
+   * 0 条、颜色通道 2 条；这一族的灰度差很大（mean 124.28、强差占比 0.8775）却照样是缺陷
+   * ——差的仍然只有颜色，灰阶用户看到的是「一颗深一点的垃圾桶」，读不出「再按就删」。
+   * 边框色与填充色同为 --proof-mark，所以加粗边框在这族是看不见的，只能加记号。 */
+  position: relative;
+}
+
+/* 与大纲族同一套语言（styles.css 的 .outline-node-actions button.confirming::after）：
+ * 底部一道 2px 横杠，绝对定位不占流。杠色取 --fg-on-solid —— 画在实色红填充上，
+ * 沿用本规则自己的前景/底配对；大纲族画在纸面上，故那边取 --proof-mark。 */
+.cards-icon-btn.confirming::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 2px;
+  height: 2px;
+  background: var(--fg-on-solid);
 }
 
 .cards-fields-manager {

@@ -2425,6 +2425,29 @@ button:disabled {
 .outline-node-actions button.confirming {
   color: var(--proof-mark);
   background: color-mix(in srgb, var(--proof-mark) 12%, transparent);
+  /* 批次 BD-252（1.4.1 确认态不许只靠颜色）：这两笔颜色是「再按一下就把这一卷/章/场景
+   * 删掉」的唯一视觉说法——图标钮没有文字可变，BD-172 补的 aria-label 只有读屏器听得到。
+   * 运行时实测（/tmp/bd252-color2.log，常驻账 scripts/audit-confirm-state.mjs 的红基线
+   * /tmp/bd252-red.log）：形状通道 0 条、颜色通道 4 条，灰度 mean 15.52 / max 17.4、
+   * 强差占比 0 —— 灰阶屏幕上前后几乎一模一样。position 只为下面那道杠提供定位祖先，
+   * 绝对定位不占流，24×24 的指针目标（BD-208）与簇内 2px 缝（BD-73）都不动。 */
+  position: relative;
+}
+
+/* 「已 armed」的形状记号：底部一道 2px 横杠。为什么不换图标——3.2.4 那本账
+ * （scripts/audit-consistent-identification.mjs）把删除族钉成单一图案 2f9d4f59（Trash2）；
+ * 为什么不加边框——这一族 border:0 且全站 border-box，2px 边会把 12px 图标挤进 8px 内容盒；
+ * 为什么不用 outline/box-shadow——那两样是焦点环账（BD-241/243）的判据面，
+ * 常驻态占上去会让「聚焦前后差分」失去基线。杠色沿用本规则自己的前景 --proof-mark，
+ * 与纸面的对比度就是既有文字的那一对。 */
+.outline-node-actions button.confirming::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 2px;
+  height: 2px;
+  background: var(--proof-mark);
 }
 
 .outline-move-select {
