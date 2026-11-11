@@ -890,17 +890,39 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     return { canceled: false, written: rows.length } as CardExportResult;
   });
 
-  ipcMain.handle("creation:replacePlanCreate", (_event, query: ReplacePlanQuery) =>
-    coordinator.withWorkspace((workspace) => workspace.createReplacePlan(query))
-  );
+  // BD-256：Electron 的 IPC 错误过桥只保留 message，Error 上自定义的 code 字段会被丢掉。
+  // 替换面板靠 code === "invalid-input" 才会标红查找框并 aria-describedby 指向错误横幅，
+  // code 一丢就退化成 transaction-failed：用户只看到一句英文 IPC 包装串，出错的那一格毫无标记。
+  // 这里把 code 编进 message 前缀（"[invalid-input] 正则表达式无效。"），
+  // 由渲染层 creation-service 解回结构化 code，正文仍是给人看的中文。
+  const rethrowWithReplaceCode = (error: unknown): never => {
+    const code = (error as { code?: unknown } | null)?.code;
+    const message = error instanceof Error ? error.message : String(error);
+    if (typeof code === "string" && /^[a-z-]+$/.test(code)) {
+      throw new Error(`[${code}] ${message}`);
+    }
+    throw error;
+  };
 
-  ipcMain.handle("creation:replacePlanApply", (_event, input: { planId?: unknown; excludedHitIds?: unknown }) => {
-    const planId = typeof input?.planId === "string" && input.planId.trim() ? input.planId : "";
-    if (!planId) throw new CreationWorkspaceError("invalid-input", "替换计划读取请求无效。");
-    const excludedHitIds = Array.isArray(input?.excludedHitIds)
-      ? (input!.excludedHitIds as unknown[]).filter((id): id is string => typeof id === "string")
-      : [];
-    return coordinator.withWorkspace((workspace) => workspace.applyReplacePlan(planId, excludedHitIds));
+  ipcMain.handle("creation:replacePlanCreate", async (_event, query: ReplacePlanQuery) => {
+    try {
+      return await coordinator.withWorkspace((workspace) => workspace.createReplacePlan(query));
+    } catch (error) {
+      return rethrowWithReplaceCode(error);
+    }
+  });
+
+  ipcMain.handle("creation:replacePlanApply", async (_event, input: { planId?: unknown; excludedHitIds?: unknown }) => {
+    try {
+      const planId = typeof input?.planId === "string" && input.planId.trim() ? input.planId : "";
+      if (!planId) throw new CreationWorkspaceError("invalid-input", "替换计划读取请求无效。");
+      const excludedHitIds = Array.isArray(input?.excludedHitIds)
+        ? (input!.excludedHitIds as unknown[]).filter((id): id is string => typeof id === "string")
+        : [];
+      return await coordinator.withWorkspace((workspace) => workspace.applyReplacePlan(planId, excludedHitIds));
+    } catch (error) {
+      return rethrowWithReplaceCode(error);
+    }
   });
 
   ipcMain.handle("creation:sessionUpdate", (_event, command: unknown) =>

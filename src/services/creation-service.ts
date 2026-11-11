@@ -397,15 +397,36 @@ export async function cardExportOpenAndWrite(input: {
   return getCreationApi().cardExportOpenAndWrite(input);
 }
 
+// BD-256：主进程把替换错误的 code 编成 "[code] 正文" 过桥（IPC 会丢掉 Error 的自定义字段），
+// 这里解回结构化 code，并剥掉 Electron 的 "Error invoking remote method '…': XxxError: " 包装，
+// 让面板拿到干净的中文正文＋原来的 code，从而把「正则无效」这类错误标在查找框上。
+function reviveReplaceError(error: unknown): never {
+  const raw = error instanceof Error ? error.message : String(error);
+  const body = raw
+    .replace(/^Error invoking remote method '[^']+':\s*/, "")
+    .replace(/^[A-Za-z]*Error:\s*/, "");
+  const matched = /^\[([a-z-]+)\]\s*([\s\S]*)$/.exec(body);
+  if (matched) throw Object.assign(new Error(matched[2]), { code: matched[1] });
+  throw Object.assign(new Error(body), { code: "transaction-failed" });
+}
+
 export async function replacePlanCreate(query: ReplacePlanQuery): Promise<ReplacePlan> {
-  return getCreationApi().replacePlanCreate(query);
+  try {
+    return await getCreationApi().replacePlanCreate(query);
+  } catch (error) {
+    return reviveReplaceError(error);
+  }
 }
 
 export async function replacePlanApply(input: {
   planId: string;
   excludedHitIds: string[];
 }): Promise<ReplaceApplyOutcome> {
-  return getCreationApi().replacePlanApply(input);
+  try {
+    return await getCreationApi().replacePlanApply(input);
+  } catch (error) {
+    return reviveReplaceError(error);
+  }
 }
 
 export async function sessionUpdate(command: SessionUpdateCommand): Promise<SessionReportResult> {
