@@ -21,7 +21,7 @@
 1. 活动仓库 `D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/AGENTS.md` 和用户级 `C:/Users/23254/.codex/AGENTS.md`。Codex接任者另遵守本机Codex vault入口规则；其他 agent 不因此获得读取Codex/DSH/Claude等私有记忆库的许可。
 2. [current.md](current.md)：权限、暂停、唯一候选、已验与未验、下一步、文件owner。
 3. 本手册相应任务卡；[208设备合同](../coordination/2026-10-31-task208-ordinary-reopen-fresh-device.md)只在需要208时读。
-4. `E:/creation-reading-assistant/coordination/android-zcode-luna-state.json` 的 `a`、`b`、`currentTask`、`automationAuthorization` 以及当前任务对应的最新Review；这些是摘要，验收仍以报告和原证为准。
+4. `E:/AgentWork/CRA/coordination/android-zcode-luna-state.json` 的 `a`、`b`、`currentTask`、`automationAuthorization` 以及当前任务对应的最新Review；这些是摘要，验收仍以报告和原证为准。
 5. 只读本任务所需原报告、源码差量、日志/XML、patch、APK。路径失效先查 [document-map.csv](../document-map.csv)，不加载全部历史、不宣布原件丢失。
 
 启动输出应简短：这次接任的职责、实际任务版本、已确认输入、是否具备权限、实际owner/工作区、下一具体动作。没有新证据就不要重讲历史。
@@ -66,7 +66,7 @@ flowchart TD
 **成功标准**：确认current所列匹配APK对仍在实际candidate、SHA一致；明确最新207-r4只接受源码/编译/产物，Android运行仍NOT_RUN；208尚未派发的状态有没有被新用户指令改变。
 
 - 当前唯一Android构建工作区见current，不能另建一套工程/缓存。
-- 207-r4交付根：`E:/creation-reading-assistant/task207-reader-exit-stack-repair-v1/recheck-r4/`。Root限定结论见其 `root-review/REPORT.md`、`checks.json`；不要只信ready中的状态字符串。
+- 207-r4交付根：`E:/AgentWork/CRA/task207-reader-exit-stack-repair-v1/recheck-r4/`。Root限定结论见其 `root-review/REPORT.md`、`checks.json`；不要只信ready中的状态字符串。
 - 有必要时对current指定的APK、当前受改源码及冻结203方法源码实算SHA；不能为交接重跑JVM/Gradle。充分旧原日志、签名和指纹关系可引用。
 - 原205业务红和206有限恢复的限制见current；不重新审历史D，不重做206恢复。
 - 原交付包被覆盖/实际SHA变更：记录哪个输入变化、谁持有写权限，停设备依赖，找对应新版本或保全原件。不得用旧结论套新APK。
@@ -83,12 +83,12 @@ flowchart TD
 
 | 机制/参考 | 实际路径 | 怎样使用 |
 |---|---|---|
-| 生产统一入口 | `E:/creation-reading-assistant/task192-reader-internal-lifo-host-offline-v1/host/entry_lifo_192.py` | 新208仍经此入口，读取其绑定和finally，不改它 |
+| 生产统一入口 | `E:/AgentWork/CRA/task192-reader-internal-lifo-host-offline-v1/host/entry_lifo_192.py` | 新208仍经此入口，读取其绑定和finally，不改它 |
 | 单方法宿主/输入校验 | 同目录 `host192.py` | 核 `verify_inputs_192`、schema、目标方法、合法runId/scope和CLI；waiting输入必须拒绝执行 |
-| 恢复实现 | `E:/creation-reading-assistant/task166-quiet-writer-recovery-v1/host/host166.py` | 原同源HOST158/166恢复合同，只读复用，不自行简化 |
-| 身份适配 | `E:/creation-reading-assistant/task179-instance-identity-adapter-offline-v1/recheck-r3/` | fresh完整身份，不能旧serial/boot硬编码 |
-| keepalive实际绑定 | `E:/creation-reading-assistant/task184-strict-keepalive-entry-offline-v1/recheck-r2/keepalive_entry_r2.py` | 由入口绑定实际parent，结束finally还原 |
-| 上次设备driver结构 | `E:/creation-reading-assistant/task205-ordinary-reopen-device-v1/{preflight_205.py,prepare_inputs_205.py,run_batch_205.py,postflight_205.py}` | 按需读实现和已知缺口；禁止直接执行旧205路径/旧runId |
+| 恢复实现 | `E:/AgentWork/CRA/task166-quiet-writer-recovery-v1/host/host166.py` | 原同源HOST158/166恢复合同，只读复用，不自行简化 |
+| 身份适配 | `E:/AgentWork/CRA/task179-instance-identity-adapter-offline-v1/recheck-r3/` | fresh完整身份，不能旧serial/boot硬编码 |
+| keepalive实际绑定 | `E:/AgentWork/CRA/task184-strict-keepalive-entry-offline-v1/recheck-r2/keepalive_entry_r2.py` | 由入口绑定实际parent，结束finally还原 |
+| 上次设备driver结构 | `E:/AgentWork/CRA/task205-ordinary-reopen-device-v1/{preflight_205.py,prepare_inputs_205.py,run_batch_205.py,postflight_205.py}` | 按需读实现和已知缺口；禁止直接执行旧205路径/旧runId |
 | 恢复缺口反例 | current中task205Review/task206Review及对应报告 | 不沿用旧“全绿”口号，原rc/userState/binding/末态保护分别核实 |
 
 208需最小新driver/inputs时，在208任务根制作差量，只更新本批真实输入和绑定；不复制冻结宿主/依赖闭包来绕路径门。任何固定校验不支持新输入，应报告准确拒绝原因，不能改冻结校验器迎合。
@@ -236,7 +236,7 @@ ready最后写，列真实报告/patch/日志/产物路径及size/SHA，不自�
 ````text
 你接任创作阅读助手原生Android恢复项目的协调者。活动仓库D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919。
 
-请先读仓库与用户级AGENTS.md、docs/handoff/current.md、docs/handoff/continuation-playbook.md、E:/creation-reading-assistant/coordination/android-zcode-luna-state.json当前a/b/currentTask及对应最新Review；旧路径失效查docs/document-map.csv，不加载历史全集。
+请先读仓库与用户级AGENTS.md、docs/handoff/current.md、docs/handoff/continuation-playbook.md、E:/AgentWork/CRA/coordination/android-zcode-luna-state.json当前a/b/currentTask及对应最新Review；旧路径失效查docs/document-map.csv，不加载历史全集。
 
 你可以承担接任Root职责，基于实际原证核验交付、维护current/state、制定下一任务合同；无需等待原Codex额度恢复或原窗口批准普通技术决定。每项后续工作先写完整任务文档，再按我的本轮授权执行。当前自动化仍暂停；阅读本框不等于授权设备/ADB/VM或外部代发。若我同时明确交办208及其设备恢复范围，把本轮指令记为该批授权，再照完整208合同执行，不重复请原Root确认。
 

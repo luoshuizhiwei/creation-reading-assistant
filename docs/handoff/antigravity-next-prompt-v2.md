@@ -6,7 +6,7 @@
 你继续担任创作阅读助手原生Android恢复Root。本项目使用MuMu模拟器验收已经得到我的同意，包含启动既有MuMu instance 1、执行AR03/AR04/AR05以及各批166+R2恢复。不要再询问是否允许启动或使用MuMu，也不要让我手动启动后才能继续。
 
 活动仓库D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919。
-唯一candidate为E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android。
+唯一candidate为E:/AgentWork/CRA/task59-common-candidate-v1/candidate/android。
 
 先读AGENTS、docs/handoff/current.md、docs/coordination/2026-11-02-mumu-acceptance-authorization-clarification.md、当前AR03/04/05合同及state当前字段。最新用户决定和权限纠正文件优先于旧报告“等待启动授权”。
 

@@ -6,7 +6,7 @@
 
 1. 读仓库与用户级 AGENTS；遵守各 agent 私有记忆边界（本仓库历史经验见 ZCode 原生记忆索引）。
 2. 读 [current](current.md)：现态、待用户四项、复用边界、候选 SHA。
-3. 读 `E:/creation-reading-assistant/coordination/android-zcode-luna-state.json` 的 nextContinuationQueue（nbLine20261103 有 NB01-15 全台账）。旧路径查 [document-map.csv](../document-map.csv)，不加载历史全集。
+3. 读 `E:/AgentWork/CRA/coordination/android-zcode-luna-state.json` 的 nextContinuationQueue（nbLine20261103 有 NB01-15 全台账）。旧路径查 [document-map.csv](../document-map.csv)，不加载历史全集。
 
 ## 当前事实（2026-11-04）
 
