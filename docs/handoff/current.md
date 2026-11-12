@@ -1,5 +1,17 @@
 # 当前交接入口
 
+## 2026-11-12 RDS-R8-ZCODE-SEARCH-LANDING-FIX-v1 收官（ZCode，首屏偏页修复 PASS）
+
+首屏偏页根因=搜索索引 `charOffset` 基于**原始 Markdown 源文本**，阅读器 chapterStartOffsets/分页基于 **canonicalText**（去标记）；搜索来的 `legacyOffset` 未经 `MarkdownDocument.migrateLegacyOffset` 就被 `resolveChapteredPosition` 当 canonical 偏移消费（该方法原本只服务已存进度）。最小修复 3 文件（`landing-fix.patch` 2906B）：`SourceNavigationContract.migrateTargetOffset` 纯函数 + `ReaderProgressEffects.navigateChaptered` 的 MD 分支迁移 target + 新定向回归；TXT/EPUB/普通续读不变。修前红（rc=1）→修后绿 **32/32 rc=0**；新包 `0a81ac0400142d2d8d100c9bf9e1bd9a00166f91108f409ddab8e13cf5806e8e`（51,977,940B）装机 SHA 回读逐位一致；同一夹具搜 `7391`→**未翻页首屏 59.4%、第12节 `7391` 直接可见**（旧包为 75.3% 第13/14节需翻页）=**PASS**；返回保留、恢复 EXACT MATCH（历史 ZIP 3555f331… 保留）。旧包 `5ef408d7…` 构建前已保全（逐位一致）作修复前基准；`fc600e8c…` 保持 R8 A1-A6 基准。**现行候选=`0a81ac04…`**。源码改动留工作树，未 Git 暂存/提交。报告：`E:/AgentWork/CRA/rds-v1-real-device-smoke/root-checks/r8-zcode-search-landing-fix-v1/`。
+
+## 2026-11-12 RDS-R8-ZCODE-SEARCH-FIRST-LANDING-v1 收官（ZCode，首屏落点 FAIL）
+
+真机 c49ac6cf 装 `5ef408d7…` 装机 SHA 逐位一致。既有 40 段同构夹具无唯一可输入远页词，按合同新建 `fixture-first-landing.md`（3575B/`75de68ac…`，唯一词 `7391` 仅出现 1 次于第12节约第941字）；初始页 0.0% 证不可见；搜索框逐位=`7391`，正文=1「第941字附近」。**点击后未翻页未滚动的首屏=75.3%（第13/14节），不含 `7391` 与第12段；一次左翻页 59.4% 才见目标段落 → 业务 FAIL（首屏偏页）**，返回查询/结果仍保留。只读定位：941 与夹具位置自洽，偏差在 `ReaderProgressEffects.targetPercent`/`ChapterPaginator` 的"偏移→百分比→分页首屏"映射；缺 route legacyOffset / totalChars / absoluteOffset 三个观测值，建议加 instrumentation 核五值链（交 Root，未改源码）。恢复 EXACT MATCH（历史 ZIP 3555f331… 保留）。**新增登记=`5ef408d7…` 首屏精确定位存在偏页缺陷**；既有远页可翻页到达/查询84/日志/A1-A6 证据不变。报告：`E:/AgentWork/CRA/rds-v1-real-device-smoke/root-checks/r8-zcode-search-first-landing-v1/`。
+
+## 2026-11-12 RDS-R8-ZCODE-SEARCH-FAR-PAGE-v1 收官（ZCode，真机远页搜索定位）
+
+真机 c49ac6cf 空闲门成立，装 `5ef408d7…` 装机 SHA 回读逐位一致；沿用既有隔离测试 MD（历史 ZIP 按精确路径保留未动）。普通打开 0.0% 证 `84v1-MD-20` 不在初始页；查询 `20`（`input text` 一次送入、提交前 dump 逐位核 `'20'` 正确；长串 `84v1-MD-20` 被 WeType 改写为首页命中已按合同弃用）→ 正文=1 "第 2268 字附近" → 点击落 50.1%（远页）→ 一次左翻页 46.3% **第20节 `【 84v1-MD-20】` 完整可见** → Back 回搜索页 `20`/结果卡保留=业务 **PASS_WITH_NOTE**（目标标记需一次翻页可见，不夸大为点击即见）。恢复逐键 EXACT MATCH（历史 ZIP sha256sum=3555f331… 保留、前台回桌面）。`5ef408d7…` 新增"真机远页搜索定位"已验范围；全标记串注入受 WeType 限制（设备输入边界），更严口径需用户手工输入该一个查询。报告：`E:/AgentWork/CRA/rds-v1-real-device-smoke/root-checks/r8-zcode-search-far-page-v1/`。
+
 ## 2026-11-12 RDS-R8-ZCODE-LOCAL-COMMIT-v1 收官（ZCode，本地提交）
 
 按用户精确授权完成**一次本地提交**：`dbe2bc08e4f5676ae671569a36bf0f155c24ef72`（父 `cb18a7b79ab9ec54fe2d159750ded1784dc3b5fc`，标题 `feat(android): integrate validated reader and data fixes`）。提交树恰好 45 个授权 Android 文件（A=19/B=9/C=6/E=11，排除 2 份 TalkBack 探针），45 项 SHA-256 与审查清单逐项一致，`git diff --cached --check` rc=0、暂存 blob 内容 45/45 无漂移（CRLF 按 Git 属性规则解释）。提交后核验：父提交正确、暂存区=0、工作树剩 26 项（D 组 23 文档+2 探针+根 `0`）且内容与开工指纹 0 变化（含 Root 发现的 current.md 指纹变化，留树对账）。冻结 APK 绑定不变：`5ef408d7…` 现行候选、`fc600e8c…` R8 真机 A1-A6 基准；远页定位/TalkBack 遗留沿用。**未 push/发布/构建/设备/资产清理**；本交接更新留在工作树，未纳入提交。报告：`E:/AgentWork/CRA/rds-v1-real-device-smoke/root-checks/r8-zcode-local-commit-v1/`。
