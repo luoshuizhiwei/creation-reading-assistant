@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -262,14 +263,11 @@ class InspirationViewModel @Inject constructor(
     /** R5-I1/I2：详情页消费的完整 payload（采用去向 + 聚合摘录 + 来源定位）。 */
     fun payloadFor(entity: InspirationEntity): InspirationPayloadData = parsePayload(entity)
 
-    fun saveInspiration(draft: InspirationDraft) {
+    suspend fun saveInspiration(draft: InspirationDraft) {
         val now = java.time.Instant.now().toString()
         val loadedItems = (itemsState.value as? InspirationItemsState.Loaded)?.items ?: emptyList()
         val existing = draft.id?.let { id -> loadedItems.firstOrNull { it.id == id } }
         val id = existing?.id ?: draft.id ?: java.util.UUID.randomUUID().toString()
-        if (existing == null) {
-            _pendingSavedIds.update { it + id }
-        }
         // 编辑器只拥有 tags / source / categoryIds 三个字段（分类仅在用户动过时接管）；
         // 采用去向（R5-I1）、聚合摘录（R5-I2）与归档去向由详情页与合并流程维护。
         // 编辑保存必须从既有 payload 继承这些字段，否则「只改一个标题」会静默清空
@@ -298,7 +296,19 @@ class InspirationViewModel @Inject constructor(
             updated_at = now,
             deleted_at = null,
         )
-        viewModelScope.launch { inspirationRepository.upsert(entity) }
+        viewModelScope.async {
+            try {
+                if (existing == null) {
+                    _pendingSavedIds.update { it + id }
+                }
+                inspirationRepository.upsert(entity)
+            } catch (failure: Throwable) {
+                if (existing == null) {
+                    _pendingSavedIds.update { it - id }
+                }
+                throw failure
+            }
+        }.await()
     }
 
     fun deleteInspiration(id: String) {

@@ -32,9 +32,19 @@ object SearchHitRanker {
         if (live.isEmpty()) return emptyList()
 
         return live.groupBy { it.bookId to it.textBasis }
-            .map { (key, matches) ->
+            .mapNotNull { (key, matches) ->
                 val (bookId, basis) = key
                 val (chapterIndex, span) = SearchHitSelection.pickCoordinate(matches)
+                // R6-S（RDS-ROOT-DECISION-20261106-v1）：正文通道不得返回纯元数据命中。
+                //
+                // 原错误链（真机 2026-11-06 事件链原证）：书名 token（如「测试MD-84」的 84）
+                // 经章节标题加权（CHAPTER_TITLE_MULTIPLIER）后 chapterIndex=0、span=null；
+                // pickCoordinate 全组无 span 时返回 (0, null) → SearchHit(isMetadataHit=true)
+                // 混进 contentHits 渲染成「正文 · 书名/作者」卡片；点击走
+                // resolveLegacyOffset → readerChapterIndex=null → NoReliableSource →
+                // 只弹「该结果没有可定位的原文位置」，永不导航。书名命中已有「书籍」tab
+                // 专门卡片，正文通道丢弃它不丢信息。
+                if (chapterIndex == 0 && span == null) return@mapNotNull null
                 val coverageInfo = coverageProvider(bookId, basis.wire)
                 SearchHit(
                     bookId = bookId,

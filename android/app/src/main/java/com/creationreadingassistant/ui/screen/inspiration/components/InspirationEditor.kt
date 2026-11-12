@@ -1,5 +1,6 @@
 package com.creationreadingassistant.ui.screen.inspiration.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
@@ -47,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -65,6 +67,7 @@ import com.creationreadingassistant.ui.viewmodel.InspirationDraft
 import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
 import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
 import com.creationreadingassistant.ui.viewmodel.unknownCategoryLabel
+import kotlinx.coroutines.launch
 
 /**
  * 编辑器保存时的来源解析（任务94-v1）。
@@ -168,11 +171,13 @@ internal fun InspirationEditor(
     categoriesFailed: Boolean = false,
 ) {
     val spec = LocalComponentSpec.current
+    val saveScope = rememberCoroutineScope()
     val books by viewModel.books.collectAsStateWithLifecycle()
 
     // 草稿生命周期绑定「正在编辑的条目」：existing 由 null 变为实体（列表晚于编辑器到达）
     // 或切换到另一条时必须重新预填，否则会把空白/上一条内容存回去。
     val editorKey = existing?.id ?: ""
+    val draftId = remember(editorKey) { existing?.id ?: java.util.UUID.randomUUID().toString() }
     var title by remember(editorKey) { mutableStateOf(existing?.title ?: "") }
     var body by remember(editorKey) { mutableStateOf(existing?.body ?: "") }
     var type by remember(editorKey) { mutableStateOf(existing?.type ?: "note") }
@@ -190,6 +195,8 @@ internal fun InspirationEditor(
     var selectedCategories by remember(editorKey) { mutableStateOf(categories0) }
     var categoriesTouched by remember(editorKey) { mutableStateOf(false) }
     var error by remember(editorKey) { mutableStateOf("") }
+    var saving by remember(editorKey) { mutableStateOf(false) }
+    BackHandler(enabled = saving) { }
 
     // 脏判定基线必须随 editorKey 一起重置，否则切换条目后会把「新条目 vs 旧基线」误判为已修改。
     val initialSignature = remember(editorKey) {
@@ -214,15 +221,16 @@ internal fun InspirationEditor(
     val selectedBook = books.firstOrNull { it.id == sourceBookId }
 
     fun save() {
+        if (saving) return
         if (title.isBlank() && body.isBlank() && sourceExcerpt.isBlank()) {
             error = "请至少填写标题、正文或来源摘录中的一项。"
             return
         }
         error = ""
+        saving = true
         val isNew = existing == null
-        val id = existing?.id ?: java.util.UUID.randomUUID().toString()
         val draft = buildEditorDraft(
-            id = id,
+            id = draftId,
             title = title,
             body = body,
             type = type,
@@ -236,8 +244,19 @@ internal fun InspirationEditor(
             selectedCategories = selectedCategories,
             categoriesTouched = categoriesTouched,
         )
-        viewModel.saveInspiration(draft)
-        onAction(InspirationAction.EditorSaved(newId = id, wasNew = isNew))
+        saveScope.launch {
+            try {
+                viewModel.saveInspiration(draft)
+            } catch (failure: kotlinx.coroutines.CancellationException) {
+                throw failure
+            } catch (failure: Exception) {
+                error = failure.localizedMessage?.let { "保存失败：$it" } ?: "保存失败，请重试。"
+                return@launch
+            } finally {
+                saving = false
+            }
+            onAction(InspirationAction.EditorSaved(newId = draftId, wasNew = isNew))
+        }
     }
 
     val textFieldColors = OutlinedTextFieldDefaults.colors(
@@ -268,6 +287,7 @@ internal fun InspirationEditor(
 
                 FieldLabel("标题")
                 OutlinedTextField(
+                    enabled = !saving,
                     value = title,
                     onValueChange = { title = it },
                     placeholder = { Text("给这条灵感一个清楚的名字") },
@@ -288,6 +308,7 @@ internal fun InspirationEditor(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             OutlinedTextField(
+                                enabled = !saving,
                                 value = getTypeLabel(type),
                                 onValueChange = {},
                                 readOnly = true,
@@ -317,6 +338,7 @@ internal fun InspirationEditor(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             OutlinedTextField(
+                                enabled = !saving,
                                 value = getStatusLabel(status),
                                 onValueChange = {},
                                 readOnly = true,
@@ -344,6 +366,7 @@ internal fun InspirationEditor(
 
                 FieldLabel("正文")
                 OutlinedTextField(
+                    enabled = !saving,
                     value = body,
                     onValueChange = { body = it },
                     placeholder = { Text("写下设定、冲突、人物动作或可以继续发展的片段……") },
@@ -359,6 +382,7 @@ internal fun InspirationEditor(
 
                 FieldLabel("标签")
                 OutlinedTextField(
+                    enabled = !saving,
                     value = tagsInput,
                     onValueChange = { tagsInput = it },
                     placeholder = { Text("用逗号或空格分隔多个标签") },
@@ -398,6 +422,7 @@ internal fun InspirationEditor(
                     available = availableCategories,
                     loading = categoriesLoading,
                     failed = categoriesFailed,
+                    enabled = !saving,
                     onToggle = { id ->
                         categoriesTouched = true
                         selectedCategories = if (id in selectedCategories) {
@@ -423,11 +448,12 @@ internal fun InspirationEditor(
 
                 FieldLabel("关联来源书籍")
                 ExposedDropdownMenuBox(
-                    expanded = bookExpanded,
+                    expanded = bookExpanded && !saving,
                     onExpandedChange = { bookExpanded = it },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     OutlinedTextField(
+                        enabled = !saving,
                         value = selectedBook?.let {
                             "《${it.title}》${it.author?.let { a -> " · $a" } ?: ""}"
                         } ?: "不关联书籍",
@@ -463,6 +489,7 @@ internal fun InspirationEditor(
 
                 FieldLabel("章节或阅读位置")
                 OutlinedTextField(
+                    enabled = !saving,
                     value = sourceLocation,
                     onValueChange = { sourceLocation = it },
                     placeholder = { Text("例如：第 12 章 / 38.5%") },
@@ -476,6 +503,7 @@ internal fun InspirationEditor(
 
                 FieldLabel("原文摘录")
                 OutlinedTextField(
+                    enabled = !saving,
                     value = sourceExcerpt,
                     onValueChange = { sourceExcerpt = it },
                     placeholder = { Text("记录触发灵感的原文段落，独立保存不会混入正文") },
@@ -507,6 +535,7 @@ internal fun InspirationEditor(
         Spacer(Modifier.height(4.dp))
 
         Button(
+            enabled = !saving,
             onClick = { save() },
             shape = PillShape,
             modifier = Modifier
@@ -520,7 +549,7 @@ internal fun InspirationEditor(
             )
             Spacer(Modifier.width(6.dp))
             Text(
-                if (existing != null) "保存修改" else "保存灵感",
+                if (saving) "正在保存…" else if (existing != null) "保存修改" else "保存灵感",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             )
         }
@@ -553,6 +582,7 @@ private fun CategorySelector(
     available: List<Pair<String, String>>,
     loading: Boolean,
     failed: Boolean,
+    enabled: Boolean,
     onToggle: (String) -> Unit,
 ) {
     val labelStyle = MaterialTheme.typography.labelSmall
@@ -573,6 +603,7 @@ private fun CategorySelector(
                 available.forEach { (id, name) ->
                     val selected = id in selectedIds
                     Surface(
+                        enabled = enabled,
                         onClick = { onToggle(id) },
                         shape = PillShape,
                         color = if (selected) {
@@ -622,6 +653,7 @@ private fun CategorySelector(
                 ) {
                     unknownIds.forEach { id ->
                         Surface(
+                            enabled = enabled,
                             onClick = { onToggle(id) },
                             shape = PillShape,
                             color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),

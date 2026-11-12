@@ -1,6 +1,9 @@
 package com.creationreadingassistant.feature.sync
 
 import android.content.Context
+import com.creationreadingassistant.data.local.dao.LibrarySourceRefDao
+import com.creationreadingassistant.data.local.entity.LibrarySourceRefEntity
+import com.creationreadingassistant.feature.sync.SourceRefExport
 import com.creationreadingassistant.data.local.dao.BookCategoryDao
 import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.dao.BookTagDao
@@ -56,6 +59,16 @@ import org.junit.Test
 class JsonBridgeRelationMergeTest {
 
     // ---- 有状态内存 DAO（只实现 JsonBridge 实际用到的方法）----
+
+    private class StatefulSourceRefDao : LibrarySourceRefDao {
+        val rows = LinkedHashMap<String, LibrarySourceRefEntity>()
+        override suspend fun upsert(ref: LibrarySourceRefEntity) { rows[ref.book_id] = ref }
+        override suspend fun getAll(): List<LibrarySourceRefEntity> = rows.values.toList()
+        override suspend fun getByFingerprint(fingerprint: String): List<LibrarySourceRefEntity> = emptyList()
+        override suspend fun updateObservation(bookIds: List<String>, nowMillis: Long, availability: String) {}
+        override suspend fun updateAvailability(bookIds: List<String>, availability: String) {}
+        override suspend fun backfillRootId(rootId: String, authority: String, documentIds: List<String>) {}
+    }
 
     private class StatefulChapterReadDao : ChapterReadDao {
         val rows = LinkedHashMap<Pair<String, Int>, ChapterReadEntity>()
@@ -121,6 +134,7 @@ class JsonBridgeRelationMergeTest {
     private val bookCategoryDao = StatefulBookCategoryDao()
     private val shelfBookDao = StatefulShelfBookDao()
     private val chapterReadDao = StatefulChapterReadDao()
+    private val sourceRefDao = StatefulSourceRefDao()
     private val bookDao = mockk<BookDao>(relaxed = true)
     private val inspirationDao = mockk<InspirationDao>(relaxed = true)
     private val progressDao = mockk<ReadingProgressDao>(relaxed = true)
@@ -136,16 +150,27 @@ class JsonBridgeRelationMergeTest {
 
     @Before
     fun setUp() {
+        sourceRefDao.rows.clear()
         io.mockk.coEvery { bookDao.runInTransaction(any()) } coAnswers
             { firstArg<suspend () -> Unit>().invoke() }
         io.mockk.coEvery { bookDao.getByIds(any()) } returns emptyList()
+        io.mockk.coEvery { bookDao.observeAllActive() } returns flowOf(emptyList())
+        io.mockk.coEvery { inspirationDao.observeAllActive() } returns flowOf(emptyList())
+        io.mockk.coEvery { progressDao.observeAllActive() } returns flowOf(emptyList())
+        io.mockk.coEvery { sessionDao.observeAllActive() } returns flowOf(emptyList())
+        io.mockk.coEvery { noteDao.observeAllActive() } returns flowOf(emptyList())
+        io.mockk.coEvery { highlightDao.observeAllActive() } returns flowOf(emptyList())
+        io.mockk.coEvery { tagDao.getAllActive() } returns emptyList()
+        io.mockk.coEvery { categoryDao.getAllActive() } returns emptyList()
+        io.mockk.coEvery { shelfDao.getAllActive() } returns emptyList()
     }
 
-    private fun bridge() = JsonBridge(
+    private fun bridge(customSourceRefDao: LibrarySourceRefDao? = sourceRefDao) = JsonBridge(
         bookDao, inspirationDao, progressDao, sessionDao,
         noteDao, highlightDao, tagDao, categoryDao, shelfDao,
         bookTagDao, bookCategoryDao, shelfBookDao, chapterReadDao,
         Dispatchers.Unconfined,
+        sourceRefDao = customSourceRefDao,
     )
 
     private fun book(id: String, revision: Int = 1, updatedAt: String = "2026-01-01T00:00:00Z") =
@@ -162,6 +187,7 @@ class JsonBridgeRelationMergeTest {
         bookCategories: List<BookCategoryEntity> = emptyList(),
         shelfBooks: List<ShelfBookEntity> = emptyList(),
         chapterReads: List<ChapterReadEntity> = emptyList(),
+        librarySourceRefs: List<SourceRefExport> = emptyList(),
     ): String {
         val export = LocalExport(
             exportedAt = "2026-08-05T00:00:00Z",
@@ -174,6 +200,7 @@ class JsonBridgeRelationMergeTest {
             bookCategories = bookCategories,
             shelfBooks = shelfBooks,
             chapterReads = chapterReads,
+            librarySourceRefs = librarySourceRefs,
         )
         return json.encodeToString(LocalExport.serializer(), export)
     }
@@ -441,4 +468,151 @@ class JsonBridgeRelationMergeTest {
         com.creationreadingassistant.data.local.entity.ChapterReadEntity(
             book_id = bookId, chapter_index = chapterIndex, read_at = readAt,
         )
+
+    @Test
+    fun `import keeps inspiration and clears source_book_id when parent book missing`() = runTest {
+        val inspWithMissingBook = com.creationreadingassistant.data.local.entity.InspirationEntity(
+            id = "insp-orphan",
+            title = "灵感-孤立书籍",
+            body = "灵感正文必须保留",
+            source_book_id = "deleted-book-999",
+            created_at = "2026-01-01T00:00:00Z",
+            updated_at = "2026-01-01T00:00:00Z",
+        )
+        val envelope = SyncEnvelope(
+            id = inspWithMissingBook.id,
+            type = "inspiration",
+            revision = 1,
+            deviceId = "dev",
+            updatedAt = inspWithMissingBook.updated_at,
+            deletedAt = null,
+            payload = inspWithMissingBook,
+        )
+
+        val captured = io.mockk.slot<com.creationreadingassistant.data.local.entity.InspirationEntity>()
+        io.mockk.coEvery { inspirationDao.upsert(capture(captured)) } returns Unit
+        io.mockk.coEvery { bookDao.getById("deleted-book-999") } returns null
+
+        val export = LocalExport(
+            exportedAt = "2026-01-01T00:00:00Z",
+            deviceId = "dev",
+            books = emptyList(),
+            inspirations = listOf(envelope),
+            progress = emptyList(),
+            sessions = emptyList(),
+        )
+        val jsonStr = localExportJson.encodeToString(LocalExport.serializer(), export)
+
+        bridge().importFromString(context, jsonStr)
+
+        assertTrue("灵感必须被入库写入", captured.isCaptured)
+        assertEquals("insp-orphan", captured.captured.id)
+        assertEquals("灵感正文必须保留", captured.captured.body)
+        assertEquals(null, captured.captured.source_book_id)
+    }
+
+    // ---- 来源引用孤立排除与保守合并测试 ----
+
+    @Test
+    fun `export filters out source refs of deleted books and retains active books`() = runTest {
+        val activeBook = book("active-b1")
+        io.mockk.coEvery { bookDao.observeAllActive() } returns flowOf(listOf(activeBook))
+        io.mockk.coEvery { inspirationDao.observeAllActive() } returns flowOf(emptyList())
+        io.mockk.coEvery { progressDao.observeAllActive() } returns flowOf(emptyList())
+        io.mockk.coEvery { sessionDao.observeAllActive() } returns flowOf(emptyList())
+        io.mockk.coEvery { tagDao.getAllActive() } returns emptyList()
+        io.mockk.coEvery { categoryDao.getAllActive() } returns emptyList()
+        io.mockk.coEvery { shelfDao.getAllActive() } returns emptyList()
+        sourceRefDao.upsert(sourceRef("active-b1", "active.txt"))
+        sourceRefDao.upsert(sourceRef("deleted-b2", "deleted.txt"))
+
+        val export = bridge().buildExport(context)
+
+        assertEquals("导出的有效书目为1本", 1, export.books.size)
+        assertEquals("仅保留活跃书籍的来源引用，排除已软删书籍引用", listOf("active-b1"), export.librarySourceRefs.map { it.book_id })
+    }
+
+    @Test
+    fun `import skips orphan source refs missing parent book in both export and local db`() = runTest {
+        val export = exportJson(
+            books = listOf(bookEnvelope(book("b1"))),
+            librarySourceRefs = listOf(
+                sourceRefExport("b1", "b1.txt"),
+                sourceRefExport("orphan-b2", "orphan.txt"),
+            ),
+        )
+
+        bridge().importFromString(context, export)
+
+        assertTrue("有效书籍来源引用必须正常恢复", sourceRefDao.rows.containsKey("b1"))
+        assertTrue("缺失父记录的旧包孤立引用必须被跳过不入库", !sourceRefDao.rows.containsKey("orphan-b2"))
+    }
+
+    @Test
+    fun `import retains source ref for book existing in local db even if book absent from export`() = runTest {
+        val localBook = book("existing-local")
+        io.mockk.coEvery { bookDao.getByIds(match { "existing-local" in it }) } returns listOf(localBook)
+
+        val export = exportJson(
+            books = emptyList(),
+            librarySourceRefs = listOf(
+                sourceRefExport("existing-local", "local.txt"),
+                sourceRefExport("pure-orphan", "pure.txt"),
+            ),
+        )
+
+        bridge().importFromString(context, export)
+
+        assertTrue("本地已有合法书目的旧来源引用应恢复入库", sourceRefDao.rows.containsKey("existing-local"))
+        assertTrue("纯无主孤立引用必须跳过", !sourceRefDao.rows.containsKey("pure-orphan"))
+    }
+
+    @Test
+    fun `import keeps newer local source ref when timestamp is conflict`() = runTest {
+        sourceRefDao.upsert(sourceRef("b1", "b1.txt", lastSeenAt = 2000L))
+
+        val export = exportJson(
+            books = listOf(bookEnvelope(book("b1"))),
+            librarySourceRefs = listOf(sourceRefExport("b1", "b1-old.txt", lastSeenAt = 1000L)),
+        )
+
+        bridge().importFromString(context, export)
+
+        assertEquals("本地较新来源引用必须保留", "b1.txt", sourceRefDao.rows["b1"]?.display_name)
+        assertEquals(2000L, sourceRefDao.rows["b1"]?.last_seen_at)
+    }
+
+    @Test
+    fun `import accepts newer remote source ref when timestamp is newer`() = runTest {
+        sourceRefDao.upsert(sourceRef("b1", "b1-old.txt", lastSeenAt = 1000L))
+
+        val export = exportJson(
+            books = listOf(bookEnvelope(book("b1"))),
+            librarySourceRefs = listOf(sourceRefExport("b1", "b1-new.txt", lastSeenAt = 2000L)),
+        )
+
+        bridge().importFromString(context, export)
+
+        assertEquals("备份较新来源引用应覆盖", "b1-new.txt", sourceRefDao.rows["b1"]?.display_name)
+        assertEquals(2000L, sourceRefDao.rows["b1"]?.last_seen_at)
+    }
+
+    private fun sourceRef(bookId: String, name: String, lastSeenAt: Long = 1000L) =
+        LibrarySourceRefEntity(
+            book_id = bookId,
+            root_id = null,
+            provider_authority = "com.android.providers.downloads.documents",
+            document_id = "doc-$name",
+            display_name = name,
+            format = "txt",
+            size = 100L,
+            last_modified = 1000L,
+            content_hash = "hash-$name",
+            candidate_fingerprint = null,
+            last_seen_at = lastSeenAt,
+            availability = "available",
+        )
+
+    private fun sourceRefExport(bookId: String, name: String, lastSeenAt: Long = 1000L) =
+        SourceRefExport.fromEntity(sourceRef(bookId, name, lastSeenAt))
 }

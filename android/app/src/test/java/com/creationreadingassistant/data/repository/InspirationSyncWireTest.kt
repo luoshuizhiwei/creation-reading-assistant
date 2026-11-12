@@ -132,7 +132,7 @@ class InspirationSyncWireTest {
     // ── 真实原生生产者：InspirationViewModel.saveInspiration 写入实体 ─────────────
 
     /** 用真实 VM 生产者产出实体（不手工填 title/body 之外的提升列）。 */
-    private fun produceEntity(
+    private suspend fun produceEntity(
         draft: InspirationDraft,
         existingItems: List<InspirationEntity> = emptyList(),
     ): InspirationEntity {

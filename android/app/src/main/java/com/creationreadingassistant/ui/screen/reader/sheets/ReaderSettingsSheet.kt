@@ -9,6 +9,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -165,57 +166,78 @@ internal fun SettingsSheet(
     onClearAllOverrides: () -> Unit = {},
     onApplyPreset: (ReadingPreset) -> Unit = {},
     onResetGlobalDefaults: () -> Unit = {},
+    /**
+     * READER-PAGES-v1：满高页面形态（解除旧 `maxHeightFraction = 0.62f` 弹层约束）。
+     * 满高时作用范围栏固定在标题下，列表独立滚动；旧弹层调用默认 false，行为不变。
+     */
+    fullScreen: Boolean = false,
+    /**
+     * READER-PAGES-v1：根页 Back 去向（null = 根页无返回按钮，旧行为）。
+     * 直接 SETTINGS 入口=关闭附页回正文；THEME 内层=回 THEME。
+     */
+    onRootBack: (() -> Unit)? = null,
 ) {
     var page by remember { mutableStateOf(ReaderSettingsPage.ROOT) }
     val reducedMotion = rememberReducedMotion()
+    // 子页 Back → 设置根页（附页容器的根页 Back 在外层 ReaderPageBackHandler）。
     BackHandler(enabled = page != ReaderSettingsPage.ROOT) { page = ReaderSettingsPage.ROOT }
 
     ReaderSheetScaffold(
         title = page.title,
-        onBack = if (page == ReaderSettingsPage.ROOT) null else ({ page = ReaderSettingsPage.ROOT }),
+        onBack = if (page == ReaderSettingsPage.ROOT) onRootBack else ({ page = ReaderSettingsPage.ROOT }),
+        fullScreen = fullScreen,
         maxHeightFraction = 0.62f,
     ) {
-        AnimatedContent(
-            targetState = page,
-            transitionSpec = {
-                if (reducedMotion) {
-                    fadeIn(tween(0)) togetherWith fadeOut(tween(0))
-                } else {
-                    fadeIn(tween(160)) togetherWith fadeOut(tween(120))
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (fullScreen) {
+                // 满高页面：固定作用范围栏（合同 P2「固定标题/范围栏、独立滚动列表」）。
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    SettingsScopeSection(scope = scope, onScopeChange = onScopeChange)
                 }
-            },
-            label = "reader-settings-page",
-            modifier = Modifier.fillMaxSize(),
-        ) { target ->
-            // D-2-B：页级作用域说明位于页面内容**之前**，进页无需滚动即可看到。
-            // 用 Column + 子页面 weight(1f) 分配剩余高度：说明行按内容自适应，
-            // 页面正文拿到「有限且正确」的剩余高度后仍能正常滚动（LazyColumn fillMaxSize）。
-            Column(modifier = Modifier.fillMaxSize()) {
-                readerSettingsScopeNotice(target, scope)?.let { notice ->
-                    ScopeNoticeRow(notice)
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    when (target) {
-                        ReaderSettingsPage.ROOT -> SettingsRoot(
-                            paper = paper,
-                            settings = settings,
-                            onSettingsChange = onSettingsChange,
-                            onNavigate = { page = it },
-                            onBookInfo = onBookInfo,
-                            scope = scope,
-                            onScopeChange = onScopeChange,
-                            overrides = overrides,
-                            globalSettings = globalSettings,
-                            onClearOverride = onClearOverride,
-                            onClearAllOverrides = onClearAllOverrides,
-                            onApplyPreset = onApplyPreset,
-                            onResetGlobalDefaults = onResetGlobalDefaults,
-                        )
-                        ReaderSettingsPage.TYPOGRAPHY -> TypographySettings(settings, onSettingsChange, paper)
-                        ReaderSettingsPage.PAGING -> PagingSettings(settings, onSettingsChange)
-                        ReaderSettingsPage.DISPLAY -> DisplaySettings(settings, onSettingsChange)
-                        ReaderSettingsPage.EYE_CARE -> EyeCareSettings(settings, onSettingsChange)
-                        ReaderSettingsPage.ADVANCED -> AdvancedSettings(settings, onSettingsChange)
+            }
+            AnimatedContent(
+                targetState = page,
+                transitionSpec = {
+                    if (reducedMotion) {
+                        fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+                    } else {
+                        fadeIn(tween(160)) togetherWith fadeOut(tween(120))
+                    }
+                },
+                label = "reader-settings-page",
+                modifier = Modifier.fillMaxSize(),
+            ) { target ->
+                // D-2-B：页级作用域说明位于页面内容**之前**，进页无需滚动即可看到。
+                // 用 Column + 子页面 weight(1f) 分配剩余高度：说明行按内容自适应，
+                // 页面正文拿到「有限且正确」的剩余高度后仍能正常滚动（LazyColumn fillMaxSize）。
+                Column(modifier = Modifier.fillMaxSize()) {
+                    readerSettingsScopeNotice(target, scope)?.let { notice ->
+                        ScopeNoticeRow(notice)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        when (target) {
+                            ReaderSettingsPage.ROOT -> SettingsRoot(
+                                paper = paper,
+                                settings = settings,
+                                onSettingsChange = onSettingsChange,
+                                onNavigate = { page = it },
+                                onBookInfo = onBookInfo,
+                                scope = scope,
+                                onScopeChange = onScopeChange,
+                                overrides = overrides,
+                                globalSettings = globalSettings,
+                                onClearOverride = onClearOverride,
+                                onClearAllOverrides = onClearAllOverrides,
+                                onApplyPreset = onApplyPreset,
+                                onResetGlobalDefaults = onResetGlobalDefaults,
+                                showScopeItem = !fullScreen,
+                            )
+                            ReaderSettingsPage.TYPOGRAPHY -> TypographySettings(settings, onSettingsChange, paper)
+                            ReaderSettingsPage.PAGING -> PagingSettings(settings, onSettingsChange)
+                            ReaderSettingsPage.DISPLAY -> DisplaySettings(settings, onSettingsChange)
+                            ReaderSettingsPage.EYE_CARE -> EyeCareSettings(settings, onSettingsChange)
+                            ReaderSettingsPage.ADVANCED -> AdvancedSettings(settings, onSettingsChange)
+                        }
                     }
                 }
             }
@@ -238,6 +260,8 @@ private fun SettingsRoot(
     onClearAllOverrides: () -> Unit,
     onApplyPreset: (ReadingPreset) -> Unit,
     onResetGlobalDefaults: () -> Unit,
+    /** READER-PAGES-v1：满高页面时作用范围栏已固定在标题下，根页列表不再重复渲染。 */
+    showScopeItem: Boolean = true,
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
     val spec = LocalComponentSpec.current
@@ -247,8 +271,10 @@ private fun SettingsRoot(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         // 0. R3-P1 作用范围：书内调整默认只改当前这本书，可显式切换到全局
-        item(key = "settings-scope") {
-            SettingsScopeSection(scope = scope, onScopeChange = onScopeChange)
+        if (showScopeItem) {
+            item(key = "settings-scope") {
+                SettingsScopeSection(scope = scope, onScopeChange = onScopeChange)
+            }
         }
 
         // 0b. R3-P1 本书覆盖明细 + 预设 + 恢复默认（紧凑折叠）

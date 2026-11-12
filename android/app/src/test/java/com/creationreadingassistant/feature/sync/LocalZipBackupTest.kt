@@ -89,7 +89,9 @@ class LocalZipBackupTest {
         return ctx
     }
 
-    private fun subject(jsonBridge: JsonBridge = mockk(relaxed = true)) =
+    private fun subject(jsonBridge: JsonBridge = mockk<JsonBridge>(relaxed = true).also { bridge ->
+        coEvery { bridge.buildExport(any()) } returns snapshot(Triple("b1", "txt", "books/b1/content.txt"))
+    }) =
         LocalZipBackup(jsonBridge, Dispatchers.Unconfined)
 
     private fun writeZip(vararg entries: Pair<String, String>) {
@@ -123,6 +125,27 @@ class LocalZipBackupTest {
             }
             out
         }
+
+    private fun snapshot(vararg books: Triple<String, String, String?>, deviceId: String = "test"): LocalExport {
+        val timestamp = "2026-11-06T00:00:00Z"
+        val rows = books.map { (id, format, path) ->
+            val book = BookEntity(id = id, title = "测试书", format = format, updated_at = timestamp, local_content_path = path)
+            SyncEnvelope(id = id, type = "book", revision = 1, deviceId = deviceId, updatedAt = timestamp, payload = book)
+        }
+        return LocalExport(
+            exportedAt = timestamp, deviceId = deviceId, books = rows,
+            inspirations = emptyList(), progress = emptyList(), sessions = emptyList(),
+        )
+    }
+
+    /** Existing recovery and journal cases declare each fixture body as a book reference.
+     * Membership/orphan cases use writeZip with an explicit independent catalog. */
+    private fun writeBookZip(deviceId: String, vararg bodies: Pair<String, String>) {
+        val books = bodies.filter { it.first.startsWith("books/") }.mapIndexed { index, (path, _) ->
+            Triple("fixture-$index", "txt", path)
+        }
+        writeZip("backup.json" to localExportJson.encodeToString(LocalExport.serializer(), snapshot(*books.toTypedArray(), deviceId = deviceId)), *bodies)
+    }
 
     // ---- S14 残留归属收口（2026-09-28 第三窗口）夹具 ----
     //
@@ -176,11 +199,15 @@ class LocalZipBackupTest {
     fun `exportZip packs backup json and books entries`() = runTest {
         val booksDir = File(filesDir, "books").also { it.mkdirs() }
         File(booksDir, "foo.txt").writeText("hello")
+        File(booksDir, "foo-old.txt").writeText("deleted body")
         File(booksDir, "nested").also { it.mkdirs() }
         File(booksDir, "nested/bar.md").writeText("world")
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
-        coEvery { jsonBridge.exportToString(any()) } returns "{\"schemaVersion\":1}"
+        coEvery { jsonBridge.buildExport(any()) } returns snapshot(
+            Triple("foo", "txt", "books/foo.txt"),
+            Triple("nested", "md", "books/nested/bar.md"),
+        )
 
         subject(jsonBridge).exportZip(fakeContext(), mockk<Uri>())
 
@@ -188,6 +215,29 @@ class LocalZipBackupTest {
         assertTrue("应包含 backup.json", entries.contains("backup.json"))
         assertTrue("应包含 books/foo.txt", entries.contains("books/foo.txt"))
         assertTrue("应包含嵌套 books/nested/bar.md", entries.contains("books/nested/bar.md"))
+        assertFalse("当前书目未引用的文件不能进入导出", entries.contains("books/foo-old.txt"))
+    }
+
+    @Test
+    fun `exportKeepsSharedExplicitBodyOnceAndOmitsOrphansBesideActiveBook`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        File(booksDir, "shared/content.txt").apply { parentFile!!.mkdirs(); writeText("SHARED") }
+        File(booksDir, "active/real.txt").apply { parentFile!!.mkdirs(); writeText("ACTIVE") }
+        File(booksDir, "active/orphan.txt").apply { parentFile!!.mkdirs(); writeText("ORPHAN") }
+        File(booksDir, "deleted/content.txt").apply { parentFile!!.mkdirs(); writeText("DELETED") }
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        coEvery { jsonBridge.buildExport(any()) } returns snapshot(
+            Triple("active-a", "txt", "books/shared/content.txt"),
+            Triple("active-b", "md", "books/shared/content.txt"),
+            Triple("active", "txt", "books/active/real.txt"),
+        )
+
+        subject(jsonBridge).exportZip(fakeContext(), mockk<Uri>())
+        val entries = listZipEntries().filter { it.startsWith("books/") }
+        assertEquals(listOf("books/shared/content.txt"), entries.filter { it == "books/shared/content.txt" })
+        assertTrue(entries.contains("books/active/real.txt"))
+        assertFalse(entries.contains("books/active/orphan.txt"))
+        assertFalse(entries.contains("books/deleted/content.txt"))
     }
 
     // ---- 导入解包 ----
@@ -197,9 +247,9 @@ class LocalZipBackupTest {
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
         var called = false
         // LocalZipBackup 现以显式回调（第三参）调用 importFromString 取回合并结果（S14）
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers { called = true }
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers { called = true }
 
-        writeZip("backup.json" to "{\"schemaVersion\":1}", "books/x.txt" to "hi")
+        writeBookZip("test", "books/x.txt" to "hi")
 
         subject(jsonBridge).importZip(fakeContext(), mockk<Uri>())
 
@@ -207,10 +257,103 @@ class LocalZipBackupTest {
     }
 
     @Test
+    fun `importZip skipsLegacyBodyWhoseBookIsAbsentFromSnapshot`() = runTest {
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
+            thirdArg<(ImportMergeResult) -> Unit>()(ImportMergeResult())
+        }
+        writeZip(
+            "backup.json" to localExportJson.encodeToString(LocalExport.serializer(), snapshot(Triple("md", "md", "books/md/book.md"))),
+            "books/md/book.md" to "ACTIVE-MD",
+            "books/md/unreferenced.txt" to "UNREFERENCED-SAME-DIRECTORY",
+            "books/deleted/book.txt" to "ORPHANED-DELETED-TXT",
+        )
+
+        subject(jsonBridge).importZip(fakeContext(), mockk<Uri>())
+        assertEquals("ACTIVE-MD", File(filesDir, "books/md/book.md").readText())
+        assertFalse("同一活动书目录里的无引用文件也不能被恢复", File(filesDir, "books/md/unreferenced.txt").exists())
+        assertFalse("旧 ZIP 的孤立正文不能被恢复到空库", File(filesDir, "books/deleted/book.txt").exists())
+    }
+
+    @Test
+    fun `exportEpubWithCrossIdPathKeepsOnlyReferencedCache`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        File(booksDir, "epub/other-id.epub").apply { parentFile!!.mkdirs(); writeText("EPUB") }
+        File(booksDir, "epub/other-id/img/cover.png").apply { parentFile!!.mkdirs(); writeText("IMAGE") }
+        File(booksDir, "epub/book-id.epub").writeText("UNREFERENCED-ID-COPY")
+        File(booksDir, "epub/book-id/img/cover.png").apply { parentFile!!.mkdirs(); writeText("UNREFERENCED-ID-IMAGE") }
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        coEvery { jsonBridge.buildExport(any()) } returns snapshot(
+            Triple("book-id", "epub", "books/epub/other-id.epub"),
+        )
+
+        subject(jsonBridge).exportZip(fakeContext(), mockk<Uri>())
+        val entries = listZipEntries()
+        assertTrue(entries.contains("books/epub/other-id.epub"))
+        assertTrue(entries.contains("books/epub/other-id/img/cover.png"))
+        assertFalse(entries.contains("books/epub/book-id.epub"))
+        assertFalse(entries.contains("books/epub/book-id/img/cover.png"))
+    }
+
+    @Test
+    fun newerTombstoneWithoutPathSkipsOldBytesButSharedBodyStillRestores() = runTest {
+        val ctx = fakeContext()
+        val bridge = realJsonBridge(ctx, "")
+        val newer = BookEntity(id = "b1", title = "测试书", format = "txt", revision = 3,
+            updated_at = "2026-11-07", deleted_at = "2026-11-07")
+        val dao = requireNotNull(backingBookDao)
+        coEvery { dao.getByIds(any()) } returns listOf(newer)
+        val stale = Triple("b1", "txt", "books/shared/content.txt")
+        val live = Triple("b2", "txt", "books/shared/content.txt")
+        val target = File(filesDir, "books/shared/content.txt")
+        val backup = subject(bridge)
+        for (books in listOf(listOf(stale), listOf(stale, live))) {
+            val metadata = localExportJson.encodeToString(LocalExport.serializer(), snapshot(*books.toTypedArray()))
+            writeZip("backup.json" to metadata, "books/shared/content.txt" to "shared")
+            backup.importZip(ctx, mockk<Uri>())
+            assertEquals(live in books, target.isFile)
+        }
+        assertEquals("shared", target.readText())
+    }
+
+    @Test
+    fun olderEpubDoesNotReplaceImagesFromNewerLocalVersion() = runTest {
+        val path = "epub/b1.epub"
+        val image = File(filesDir, "books/epub/b1/img/cover.png")
+        image.parentFile!!.mkdirs()
+        image.writeText("new cover")
+        val snapshot = snapshot(Triple("b1", "epub", "books/$path"))
+        writeZip("backup.json" to localExportJson.encodeToString(LocalExport.serializer(), snapshot),
+            "books/$path" to "old EPUB", "books/epub/b1/img/cover.png" to "old cover")
+        val ctx = fakeContext()
+        subject(realJsonBridge(ctx, File(filesDir, "books/$path").absolutePath)).importZip(ctx, mockk<Uri>())
+        assertEquals("new cover", image.readText())
+        assertFalse(File(filesDir, "books/$path").exists())
+    }
+
+    @Test
+    fun `exportEpubWithoutUsablePathUsesLegacyIdCopyAndImageCache`() = runTest {
+        val booksDir = File(filesDir, "books").also { it.mkdirs() }
+        File(booksDir, "epub/legacy-id.epub").apply { parentFile!!.mkdirs(); writeText("EPUB") }
+        File(booksDir, "epub/legacy-id/img/chapter.png").apply { parentFile!!.mkdirs(); writeText("IMAGE") }
+        File(booksDir, "epub/unrelated.epub").writeText("ORPHAN")
+        val jsonBridge = mockk<JsonBridge>(relaxed = true)
+        coEvery { jsonBridge.buildExport(any()) } returns snapshot(
+            Triple("legacy-id", "epub", null),
+        )
+
+        subject(jsonBridge).exportZip(fakeContext(), mockk<Uri>())
+        val entries = listZipEntries()
+        assertTrue(entries.contains("books/epub/legacy-id.epub"))
+        assertTrue(entries.contains("books/epub/legacy-id/img/chapter.png"))
+        assertFalse(entries.contains("books/epub/unrelated.epub"))
+    }
+
+    @Test
     fun `importZip rejects zip missing backup json`() = runTest {
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
         var called = false
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers { called = true }
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers { called = true }
 
         // 只有 books 入口，缺少 backup.json
         writeZip("books/x.txt" to "hi")
@@ -237,7 +380,7 @@ class LocalZipBackupTest {
         dst.parentFile!!.mkdirs()
         dst.writeText("OLD")
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW BYTES")
+        writeBookZip("test", "books/b1/content.txt" to "NEW BYTES")
 
         subject().importZip(fakeContext(), mockk<Uri>())
 
@@ -268,7 +411,7 @@ class LocalZipBackupTest {
             throw java.io.IOException("S14 注入：复制中途失败")
         }
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "replacement bytes that must never reach target")
+        writeBookZip("test", "books/b1/content.txt" to "replacement bytes that must never reach target")
 
         val result = runCatching { backup.importZip(fakeContext(), mockk<Uri>()) }
 
@@ -290,7 +433,7 @@ class LocalZipBackupTest {
         val obstacle = File(booksDir, "b1/content.txt")
         obstacle.mkdirs()
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "must not replace a directory")
+        writeBookZip("test", "books/b1/content.txt" to "must not replace a directory")
 
         val result = runCatching { subject().importZip(fakeContext(), mockk<Uri>()) }
 
@@ -316,7 +459,7 @@ class LocalZipBackupTest {
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
         val skippedPath = skippedFile.absolutePath
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             thirdArg<(ImportMergeResult) -> Unit>()(
                 ImportMergeResult(
                     acceptedBookIds = setOf("b-accepted"),
@@ -325,8 +468,7 @@ class LocalZipBackupTest {
             )
         }
 
-        writeZip(
-            "backup.json" to "{}",
+        writeBookZip("test",
             "books/skipped/content.txt" to "BACKUP-OLD",
             "books/accepted/content.txt" to "BACKUP-FOR-ACCEPTED",
         )
@@ -378,12 +520,11 @@ class LocalZipBackupTest {
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
         var mergeReports = 0
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             throw IllegalStateException("S14 注入：DB 事务失败回滚")
         }
 
-        writeZip(
-            "backup.json" to "{}",
+        writeBookZip("test",
             "books/b1/content.txt" to "BACKUP-OLD",
             "books/fresh/content.txt" to "BACKUP-FRESH",
         )
@@ -412,7 +553,7 @@ class LocalZipBackupTest {
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
         var mergeReports = 0
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers { mergeReports++ }
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers { mergeReports++ }
 
         // 截断的 ZIP 头部字节：无论 ZipInputStream 在哪一步失败（或按 EOF 拒绝），
         // 结果必须是导入失败且零副作用。
@@ -444,7 +585,7 @@ class LocalZipBackupTest {
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
         var mergeReports = 0
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             mergeReports++
             thirdArg<(ImportMergeResult) -> Unit>()(ImportMergeResult())
         }
@@ -456,7 +597,7 @@ class LocalZipBackupTest {
             throw java.io.IOException("S14 注入：首个文件复制失败")
         }
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "BACKUP-OLD", "books/fresh/content.txt" to "BACKUP-FRESH")
+        writeBookZip("test", "books/b1/content.txt" to "BACKUP-OLD", "books/fresh/content.txt" to "BACKUP-FRESH")
 
         val result = runCatching { backup.importZip(fakeContext(), mockk<Uri>()) }
 
@@ -486,7 +627,7 @@ class LocalZipBackupTest {
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
         var mergeReports = 0
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             mergeReports++
             thirdArg<(ImportMergeResult) -> Unit>()(
                 ImportMergeResult(skippedBookContentPaths = listOf(protectedFile.absolutePath)),
@@ -501,8 +642,7 @@ class LocalZipBackupTest {
             input.copyTo(output)
         }
 
-        writeZip(
-            "backup.json" to "{}",
+        writeBookZip("test",
             "books/freshA/content.txt" to "BACKUP-A",
             "books/freshB/content.txt" to "BACKUP-B",
             "books/skipped/content.txt" to "BACKUP-OLD",
@@ -540,7 +680,7 @@ class LocalZipBackupTest {
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
         var mergeReports = 0
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             mergeReports++
             thirdArg<(ImportMergeResult) -> Unit>()(
                 ImportMergeResult(skippedBookContentPaths = listOf(protectedFile.absolutePath)),
@@ -555,8 +695,7 @@ class LocalZipBackupTest {
             input.copyTo(output)
         }
 
-        writeZip(
-            "backup.json" to "{}",
+        writeBookZip("test",
             "books/freshA/content.txt" to "BACKUP-A",
             "books/freshB/content.txt" to "BACKUP-B",
             "books/skipped/content.txt" to "BACKUP-OLD",
@@ -597,11 +736,11 @@ class LocalZipBackupTest {
         File(staleTmp, "orphan").writeText("x")
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             thirdArg<(ImportMergeResult) -> Unit>()(ImportMergeResult())
         }
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "BACKUP-NEW", "books/fresh/content.txt" to "BACKUP-FRESH")
+        writeBookZip("test", "books/b1/content.txt" to "BACKUP-NEW", "books/fresh/content.txt" to "BACKUP-FRESH")
 
         subject(jsonBridge).importZip(fakeContext(), mockk<Uri>())
 
@@ -655,7 +794,7 @@ class LocalZipBackupTest {
         )
 
         // b1 不在本次备份内：恢复只依据 books 目录与归属日志。
-        writeZip("backup.json" to "{}", "books/b2/content.txt" to "B2")
+        writeBookZip("test", "books/b2/content.txt" to "B2")
 
         subject().importZip(fakeContext(), mockk<Uri>())
 
@@ -686,7 +825,7 @@ class LocalZipBackupTest {
         val plantedBackup = File(booksDir, "b1/content.txt.restore-backup-1000000000000")
         plantedBackup.writeText("OLD-BYTES-KEEP-ME")
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "ZIP-BYTES")
+        writeBookZip("test", "books/b1/content.txt" to "ZIP-BYTES")
 
         subject().importZip(fakeContext(), mockk<Uri>())
 
@@ -716,7 +855,7 @@ class LocalZipBackupTest {
         stagingB.parentFile!!.mkdirs()
         stagingB.writeText("B-JUNK")
 
-        writeZip("backup.json" to "{}", "books/a/content.txt" to "A-ZIP", "books/b/content.txt" to "B-ZIP")
+        writeBookZip("test", "books/a/content.txt" to "A-ZIP", "books/b/content.txt" to "B-ZIP")
 
         subject().importZip(fakeContext(), mockk<Uri>())
 
@@ -746,7 +885,7 @@ class LocalZipBackupTest {
         )
         decoyNames.forEach { File(dir, it).writeText("DECOY") }
 
-        writeZip("backup.json" to "{}", "books/b9/content.txt" to "REAL-ZIP")
+        writeBookZip("test", "books/b9/content.txt" to "REAL-ZIP")
 
         subject().importZip(fakeContext(), mockk<Uri>())
 
@@ -780,7 +919,7 @@ class LocalZipBackupTest {
             ),
         )
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "ZIP-V")
+        writeBookZip("test", "books/b1/content.txt" to "ZIP-V")
 
         val backup = subject()
         backup.importZip(fakeContext(), mockk<Uri>())
@@ -826,7 +965,14 @@ class LocalZipBackupTest {
         )
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
-        coEvery { jsonBridge.exportToString(any()) } returns "{\"schemaVersion\":1}"
+        coEvery { jsonBridge.buildExport(any()) } returns snapshot(
+            Triple("b1", "txt", "books/b1/content.txt"),
+            Triple("b2", "txt", "books/b2/old.txt"),
+            Triple("b3", "txt", "books/b3/only.txt"),
+            Triple("b4", "txt", "books/b4/real.txt"),
+            Triple("b4-decoy-a", "txt", "books/b4/real.txt.restore-backup-重要"),
+            Triple("b4-decoy-b", "txt", "books/b4/real.txt.restore-123.staging"),
+        )
 
         subject(jsonBridge).exportZip(fakeContext(), mockk<Uri>())
 
@@ -867,7 +1013,11 @@ class LocalZipBackupTest {
         // 未写归属日志：本工具从未创建过这三个文件，命名学冲突无法排除
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
-        coEvery { jsonBridge.exportToString(any()) } returns "{}"
+        coEvery { jsonBridge.buildExport(any()) } returns snapshot(
+            Triple("b1", "txt", "books/b1/notes.restore-1234567890123.staging"),
+            Triple("b2", "txt", "books/b2/old.txt"),
+            Triple("b2-backup", "txt", "books/b2/old.txt.restore-backup-1234567890123"),
+        )
         subject(jsonBridge).exportZip(fakeContext(), mockk<Uri>())
 
         val bodies = readZipEntryBodies()
@@ -892,7 +1042,7 @@ class LocalZipBackupTest {
         ordinary.parentFile!!.mkdirs()
         ordinary.writeText("ORDINARY-BOOK-BYTES")
 
-        writeZip("backup.json" to "{}", "books/other/content.txt" to "OTHER")
+        writeBookZip("test", "books/other/content.txt" to "OTHER")
 
         subject().importZip(fakeContext(), mockk<Uri>())
 
@@ -915,7 +1065,9 @@ class LocalZipBackupTest {
         ordinary.writeText("LONG-DIGITS-ORDINARY")
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
-        coEvery { jsonBridge.exportToString(any()) } returns "{}"
+        coEvery { jsonBridge.buildExport(any()) } returns snapshot(
+            Triple("b1", "txt", "books/b1/old.txt.restore-backup-$longDigits"),
+        )
         subject(jsonBridge).exportZip(fakeContext(), mockk<Uri>())
 
         assertEquals(
@@ -925,7 +1077,7 @@ class LocalZipBackupTest {
         )
 
         // 导入路径的恢复扫描同样遍历同格式文件名，不得抛异常
-        writeZip("backup.json" to "{}", "books/other/content.txt" to "OTHER")
+        writeBookZip("test", "books/other/content.txt" to "OTHER")
         subject().importZip(fakeContext(), mockk<Uri>())
 
         assertTrue("导入后普通文件必须原样保留", ordinary.isFile)
@@ -944,7 +1096,7 @@ class LocalZipBackupTest {
         stagingResidue.writeText("PRE-JOURNAL-STAGING")
         // dst b1/content.txt 缺失、无归属日志：无可靠证据 → 宁可保留，明确报告未清理
 
-        writeZip("backup.json" to "{}", "books/b2/content.txt" to "B2")
+        writeBookZip("test", "books/b2/content.txt" to "B2")
 
         subject().importZip(fakeContext(), mockk<Uri>())
 
@@ -977,7 +1129,7 @@ class LocalZipBackupTest {
             ),
         )
 
-        writeZip("backup.json" to "{}", "books/b2/content.txt" to "B2") // b1 不在 ZIP 内
+        writeBookZip("test", "books/b2/content.txt" to "B2") // b1 不在 ZIP 内
 
         subject().importZip(fakeContext(), mockk<Uri>())
 
@@ -1007,7 +1159,7 @@ class LocalZipBackupTest {
             ),
         )
 
-        writeZip("backup.json" to "{}")
+        writeBookZip("test")
 
         subject().importZip(fakeContext(), mockk<Uri>())
 
@@ -1028,7 +1180,7 @@ class LocalZipBackupTest {
         backupResidue.writeText("OLD")
         journalFile(booksDir).writeText("{\"rel\": \"b1/cont") // 残缺 JSON
 
-        writeZip("backup.json" to "{}")
+        writeBookZip("test")
 
         val result = runCatching { subject().importZip(fakeContext(), mockk<Uri>()) }
 
@@ -1052,7 +1204,7 @@ class LocalZipBackupTest {
             ),
         )
 
-        writeZip("backup.json" to "{}", "books/b2/content.txt" to "B2")
+        writeBookZip("test", "books/b2/content.txt" to "B2")
 
         subject().importZip(fakeContext(), mockk<Uri>())
 
@@ -1069,12 +1221,13 @@ class LocalZipBackupTest {
         journalFile(booksDir).writeText("""[{"rel":"evil/x","backup":"y","staging":"z"}]""")
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
-        coEvery { jsonBridge.exportToString(any()) } returns "{}"
+        coEvery { jsonBridge.buildExport(any()) } returns snapshot(
+            Triple("b1", "txt", "books/b1/only.txt"),
+        )
         subject(jsonBridge).exportZip(fakeContext(), mockk<Uri>())
         assertFalse("归属日志不得进入备份链", listZipEntries().contains("books/.cra-restore-journal.json"))
 
-        writeZip(
-            "backup.json" to "{}",
+        writeBookZip("test",
             "books/injected.txt" to "INJ",
             "books/.cra-restore-journal.json" to "FORGED-BY-FOREIGN-ZIP",
         )
@@ -1103,7 +1256,7 @@ class LocalZipBackupTest {
         )
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
-        coEvery { jsonBridge.exportToString(any()) } returns "{}"
+        coEvery { jsonBridge.buildExport(any()) } returns snapshot(Triple("b1", "txt", "books/b1/only.txt"))
         subject(jsonBridge).exportZip(fakeContext(), mockk<Uri>())
 
         assertEquals(
@@ -1159,7 +1312,7 @@ class LocalZipBackupTest {
         )
 
         // b1 不在本次备份内：恢复只依据 books 目录与归属日志。
-        writeZip("backup.json" to "{}", "books/b2/content.txt" to "B2")
+        writeBookZip("test", "books/b2/content.txt" to "B2")
 
         subject().importZip(fakeContext(), mockk<Uri>())
 
@@ -1196,7 +1349,7 @@ class LocalZipBackupTest {
         // 确定性制造归属日志写失败：日志路径被同名目录占用。
         File(booksDir, ".cra-restore-journal.json").mkdirs()
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "ZIP-NEW-BYTES")
+        writeBookZip("test", "books/b1/content.txt" to "ZIP-NEW-BYTES")
 
         val result = runCatching { subject().importZip(fakeContext(), mockk<Uri>()) }
 
@@ -1230,7 +1383,7 @@ class LocalZipBackupTest {
         val backup = subject(jsonBridge)
         backup.fileCopyOperation = { _, _ -> throw java.io.IOException("N1 注入：文件复制中断") }
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW BYTES")
+        writeBookZip("test", "books/b1/content.txt" to "NEW BYTES")
 
         val ctx = fakeContext()
         val result = runCatching { backup.importZip(ctx, mockk<Uri>()) }
@@ -1264,12 +1417,12 @@ class LocalZipBackupTest {
         File(filesDir, LocalZipRestoreStateStore.STATE_FILE_NAME).mkdirs()
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "ZIP-NEW-BYTES")
+        writeBookZip("test", "books/b1/content.txt" to "ZIP-NEW-BYTES")
 
         val result = runCatching { subject(jsonBridge).importZip(fakeContext(), mockk<Uri>()) }
 
         assertTrue("状态落盘失败必须上抛（fail-closed）", result.isFailure)
-        coVerify(exactly = 0) { jsonBridge.importFromString(any(), any(), any()) }
+        coVerify(exactly = 0) { jsonBridge.importSnapshot(any(), any(), any()) }
         assertEquals("不得在无归属记录的情况下改动书籍文件", "OLD-MUST-SURVIVE", dst.readText())
         assertNoRestoreResidue(booksDir)
         assertNoRestoreTmpLeft()
@@ -1283,7 +1436,7 @@ class LocalZipBackupTest {
         dst.parentFile!!.mkdirs()
         dst.writeText("OLD")
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW BYTES")
+        writeBookZip("test", "books/b1/content.txt" to "NEW BYTES")
 
         val ctx = fakeContext()
         subject().importZip(ctx, mockk<Uri>())
@@ -1354,7 +1507,7 @@ class LocalZipBackupTest {
         dst.parentFile!!.mkdirs()
         dst.writeText("OLD")
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "BACKUP BYTES")
+        writeBookZip("test", "books/b1/content.txt" to "BACKUP BYTES")
 
         val ctx = fakeContext()
         val backup = subject()
@@ -1385,7 +1538,7 @@ class LocalZipBackupTest {
         val root = java.io.IOException("底层写失败")
         backup.fileCopyOperation = { _, _ -> throw root }
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW")
+        writeBookZip("test", "books/b1/content.txt" to "NEW")
 
         val ctx = fakeContext()
         runCatching { backup.importZip(ctx, mockk<Uri>()) }
@@ -1408,7 +1561,7 @@ class LocalZipBackupTest {
         dst.parentFile!!.mkdirs()
         // 首次模拟：正文不存在（或未复制完成）
 
-        writeZip("backup.json" to "{\"books\":[{\"id\":\"b1\"}]}", "books/b1/content.txt" to "NEW CONTENT")
+        writeBookZip("test", "books/b1/content.txt" to "NEW CONTENT")
 
         val ctx = fakeContext()
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
@@ -1424,7 +1577,7 @@ class LocalZipBackupTest {
         assertTrue(unfinishedState.pendingTargets.containsKey("b1/content.txt"))
 
         // 第二次重试：模拟真实的严格大于策略（由于首次已提交 DB，本地版本等于备份版本，merge 将其判定为跳过）
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             val callback = thirdArg<(ImportMergeResult) -> Unit>()
             callback(ImportMergeResult(skippedBookContentPaths = listOf(dst.absolutePath)))
         }
@@ -1449,7 +1602,7 @@ class LocalZipBackupTest {
         fileA.parentFile!!.mkdirs()
 
         // 准备备份 A
-        writeZip("backup.json" to "{\"name\":\"A\"}", "books/a/content.txt" to "A CONTENT")
+        writeBookZip("A", "books/a/content.txt" to "A CONTENT")
         val ctx = fakeContext()
         val backup = subject()
 
@@ -1462,7 +1615,7 @@ class LocalZipBackupTest {
         assertFalse(stateAfterA.isComplete)
 
         // 准备不同内容的合法备份 B（仅包含 b，不含 a）
-        writeZip("backup.json" to "{\"name\":\"B\"}", "books/b/content.txt" to "B CONTENT")
+        writeBookZip("B", "books/b/content.txt" to "B CONTENT")
         val fileB = File(booksDir, "b/content.txt")
 
         // 导入 B
@@ -1513,7 +1666,7 @@ class LocalZipBackupTest {
         val zipFileB = temp.newFile("import_b.zip")
         ZipOutputStream(zipFileB.outputStream()).use { zos ->
             zos.putNextEntry(ZipEntry("backup.json"))
-            zos.write("{}".toByteArray(Charsets.UTF_8))
+            zos.write(localExportJson.encodeToString(LocalExport.serializer(), snapshot(Triple("b1", "txt", "books/b1/content.txt"))).toByteArray())
             zos.closeEntry()
             zos.putNextEntry(ZipEntry("books/b1/content.txt"))
             zos.write("MODIFIED BY IMPORT".toByteArray(Charsets.UTF_8))
@@ -1547,7 +1700,7 @@ class LocalZipBackupTest {
         val booksDir = File(filesDir, "books").also { it.mkdirs() }
         val dst = File(booksDir, "b1/content.txt").also { it.parentFile!!.mkdirs(); it.writeText("ORIGINAL") }
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW COMPLETE CONTENT")
+        writeBookZip("test", "books/b1/content.txt" to "NEW COMPLETE CONTENT")
         val ctx = fakeContext()
         val backup = subject()
 
@@ -1584,7 +1737,7 @@ class LocalZipBackupTest {
         val booksDir = File(filesDir, "books").also { it.mkdirs() }
         File(booksDir, "b1/content.txt").also { it.parentFile!!.mkdirs(); it.writeText("OLD") }
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW")
+        writeBookZip("test", "books/b1/content.txt" to "NEW")
         val ctx = fakeContext()
         val backup = subject()
 
@@ -1608,7 +1761,7 @@ class LocalZipBackupTest {
         val booksDir = File(filesDir, "books").also { it.mkdirs() }
         File(booksDir, "b1/content.txt").also { it.parentFile!!.mkdirs(); it.writeText("OLD") }
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW")
+        writeBookZip("test", "books/b1/content.txt" to "NEW")
         val ctx = fakeContext()
         val backup = subject()
 
@@ -1648,7 +1801,7 @@ class LocalZipBackupTest {
         dst.parentFile!!.mkdirs()
         dst.writeText("OLD") // 3 bytes
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW CONTENT") // 11 bytes
+        writeBookZip("test", "books/b1/content.txt" to "NEW CONTENT") // 11 bytes
 
         val ctx = fakeContext()
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
@@ -1660,7 +1813,7 @@ class LocalZipBackupTest {
         assertEquals("中断后旧正文必须保留", "OLD", dst.readText())
 
         // 第二次重试：merge 因等版本报告 skipped
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             thirdArg<(ImportMergeResult) -> Unit>()(
                 ImportMergeResult(skippedBookContentPaths = listOf(dst.absolutePath)),
             )
@@ -1685,7 +1838,7 @@ class LocalZipBackupTest {
         dst.parentFile!!.mkdirs()
         dst.writeText("OLDD") // 4 bytes
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEWW") // 4 bytes, same length
+        writeBookZip("test", "books/b1/content.txt" to "NEWW") // 4 bytes, same length
 
         val ctx = fakeContext()
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
@@ -1694,7 +1847,7 @@ class LocalZipBackupTest {
         backup.fileCopyOperation = { _, _ -> throw java.io.IOException("首次文件复制中断") }
         assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
 
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             thirdArg<(ImportMergeResult) -> Unit>()(
                 ImportMergeResult(skippedBookContentPaths = listOf(dst.absolutePath)),
             )
@@ -1724,10 +1877,10 @@ class LocalZipBackupTest {
         // 直接写出中断后的持久状态：STAGE_STARTED、空 pending、空指纹
         LocalZipRestoreStateStore().begin(ctx, "content://backup.zip", 1000L)
 
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "NEW CONTENT")
+        writeBookZip("test", "books/b1/content.txt" to "NEW CONTENT")
 
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             thirdArg<(ImportMergeResult) -> Unit>()(
                 ImportMergeResult(skippedBookContentPaths = listOf(dst.absolutePath)),
             )
@@ -1754,7 +1907,7 @@ class LocalZipBackupTest {
         dst.writeText("ORIGINAL")
 
         // 导入 A：DB 提交、文件复制中断
-        writeZip("backup.json" to "{\"name\":\"A\"}", "books/b1/content.txt" to "A CONTENT")
+        writeBookZip("A", "books/b1/content.txt" to "A CONTENT")
         val ctx = fakeContext()
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
         val backup = subject(jsonBridge)
@@ -1764,8 +1917,8 @@ class LocalZipBackupTest {
         assertEquals("ORIGINAL", dst.readText())
 
         // 导入 B：同路径、版本较低 → merge 报告 skipped
-        writeZip("backup.json" to "{\"name\":\"B\"}", "books/b1/content.txt" to "B CONTENT")
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        writeBookZip("B", "books/b1/content.txt" to "B CONTENT")
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             thirdArg<(ImportMergeResult) -> Unit>()(
                 ImportMergeResult(skippedBookContentPaths = listOf(dst.absolutePath)),
             )
@@ -1795,7 +1948,7 @@ class LocalZipBackupTest {
         dst.writeText("ORIGINAL")
 
         // 导入 A：backup.json="{}", 正文="A CONTENT"
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "A CONTENT")
+        writeBookZip("test", "books/b1/content.txt" to "A CONTENT")
         val ctx = fakeContext()
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
         val backup = subject(jsonBridge)
@@ -1804,8 +1957,8 @@ class LocalZipBackupTest {
         assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
 
         // 导入 B：backup.json="{}"（相同），正文="B CONTENT"（不同）
-        writeZip("backup.json" to "{}", "books/b1/content.txt" to "B CONTENT")
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        writeBookZip("test", "books/b1/content.txt" to "B CONTENT")
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             thirdArg<(ImportMergeResult) -> Unit>()(
                 ImportMergeResult(skippedBookContentPaths = listOf(dst.absolutePath)),
             )
@@ -1845,7 +1998,7 @@ class LocalZipBackupTest {
 
         val ctx = fakeContext()
         val jsonBridge = mockk<JsonBridge>(relaxed = true)
-        coEvery { jsonBridge.exportToString(any()) } returns "{}"
+        coEvery { jsonBridge.buildExport(any()) } returns snapshot()
 
         val backup = subject(jsonBridge)
         // 注入 staging 删除失败
@@ -1897,13 +2050,12 @@ class LocalZipBackupTest {
         assertEquals("坏 ZIP 留下空指纹", "", stateAfterBad.backupFingerprint)
 
         // 2. 接着导入低版本合法 ZIP（正文内容为 OLD，JsonBridge 合并时判定本地严格较新而跳过）
-        writeZip(
-            "backup.json" to "{\"schemaVersion\":1}",
+        writeBookZip("test",
             "books/b1/content.txt" to "OLD_BACKUP_CONTENT_V1",
         )
 
         // 模拟真实 JsonBridge：因为本地严格较新（例如本地 revision=5，备份 revision=1），将 dst 加入 skipped 和 strictlyNewer
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             val callback = thirdArg<(ImportMergeResult) -> Unit>()
             callback(
                 ImportMergeResult(
@@ -1940,15 +2092,15 @@ class LocalZipBackupTest {
         val backup = subject(jsonBridge)
 
         // 1. 导入 A：包含 a/content.txt。DB 提交成功，但文件复制中断
-        writeZip("backup.json" to "{\"schemaVersion\":1,\"name\":\"A\"}", "books/a/content.txt" to "CONTENT_A")
+        writeBookZip("A", "books/a/content.txt" to "CONTENT_A")
         backup.fileCopyOperation = { _, _ -> throw java.io.IOException("A 复制中断") }
         assertTrue(runCatching { backup.importZip(ctx, mockk<Uri>()) }.isFailure)
         assertFalse("A 正文未落盘", fileA.exists())
 
         // 2. 导入 B：包含 b/content.txt，不含 a。B 导入成功
-        writeZip("backup.json" to "{\"schemaVersion\":1,\"name\":\"B\"}", "books/b/content.txt" to "CONTENT_B")
+        writeBookZip("B", "books/b/content.txt" to "CONTENT_B")
         backup.fileCopyOperation = { input, output -> input.copyTo(output) }
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             val callback = thirdArg<(ImportMergeResult) -> Unit>()
             callback(ImportMergeResult(acceptedBookIds = setOf("b")))
         }
@@ -1960,8 +2112,8 @@ class LocalZipBackupTest {
         assertTrue("A 的目标仍在 unresolvedTargets 中", stateAfterB.unresolvedTargets.containsKey("a/content.txt"))
 
         // 3. 再次导入原 A：回到 A。由于之前 A 已入库，merge 将 a 判定为 equal (skipped)
-        writeZip("backup.json" to "{\"schemaVersion\":1,\"name\":\"A\"}", "books/a/content.txt" to "CONTENT_A")
-        coEvery { jsonBridge.importFromString(any(), any(), any()) } answers {
+        writeBookZip("A", "books/a/content.txt" to "CONTENT_A")
+        coEvery { jsonBridge.importSnapshot(any(), any(), any()) } answers {
             val callback = thirdArg<(ImportMergeResult) -> Unit>()
             // 因为 A 之前已经写入过 DB，本次判断为 equal 版本并进入 skipped
             callback(
@@ -1991,7 +2143,7 @@ class LocalZipBackupTest {
         dst.parentFile!!.mkdirs()
         dst.writeText("ORIGINAL_CONTENT")
 
-        writeZip("backup.json" to "{\"schemaVersion\":1}", "books/b1/content.txt" to "NEW_CONTENT")
+        writeBookZip("test", "books/b1/content.txt" to "NEW_CONTENT")
         val ctx = fakeContext()
         val backup = subject()
 
@@ -2456,7 +2608,7 @@ class LocalZipBackupTest {
         updatedAt: String = "2026-01-01T00:00:00Z",
     ): String {
         val json = Json { ignoreUnknownKeys = true }
-        val book = BookEntity(id = bookId, title = "测试书", format = "txt", revision = revision, updated_at = updatedAt)
+        val book = BookEntity(id = bookId, title = "测试书", format = "txt", revision = revision, updated_at = updatedAt, local_content_path = File(filesDir, "books/$bookId/content.txt").absolutePath)
         val envelope = SyncEnvelope(
             id = bookId, type = "book", revision = revision,
             deviceId = "remote-device", updatedAt = updatedAt, deletedAt = null, payload = book,

@@ -79,6 +79,13 @@ object SearchHitSelection {
      *
      * 没有任何区间时（例如只命中了书名/作者）返回 `0 to null`，
      * 由调用方降级为「只能打开书，不能跳位置」。
+     *
+     * R6-S（RDS-ROOT-DECISION-20261106-v1）：坐标挑选时**跳过无 span 的组**。
+     * 原错误链：书名 token 加权命中（chapterIndex=0、offsets=null 的标题行）与正文命中
+     * 同书同基准聚合后，distinct-term 相同、章节序升序让 ch=0 标题组排前且整组无 span
+     * → 返回 (0, null) → 该书正文通道命中退化成不可跳的元数据 hit（真机原证：搜「84」
+     * TXT/MD 两书正文行都在索引里，UI 正文 tab 却空、书名卡冒充正文卡）。
+     * 修正：优先选**有 span 的最佳组**；全组无 span 才回退 (0, null) 旧语义。
      */
     fun pickCoordinate(matches: List<RawTermMatch>): Pair<Int, SearchMatchSpan?> {
         if (matches.isEmpty()) return 0 to null
@@ -94,7 +101,8 @@ object SearchHitSelection {
                 compareByDescending<ChapterGroup> { it.distinctTermCount }
                     .thenBy { it.chapterIndex },
             )
-        val best = ranked.first()
+        val best = ranked.firstOrNull { group -> group.rows.any { it.span != null } }
+            ?: return 0 to null
         val span = best.rows
             .mapNotNull { it.span }
             .minWithOrNull(compareBy<SearchMatchSpan> { it.start }.thenBy { it.length })

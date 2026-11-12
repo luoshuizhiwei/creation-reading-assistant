@@ -12,6 +12,9 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 
 /**
@@ -617,6 +620,102 @@ internal fun paletteScheme(palette: AppPalette, darkTheme: Boolean): ColorScheme
 }
 
 @Composable
+fun animateColorSchemeAsState(
+    target: ColorScheme,
+    enabled: Boolean = true,
+): ColorScheme {
+    if (!enabled) return target
+
+    val animSpec = tween<Color>(
+        durationMillis = MotionTokens.Base,
+        easing = MotionTokens.StandardEasing,
+    )
+
+    val primary by animateColorAsState(target.primary, animSpec, label = "cs_primary")
+    val onPrimary by animateColorAsState(target.onPrimary, animSpec, label = "cs_onPrimary")
+    val primaryContainer by animateColorAsState(target.primaryContainer, animSpec, label = "cs_primaryContainer")
+    val onPrimaryContainer by animateColorAsState(target.onPrimaryContainer, animSpec, label = "cs_onPrimaryContainer")
+    val inversePrimary by animateColorAsState(target.inversePrimary, animSpec, label = "cs_inversePrimary")
+
+    val secondary by animateColorAsState(target.secondary, animSpec, label = "cs_secondary")
+    val onSecondary by animateColorAsState(target.onSecondary, animSpec, label = "cs_onSecondary")
+    val secondaryContainer by animateColorAsState(target.secondaryContainer, animSpec, label = "cs_secondaryContainer")
+    val onSecondaryContainer by animateColorAsState(target.onSecondaryContainer, animSpec, label = "cs_onSecondaryContainer")
+
+    val tertiary by animateColorAsState(target.tertiary, animSpec, label = "cs_tertiary")
+    val onTertiary by animateColorAsState(target.onTertiary, animSpec, label = "cs_onTertiary")
+    val tertiaryContainer by animateColorAsState(target.tertiaryContainer, animSpec, label = "cs_tertiaryContainer")
+    val onTertiaryContainer by animateColorAsState(target.onTertiaryContainer, animSpec, label = "cs_onTertiaryContainer")
+
+    val background by animateColorAsState(target.background, animSpec, label = "cs_background")
+    val onBackground by animateColorAsState(target.onBackground, animSpec, label = "cs_onBackground")
+
+    val surface by animateColorAsState(target.surface, animSpec, label = "cs_surface")
+    val onSurface by animateColorAsState(target.onSurface, animSpec, label = "cs_onSurface")
+    val surfaceVariant by animateColorAsState(target.surfaceVariant, animSpec, label = "cs_surfaceVariant")
+    val onSurfaceVariant by animateColorAsState(target.onSurfaceVariant, animSpec, label = "cs_onSurfaceVariant")
+    val surfaceTint by animateColorAsState(target.surfaceTint, animSpec, label = "cs_surfaceTint")
+    val inverseSurface by animateColorAsState(target.inverseSurface, animSpec, label = "cs_inverseSurface")
+    val inverseOnSurface by animateColorAsState(target.inverseOnSurface, animSpec, label = "cs_inverseOnSurface")
+
+    val error by animateColorAsState(target.error, animSpec, label = "cs_error")
+    val onError by animateColorAsState(target.onError, animSpec, label = "cs_onError")
+    val errorContainer by animateColorAsState(target.errorContainer, animSpec, label = "cs_errorContainer")
+    val onErrorContainer by animateColorAsState(target.onErrorContainer, animSpec, label = "cs_onErrorContainer")
+
+    val outline by animateColorAsState(target.outline, animSpec, label = "cs_outline")
+    val outlineVariant by animateColorAsState(target.outlineVariant, animSpec, label = "cs_outlineVariant")
+    val scrim by animateColorAsState(target.scrim, animSpec, label = "cs_scrim")
+
+    val surfaceBright by animateColorAsState(target.surfaceBright, animSpec, label = "cs_surfaceBright")
+    val surfaceDim by animateColorAsState(target.surfaceDim, animSpec, label = "cs_surfaceDim")
+    val surfaceContainerLowest by animateColorAsState(target.surfaceContainerLowest, animSpec, label = "cs_surfaceContainerLowest")
+    val surfaceContainerLow by animateColorAsState(target.surfaceContainerLow, animSpec, label = "cs_surfaceContainerLow")
+    val surfaceContainer by animateColorAsState(target.surfaceContainer, animSpec, label = "cs_surfaceContainer")
+    val surfaceContainerHigh by animateColorAsState(target.surfaceContainerHigh, animSpec, label = "cs_surfaceContainerHigh")
+    val surfaceContainerHighest by animateColorAsState(target.surfaceContainerHighest, animSpec, label = "cs_surfaceContainerHighest")
+
+    return target.copy(
+        primary = primary,
+        onPrimary = onPrimary,
+        primaryContainer = primaryContainer,
+        onPrimaryContainer = onPrimaryContainer,
+        inversePrimary = inversePrimary,
+        secondary = secondary,
+        onSecondary = onSecondary,
+        secondaryContainer = secondaryContainer,
+        onSecondaryContainer = onSecondaryContainer,
+        tertiary = tertiary,
+        onTertiary = onTertiary,
+        tertiaryContainer = tertiaryContainer,
+        onTertiaryContainer = onTertiaryContainer,
+        background = background,
+        onBackground = onBackground,
+        surface = surface,
+        onSurface = onSurface,
+        surfaceVariant = surfaceVariant,
+        onSurfaceVariant = onSurfaceVariant,
+        surfaceTint = surfaceTint,
+        inverseSurface = inverseSurface,
+        inverseOnSurface = inverseOnSurface,
+        error = error,
+        onError = onError,
+        errorContainer = errorContainer,
+        onErrorContainer = onErrorContainer,
+        outline = outline,
+        outlineVariant = outlineVariant,
+        scrim = scrim,
+        surfaceBright = surfaceBright,
+        surfaceDim = surfaceDim,
+        surfaceContainerLowest = surfaceContainerLowest,
+        surfaceContainerLow = surfaceContainerLow,
+        surfaceContainer = surfaceContainer,
+        surfaceContainerHigh = surfaceContainerHigh,
+        surfaceContainerHighest = surfaceContainerHighest,
+    )
+}
+
+@Composable
 fun AppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     palette: AppPalette = AppPalette.default,
@@ -625,7 +724,7 @@ fun AppTheme(
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
-    val colorScheme = remember(darkTheme, palette, useDynamicColor, amoledPureBlack, context) {
+    val targetColorScheme = remember(darkTheme, palette, useDynamicColor, amoledPureBlack, context) {
         buildColorScheme(
             context = context,
             darkTheme = darkTheme,
@@ -634,8 +733,13 @@ fun AppTheme(
             amoledPureBlack = amoledPureBlack,
         )
     }
+    val reducedMotion = rememberReducedMotion()
+    val animatedColorScheme = animateColorSchemeAsState(
+        target = targetColorScheme,
+        enabled = !reducedMotion,
+    )
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = animatedColorScheme,
         typography = AppTypography,
         shapes = AppShapes,
         content = content,

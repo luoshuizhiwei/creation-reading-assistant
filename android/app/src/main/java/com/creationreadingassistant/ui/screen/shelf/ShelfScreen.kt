@@ -71,6 +71,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
@@ -166,7 +170,10 @@ internal fun ShelfScreen(
         {
             Row(
                 modifier = Modifier
-                    .clickable { onAction(ShelfAction.OpenOrganizer) }
+                    .clickable(
+                        role = androidx.compose.ui.semantics.Role.Button,
+                        onClickLabel = "打开书架整理",
+                    ) { onAction(ShelfAction.OpenOrganizer) }
                     .padding(top = 6.dp, end = 8.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -199,10 +206,13 @@ internal fun ShelfScreen(
         when {
             state.selectionMode -> {}
             else -> {
-                IconButton(onClick = { onAction(ShelfAction.OpenSearch) }) {
+                IconButton(
+                    onClick = { onAction(ShelfAction.OpenSearch) },
+                    modifier = Modifier.semantics { contentDescription = "搜索书籍" },
+                ) {
                     Icon(
                         imageVector = Icons.Outlined.Search,
-                        contentDescription = "搜索",
+                        contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -211,11 +221,12 @@ internal fun ShelfScreen(
                         haptic(HapticFeedbackType.TextHandleMove)
                         onAction(ShelfAction.OpenImportSource)
                     },
+                    modifier = Modifier.semantics { contentDescription = "导入书籍" },
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Outlined.Add,
-                            contentDescription = "导入书籍",
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         if (state.hasActiveImports) {
@@ -239,10 +250,11 @@ internal fun ShelfScreen(
                                 else ShelfAction.TogglePageMenu
                             )
                         },
+                        modifier = Modifier.semantics { contentDescription = "更多操作" },
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.MoreHoriz,
-                            contentDescription = "更多",
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -605,14 +617,19 @@ private fun ShelfCompactToolbar(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        IconButton(onClick = { onAction(ShelfAction.ToggleViewMode) }) {
+        IconButton(
+            onClick = { onAction(ShelfAction.ToggleViewMode) },
+            modifier = Modifier.semantics {
+                contentDescription = if (state.viewMode == ShelfViewMode.GRID) "切换列表视图" else "切换网格视图"
+            },
+        ) {
             Icon(
                 imageVector = if (state.viewMode == ShelfViewMode.GRID) {
                     Icons.AutoMirrored.Outlined.List
                 } else {
                     Icons.Outlined.GridView
                 },
-                contentDescription = if (state.viewMode == ShelfViewMode.GRID) "切换列表视图" else "切换网格视图",
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

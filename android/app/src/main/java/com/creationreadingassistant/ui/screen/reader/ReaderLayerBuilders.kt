@@ -620,13 +620,17 @@ internal fun buildReaderSheetHostCallbacks(
         onAction(ReaderAction.CloseSheet)
         showNotice("已存入灵感")
     },
-    onSaveInspiration = { title, body, excerpt, locatorJson, tags, categoryIds ->
+    onSaveInspiration = { entityId, title, body, excerpt, locatorJson, tags, categoryIds ->
+        // READER-PAGES-v1：只负责按**附页持有的稳定 id**构造实体并派发落库；
+        // 「清选区 / 关页 / 成功提示」一律等 VM 的落库完成信号（InspirationSaveOutcome，
+        // 按 entityId 匹配）到达后才由附页执行——不允许再提前报成功。
+        // 失败重试由附页复用同一 entityId（upsert 覆盖同条，不重复写入）。
         // 文字与 locator 都来自弹层传入的同一份快照（要求 7）。
         val snapshotText = excerpt
         onAction(
             ReaderAction.SaveInspiration(
                 InspirationEntity(
-                    id = UUID.randomUUID().toString(),
+                    id = entityId,
                     title = title,
                     body = body,
                     type = "note",
@@ -641,9 +645,6 @@ internal fun buildReaderSheetHostCallbacks(
                 ),
             ),
         )
-        onAction(ReaderAction.ClearSelection)
-        onAction(ReaderAction.CloseSheet)
-        showNotice("已保存灵感，并记录来源阅读位置")
     },
     onCreateCategory = { name ->
         val id = "mobile-category-${UUID.randomUUID()}"

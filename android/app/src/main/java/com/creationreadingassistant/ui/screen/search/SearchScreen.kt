@@ -571,11 +571,9 @@ fun SearchScreen(
                                             // 不吞异常（navigate 的异常照常向上传播）。
                                             withContext(Dispatchers.Main.immediate) {
                                                 when (val navigation = searchContentHitNavigation(targetBookId, offset)) {
-                                                    is SearchContentHitNavigation.TemporaryInspection ->
-                                                        navController.navigate(navigation.route)
+                                                    is SearchContentHitNavigation.TemporaryInspection -> navController.navigate(navigation.route)
 
-                                                    SearchContentHitNavigation.NoReliableSource ->
-                                                        snackbarHostState.showSnackbar(SEARCH_NO_SOURCE_POSITION_MESSAGE)
+                                                    SearchContentHitNavigation.NoReliableSource -> snackbarHostState.showSnackbar(SEARCH_NO_SOURCE_POSITION_MESSAGE)
                                                 }
                                             }
                                         }

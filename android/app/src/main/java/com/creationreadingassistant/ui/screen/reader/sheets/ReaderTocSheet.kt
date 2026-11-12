@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -105,6 +107,21 @@ internal fun TocSheet(
     notes: List<TocNoteEntry>,
     /** 笔记 Tab 条目点击：按 [TocNoteEntry.navigationTarget] 走 typed 回源。 */
     onPickNote: (TocNoteEntry) -> Unit,
+    // ── READER-PAGES-v1：书内索引附页形态（默认关闭，既有弹层形态不变）──────
+    /** true = 全屏索引附页：顶栏 返回/书名/定位当前章节/更多；低频规则操作入「更多」菜单。 */
+    pageStyle: Boolean = false,
+    /** 附页顶栏书名。 */
+    bookTitle: String = "",
+    /** 附页根页关闭（= 既有 CloseSheet）。 */
+    onClose: () -> Unit = {},
+    /** 三个 Tab 的列表状态：宿主按 bookId 持久化（rememberSaveable），跨开关保留位置。 */
+    tocListState: LazyListState = rememberLazyListState(),
+    bookmarkListState: LazyListState = rememberLazyListState(),
+    noteListState: LazyListState = rememberLazyListState(),
+    /** 首次打开定位当前章节一次（宿主按 bookId 记忆）；此后重组/切 Tab 不再强行滚回。 */
+    autoLocateCurrent: Boolean = false,
+    /** 自动定位完成回调（宿主据此置位，避免再次进入重复定位）。 */
+    onAutoLocated: () -> Unit = {},
 ) {
     val layout = LocalLayoutTokens.current
     val reducedMotion = rememberReducedMotion()
@@ -130,7 +147,7 @@ internal fun TocSheet(
         }
     }
 
-    val listState = rememberLazyListState()
+    val listState = tocListState
     // 精确计算当前章节在 LazyColumn 中的实际位置（排除已折叠分卷所占用的项数，彻底消除跳偏）
     val currentListPosition = remember(groups, current, recentEntries, collapsed.value) {
         var position = if (recentEntries.isEmpty()) 0 else 2
@@ -151,9 +168,20 @@ internal fun TocSheet(
         position
     }
 
-    // 初始加载时科学居中定位当前阅读章节（带视口负偏移量，保留前后邻近章节视野）
-    LaunchedEffect(current, chapterIndices) {
-        if (entries.any { it.index == current }) {
+    // READER-PAGES-v1：首次打开定位当前章节一次（宿主按 bookId 记忆）。
+    // 附页复用宿主持久列表状态：再次打开时恢复上次位置，不强行滚回。
+    LaunchedEffect(current, chapterIndices, autoLocateCurrent) {
+        if (autoLocateCurrent && entries.any { it.index == current }) {
+            listState.scrollToItem(currentListPosition.coerceAtLeast(0), scrollOffset = -200)
+            onAutoLocated()
+        }
+    }
+
+    // READER-PAGES-v1：顶栏「定位当前章节」——先清搜索过滤，再滚到当前章。
+    var locateRequest by remember { mutableStateOf(0) }
+    LaunchedEffect(locateRequest, searchQuery) {
+        if (locateRequest > 0 && searchQuery.isBlank()) {
+            // 过滤视图已随 searchQuery 清空退出组合，标准列表此刻已用 listState 组合完成。
             listState.scrollToItem(currentListPosition.coerceAtLeast(0), scrollOffset = -200)
         }
     }
@@ -201,10 +229,87 @@ internal fun TocSheet(
         )
     }
 
+    // READER-PAGES-v1：附页形态的「更多」菜单展开态。
+    var pageMenuExpanded by remember { mutableStateOf(false) }
+
     ReaderSheetScaffold(
-        title = "目录与标记",
+        title = if (pageStyle) bookTitle.ifBlank { "目录与标记" } else "目录与标记",
         modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow),
-        trailing = {
+        fullScreen = pageStyle,
+        onBack = if (pageStyle) onClose else null,
+        trailing = if (pageStyle) {
+            {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    // 顶栏「定位当前章节」：清空标题过滤后回到当前章（合同 P1）。
+                    IconButton(
+                        onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            searchQuery = ""
+                            locateRequest++
+                        },
+                    ) {
+                        Icon(Icons.Outlined.NearMe, contentDescription = "定位当前章节")
+                    }
+                    // 低频操作收敛到「更多」菜单：章节进度 / 已读统计 / 规则管理 / 清除已读标记。
+                    Box {
+                        IconButton(onClick = { pageMenuExpanded = true }) {
+                            Icon(Icons.Outlined.MoreVert, contentDescription = "目录更多操作")
+                        }
+                        DropdownMenu(
+                            expanded = pageMenuExpanded,
+                            onDismissRequest = { pageMenuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text("第 ${(current + 1).coerceAtLeast(1)} / ${totalChapters.coerceAtLeast(0)} 章")
+                                },
+                                onClick = {},
+                                enabled = false,
+                            )
+                            if (showReadStatus) {
+                                DropdownMenuItem(
+                                    text = { Text("已读 $readCount/${entries.size}") },
+                                    onClick = {},
+                                    enabled = false,
+                                )
+                            }
+                            if (txtRules.isNotEmpty() || showReplacementRulesEntry) {
+                                DropdownMenuItem(
+                                    text = { Text(if (txtRules.isNotEmpty()) "目录与净化规则" else "替换净化") },
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Outlined.Tune,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
+                                    },
+                                    onClick = {
+                                        pageMenuExpanded = false
+                                        onManageRules()
+                                    },
+                                )
+                            }
+                            if (showClearReadMarks) {
+                                DropdownMenuItem(
+                                    text = { Text("清除已读标记") },
+                                    leadingIcon = {
+                                        Icon(Icons.Outlined.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                    },
+                                    onClick = {
+                                        pageMenuExpanded = false
+                                        confirmClearReads = true
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -265,6 +370,7 @@ internal fun TocSheet(
                     }
                 }
             }
+            }
         },
     ) {
         // 1. 顶层 Tab（目录 / 书签 / 笔记）圆润微胶囊导轨
@@ -322,7 +428,11 @@ internal fun TocSheet(
             ReaderTocTab.TOC -> {
                 if (txtRules.isNotEmpty()) {
                     // TXT 规则识别引导栏：现代化墨青微岛卡片
-                    TocRulesEntryRow(onClick = onManageRules)
+                    // READER-PAGES-v1：附页形态下引导卡入「更多」菜单，识别区（扫描进度/
+                    // 快捷规则胶囊）保留在页内——扫描进度必须持续可见。
+                    if (!pageStyle) {
+                        TocRulesEntryRow(onClick = onManageRules)
+                    }
                     TocRecognitionSection(
                         txtRules = txtRules,
                         selectedTxtRule = selectedTxtRule,
@@ -333,8 +443,9 @@ internal fun TocSheet(
                         onTxtRule = onTxtRule,
                         onCancelTxtScan = onCancelTxtScan,
                     )
-                } else if (showReplacementRulesEntry) {
+                } else if (showReplacementRulesEntry && !pageStyle) {
                     // EPUB 分页净化：结构保真投影可用时的「替换净化」入口
+                    // （附页形态下同入口收敛到「更多」菜单）
                     TocRulesEntryRow(
                         onClick = onManageRules,
                         title = "替换净化",
@@ -627,6 +738,7 @@ internal fun TocSheet(
                 BookmarksTabContent(
                     bookmarks = bookmarks,
                     onPickBookmark = onPickBookmark,
+                    listState = bookmarkListState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
@@ -637,6 +749,7 @@ internal fun TocSheet(
                 NotesTabContent(
                     entries = notes,
                     onPick = onPickNote,
+                    listState = noteListState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),

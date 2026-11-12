@@ -7,6 +7,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,6 +60,7 @@ import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
+import com.creationreadingassistant.ui.theme.bounceable
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
@@ -268,7 +271,9 @@ internal fun BookTile(
     // 完成标识统一口径（与书架分组 bookStatus 一致）：显式 FINISHED 才显示「完」/「已读完」/藏书印。
     val displayFinished = isDisplayFinished(percent, completionState)
     val layout = LocalLayoutTokens.current
-    val haptic = rememberHaptic(rememberReducedMotion())
+    val reducedMotion = rememberReducedMotion()
+    val haptic = rememberHaptic(reducedMotion)
+    val interactionSource = remember { MutableInteractionSource() }
     val onClick = {
         if (selectionMode) {
             haptic(HapticFeedbackType.TextHandleMove)
@@ -281,7 +286,10 @@ internal fun BookTile(
         .fillMaxWidth()
         .testTag("book-tile-${book.id}")
         .semantics { contentDescription = "打开书籍" }
+        .then(if (reducedMotion) Modifier else Modifier.bounceable(interactionSource))
         .combinedClickable(
+            interactionSource = interactionSource,
+            indication = LocalIndication.current,
             onClick = onClick,
             onLongClickLabel = "打开书籍操作",
             onLongClick = {

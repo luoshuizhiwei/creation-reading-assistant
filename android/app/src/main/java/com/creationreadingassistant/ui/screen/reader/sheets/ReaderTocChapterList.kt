@@ -22,6 +22,8 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -30,7 +32,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -226,18 +231,20 @@ internal fun TxtScanProgressRow(
 /**
  * 目录章节阅读清单：章节顺序、标题和字数构成稳定三列；当前章以书签色竖线和浅底强调。
  * 未读行保持透明，避免“每章一张卡片”的视觉噪音。
+ *
+ * READER-PAGES-v1 P1：标题默认最多两行；长按可在「两行摘要 ↔ 完整标题」间切换，
+ * 完整长标题不需要单独详情页即可读全。必须用 [combinedClickable] 消歧：
+ * Surface(onClick) 与独立长按检测器叠加时，长按会连带触发点击跳章（真机实测）。
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
     val haptic = rememberHaptic(rememberReducedMotion())
     val interaction = remember { MutableInteractionSource() }
     val spec = LocalComponentSpec.current
+    var titleExpanded by remember(entry.index) { mutableStateOf(false) }
 
     Surface(
-        onClick = {
-            haptic(HapticFeedbackType.TextHandleMove)
-            onPick()
-        },
         shape = RoundedCornerShape(spec.listItemRadius),
         color = when {
             entry.isCurrent -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.32f)
@@ -245,6 +252,15 @@ internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
         },
         modifier = Modifier
             .fillMaxWidth()
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current,
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    onPick()
+                },
+                onLongClick = { titleExpanded = !titleExpanded },
+            )
             .bounceable(interaction),
     ) {
         Row(
@@ -287,13 +303,13 @@ internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
                 modifier = Modifier.width(34.dp),
             )
 
-            // 章节标题
+            // 章节标题：默认两行，长按展开完整标题（READER-PAGES-v1 P1）
             Text(
                 text = entry.title,
                 modifier = Modifier
                     .weight(1f)
                     .padding(end = 12.dp),
-                maxLines = 2,
+                maxLines = if (titleExpanded) Int.MAX_VALUE else 2,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (entry.isCurrent) FontWeight.Bold else FontWeight.Normal,

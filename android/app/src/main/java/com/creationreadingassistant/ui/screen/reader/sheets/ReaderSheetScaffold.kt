@@ -30,13 +30,19 @@ internal fun ReaderSheetScaffold(
     onBack: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
     maxHeightFraction: Float = 0.90f,
+    /**
+     * READER-PAGES-v1：全屏附页能力（向后兼容）。true = 铺满剩余窗口高度
+     * （不再按 [maxHeightFraction] 折算），供全屏页容器内的页面复用同一顶栏视觉；
+     * 旧弹层调用保持默认 false，行为不变。
+     */
+    fullScreen: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .fillMaxHeight(maxHeightFraction)
+            .then(if (fullScreen) Modifier.fillMaxHeight() else Modifier.fillMaxHeight(maxHeightFraction))
             // 系统导航栏已隐藏：只避开底部手势区（恒定，不随 transient swipe 跳动，
             // 三键导航下为 0，不产生空白系统栏）。
             .windowInsetsPadding(WindowInsets.mandatorySystemGestures)

@@ -21,6 +21,7 @@ import androidx.test.uiautomator.UiDevice
 import com.creationreadingassistant.MainActivity
 import com.creationreadingassistant.data.local.AppDatabase
 import java.io.File
+import kotlin.math.max
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.runBlocking
@@ -245,8 +246,8 @@ class SaFTreeImportJourneyProductionTest {
                     "bounds=$b screen=${uiDevice.displayWidth}x${uiDevice.displayHeight}"
                 // 关键：MuMu 上按钮中心可能落在系统导航栏区域（1080x1920，导航栏顶≈1836），
                 // 中心点击会被导航栏吃掉——点按钮上部 1/5 处避开遮挡。
-                val tapY = b.top + max(1, b.height / 5)
-                uiDevice.click(b.centerX, tapY)
+                val tapY = b.top + max(1, b.height() / 5)
+                uiDevice.click(b.centerX(), tapY)
                 // 保存完整窗口层级供事后取证（app external files，批后 pull）
                 runCatching {
                     uiDevice.dumpWindowHierarchy(

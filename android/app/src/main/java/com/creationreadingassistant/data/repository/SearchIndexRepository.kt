@@ -1064,7 +1064,7 @@ class SearchIndexRepository @Inject constructor(
         // 过滤放在 groupBy 之前：这样 `limit` 截断的是「活跃书命中」而非被残留行挤占的名额。
         val activeBookIds = bookDao.activeIds().toHashSet()
         val coverageByKey = coverageDao.all().associateBy { row -> row.book_id to row.text_basis }
-        SearchHitRanker.rank(
+        val ranked = SearchHitRanker.rank(
             rawMatches = raw,
             activeBookIds = activeBookIds,
             coverageProvider = { bookId, basisWire ->
@@ -1074,6 +1074,7 @@ class SearchIndexRepository @Inject constructor(
             },
             limit = limit,
         )
+        ranked
     }
 
     /**

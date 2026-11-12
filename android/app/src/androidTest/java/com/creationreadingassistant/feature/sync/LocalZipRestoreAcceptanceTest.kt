@@ -743,13 +743,13 @@ class LocalZipRestoreAcceptanceTest {
         // ZIP：A（与义务匹配）/ B（同 JSON 不同正文）/ BAD（缺 backup.json）
         writeZip(
             File(scenarioCacheDir(scenario), zipName(scenario, "A")),
-            backupJson(bookId, REMOTE_REVISION),
+            backupJson(scenario, bookId, REMOTE_REVISION),
             bookId,
             ORIGINAL_A_CONTENT,
         )
         writeZip(
             File(scenarioCacheDir(scenario), zipName(scenario, "B")),
-            backupJson(bookId, bRevision),
+            backupJson(scenario, bookId, bRevision),
             bookId,
             CONFLICT_B_CONTENT,
         )
@@ -1127,11 +1127,12 @@ class LocalZipRestoreAcceptanceTest {
         }
     }
 
-    private fun backupJson(bookId: String, revision: Int = REMOTE_REVISION): String {
+    private fun backupJson(scenario: String, bookId: String, revision: Int = REMOTE_REVISION): String {
         val json = Json { ignoreUnknownKeys = true }
         val book = BookEntity(
             id = bookId, title = "测试 TXT", format = "txt",
             revision = revision, updated_at = STABLE_TIME,
+            local_content_path = bookFile(scenario, bookId).absolutePath,
         )
         val envelope = SyncEnvelope(
             id = bookId, type = "book", revision = revision,

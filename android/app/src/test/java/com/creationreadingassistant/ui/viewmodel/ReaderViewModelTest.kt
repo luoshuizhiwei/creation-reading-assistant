@@ -2249,6 +2249,56 @@ class ReaderViewModelTest {
         coVerify(exactly = 0) { bookRepository.saveProgress(any(), any()) }
         assertFalse("成功退出必须标记已落库", persistGate.shouldPersistOnDispose())
     }
+
+    // ── READER-PAGES-v1：灵感保存的落库完成信号 ──────────────────
+
+    private fun inspirationEntity(id: String) = InspirationEntity(
+        id = id,
+        title = "t",
+        body = "b",
+        type = "note",
+        status = "inbox",
+        source_book_id = null,
+        payload = "{}",
+        created_at = "",
+        device_id = null,
+        revision = 1,
+        updated_at = "",
+        deleted_at = null,
+    )
+
+    @Test
+    fun `save inspiration publishes Saved outcome with the entity id after real save`() = runTest {
+        val entity = inspirationEntity("insp-ok")
+        viewModel.onAction(ReaderAction.SaveInspiration(entity))
+        val outcome = viewModel.inspirationSaveOutcome.first { it != null }
+        assertEquals(
+            "落库成功必须按实体 id 发布 Saved",
+            InspirationSaveOutcome.Saved(seq = outcome!!.seq, requestId = "insp-ok"),
+            outcome,
+        )
+        coVerify(exactly = 1) { noteRepository.saveInspiration(entity) }
+    }
+
+    @Test
+    fun `save inspiration failure publishes Failed with the original message`() = runTest {
+        coEvery { noteRepository.saveInspiration(any()) } throws RuntimeException("boom")
+        viewModel.onAction(ReaderAction.SaveInspiration(inspirationEntity("insp-fail")))
+        val outcome = viewModel.inspirationSaveOutcome.first { it != null }
+        assertTrue("失败必须发布 Failed", outcome is InspirationSaveOutcome.Failed)
+        outcome as InspirationSaveOutcome.Failed
+        assertEquals("insp-fail", outcome.requestId)
+        assertEquals("boom", outcome.message)
+    }
+
+    @Test
+    fun `cancelled inspiration save never publishes an outcome`() = runTest {
+        coEvery { noteRepository.saveInspiration(any()) } throws kotlinx.coroutines.CancellationException("cancelled")
+        viewModel.onAction(ReaderAction.SaveInspiration(inspirationEntity("insp-cancel")))
+        // UnconfinedTestDispatcher：io 协程同步执行完毕；取消异常原样抛出 → 不发布任何信号。
+        runCurrent()
+        assertNull("取消协程不能变成成功（也不得发布失败假象）", viewModel.inspirationSaveOutcome.value)
+    }
 }
 
 /**

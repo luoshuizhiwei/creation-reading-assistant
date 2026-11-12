@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -148,6 +149,61 @@ class InspirationViewModelTest {
         val saved = slot<InspirationEntity>()
         coVerify(exactly = 1) { inspirationRepository.upsert(capture(saved)) }
         assertEquals("editor-id-A", saved.captured.id)
+    }
+
+    @Test
+    fun `saveInspiration waits for persistence before reporting completion`() = runTest(mainDispatcher.scheduler) {
+        val vm = createVm()
+        var persisted = false
+        coEvery { inspirationRepository.upsert(any()) } coAnswers {
+            delay(100)
+            persisted = true
+        }
+
+        val save = launch { vm.saveInspiration(
+            InspirationDraft(
+                id = "delayed-save",
+                title = "延迟保存",
+                body = "保存完成前不应切页",
+                type = "note",
+                status = "inbox",
+                tags = emptyList(),
+                source = null,
+            ),
+        ) }
+        testScheduler.runCurrent()
+        assertTrue("写库尚未完成时保存协程应保持等待", save.isActive)
+        assertTrue("保存期间 pending 只用于避免提前判定详情不存在", "delayed-save" in vm.pendingSavedIds.value)
+
+        testScheduler.advanceTimeBy(100)
+        testScheduler.runCurrent()
+        assertTrue("保存完成后才允许调用方切页", persisted && save.isCompleted)
+        assertTrue("新记录等待列表流观察期间应可解析", "delayed-save" in vm.pendingSavedIds.value)
+        coVerify(exactly = 1) { inspirationRepository.upsert(any()) }
+    }
+
+    @Test
+    fun `saveInspiration propagates write failure without marking draft saved`() = runTest(mainDispatcher.scheduler) {
+        val vm = createVm()
+        coEvery { inspirationRepository.upsert(any()) } throws IllegalStateException("write failed")
+
+        val failure = runCatching {
+            vm.saveInspiration(
+                InspirationDraft(
+                    id = "failed-save",
+                    title = "未保存",
+                    body = "草稿仍应留在编辑器",
+                    type = "note",
+                    status = "inbox",
+                    tags = emptyList(),
+                    source = null,
+                ),
+            )
+        }.exceptionOrNull()
+
+        assertTrue("调用方必须收到原始写入失败", failure is IllegalStateException && failure.message == "write failed")
+        assertTrue("失败保存不得登记为 pending 成功", vm.pendingSavedIds.value.isEmpty())
+        coVerify(exactly = 1) { inspirationRepository.upsert(any()) }
     }
 
     @Test

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -63,9 +64,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -200,9 +207,9 @@ internal fun AutoPagingBar(
         Spacer(Modifier.width(6.dp))
         IconButton(
             onClick = { onSpeedChange(clampAutoPageSpeed(speed - 1)) },
-            modifier = Modifier.heightIn(min = minimumTouchTarget),
+            modifier = Modifier.semantics { contentDescription = "放慢自动翻页" },
         ) {
-            Icon(Icons.Outlined.Remove, contentDescription = "放慢自动翻页", tint = paper.accent)
+            Icon(Icons.Outlined.Remove, contentDescription = null, tint = paper.accent)
         }
         Surface(
             onClick = { onAction(ReaderChromeAction.ToggleAutoPaging) },
@@ -221,15 +228,15 @@ internal fun AutoPagingBar(
         }
         IconButton(
             onClick = { onSpeedChange(clampAutoPageSpeed(speed + 1)) },
-            modifier = Modifier.heightIn(min = minimumTouchTarget),
+            modifier = Modifier.semantics { contentDescription = "加快自动翻页" },
         ) {
-            Icon(Icons.Outlined.Add, contentDescription = "加快自动翻页", tint = paper.accent)
+            Icon(Icons.Outlined.Add, contentDescription = null, tint = paper.accent)
         }
         IconButton(
             onClick = { onAction(ReaderChromeAction.OpenSheet(ReaderSheet.SETTINGS)) },
-            modifier = Modifier.heightIn(min = minimumTouchTarget),
+            modifier = Modifier.semantics { contentDescription = "自动翻页设置" },
         ) {
-            Icon(Icons.Outlined.Settings, contentDescription = "自动翻页设置", tint = paper.accent)
+            Icon(Icons.Outlined.Settings, contentDescription = null, tint = paper.accent)
         }
     }
 }
@@ -349,22 +356,30 @@ internal fun ReaderBottomActions(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(min = layout.minimumTouchTarget)
                 .padding(vertical = layout.relatedGap),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(
                 onClick = onPreviousChapter,
                 enabled = !isFirstChapter,
-                modifier = Modifier.heightIn(min = layout.minimumTouchTarget),
+                modifier = Modifier
+                    .semantics { contentDescription = "上一章" }
+                    .clip(RoundedCornerShape(spec.pedestalRadius))
+                    .border(
+                        spec.hairlineBorderWidth,
+                        if (!isFirstChapter) accentColor.copy(alpha = spec.hairlineAlpha) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        RoundedCornerShape(spec.pedestalRadius)
+                    ),
+                colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
+                    containerColor = if (!isFirstChapter) accentColor.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                ),
             ) {
-                // 微岛收敛：圆形底座 → IconPedestal（pedestalRadius + hairline 令牌，禁用态统一降级）。
-                IconPedestal(
-                    icon = Icons.Outlined.SkipPrevious,
-                    tint = accentColor,
-                    size = 34.dp,
-                    iconSize = 20.dp,
-                    enabled = !isFirstChapter,
-                    contentDescription = "上一章",
+                Icon(
+                    imageVector = Icons.Outlined.SkipPrevious,
+                    tint = if (!isFirstChapter) accentColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                    modifier = Modifier.size(20.dp),
+                    contentDescription = null,
                 )
             }
 
@@ -404,16 +419,23 @@ internal fun ReaderBottomActions(
             IconButton(
                 onClick = onNextChapter,
                 enabled = !isLastChapter,
-                modifier = Modifier.heightIn(min = layout.minimumTouchTarget),
+                modifier = Modifier
+                    .semantics { contentDescription = "下一章" }
+                    .clip(RoundedCornerShape(spec.pedestalRadius))
+                    .border(
+                        spec.hairlineBorderWidth,
+                        if (!isLastChapter) accentColor.copy(alpha = spec.hairlineAlpha) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        RoundedCornerShape(spec.pedestalRadius)
+                    ),
+                colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
+                    containerColor = if (!isLastChapter) accentColor.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                ),
             ) {
-                // 微岛收敛：圆形底座 → IconPedestal（pedestalRadius + hairline 令牌，禁用态统一降级）。
-                IconPedestal(
-                    icon = Icons.Outlined.SkipNext,
-                    tint = accentColor,
-                    size = 34.dp,
-                    iconSize = 20.dp,
-                    enabled = !isLastChapter,
-                    contentDescription = "下一章",
+                Icon(
+                    imageVector = Icons.Outlined.SkipNext,
+                    tint = if (!isLastChapter) accentColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                    modifier = Modifier.size(20.dp),
+                    contentDescription = null,
                 )
             }
         }
@@ -444,11 +466,11 @@ internal fun ReaderBottomActions(
                         )
                         IconButton(
                             onClick = { onAutoPageSpeedChange(clampAutoPageSpeed(autoPageSpeed - 1)) },
-                            modifier = Modifier.size(32.dp),
+                            modifier = Modifier.semantics { contentDescription = "放慢自动翻页" },
                         ) {
                             Icon(
                                 Icons.Outlined.Remove,
-                                contentDescription = "放慢自动翻页",
+                                contentDescription = null,
                                 tint = accentColor,
                                 modifier = Modifier.size(16.dp),
                             )
@@ -462,11 +484,11 @@ internal fun ReaderBottomActions(
                         )
                         IconButton(
                             onClick = { onAutoPageSpeedChange(clampAutoPageSpeed(autoPageSpeed + 1)) },
-                            modifier = Modifier.size(32.dp),
+                            modifier = Modifier.semantics { contentDescription = "加快自动翻页" },
                         ) {
                             Icon(
                                 Icons.Outlined.Add,
-                                contentDescription = "加快自动翻页",
+                                contentDescription = null,
                                 tint = accentColor,
                                 modifier = Modifier.size(16.dp),
                             )
@@ -581,15 +603,19 @@ internal fun ReaderTopChrome(
         ) {
             IconButton(
                 onClick = { onAction(ReaderChromeAction.Back) },
-                modifier = Modifier.size(40.dp),
+                modifier = Modifier
+                    .semantics { contentDescription = "返回书架" }
+                    .clip(RoundedCornerShape(spec.pedestalRadius))
+                    .border(spec.hairlineBorderWidth, paper.fg.copy(alpha = spec.hairlineAlpha), RoundedCornerShape(spec.pedestalRadius)),
+                colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
+                    containerColor = paper.fg.copy(alpha = 0.14f)
+                ),
             ) {
-                // 微岛收敛：圆形底座 → IconPedestal（pedestalRadius + hairline 令牌）。
-                IconPedestal(
-                    icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                     tint = paper.fg,
-                    size = 34.dp,
-                    iconSize = 20.dp,
-                    contentDescription = "返回",
+                    modifier = Modifier.size(20.dp),
+                    contentDescription = null,
                 )
             }
 
@@ -623,14 +649,19 @@ internal fun ReaderTopChrome(
             if (temporaryInspection && hasReturnableTarget) {
                 IconButton(
                     onClick = { onAction(ReaderChromeAction.ReturnToReading) },
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier
+                        .semantics { contentDescription = "返回阅读处" }
+                        .clip(RoundedCornerShape(spec.pedestalRadius))
+                        .border(spec.hairlineBorderWidth, paper.accent.copy(alpha = spec.hairlineAlpha), RoundedCornerShape(spec.pedestalRadius)),
+                    colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
+                        containerColor = paper.accent.copy(alpha = 0.14f)
+                    ),
                 ) {
-                    IconPedestal(
-                        icon = Icons.Outlined.SubdirectoryArrowLeft,
+                    Icon(
+                        imageVector = Icons.Outlined.SubdirectoryArrowLeft,
                         tint = paper.accent,
-                        size = 34.dp,
-                        iconSize = 20.dp,
-                        contentDescription = "返回阅读处",
+                        modifier = Modifier.size(20.dp),
+                        contentDescription = null,
                     )
                 }
                 Spacer(Modifier.width(4.dp))
@@ -639,15 +670,19 @@ internal fun ReaderTopChrome(
             Box {
                 IconButton(
                     onClick = { onOverflowExpandedChange(true) },
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier
+                        .semantics { contentDescription = "更多操作" }
+                        .clip(RoundedCornerShape(spec.pedestalRadius))
+                        .border(spec.hairlineBorderWidth, paper.fg.copy(alpha = spec.hairlineAlpha), RoundedCornerShape(spec.pedestalRadius)),
+                    colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
+                        containerColor = paper.fg.copy(alpha = 0.14f)
+                    ),
                 ) {
-                    // 微岛收敛：圆形底座 → IconPedestal（pedestalRadius + hairline 令牌）。
-                    IconPedestal(
-                        icon = Icons.Outlined.MoreVert,
+                    Icon(
+                        imageVector = Icons.Outlined.MoreVert,
                         tint = paper.fg,
-                        size = 34.dp,
-                        iconSize = 20.dp,
-                        contentDescription = "更多",
+                        modifier = Modifier.size(20.dp),
+                        contentDescription = null,
                     )
                 }
                 DropdownMenu(

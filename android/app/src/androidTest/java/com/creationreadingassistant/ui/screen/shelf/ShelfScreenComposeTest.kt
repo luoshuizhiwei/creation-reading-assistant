@@ -24,6 +24,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.BookEntity
@@ -55,6 +58,24 @@ class ShelfScreenComposeTest {
 
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun cancelledPressDoesNotOpenBookAndLongPressOnlyOpensMenu() {
+        val book = shelfItem("press", "测试书卡")
+        val actions = mutableListOf<ShelfAction>()
+        renderShelf(393.dp, 800.dp, items = listOf(book), onAction = { actions.add(it) })
+        val tile = composeRule.onNodeWithTag("book-tile-press")
+
+        tile.performTouchInput { down(center); cancel() }
+        composeRule.runOnIdle { assertTrue(actions.isEmpty()) }
+        tile.performTouchInput { longClick() }
+        composeRule.runOnIdle { assertEquals(listOf(ShelfAction.ToggleActions("press")), actions) }
+        tile.performTouchInput { click() }
+        composeRule.runOnIdle {
+            assertEquals(2, actions.size)
+            assertEquals("press", (actions.last() as ShelfAction.OpenBook).book.id)
+        }
+    }
 
     // —————————————————————————————————————————————————————————
     // 验收 1：393dp 为三列
@@ -329,6 +350,7 @@ class ShelfScreenComposeTest {
         items: List<ShelfBookItem> = emptyList(),
         viewMode: ShelfViewMode = ShelfViewMode.GRID,
         refreshing: Boolean = false,
+        onAction: (ShelfAction) -> Unit = {},
     ) {
         var state by mutableStateOf(
             defaultState(items = items).copy(
@@ -347,7 +369,7 @@ class ShelfScreenComposeTest {
                         LocalLayoutTokens provides DefaultLayoutTokens,
                         LocalShelfSnackbar provides SnackbarHostState(),
                     ) {
-                        ShelfScreen(state = state, onAction = {})
+                        ShelfScreen(state = state, onAction = onAction)
                     }
                 }
             }

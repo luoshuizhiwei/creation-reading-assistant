@@ -202,6 +202,8 @@ data class CorrectionExport(
  * 与现有 Capacitor 旧 App 的数据库不互通（新版为独立 Room 库）。
  * P4 起 `exportToString()` 供 WebDAV 远程备份复用同一份导出内容。
  */
+internal val localExportJson = Json { prettyPrint = true; ignoreUnknownKeys = true }
+
 @Serializable
 data class LocalExport(
     val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
@@ -256,6 +258,7 @@ data class ImportMergeResult(
     val skippedBookContentPaths: List<String> = emptyList(),
     val strictlyNewerBookContentPaths: List<String> = emptyList(),
     val equalBookContentPaths: List<String> = emptyList(),
+    val strictlyNewerBookIds: Set<String> = emptySet(),
 )
 
 class JsonBridge @Inject constructor(
@@ -278,7 +281,7 @@ class JsonBridge @Inject constructor(
     private val textRuleDao: ReaderTextRuleDao? = null,
     private val correctionDao: ReaderCorrectionDao? = null,
 ) {
-    private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
+    private val json = localExportJson
 
     private fun deviceId(context: Context): String =
         deviceInfoProvider?.provide()?.deviceId ?: SecurePrefs.getOrCreateAppInstanceId(context)
@@ -287,7 +290,7 @@ class JsonBridge @Inject constructor(
         SyncEnvelope(id = id, type = type, revision = revision, deviceId = deviceId, updatedAt = updatedAt, deletedAt = deletedAt, payload = entity)
 
     /** 组装整库导出对象（导出文件与字符串共用）。 */
-    private suspend fun buildExport(context: Context): LocalExport {
+    internal suspend fun buildExport(context: Context): LocalExport {
         val dev = deviceId(context)
         val books = bookDao.observeAllActive().first().map {
             envelope("book", it, it.id, it.updated_at, it.revision, it.deleted_at, dev)
@@ -316,7 +319,10 @@ class JsonBridge @Inject constructor(
         val shelves = shelfDao.getAllActive().map {
             envelope("shelf", it, it.id, it.updated_at, it.revision, it.deleted_at, dev)
         }
-        val sourceRefs = sourceRefDao?.getAll()?.map { SourceRefExport.fromEntity(it) } ?: emptyList()
+        val activeBookIds = books.map { it.payload.id }.toSet()
+        val sourceRefs = sourceRefDao?.getAll()
+            ?.filter { it.book_id in activeBookIds }
+            ?.map { SourceRefExport.fromEntity(it) } ?: emptyList()
         val textRules = textRuleDao?.observeAll()?.first()?.map { TextRuleExport.fromEntity(it) } ?: emptyList()
         val textCorrections = correctionDao?.let { dao ->
             books.flatMap { bookEnv ->
@@ -380,7 +386,14 @@ class JsonBridge @Inject constructor(
         text: String,
         onMergeResult: (ImportMergeResult) -> Unit = {},
     ) = withContext(ioDispatcher) {
-        val export = json.decodeFromString<LocalExport>(text)
+        importSnapshot(context, json.decodeFromString<LocalExport>(text), onMergeResult)
+    }
+
+    internal suspend fun importSnapshot(
+        context: Context,
+        export: LocalExport,
+        onMergeResult: (ImportMergeResult) -> Unit,
+    ) {
         // 未来 schema 演进时在这里按版本分派解析；未知版本宁可拒绝也不能静默按旧结构导入。
         if (export.schemaVersion != LocalExport.CURRENT_SCHEMA_VERSION) {
             error("备份格式版本不受支持（schemaVersion=${export.schemaVersion}，当前支持 ${LocalExport.CURRENT_SCHEMA_VERSION}），已拒绝导入")
@@ -389,6 +402,7 @@ class JsonBridge @Inject constructor(
         val acceptedBookIds = mutableSetOf<String>()
         val skippedBookContentPaths = mutableListOf<String>()
         val strictlyNewerBookContentPaths = mutableListOf<String>()
+        val strictlyNewerBookIds = mutableSetOf<String>()
         val equalBookContentPaths = mutableListOf<String>()
 
         bookDao.runInTransaction {
@@ -413,6 +427,7 @@ class JsonBridge @Inject constructor(
                             skippedBookContentPaths += it
                         }
                     } else {
+                        strictlyNewerBookIds += local.id
                         path?.let {
                             strictlyNewerBookContentPaths += it
                             skippedBookContentPaths += it
@@ -425,6 +440,7 @@ class JsonBridge @Inject constructor(
                 acceptedBookIds = acceptedBookIds,
                 skippedBookContentPaths = skippedBookContentPaths,
                 strictlyNewerBookContentPaths = strictlyNewerBookContentPaths,
+                strictlyNewerBookIds = strictlyNewerBookIds,
                 equalBookContentPaths = equalBookContentPaths,
             )
 
@@ -434,13 +450,25 @@ class JsonBridge @Inject constructor(
 
             booksToUpsert.forEach { bookDao.upsert(it) }
 
-            // 灵感
+            // 灵感（孤立书籍引用按 SET_NULL 语义降级为空，保全独立灵感正文与想法）
             val localInspirations = batchLoad(export.inspirations.map { it.payload.id }) { inspirationDao.getByIds(it) }
                 .associateBy { it.id }
+            val existingBookIdsForInsp = (localBooks.keys + booksToUpsert.map { it.id }).toMutableSet()
             export.inspirations.forEach { env ->
                 val local = localInspirations[env.payload.id]
                 if (local == null || SyncMergePolicy.shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at)) {
-                    inspirationDao.upsert(env.payload)
+                    val safePayload = if (env.payload.source_book_id != null && env.payload.source_book_id !in existingBookIdsForInsp) {
+                        val bookExists = bookDao.getById(env.payload.source_book_id) != null
+                        if (bookExists) {
+                            existingBookIdsForInsp.add(env.payload.source_book_id)
+                            env.payload
+                        } else {
+                            env.payload.copy(source_book_id = null)
+                        }
+                    } else {
+                        env.payload
+                    }
+                    inspirationDao.upsert(safePayload)
                 }
             }
 
@@ -486,14 +514,24 @@ class JsonBridge @Inject constructor(
             mergeShelfBooks(export.shelfBooks)
             mergeChapterReads(export.chapterReads)
 
-            // —— S04-5 / S14 补齐：来源引用与阅读器规则/纠错数据（旧不覆新）——
+            // —— S04-5 / S14 补齐：来源引用与阅读器规则/纠错数据（旧不覆新，孤立引用跳过）——
             sourceRefDao?.let { dao ->
                 if (export.librarySourceRefs.isNotEmpty()) {
+                    val candidateBookIds = export.librarySourceRefs.map { it.book_id }.distinct()
+                    val mergedBookIds = (localBooks.keys + booksToUpsert.map { it.id }).toMutableSet()
+                    val remainingIds = candidateBookIds.filter { it !in mergedBookIds }
+                    if (remainingIds.isNotEmpty()) {
+                        val existingLocal = batchLoad(remainingIds) { bookDao.getByIds(it) }
+                        mergedBookIds += existingLocal.map { it.id }
+                    }
+
                     val localRefs = dao.getAll().associateBy { it.book_id }
                     export.librarySourceRefs.forEach { item ->
-                        val local = localRefs[item.book_id]
-                        if (local == null || item.last_seen_at >= local.last_seen_at) {
-                            dao.upsert(item.toEntity())
+                        if (item.book_id in mergedBookIds) {
+                            val local = localRefs[item.book_id]
+                            if (local == null || item.last_seen_at >= local.last_seen_at) {
+                                dao.upsert(item.toEntity())
+                            }
                         }
                     }
                 }

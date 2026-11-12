@@ -690,6 +690,11 @@ class LocalZipBackupPersistentRestoreTest {
         format = format,
         size = size,
         content_status = "available",
+        local_content_path = if (format.equals("epub", ignoreCase = true)) {
+            "/data/user/0/${ApplicationProvider.getApplicationContext<Context>().packageName}/files/books/epub/$id.epub"
+        } else {
+            "/data/user/0/${ApplicationProvider.getApplicationContext<Context>().packageName}/files/books/$id/content.txt"
+        },
         imported_at = STABLE_TIME,
         revision = 1,
         updated_at = STABLE_TIME,

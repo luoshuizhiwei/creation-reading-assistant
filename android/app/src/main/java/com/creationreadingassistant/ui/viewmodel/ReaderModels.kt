@@ -97,6 +97,26 @@ fun TxtRuleScanResult.matchesSession(bookId: String): Boolean = this.bookId == b
 fun TxtRuleScanResult.canConsumeAnchor(pending: PendingTxtRuleAnchor?): Boolean =
     pending != null && pending.bookId == bookId && pending.ruleId == ruleId
 
+// ── READER-PAGES-v1：灵感保存的落库完成信号 ──────────────────────
+/**
+ * 阅读器内灵感保存的**真实落库完成信号**（合同 P3：不能在新页面提前报成功）。
+ *
+ * [requestId] = 本次保存的 [InspirationEntity.id]；页面按 id 匹配消费——
+ * 只有与「当前在途保存」同 id 的结果才被采信，上一编辑会话的陈旧结果天然被忽略。
+ * 失败重试复用同一 requestId（upsert 同 id 覆盖同条，不产生重复行）。
+ * [seq] 单调递增：同 id 同错误的重试也会产生**不同**的信号实例，
+ * 不会被 StateFlow 去重吞掉（否则重试失败时页面会卡在「保存中」）。
+ */
+sealed interface InspirationSaveOutcome {
+    abstract val seq: Long
+
+    /** 落库成功；页面此刻才允许清选区、关闭附页并提示成功。 */
+    data class Saved(override val seq: Long, val requestId: String) : InspirationSaveOutcome
+
+    /** 落库失败；页面保留全部草稿并展示 [message]，保存按钮恢复可重试。 */
+    data class Failed(override val seq: Long, val requestId: String, val message: String) : InspirationSaveOutcome
+}
+
 sealed interface ReaderAction {
     // ── 文档协调 ──
     data class OpenBook(val bookId: String) : ReaderAction

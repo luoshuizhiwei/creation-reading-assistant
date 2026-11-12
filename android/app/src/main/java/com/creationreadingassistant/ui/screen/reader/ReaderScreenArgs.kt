@@ -58,6 +58,11 @@ data class ReaderScreenInputs(
     val txtRuleScanStatus: TxtRuleScanStatus? = null,
     val ruleSnapshot: RuleSnapshot = RuleSnapshot.empty(),
     val ruleMutationResult: RuleMutationResult? = null,
+    /**
+     * READER-PAGES-v1：灵感保存的**真实落库完成信号**（VM 发布；灵感附页按 requestId
+     * 匹配消费后才清选区/关页/报成功，失败保留草稿重试）。null = 无未消费结果。
+     */
+    val inspirationSaveOutcome: com.creationreadingassistant.ui.viewmodel.InspirationSaveOutcome? = null,
 )
 
 data class ReaderScreenCallbacks(

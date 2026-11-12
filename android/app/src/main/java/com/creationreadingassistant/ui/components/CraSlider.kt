@@ -10,6 +10,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
@@ -86,7 +87,7 @@ fun CraSlider(
         steps = steps,
         enabled = enabled,
         interactionSource = interactionSource,
-        modifier = modifier.height(28.dp),
+        modifier = modifier.heightIn(min = 48.dp),
         thumb = {
             Box(
                 modifier = Modifier

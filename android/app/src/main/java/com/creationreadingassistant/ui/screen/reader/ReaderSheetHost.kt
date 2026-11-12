@@ -3,6 +3,8 @@ package com.creationreadingassistant.ui.screen.reader
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -11,9 +13,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.creationreadingassistant.data.settings.PerBookOverrides
@@ -35,14 +41,14 @@ import com.creationreadingassistant.ui.screen.reader.sheets.AiAssistSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.AiExplainSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.BookInfoSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.DictionarySheet
-import com.creationreadingassistant.ui.screen.reader.sheets.InspirationSheet
+import com.creationreadingassistant.ui.screen.reader.sheets.InspirationPage
 import com.creationreadingassistant.ui.screen.reader.sheets.NOTE_KIND_BOOKMARK
 import com.creationreadingassistant.ui.screen.reader.sheets.NotesSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.ProgressSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.RulesSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.SearchSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.SettingsSheet
-import com.creationreadingassistant.ui.screen.reader.sheets.ThemeSheet
+import com.creationreadingassistant.ui.screen.reader.sheets.ThemePage
 import com.creationreadingassistant.ui.screen.reader.sheets.TocSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.highlightNavigationTarget
 import com.creationreadingassistant.ui.screen.reader.sheets.noteNavigationTarget
@@ -58,6 +64,20 @@ import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
 import com.creationreadingassistant.ui.viewmodel.TxtRuleScanStatus
 import com.creationreadingassistant.ui.viewmodel.matchesSession
+
+/**
+ * READER-PAGES-v1：升级为**全屏附页**的入口集合（合同 §3）。
+ * 这些分支分派到 [ReaderPageDialogHost] 完整页面；其余弹层继续现有 ModalBottomSheet。
+ */
+internal val READER_PAGE_SHEETS: Set<ReaderSheet> = setOf(
+    ReaderSheet.TOC,
+    ReaderSheet.SETTINGS,
+    ReaderSheet.THEME,
+    ReaderSheet.INSPIRATION,
+)
+
+/** READER-PAGES-v1：THEME 预览快照的最大字符数（合同 P2：开页时捕获 ≤800 字符）。 */
+private const val READER_PAGE_PREVIEW_MAX_CHARS = 800
 
 /**
  * 弹层所需文档内容与章节信息（B1 状态袋分组：文档域）。
@@ -190,8 +210,13 @@ internal data class ReaderSheetHostCallbacks(
     ) -> Unit,
     /** 设置/主题变更前先持久化当前阅读进度（防重排回退到旧进度）。 */
     val onPersistProgress: () -> Unit,
-    /** S07-F2.4：同上，摘录文字与 locator 来自同一个打开时快照。 */
+    /**
+     * READER-PAGES-v1：保存灵感——[entityId] 由附页按「本次编辑会话」持有（失败重试复用）。
+     * 摘录文字与 locator 来自同一个打开时快照；本回调只派发落库，成功信号经
+     * inputs.inspirationSaveOutcome 回流，附页收到后才清选区/关页/提示。
+     */
     val onSaveInspiration: (
+        entityId: String,
         title: String,
         body: String,
         excerpt: String,
@@ -269,30 +294,41 @@ internal fun ReaderSheetHost(
         )
     }
 
-    sheet?.let { type ->
-        ModalBottomSheet(
-            onDismissRequest = sheetCallbacks.onDismiss,
-            sheetState = sheetState,
-            containerColor = paper.bg,
-            shape = LocalComponentSpec.current.sheetShape,
-            dragHandle = {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    SheetHandle()
-                    IconButton(
-                        onClick = sheetCallbacks.onDismiss,
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                    ) {
-                        Icon(Icons.Outlined.Close, contentDescription = "关闭当前工作表")
-                    }
-                }
-            },
-            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-        ) {
-            // M-BUG-11：弹层是独立 Window，不继承 Activity 窗口的系统栏策略——沉浸阅读时
-            // 打开本面板会让隐藏的系统状态栏重新露出。这里把阅读器的策略写进本弹层窗口。
-            LocalDialogSystemBarsEffect()
-            ReaderPaperTheme(paper) {
-            when (type) {
+    // ── READER-PAGES-v1：全屏附页容器分派 ────────────────────────────────────
+    // TOC / SETTINGS / THEME / INSPIRATION 分派到独立 Dialog 容器承载的完整页面；
+    // 其余弹层继续现有 ModalBottomSheet。容器只包裹现有 reader owner，不新建第二套
+    // reader/NavHost/ViewModel，也不 dispose 底层阅读正文（合同 §3）。
+    val pageTarget = sheet?.takeIf { it in READER_PAGE_SHEETS }
+    // THEME→SETTINGS 内层开关（合同 P2：Back 回 THEME 并保留分类/预览；附页只能从
+    // THEME 根页关闭，随关闭复位是防御性的）。
+    var themeInnerSettingsOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(pageTarget) {
+        if (pageTarget == null) themeInnerSettingsOpen = false
+    }
+    // TOC 索引附页的宿主持久状态：列表位置按 bookId+Tab 保存；首次打开定位一次。
+    // 状态放在宿主（主组合）层：附页内容随容器进出组合，主组合才能跨开关保留。
+    val tocListState = rememberSaveable(bid, key = "reader-toc-list-toc", saver = LazyListState.Saver) { LazyListState() }
+    val tocBookmarkListState = rememberSaveable(bid, key = "reader-toc-list-bookmarks", saver = LazyListState.Saver) { LazyListState() }
+    val tocNoteListState = rememberSaveable(bid, key = "reader-toc-list-notes", saver = LazyListState.Saver) { LazyListState() }
+    var tocAutoLocated by rememberSaveable(bid, key = "reader-toc-auto-located") { mutableStateOf(false) }
+    // THEME 预览快照：**开页时**按 bookId/章节捕获一次 ≤800 字符的稳定只读片段（合同 P2）。
+    // pageTarget 必须参与 key：宿主常驻组合，若只按书/章为键，会在文档未加载的首帧
+    // 捕获到空串并永久滞留；以 pageTarget 翻转为「开页」信号重新捕获。
+    // 滑块拖动只改变渲染，不重捕获文字。
+    val themePreviewText = remember(
+        pageTarget,
+        bid,
+        state.document.chapterIndex,
+        state.document.txtChapterIndex,
+    ) { state.document.contentText.take(READER_PAGE_PREVIEW_MAX_CHARS) }
+
+    ReaderPageDialogHost(
+        target = pageTarget,
+        paper = paper,
+        onDismiss = sheetCallbacks.onDismiss,
+    ) { page ->
+        ReaderPaperTheme(paper) {
+            when (page) {
                 ReaderSheet.TOC -> {
                     val tocState = readerTocState(
                         epubTitles = state.document.epubBook?.chapters?.map { it.title },
@@ -301,6 +337,7 @@ internal fun ReaderSheetHost(
                         chapterIndex = state.document.chapterIndex,
                         txtChapterIndex = state.document.txtChapterIndex,
                     )
+                    ReaderPageBackHandler(onBack = sheetCallbacks.onDismiss)
                     TocSheet(
                         entries = readerTocEntries(
                             titles = tocState.titles,
@@ -335,9 +372,7 @@ internal fun ReaderSheetHost(
                             callbacks.onAction(ReaderAction.ClearChapterReads(bid))
                             sheetCallbacks.showNotice("已清除已读标记")
                         },
-                        // A01：笔记 Tab = 高亮 + 非书签笔记。两类都来自既有的
-                        // inputs.highlights / inputs.notes（DAO 已按当前书 + 未删除过滤），
-                        // 不新增查询、不复制第二套数据源。
+                        // A01：笔记 Tab = 高亮 + 非书签笔记（数据源与既有 sheet 分支完全一致）。
                         notes = tocNoteEntries(
                             highlights = inputs.highlights,
                             notes = inputs.notes,
@@ -346,9 +381,146 @@ internal fun ReaderSheetHost(
                         onPickNote = { entry ->
                             sheetCallbacks.onJumpToTypedAnnotation(entry.navigationTarget)
                         },
+                        // 书内索引附页形态（READER-PAGES-v1 P1）
+                        pageStyle = true,
+                        bookTitle = state.bookMeta.bookTitle,
+                        onClose = sheetCallbacks.onDismiss,
+                        tocListState = tocListState,
+                        bookmarkListState = tocBookmarkListState,
+                        noteListState = tocNoteListState,
+                        autoLocateCurrent = !tocAutoLocated,
+                        onAutoLocated = { tocAutoLocated = true },
                     )
                 }
 
+                ReaderSheet.THEME -> ThemePage(
+                    settings = state.ui.readerSettings,
+                    appDark = state.ui.appDark,
+                    scope = state.ui.settingsScope,
+                    onScopeChange = sheetCallbacks.onSettingsScopeChange,
+                    overrides = state.ui.bookReaderOverrides,
+                    previewBookTitle = state.bookMeta.bookTitle,
+                    previewChapterTitle = state.document.currentChapterTitle,
+                    previewText = themePreviewText,
+                    onBackground = { picked ->
+                        sheetCallbacks.onPersistProgress()
+                        // 记下用户这次选的纸属于哪一侧（亮纸 / 暗纸），供灯绳切换时还原；
+                        // 选「跟随外观」不构成记忆，两侧都保持原值。
+                        val remembered = ReaderDayNightToggle.rememberPaper(picked)
+                        val current = state.ui.readerSettings
+                        // R3-P1：纸张切换同样受作用范围约束，否则本书覆盖了纸张时这里点了没反应
+                        applyReaderEdit(
+                            current.copy(
+                                background = picked,
+                                dayNightLightPaper = remembered?.light ?: current.dayNightLightPaper,
+                                dayNightDarkPaper = remembered?.dark ?: current.dayNightDarkPaper,
+                            ),
+                        )
+                    },
+                    onFontSize = { size ->
+                        sheetCallbacks.onPersistProgress()
+                        applyReaderEdit(state.ui.readerSettings.copy(fontSize = size))
+                    },
+                    onBrightness = { value ->
+                        sheetCallbacks.onPersistProgress()
+                        val current = state.ui.readerSettings
+                        // 亮度是不可本书覆盖项，Router 保证其始终落全局；同时记忆上次固定亮度
+                        applyReaderEdit(
+                            current.copy(
+                                brightness = value,
+                                lastFixedBrightness = if (value >= 0) value else current.lastFixedBrightness,
+                            ),
+                        )
+                    },
+                    onSettingsChange = { updated ->
+                        // 设置变更会触发分页重排：先落库当前进度，避免按旧进度恢复。
+                        sheetCallbacks.onPersistProgress()
+                        applyReaderEdit(updated)
+                    },
+                    onClose = sheetCallbacks.onDismiss,
+                    innerSettingsOpen = themeInnerSettingsOpen,
+                    onInnerSettingsOpenChange = { themeInnerSettingsOpen = it },
+                    innerSettings = {
+                        ReaderSettingsPageContent(
+                            paper = paper,
+                            state = state,
+                            settingsVm = settingsVm,
+                            bid = bid,
+                            applyReaderEdit = applyReaderEdit,
+                            sheetCallbacks = sheetCallbacks,
+                            onRootBack = { themeInnerSettingsOpen = false },
+                        )
+                    },
+                )
+
+                ReaderSheet.SETTINGS -> ReaderSettingsPageContent(
+                    paper = paper,
+                    state = state,
+                    settingsVm = settingsVm,
+                    bid = bid,
+                    applyReaderEdit = applyReaderEdit,
+                    sheetCallbacks = sheetCallbacks,
+                    onRootBack = sheetCallbacks.onDismiss,
+                )
+
+                ReaderSheet.INSPIRATION -> InspirationPage(
+                    bookId = bid,
+                    bookTitle = state.bookMeta.bookTitle,
+                    chapterTitle = state.document.currentChapterTitle,
+                    excerpt = consumerSnapshot?.text.orEmpty(),
+                    progressPercent = state.stats.progressPercent,
+                    categories = inputs.categories,
+                    tags = inputs.tags,
+                    saveOutcome = inputs.inspirationSaveOutcome,
+                    onCreateCategory = sheetCallbacks.onCreateCategory,
+                    onCreateTag = sheetCallbacks.onCreateTag,
+                    onSave = { entityId, title, body, tags, categoryIds ->
+                        // 文字与 locator 同源于打开时快照（要求 7）；entityId 由附页持有。
+                        sheetCallbacks.onSaveInspiration(
+                            entityId,
+                            title,
+                            body,
+                            consumerSnapshot?.text.orEmpty(),
+                            snapshotLocator(),
+                            tags,
+                            categoryIds,
+                        )
+                    },
+                    onClose = sheetCallbacks.onDismiss,
+                    onClearSelection = sheetCallbacks.onClearSelectedText,
+                    onSaveNotice = sheetCallbacks.showNotice,
+                )
+
+                else -> Unit
+            }
+        }
+    }
+
+    sheet?.let { type ->
+        if (type in READER_PAGE_SHEETS) return@let
+        ModalBottomSheet(
+            onDismissRequest = sheetCallbacks.onDismiss,
+            sheetState = sheetState,
+            containerColor = paper.bg,
+            shape = LocalComponentSpec.current.sheetShape,
+            dragHandle = {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    SheetHandle()
+                    IconButton(
+                        onClick = sheetCallbacks.onDismiss,
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                    ) {
+                        Icon(Icons.Outlined.Close, contentDescription = "关闭当前工作表")
+                    }
+                }
+            },
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+        ) {
+            // M-BUG-11：弹层是独立 Window，不继承 Activity 窗口的系统栏策略——沉浸阅读时
+            // 打开本面板会让隐藏的系统状态栏重新露出。这里把阅读器的策略写进本弹层窗口。
+            LocalDialogSystemBarsEffect()
+            ReaderPaperTheme(paper) {
+            when (type) {
                 ReaderSheet.RULES -> RulesSheet(
                     snapshot = inputs.ruleSnapshot,
                     previewText = state.document.contentText,
@@ -473,127 +645,10 @@ internal fun ReaderSheetHost(
                     },
                 )
 
-                ReaderSheet.INSPIRATION -> InspirationSheet(
-                    bookTitle = state.bookMeta.bookTitle,
-                    chapterTitle = state.document.currentChapterTitle,
-                    excerpt = consumerSnapshot?.text.orEmpty(),
-                    progressPercent = state.stats.progressPercent,
-                    categories = inputs.categories,
-                    tags = inputs.tags,
-                    onCreateCategory = sheetCallbacks.onCreateCategory,
-                    onCreateTag = sheetCallbacks.onCreateTag,
-                    onSave = { title, body, tags, categoryIds ->
-                        // 文字与 locator 同源于打开时快照（要求 7）。
-                        sheetCallbacks.onSaveInspiration(
-                            title,
-                            body,
-                            consumerSnapshot?.text.orEmpty(),
-                            snapshotLocator(),
-                            tags,
-                            categoryIds,
-                        )
-                    },
-                )
-
-                ReaderSheet.SETTINGS -> {
-                    // T16 P1 修复（「翻页效果」pill 行间歇吞点击）：自动翻页 / seek 期间 ReaderScreen
-                    // 每帧重组，ReaderSheetHost 因携带每帧重建的不稳定 state/callbacks 而无法被跳过，
-                    // 于是每帧都给 SettingsSheet 传入全新身份的 onSettingsChange / onBookInfo lambda，
-                    // 导致设置页（含 pill 行）每帧重组——pill 的命中节点在指针 down→up 之间被重建，
-                    // 手势被丢弃，表现为选中描边不动、底层值也不变（idle 时不 churn 故点击始终可靠）。
-                    // 修法：rememberUpdatedState 保证「始终调用最新实现」，remember 固化 lambda 身份，
-                    // 令 SettingsSheet 在 settings / paper 未变时可被 Compose 跳过，churn 期间 pill 节点保持稳定。
-                    val latestOnSettingsChange by rememberUpdatedState<(ReaderSettings) -> Unit>({ updated ->
-                        // 设置变更会触发分页重排：先落库当前进度，避免按旧进度恢复
-                        sheetCallbacks.onPersistProgress()
-                        // R3-P1：不再无条件写全局；按作用范围路由到全局 / 本书覆盖
-                        applyReaderEdit(updated)
-                    })
-                    val stableOnSettingsChange = remember { { updated: ReaderSettings -> latestOnSettingsChange(updated) } }
-                    val latestOnBookInfo by rememberUpdatedState(sheetCallbacks.onOpenBookInfo)
-                    val stableOnBookInfo = remember { { latestOnBookInfo() } }
-                    // R3-P1：本书覆盖操作回调。身份用 remember 固化，理由同上（避免 SettingsSheet
-                    // 因 lambda 每帧换新身份而无法被 Compose 跳过）。
-                    val latestClearOverride by rememberUpdatedState<(ReaderOverrideKey) -> Unit> { key ->
-                        settingsVm.clearOverride(bid, key)
-                    }
-                    val stableClearOverride = remember { { key: ReaderOverrideKey -> latestClearOverride(key) } }
-                    val latestClearAllOverrides by rememberUpdatedState<() -> Unit> { settingsVm.clearAllOverrides(bid) }
-                    val stableClearAllOverrides = remember { { latestClearAllOverrides() } }
-                    val latestApplyPreset by rememberUpdatedState<(ReadingPreset) -> Unit> { preset ->
-                        when (state.ui.settingsScope) {
-                            ReaderSettingsScope.BOOK -> settingsVm.applyPresetToBook(bid, preset)
-                            ReaderSettingsScope.GLOBAL -> settingsVm.applyPresetToGlobal(preset)
-                        }
-                    }
-                    val stableApplyPreset = remember { { preset: ReadingPreset -> latestApplyPreset(preset) } }
-                    val latestResetGlobalDefaults by rememberUpdatedState<() -> Unit> {
-                        settingsVm.resetGlobalReaderDefaults()
-                    }
-                    val stableResetGlobalDefaults = remember { { latestResetGlobalDefaults() } }
-                    val latestScopeChange by rememberUpdatedState<(ReaderSettingsScope) -> Unit> { scope ->
-                        sheetCallbacks.onSettingsScopeChange(scope)
-                    }
-                    val stableScopeChange = remember { { scope: ReaderSettingsScope -> latestScopeChange(scope) } }
-                    SettingsSheet(
-                        paper = paper,
-                        settings = state.ui.readerSettings,
-                        onSettingsChange = stableOnSettingsChange,
-                        onBookInfo = stableOnBookInfo,
-                        scope = state.ui.settingsScope,
-                        onScopeChange = stableScopeChange,
-                        overrides = state.ui.bookReaderOverrides,
-                        globalSettings = state.ui.globalReaderSettings,
-                        onClearOverride = stableClearOverride,
-                        onClearAllOverrides = stableClearAllOverrides,
-                        onApplyPreset = stableApplyPreset,
-                        onResetGlobalDefaults = stableResetGlobalDefaults,
-                    )
-                }
-
                 // R3-X1：离线词典查词面板（只在首选词典＝离线时由此入口打开）
                 ReaderSheet.DICTIONARY -> DictionarySheet(
                     word = state.ui.dictionaryWord,
                     onDismiss = sheetCallbacks.onDismiss,
-                )
-
-                ReaderSheet.THEME -> ThemeSheet(
-                    background = state.ui.readerSettings.background,
-                    fontSize = state.ui.readerSettings.fontSize,
-                    brightness = state.ui.readerSettings.brightness,
-                    lastFixedBrightness = state.ui.readerSettings.lastFixedBrightness,
-                    scope = state.ui.settingsScope,
-                    appDark = state.ui.appDark,
-                    onBackground = { picked ->
-                        sheetCallbacks.onPersistProgress()
-                        // 记下用户这次选的纸属于哪一侧（亮纸 / 暗纸），供灯绳切换时还原；
-                        // 选「跟随外观」不构成记忆，两侧都保持原值。
-                        val remembered = ReaderDayNightToggle.rememberPaper(picked)
-                        val current = state.ui.readerSettings
-                        // R3-P1：纸张切换同样受作用范围约束，否则本书覆盖了纸张时这里点了没反应
-                        applyReaderEdit(
-                            current.copy(
-                                background = picked,
-                                dayNightLightPaper = remembered?.light ?: current.dayNightLightPaper,
-                                dayNightDarkPaper = remembered?.dark ?: current.dayNightDarkPaper,
-                            ),
-                        )
-                    },
-                    onFontSize = { size ->
-                        sheetCallbacks.onPersistProgress()
-                        applyReaderEdit(state.ui.readerSettings.copy(fontSize = size))
-                    },
-                    onBrightness = { value ->
-                        sheetCallbacks.onPersistProgress()
-                        val current = state.ui.readerSettings
-                        // 亮度是不可本书覆盖项，Router 保证其始终落全局；同时记忆上次固定亮度
-                        applyReaderEdit(
-                            current.copy(
-                                brightness = value,
-                                lastFixedBrightness = if (value >= 0) value else current.lastFixedBrightness,
-                            ),
-                        )
-                    },
                 )
 
                 ReaderSheet.PROGRESS -> ProgressSheet(
@@ -648,10 +703,92 @@ internal fun ReaderSheetHost(
                         callbacks.onBack()
                     },
                 )
+
+                // READER-PAGES-v1：TOC / SETTINGS / THEME / INSPIRATION 已分派到全屏附页容器
+                //（见上方 ReaderPageDialogHost），本弹层只剩短弹层分支；else 恒不达。
+                else -> Unit
             }
             }
         }
     }
+}
+
+/**
+ * READER-PAGES-v1：满高「阅读设置」页内容（直接 SETTINGS 入口与 THEME 内层共用）。
+ *
+ * 与旧底部弹层分支的差异只有两处：满高渲染（[SettingsSheet] `fullScreen = true`，
+ * 解除旧 `maxHeightFraction = 0.62f` 约束）、根页 Back 走 [onRootBack]（直接入口=
+ * 关附页回正文；THEME 内层=回 THEME）。稳定 lambda 束（T16 P1 / R3-P1）、
+ * persistProgress-before-settings、单书覆盖/重置/预设语义逐字保留。
+ */
+@Composable
+private fun ReaderSettingsPageContent(
+    paper: ReaderPaperPalette,
+    state: ReaderSheetHostState,
+    settingsVm: SettingsViewModel,
+    bid: String,
+    applyReaderEdit: (ReaderSettings) -> Unit,
+    sheetCallbacks: ReaderSheetHostCallbacks,
+    onRootBack: () -> Unit,
+) {
+    // T16 P1 修复（「翻页效果」pill 行间歇吞点击）：自动翻页 / seek 期间 ReaderScreen
+    // 每帧重组，ReaderSheetHost 因携带每帧重建的不稳定 state/callbacks 而无法被跳过，
+    // 于是每帧都给 SettingsSheet 传入全新身份的 onSettingsChange / onBookInfo lambda，
+    // 导致设置页（含 pill 行）每帧重组——pill 的命中节点在指针 down→up 之间被重建，
+    // 手势被丢弃，表现为选中描边不动、底层值也不变（idle 时不 churn 故点击始终可靠）。
+    // 修法：rememberUpdatedState 保证「始终调用最新实现」，remember 固化 lambda 身份，
+    // 令 SettingsSheet 在 settings / paper 未变时可被 Compose 跳过，churn 期间 pill 节点保持稳定。
+    val latestOnSettingsChange by rememberUpdatedState<(ReaderSettings) -> Unit>({ updated ->
+        // 设置变更会触发分页重排：先落库当前进度，避免按旧进度恢复
+        sheetCallbacks.onPersistProgress()
+        // R3-P1：不再无条件写全局；按作用范围路由到全局 / 本书覆盖
+        applyReaderEdit(updated)
+    })
+    val stableOnSettingsChange = remember { { updated: ReaderSettings -> latestOnSettingsChange(updated) } }
+    val latestOnBookInfo by rememberUpdatedState(sheetCallbacks.onOpenBookInfo)
+    val stableOnBookInfo = remember { { latestOnBookInfo() } }
+    // R3-P1：本书覆盖操作回调。身份用 remember 固化，理由同上（避免 SettingsSheet
+    // 因 lambda 每帧换新身份而无法被 Compose 跳过）。
+    val latestClearOverride by rememberUpdatedState<(ReaderOverrideKey) -> Unit> { key ->
+        settingsVm.clearOverride(bid, key)
+    }
+    val stableClearOverride = remember { { key: ReaderOverrideKey -> latestClearOverride(key) } }
+    val latestClearAllOverrides by rememberUpdatedState<() -> Unit> { settingsVm.clearAllOverrides(bid) }
+    val stableClearAllOverrides = remember { { latestClearAllOverrides() } }
+    val latestApplyPreset by rememberUpdatedState<(ReadingPreset) -> Unit> { preset ->
+        when (state.ui.settingsScope) {
+            ReaderSettingsScope.BOOK -> settingsVm.applyPresetToBook(bid, preset)
+            ReaderSettingsScope.GLOBAL -> settingsVm.applyPresetToGlobal(preset)
+        }
+    }
+    val stableApplyPreset = remember { { preset: ReadingPreset -> latestApplyPreset(preset) } }
+    val latestResetGlobalDefaults by rememberUpdatedState<() -> Unit> {
+        settingsVm.resetGlobalReaderDefaults()
+    }
+    val stableResetGlobalDefaults = remember { { latestResetGlobalDefaults() } }
+    val latestScopeChange by rememberUpdatedState<(ReaderSettingsScope) -> Unit> { scope ->
+        sheetCallbacks.onSettingsScopeChange(scope)
+    }
+    val stableScopeChange = remember { { scope: ReaderSettingsScope -> latestScopeChange(scope) } }
+    // 附页统一 Back 第一层：键盘先收；根页时回来源（子页 Back 由 SettingsSheet 自带的
+    // BackHandler 处理——它在子组合里后注册，回调栈优先级更高，两层不会同时触发）。
+    ReaderPageBackHandler(onBack = onRootBack)
+    SettingsSheet(
+        paper = paper,
+        settings = state.ui.readerSettings,
+        onSettingsChange = stableOnSettingsChange,
+        onBookInfo = stableOnBookInfo,
+        scope = state.ui.settingsScope,
+        onScopeChange = stableScopeChange,
+        overrides = state.ui.bookReaderOverrides,
+        globalSettings = state.ui.globalReaderSettings,
+        onClearOverride = stableClearOverride,
+        onClearAllOverrides = stableClearAllOverrides,
+        onApplyPreset = stableApplyPreset,
+        onResetGlobalDefaults = stableResetGlobalDefaults,
+        fullScreen = true,
+        onRootBack = onRootBack,
+    )
 }
 
 /**

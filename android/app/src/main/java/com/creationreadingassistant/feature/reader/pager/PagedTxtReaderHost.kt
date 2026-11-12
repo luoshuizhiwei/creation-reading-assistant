@@ -25,6 +25,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
@@ -60,6 +63,21 @@ import com.creationreadingassistant.ui.theme.LocalReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPaperSurfaceSpec
 import com.creationreadingassistant.ui.screen.reader.pagedReaderContentTopPaddingDp
 import com.creationreadingassistant.ui.screen.reader.searchHighlightColor
+
+/**
+ * RDS-101（R2）：ON_RESUME 重新校准的门控判定。
+ *
+ * 语义：回前台时 pager 若停在全书第 1 页开头（chapter 0 / page 0）且锚点非零，
+ * 说明页面状态丢失（home ON_STOP→ON_RESUME 后引擎上报 page0 覆盖 DB 的原错误输入），
+ * 必须重新 open 到锚点；其余形态（pager 完好停在别页、anchor=0 的新书/已主动回书首）
+ * 一律不干预。
+ *
+ * 「主动回书首不被拉回」由 [decidePagedPositionReport] 的锚点更新链保证：
+ * 用户导航到第 1 页开头时 `anchorMoved` 命中，生产链把 anchor 更新为
+ * `range.first`（=0），此后本判定恒 false，ON_RESUME 不会重锚。
+ */
+internal fun decideResumeReanchor(anchor: Int, chapterIndex: Int, pageIndex: Int): Boolean =
+    anchor > 0 && chapterIndex == 0 && pageIndex == 0
 
 /**
  * 左右翻页宿主（pagerEngineMode = on 时替换原视图；TXT 与 EPUB 共用，
@@ -279,6 +297,31 @@ fun PagedReaderHost(
 
                 DisposableEffect(controller) {
                     onDispose { controller.close() }
+                }
+
+                // RDS-101 修复（2026-11-05）：home 退出（ON_STOP→ON_RESUME，activity 未销毁）
+                // 后 paged pager 的页面状态丢失回 page0，且 LaunchedEffect(controller) 不重启
+                // 导致 open(anchor) 不再执行——引擎上报 page0 覆盖了 DB 中用户的实际位置。
+                // 修复：ON_RESUME 时若 pager 停在 page0 且 anchor>0，重新 open(anchor) 校准。
+                // 门控判定提为 decideResumeReanchor（R2 定向回归覆盖）；
+                // 仅 paged 且 anchor>0 时触发；不改变正常翻页/首开行为。
+                // 顺序依据：lifecycle ON_RESUME 分发在主线程同步完成，先于
+                // AndroidUiDispatcher 处理 snapshotFlow 缓存的 (0,0) 发射；
+                // re-open 后 snapshotFlow 按 conflated 状态取到的是重锚后的正确页，
+                // 原 (0,0) 发射不会被 observe 到（Z4 真机 red→green 与该模型一致）。
+                val lifecycleOwnerRds101 = LocalLifecycleOwner.current
+                DisposableEffect(controller, lifecycleOwnerRds101) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME &&
+                            decideResumeReanchor(anchor.intValue, controller.chapterIndex, controller.pageIndex)
+                        ) {
+                            controller.open(anchor.intValue)
+                        }
+                    }
+                    lifecycleOwnerRds101.lifecycle.addObserver(observer)
+                    onDispose {
+                        lifecycleOwnerRds101.lifecycle.removeObserver(observer)
+                    }
                 }
 
                 // 媒体按钮桥：蓝牙翻页器/耳机线控 NEXT/PREVIOUS → 翻页。

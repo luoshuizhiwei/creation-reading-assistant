@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -25,6 +26,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
+import java.net.URI
 import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -119,7 +121,9 @@ class LocalZipBackup @Inject constructor(
                 BufferedOutputStream(rawOs, BUF_SIZE).use { bos ->
                     ZipOutputStream(bos).use { zos ->
                         // 1. 先写 backup.json（元数据最小，通常 < 5MB，优先落盘）
-                        val json = jsonBridge.exportToString(context)
+                        val snapshot = jsonBridge.buildExport(context)
+                        val json = localExportJson.encodeToString(LocalExport.serializer(), snapshot)
+                        val referencedPaths = referencedBookContentPaths(snapshot, context)
                         putTextEntry(zos, NAME_BACKUP_JSON, json)
 
                         // 2. 遍历 booksDir 下所有文件，按相对路径写入
@@ -140,6 +144,7 @@ class LocalZipBackup @Inject constructor(
                                 if (rel in stagingRels) return@forEach
                                 val backupDst = backupRelToDst[rel]
                                 if (backupDst != null && File(booksDir, backupDst).isFile) return@forEach
+                                if (!isReferencedBookFile(rel, referencedPaths)) return@forEach
                                 val entryName = "$BOOKS_PREFIX/$rel"
                                 putFileEntry(zos, entryName, f)
                             }
@@ -206,8 +211,15 @@ class LocalZipBackup @Inject constructor(
                 val backupJsonHash = computeSha256(jsonFile)
 
                 val realBooksDir = File(context.filesDir, "books")
+                val snapshot = localExportJson
+                    .decodeFromString(LocalExport.serializer(), jsonFile.readText(Charsets.UTF_8))
+                val referencedPaths = referencedBookContentPaths(snapshot, context)
                 val allSrcBookFiles = if (tmpBooks.isDirectory) {
-                    tmpBooks.walkTopDown().filter { it.isFile && relativePathOf(tmpBooks, it) != JOURNAL_NAME }.toList()
+                    tmpBooks.walkTopDown().filter {
+                        it.isFile &&
+                            relativePathOf(tmpBooks, it) != JOURNAL_NAME &&
+                            isReferencedBookFile(relativePathOf(tmpBooks, it), referencedPaths)
+                    }.toList()
                 } else emptyList()
                 // N1-repair-v3/v4：目标完成判定用内容指纹（SHA-256），不只靠长度
                 val allSrcTargets = allSrcBookFiles.associate {
@@ -227,11 +239,22 @@ class LocalZipBackup @Inject constructor(
                 val onPlanReady: (ImportMergeResult) -> Unit = { mergeResult ->
                     if (!planCommitted) {
                         planCommitted = true
+                        // A newer local book can have a different path, or no path after removal.
+                        // An incoming file is still eligible if another merged book refers to it.
+                        val mergedReferences = if (mergeResult.strictlyNewerBookIds.isEmpty()) referencedPaths
+                            else referencedBookContentPaths(snapshot, context, mergeResult.strictlyNewerBookIds)
                         // 严格较新路径：本地 revision/updatedAt 严格胜出者，绝对受保护！
                         val strictlyNewerPaths = mergeResult.strictlyNewerBookContentPaths.toSet()
                         val strictlyNewerRels = strictlyNewerPaths
                             .mapNotNull { relativePathOrNull(realBooksDir, File(it)) ?: it.takeIf { s -> !s.startsWith("/") } }
                             .toSet()
+                        val strictlyNewerEpubImageDirs = strictlyNewerRels.mapNotNull { rel ->
+                            if (rel.startsWith("epub/") && rel.endsWith(".epub")) {
+                                "epub/${rel.removePrefix("epub/").removeSuffix(".epub")}/img/"
+                            } else {
+                                null
+                            }
+                        }
 
                         effectiveSkipped.clear()
                         effectiveSkipped.addAll(mergeResult.skippedBookContentPaths)
@@ -247,10 +270,13 @@ class LocalZipBackup @Inject constructor(
 
                         allSrcTargets.forEach { (rel, srcHash) ->
                             val dstFile = File(realBooksDir, rel)
-                            val isStrictlyNewer = rel in strictlyNewerRels || dstFile.absolutePath in strictlyNewerPaths
+                            val isStrictlyNewer = !isReferencedBookFile(rel, mergedReferences) || rel in strictlyNewerRels ||
+                                dstFile.absolutePath in strictlyNewerPaths ||
+                                strictlyNewerEpubImageDirs.any(rel::startsWith)
                             if (isStrictlyNewer) {
                                 // 铁律 1（反例 1 守卫）：严格较新永不被旧正文覆盖！
                                 // 绝不因空指纹或重试而解除保护！
+                                effectiveSkipped.add(rel)
                                 return@forEach
                             }
 
@@ -326,7 +352,7 @@ class LocalZipBackup @Inject constructor(
                 // 2. 先导入 DB（整体事务，失败自动回滚）：
                 // N1-v4 窄接缝：回调在 DB 事务提交前执行；区分接受、等版本、严格较新。
                 // 在 DB 可能提交之前，可靠持久化备份身份与可执行计划；计划落盘失败时抛出异常，DB 事务不会提交，保证 fail-closed。
-                jsonBridge.importFromString(context, jsonFile.readText(Charsets.UTF_8)) { mergeResult ->
+                jsonBridge.importSnapshot(context, snapshot) { mergeResult ->
                     onPlanReady(mergeResult)
                 }
 
@@ -336,7 +362,7 @@ class LocalZipBackup @Inject constructor(
                 }
 
                 // 3. 复制书籍文件
-                copyBookFiles(tmpBooks, realBooksDir, effectiveSkipped)
+                copyBookFiles(tmpBooks, realBooksDir, actualTargetsToCopy.keys)
 
                 // 3'. 验证目标确实完成（漏洞 1 核心守卫 + N1-repair-v3：内容一致性证明）
                 for ((rel, expectedHash) in actualTargetsToCopy) {
@@ -417,6 +443,78 @@ class LocalZipBackup @Inject constructor(
     }
 
     /**
+     * Resolve body members from this backup's book snapshot. Import/export must not
+     * infer ownership from files merely sharing a directory with an active book.
+     */
+    private fun referencedBookContentPaths(snapshot: LocalExport, context: Context, excludedIds: Set<String> = emptySet()): Set<String> {
+        val appBooksDir = File(context.filesDir, "books").canonicalFile
+        val knownBookRoots = listOf(
+            appBooksDir.path,
+            "/data/user/0/${context.packageName}/files/books",
+            "/data/user_de/0/${context.packageName}/files/books",
+            "/data/data/${context.packageName}/files/books",
+        ).distinct()
+        return buildSet {
+            snapshot.books.forEach { envelope ->
+                val book = envelope.payload
+                if (book.id in excludedIds || envelope.deletedAt != null || book.deleted_at != null) return@forEach
+                val relativePath = sequenceOf(book.local_content_path, book.local_uri)
+                    .filterNotNull()
+                    .mapNotNull { raw -> referencedRelativePath(raw, knownBookRoots) }
+                    .firstOrNull()
+                    ?: if (book.format.equals("epub", ignoreCase = true) && isSafeSegment(book.id)) {
+                        "epub/${book.id}.epub"
+                    } else {
+                        null
+                    }
+                    ?: return@forEach
+                add(relativePath)
+
+                // Older EPUB readers extract images beside the retained EPUB copy.
+                // This narrow cache directory is part of that book's readable content.
+                if (book.format.equals("epub", ignoreCase = true) && relativePath.startsWith("epub/")) {
+                    val epubName = relativePath.removePrefix("epub/")
+                    if (epubName.endsWith(".epub") && isSafeSegment(epubName.removeSuffix(".epub"))) {
+                        add("epub/${epubName.removeSuffix(".epub")}/img/")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun relativeBooksPath(path: String, knownBookRoots: List<String>): String? {
+        val normalized = path.replace('\\', '/')
+        val normalizedRoots = knownBookRoots.map { it.replace('\\', '/') }
+        val relative = if (normalized.startsWith("books/")) {
+            normalized.removePrefix("books/")
+        } else {
+            val root = normalizedRoots.firstOrNull { normalized.startsWith("$it/") } ?: return null
+            normalized.removePrefix("$root/")
+        }
+        val segments = relative.split('/')
+        if (segments.any { it.isBlank() || it == "." || it == ".." }) return null
+        return relative
+    }
+
+    private fun referencedRelativePath(raw: String, knownBookRoots: List<String>): String? {
+        val path = if (raw.startsWith("file:")) {
+            val uri = try { URI(raw) } catch (_: java.net.URISyntaxException) { return null }
+            if (uri.rawAuthority != null) return null
+            uri.path ?: return null
+        } else raw
+        return relativeBooksPath(path, knownBookRoots)
+    }
+
+    private fun isSafeSegment(value: String): Boolean =
+        value.isNotBlank() && value != "." && value != ".." && '/' !in value && '\\' !in value
+
+    private fun isReferencedBookFile(relativePath: String, referencedPaths: Set<String>): Boolean =
+        relativePath in referencedPaths ||
+            (relativePath.startsWith("epub/") &&
+                relativePath.substringBefore("/img/") + "/img/" in referencedPaths &&
+                "/img/" in relativePath)
+
+    /**
      * 义务是否被源正文满足（N1-repair-v6 统一守卫的唯一判定入口）。
      *
      * - 空义务字符串（不应出现）→ 不满足；
@@ -450,33 +548,13 @@ class LocalZipBackup @Inject constructor(
     internal var fileCopyOperation: (InputStream, OutputStream) -> Unit =
         { input, output -> input.copyTo(output, BUF_SIZE) }
 
-    /**
-     * 把临时解压出的 books 目录恢复到真实 books 目录。
-     *
-     * - **版本感知**：[mergeResult] 的 [ImportMergeResult.skippedBookContentPaths]
-     *   （本地较新书籍行的 `local_content_path`）换算成 books 根的相对路径后，
-     *   一律跳过、不用备份字节覆盖；换算不出的条目（路径不在 books 根下）不猜测归属，
-     *   按未保护处理（该文件本来也不在导出集合里的情况才可能发生）。
-     * - **逐文件 staging**：见 [copyWithStaging]。
-     */
-    private fun copyBookFiles(tmpBooks: File, realBooksDir: File, skippedPaths: Set<String>) {
-        if (!tmpBooks.isDirectory) return
-        realBooksDir.mkdirs()
-        val protectedRels = skippedPaths
-            .mapNotNull { relativePathOrNull(realBooksDir, File(it)) ?: it.takeIf { s -> !s.startsWith("/") } }
-            .toSet()
-        tmpBooks.walkTopDown().forEach { src ->
-            val rel = relativePathOf(tmpBooks, src)
+    /** 只落位已按快照归属和数据库合并结果批准的文件。 */
+    private fun copyBookFiles(tmpBooks: File, realBooksDir: File, sourcePaths: Set<String>) {
+        sourcePaths.forEach { rel ->
+            val src = File(tmpBooks, rel)
             val dst = File(realBooksDir, rel)
-            if (src.isDirectory) {
-                dst.mkdirs()
-            } else if (src.isFile) {
-                // 外来 ZIP 不得借 books/.cra-restore-journal.json 注入或覆盖本地归属日志
-                if (rel == JOURNAL_NAME) return@forEach
-                if (rel in protectedRels || dst.absolutePath in skippedPaths) return@forEach
-                dst.parentFile?.mkdirs()
-                copyWithStaging(src, dst, rel, realBooksDir)
-            }
+            dst.parentFile?.mkdirs()
+            copyWithStaging(src, dst, rel, realBooksDir)
         }
     }
 

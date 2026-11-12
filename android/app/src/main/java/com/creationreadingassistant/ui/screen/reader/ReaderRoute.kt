@@ -37,6 +37,8 @@ fun ReaderRoute(
     viewModel: ReaderViewModel = hiltViewModel(),
 ) {
     val routeState by viewModel.routeUiState.collectAsStateWithLifecycle()
+    // READER-PAGES-v1：灵感保存的落库完成信号（VM 公开流），随 inputs 传给附页。
+    val inspirationSaveOutcome by viewModel.inspirationSaveOutcome.collectAsStateWithLifecycle()
 
     // R2-J1-I：订阅协调器状态的实时快照。返回按钮可见性与统一返回动作都派生自这份状态，
     // 而不是一次性快照 —— 逐层 LIFO 返回后按钮会即时更新/消失。协调器缺省（未注入）时为 null。
@@ -156,6 +158,7 @@ fun ReaderRoute(
             txtRuleScanStatus = routeState.txtRuleScanStatus,
             ruleSnapshot = routeState.ruleSnapshot,
             ruleMutationResult = routeState.ruleMutationResult,
+            inspirationSaveOutcome = inspirationSaveOutcome,
         ),
         callbacks = ReaderScreenCallbacks(
             onLoadChapterBlocks = viewModel::loadChapterBlocks,

@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
@@ -50,6 +52,8 @@ internal fun BookmarksTabContent(
     bookmarks: List<NoteEntity>,
     onPickBookmark: (NoteEntity) -> Unit,
     modifier: Modifier = Modifier,
+    /** READER-PAGES-v1：宿主持久列表状态（按 bookId 保存位置）；缺省行为不变。 */
+    listState: LazyListState = rememberLazyListState(),
 ) {
     if (bookmarks.isEmpty()) {
         FullEmptyState(
@@ -60,6 +64,7 @@ internal fun BookmarksTabContent(
         )
     } else {
         LazyColumn(
+            state = listState,
             modifier = modifier,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -86,6 +91,8 @@ internal fun NotesTabContent(
     entries: List<TocNoteEntry>,
     onPick: (TocNoteEntry) -> Unit,
     modifier: Modifier = Modifier,
+    /** READER-PAGES-v1：宿主持久列表状态（按 bookId 保存位置）；缺省行为不变。 */
+    listState: LazyListState = rememberLazyListState(),
 ) {
     if (entries.isEmpty()) {
         FullEmptyState(
@@ -96,6 +103,7 @@ internal fun NotesTabContent(
         )
     } else {
         LazyColumn(
+            state = listState,
             modifier = modifier,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

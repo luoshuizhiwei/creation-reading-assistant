@@ -14,6 +14,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -25,6 +31,14 @@ import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.navigation.AppChrome
 import com.creationreadingassistant.ui.navigation.LocalAppChrome
 import com.creationreadingassistant.ui.theme.AppTheme
+import com.creationreadingassistant.ui.screen.inspiration.components.InspirationEditor
+import com.creationreadingassistant.ui.viewmodel.InspirationDraft
+import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -50,6 +64,42 @@ class InspirationComposeTest {
 
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun editorKeepsDraftOnFailureAndReportsOnlySuccessfulRetry() {
+        val vm = mockk<InspirationViewModel>()
+        every { vm.books } returns MutableStateFlow(emptyList<BookEntity>())
+        val writes = mutableListOf<InspirationDraft>()
+        val pending = CompletableDeferred<Unit>()
+        coEvery { vm.saveInspiration(any()) } coAnswers {
+            writes += firstArg<InspirationDraft>()
+            if (writes.size == 1) pending.await()
+        }
+        val saved = mutableListOf<InspirationAction.EditorSaved>()
+        composeRule.setContent {
+            themedRoot {
+                InspirationEditor(existing = null, viewModel = vm, onAction = {
+                    if (it is InspirationAction.EditorSaved) saved.add(it)
+                })
+            }
+        }
+        composeRule.onAllNodes(hasSetTextAction())[0].performTextInput("测试灵感")
+        composeRule.onNodeWithText("保存灵感").performScrollTo().performClick()
+        composeRule.onNodeWithText("正在保存…").assertIsNotEnabled()
+        composeRule.runOnIdle {
+            assertEquals(1, writes.size)
+            assertTrue(saved.isEmpty())
+            pending.completeExceptionally(IllegalStateException("测试写入失败"))
+        }
+        composeRule.onNodeWithText("保存失败：测试写入失败").assertExists()
+        composeRule.onNodeWithText("保存灵感").performScrollTo().performClick()
+        composeRule.runOnIdle {
+            assertEquals(2, writes.size)
+            assertEquals(writes.first(), writes.last())
+            assertEquals("测试灵感", writes.last().title)
+            assertEquals(writes.last().id, saved.single().newId)
+        }
+    }
 
     /* ---------- 数据构造 ---------- */
     private fun sampleItems(): List<InspirationEntity> = (1..3).map { i ->

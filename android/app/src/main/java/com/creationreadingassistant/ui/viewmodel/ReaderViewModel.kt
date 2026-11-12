@@ -206,6 +206,14 @@ class ReaderViewModel @Inject constructor(
     private val _ruleMutationResult = MutableStateFlow<RuleMutationResult?>(null)
     val ruleMutationResult: StateFlow<RuleMutationResult?> = _ruleMutationResult.asStateFlow()
 
+    // ── READER-PAGES-v1：灵感保存的落库完成信号 ──────────────────
+    // 真实落库边界：noteRepository.saveInspiration 正常返回才发布 Saved；异常发布 Failed。
+    // 附页按实体 id 匹配消费，陈旧结果天然被忽略；取消协程不发布（取消≠成功）。
+    // seq 单调递增：同 id 同错误的重试也产生不同实例，不被 StateFlow 去重吞掉。
+    private val _inspirationSaveOutcome = MutableStateFlow<InspirationSaveOutcome?>(null)
+    val inspirationSaveOutcome: StateFlow<InspirationSaveOutcome?> = _inspirationSaveOutcome.asStateFlow()
+    private var inspirationSaveSeq = 0L
+
     /**
      * S07-F4.1：**生产层发布的替换能力裁决**，单处纠错纵深防御的唯一事实源。
      *
@@ -467,7 +475,27 @@ class ReaderViewModel @Inject constructor(
             is ReaderAction.ConvertHighlightToInspiration -> io {
                 noteRepository.convertHighlightToInspiration(action.highlightId)
             }
-            is ReaderAction.SaveInspiration -> io { noteRepository.saveInspiration(action.inspiration) }
+            is ReaderAction.SaveInspiration -> io {
+                // READER-PAGES-v1：发布真实落库完成信号（成功/失败都以实体 id 归属）。
+                // 取消协程原样抛出（取消≠成功，不发布）；失败不再无声——发布 Failed 供
+                // 附页保留草稿重试，并记录原始错误。复用现有 repository 保存方法，不改 schema。
+                try {
+                    noteRepository.saveInspiration(action.inspiration)
+                    _inspirationSaveOutcome.value = InspirationSaveOutcome.Saved(
+                        seq = ++inspirationSaveSeq,
+                        requestId = action.inspiration.id,
+                    )
+                } catch (ce: CancellationException) {
+                    throw ce
+                } catch (t: Throwable) {
+                    AppLog.e("ReaderVM", "inspiration save failed: ${t.message}")
+                    _inspirationSaveOutcome.value = InspirationSaveOutcome.Failed(
+                        seq = ++inspirationSaveSeq,
+                        requestId = action.inspiration.id,
+                        message = t.message ?: t.javaClass.simpleName,
+                    )
+                }
+            }
             is ReaderAction.CreateCategory -> io {
                 // 69-v2-B：使用事件携带的 id，与 onCreateCategory 回调返回给弹层的 id 同源，
                 // 避免 payload.categoryIds 指向另一枚从未落库的 id。

@@ -152,8 +152,10 @@ class SearchIndexRepositorySearchTest {
         row("世界", "b1", 1, SearchTextBasis.ORIGINAL, hits = 2, offsets = "10:2,20:2"),
         row("世界", "b1", 1, SearchTextBasis.DISPLAY, hits = 3, offsets = "0:2,5:2"),
         row("世界", "b3", 1, SearchTextBasis.ORIGINAL, hits = 5, offsets = "0:2"),
-        row("小说", "b2", 1, SearchTextBasis.ORIGINAL, hits = 1),
-        row("小说", "b2", 1, SearchTextBasis.DISPLAY, hits = 1),
+        // R6-S v2 合同：正文通道行必须带 offsets（无 span 的行被 pickCoordinate 跳过、
+        // ranker 过滤——不可跳的假正文卡不再出现）。fixture 同步给 offsets。
+        row("小说", "b2", 1, SearchTextBasis.ORIGINAL, hits = 1, offsets = "30:2"),
+        row("小说", "b2", 1, SearchTextBasis.DISPLAY, hits = 1, offsets = "28:2"),
         row("李白", "b4", 1, SearchTextBasis.ORIGINAL, hits = 4, offsets = "0:2"),
     )
 
