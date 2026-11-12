@@ -818,8 +818,18 @@ internal fun ReaderProgressEffects(
         }
 
         suspend fun navigateChaptered(preferGlobalOffset: Boolean, markdown: Boolean) {
+            // R8 搜索首屏偏页修复：搜索命中的 legacyOffset 是原始 Markdown 源偏移，
+            // 而本章起点表/分页基于 canonicalText。先把目标迁移到同一文本空间，
+            // 否则目标字符不会落在选中的页（真机 941 → 75.3% 偏页）。
+            val effectiveTarget = if (markdown) {
+                (markdownDocument as? MarkdownDocument)?.let { document ->
+                    SourceNavigationContract.migrateTargetOffset(target, document::migrateLegacyOffset)
+                } ?: target
+            } else {
+                target
+            }
             val position = SourceNavigationContract.resolveChapteredPosition(
-                target = target,
+                target = effectiveTarget,
                 chapterStartOffsets = chapterStartOffsets,
                 preferGlobalOffset = preferGlobalOffset,
             )

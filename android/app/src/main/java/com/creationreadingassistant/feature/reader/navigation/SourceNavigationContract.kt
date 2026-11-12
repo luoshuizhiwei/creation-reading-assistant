@@ -73,6 +73,19 @@ object SourceNavigationContract {
     }
 
     /**
+     * R8 搜索首屏偏页修复：搜索索引的偏移基于**原始 Markdown 源文本**，而阅读器
+     * 章起点/分页基于 canonicalText（去标记）。把 locator 的全书偏移用文档提供的
+     * 迁移函数换算到 canonical 空间，其余坐标原样保留。TXT/EPUB 不调用本函数。
+     */
+    fun migrateTargetOffset(
+        target: SourceNavigationTarget,
+        migrate: (Int) -> Int,
+    ): SourceNavigationTarget {
+        val legacy = target.locator.legacyOffset ?: return target
+        return target.copy(locator = target.locator.copy(legacyOffset = migrate(legacy)))
+    }
+
+    /**
      * Resolves an EPUB or chaptered-Markdown source position against the current chapter index.
      *
      * A locator carrying both a global offset and chapter tuple must agree. Treating conflicting
