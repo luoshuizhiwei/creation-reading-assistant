@@ -2,7 +2,7 @@
 
 ## 2026-11-13 R8 收尾批（ZCode，四项全部完成）
 
-① 新候选 `0a81ac04…` vs 旧包 `5ef408d7…` **entry 级对比 PASS**（565=565、resources/assets/libs 零差、未压缩总差 +2720B 全在 dex，2MB zip 体积差=zipflinger 波动，疑点排除）。② 定向门禁 **412/412 rc=0**（搜索族+源导航+备份+接线+新回归）。③④ **五个本地提交**：`3a478bca`(fix 3 源文件)→`cebe771`(current.md)→`04ef16f`(13 份 coordination/handoff 归档)→`2dee4c8`(2 份 TalkBack 探针测试)→`5dde584`(探针适配 MD 夹具+收尾交接)；**工作树清零、暂存 0**，stray `0` 已删（留原证）。**TalkBack instrumentation 尝试 BLOCKED**：探针已适配（第001章→第01节）+androidTest APK `b8b32e74…` 构建完成，但设备出现并行变动（产品包被并行卸载+非本批包 `local.creationReadingAssistant.mobile` 在装=用户亲自操作），按 owner 冲突停写未执行 `am instrument`；下次唯一动作见 `r8-zcode-search-landing-fix-v1/evidence/talkback-instrumentation-blocked.md`。**冻结 APK 链**：现行候选=`0a81ac04…`（离线 412 门禁+真机首屏 7391 修复验证）；`5ef408d7…`=修复前基准（已保全）；`fc600e8c…`=R8 真机 A1-A6 历史基准。
+① 新候选 `0a81ac04…` vs 旧包 `5ef408d7…` **entry 级对比 PASS**（565=565、resources/assets/libs 零差、未压缩总差 +2720B 全在 dex，2MB zip 体积差=zipflinger 波动，疑点排除）。② 定向门禁 **412/412 rc=0**（搜索族+源导航+备份+接线+新回归）。③④ **五个本地提交**：`3a478bca`(fix 3 源文件)→`cebe771`(current.md)→`04ef16f`(13 份 coordination/handoff 归档)→`2dee4c8`(2 份 TalkBack 探针测试)→`5dde584`(探针适配 MD 夹具+收尾交接)；**工作树清零、暂存 0**，stray `0` 已删（留原证）。**TalkBack instrumentation 尝试 BLOCKED**：探针已适配（第001章→第01节）+androidTest APK `b8b32e74…` 构建完成，但设备出现并行变动（产品包被并行卸载+非本批包 `local.creationReadingAssistant.mobile` 在装=用户亲自操作），按 owner 冲突停写未执行 `am instrument`；下次唯一动作见 `r8-zcode-search-landing-fix-v1/evidence/talkback-instrumentation-blocked.md`。**冻结 APK 链**：现行候选=`0a81ac04…`（离线 412 门禁+真机首屏 7391 修复验证+**远页普遍性第二数据点：查询20 首屏 46.3% 直接含 MD-20**）；`5ef408d7…`=修复前基准（已保全）；`fc600e8c…`=R8 真机 A1-A6 历史基准。**恢复缺口 R8-H1**=收尾复验批误卸 .test 包，基线内容（4b0177c9）无盘上副本，已以 ca9c4458… 重装如实登记。
 
 ## 2026-11-12 RDS-R8-ZCODE-SEARCH-LANDING-FIX-v1 收官（ZCode，首屏偏页修复 PASS）
 

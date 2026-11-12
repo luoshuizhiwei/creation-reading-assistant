@@ -59,15 +59,15 @@ class ReaderPageTalkbackFocusProbeTest {
     @Test
     fun probeFocusSpeechActivation() {
         // 前置：确保在阅读器内、chrome 可见、目录已打开（由宿主预置）
-        // 探针目标：当前章节行「第01节」
-        val r1 = focusAndCapture("第01节", "toc-chapter")
+        // 探针目标：当前章节行「中性测试TXT」
+        val r1 = focusAndCapture("中性测试TXT", "toc-chapter")
         println("PROBE focus-performed=${r1.first} detail=${r1.second}")
         Thread.sleep(2000)
         // 朗读由 TalkBack 在 a11y focus 变化时自动发布（TTS utterance 走系统日志）
         // 激活：ACTION_CLICK
         val uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation()
         val root = uiAutomation.rootInActiveWindow
-        val target = findByText(root, "第01节")
+        val target = findByText(root, "中性测试TXT")
         target?.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
         Thread.sleep(2500)
         println("PROBE click-performed=${target != null}")
