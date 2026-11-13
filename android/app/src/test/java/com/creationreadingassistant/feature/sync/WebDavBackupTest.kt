@@ -551,6 +551,21 @@ class WebDavBackupTest {
         val sourceRefDao = mockk<LibrarySourceRefDao>(relaxed = true) {
             coEvery { getAll() } returns listOf(existingSourceRef)
         }
+        // R4/R5 语义：来源引用只在对应书籍存在时落盘，孤立引用跳过。
+        // 让 bookDao.getByIds 返回 b1/b2 两本本地书，b3 保持孤立以验证跳过分支。
+        val bookDao = mockk<BookDao>(relaxed = true) {
+            coEvery { observeAllActive() } returns flowOf(emptyList())
+            coEvery { getByIds(any()) } answers {
+                firstArg<List<String>>().mapNotNull { id ->
+                    if (id == "b1" || id == "b2") BookEntity(
+                        id = id,
+                        title = "测试书籍",
+                        format = "txt",
+                        updated_at = "2026-01-01T00:00:00Z",
+                    ) else null
+                }
+            }
+        }
 
         val existingRule = ReaderTextRuleEntity(
             id = "rule-1",
@@ -576,6 +591,7 @@ class WebDavBackupTest {
         }
 
         val (bridge, mocks) = createMockJsonBridge(
+            bookDao = bookDao,
             sourceRefDao = sourceRefDao,
             textRuleDao = textRuleDao,
             correctionDao = correctionDao,
@@ -608,6 +624,15 @@ class WebDavBackupTest {
               "format": "txt",
               "size": 800,
               "last_seen_at": 500,
+              "availability": "available"
+            },
+            {
+              "book_id": "b3",
+              "provider_authority": "auth",
+              "display_name": "orphan.txt",
+              "format": "txt",
+              "size": 100,
+              "last_seen_at": 9000,
               "availability": "available"
             }
           ],
@@ -658,6 +683,8 @@ class WebDavBackupTest {
         // 验证来源引用：b1 的 last_seen_at (2000) > 本地 (1000)，覆盖更新；b2 为新增，写入
         coVerify(exactly = 1) { mocks.sourceRefDao.upsert(match { it.book_id == "b1" && it.display_name == "new.txt" }) }
         coVerify(exactly = 1) { mocks.sourceRefDao.upsert(match { it.book_id == "b2" && it.display_name == "b2.txt" }) }
+        // 孤立引用（对应书不在本地库也不在导入集）必须跳过，不落盘。
+        coVerify(exactly = 0) { mocks.sourceRefDao.upsert(match { it.book_id == "b3" }) }
 
         // 验证文本规则：rule-1 远端 updated_at (3000) < 本地 (5000)，旧不覆新（0 次 upsert）；rule-new 为新增，写入 1 次
         coVerify(exactly = 0) { mocks.textRuleDao.upsert(match { it.id == "rule-1" }) }
