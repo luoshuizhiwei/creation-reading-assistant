@@ -70,6 +70,7 @@ import com.creationreadingassistant.ui.components.CompactSettingsGroup
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.categoryTint
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberHaptic
@@ -209,34 +210,34 @@ internal fun ProfileHomeScreen(
         // 阅读与外观
         item(key = "reading-appearance") {
             MenuGroup(title = "阅读与外观") {
-                MenuItem(Icons.Outlined.TextFields, "阅读设置", "字号、行距、主题、翻页模式", iconTint = Color(0xFF6750A4), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READER)) })
+                MenuItem(Icons.Outlined.TextFields, "阅读设置", "字号、行距、主题、翻页模式", iconTint = categoryTint("violet"), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READER)) })
                 MenuItem(
                     Icons.Outlined.TouchApp,
                     "选区与查词",
                     selectionSummary(state.selectionActions, state.dictionaries.size),
-                    iconTint = Color(0xFF00897B),
+                    iconTint = categoryTint("teal"),
                     onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SELECTION)) },
                 )
-                MenuItem(Icons.Outlined.DarkMode, "应用外观", state.appThemeLabel, iconTint = Color(0xFF00639B), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.APPEARANCE)) })
+                MenuItem(Icons.Outlined.DarkMode, "应用外观", state.appThemeLabel, iconTint = categoryTint("blue"), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.APPEARANCE)) })
                 MenuItem(
                     Icons.AutoMirrored.Outlined.MenuBook,
                     "我的阅读",
                     "进度、时长、书籍状态",
-                    iconTint = Color(0xFF006874),
+                    iconTint = categoryTint("cyan"),
                     onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) },
                 )
                 MenuItem(
                     Icons.AutoMirrored.Outlined.MenuBook,
                     "阅读笔记",
                     "高亮、批注与书签",
-                    iconTint = Color(0xFF006874),
+                    iconTint = categoryTint("cyan"),
                     onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.NOTES)) },
                 )
                 MenuItem(
                     Icons.Outlined.Flag,
                     "阅读目标",
                     if (state.goal.goalEnabled) "每天 ${state.goal.dailyMinutes} 分钟" else "设定每日目标与提醒",
-                    iconTint = Color(0xFF984715),
+                    iconTint = categoryTint("rust"),
                     showDivider = false,
                     onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.GOAL)) },
                 )
@@ -248,27 +249,27 @@ internal fun ProfileHomeScreen(
         // 「存储与备份」原先独占一张卡却只有一行 —— 与同步同为数据搬运语义，合并进同组。
         item(key = "content-organize") {
             MenuGroup(title = "内容整理") {
-                MenuItem(Icons.Outlined.Sell, "标签管理", "书籍 / 灵感 / 笔记标签", iconTint = Color(0xFF5B5B7E), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.TAGS)) })
-                MenuItem(Icons.Outlined.Folder, "分类管理", desc = null, iconTint = Color(0xFF386568), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.CATEGORIES)) })
-                MenuItem(Icons.Outlined.Book, "书单管理", desc = null, iconTint = Color(0xFF6B5778), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SHELVES)) })
+                MenuItem(Icons.Outlined.Sell, "标签管理", "书籍 / 灵感 / 笔记标签", iconTint = categoryTint("slate"), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.TAGS)) })
+                MenuItem(Icons.Outlined.Folder, "分类管理", desc = null, iconTint = categoryTint("pine"), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.CATEGORIES)) })
+                MenuItem(Icons.Outlined.Book, "书单管理", desc = null, iconTint = categoryTint("plum"), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SHELVES)) })
             }
         }
 
         item(key = "data-storage") {
             MenuGroup(title = "数据与同步") {
-                MenuItem(Icons.Outlined.Storage, "存储管理", "导出 / 导入快照，清缓存", iconTint = Color(0xFF4C626B), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.STORAGE)) })
-                MenuItem(Icons.Outlined.Refresh, "局域网同步", if (state.paired) "已连接电脑" else "从未同步", iconTint = Color(0xFF1967D2), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SYNC)) })
-                MenuItem(Icons.Outlined.Cloud, "WebDAV 设置", if (state.webDavConfigured) "已配置" else "未配置", iconTint = Color(0xFF0284C7), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.WEBDAV)) })
-                MenuItem(Icons.Outlined.AutoAwesome, "AI 助手", if (state.aiConfigured) "已配置 Key" else "未配置", iconTint = Color(0xFF7B1FA2), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.AI)) })
+                MenuItem(Icons.Outlined.Storage, "存储管理", "导出 / 导入快照，清缓存", iconTint = categoryTint("steel"), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.STORAGE)) })
+                MenuItem(Icons.Outlined.Refresh, "局域网同步", if (state.paired) "已连接电脑" else "从未同步", iconTint = categoryTint("link"), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SYNC)) })
+                MenuItem(Icons.Outlined.Cloud, "WebDAV 设置", if (state.webDavConfigured) "已配置" else "未配置", iconTint = categoryTint("sky"), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.WEBDAV)) })
+                MenuItem(Icons.Outlined.AutoAwesome, "AI 助手", if (state.aiConfigured) "已配置 Key" else "未配置", iconTint = categoryTint("purple"), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.AI)) })
             }
         }
 
         // 帮助与关于
         item(key = "help-about") {
             MenuGroup(title = "帮助与关于") {
-                MenuItem(Icons.Outlined.BugReport, "日志与诊断", "运行环境与问题记录", iconTint = Color(0xFF4A6572), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.DIAGNOSTICS)) })
-                MenuItem(Icons.Outlined.Security, "隐私安全", "本地优先", iconTint = Color(0xFF2E7D32), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.PRIVACY)) })
-                MenuItem(Icons.Outlined.Info, "关于", desc = null, iconTint = Color(0xFF5E6266), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.ABOUT)) })
+                MenuItem(Icons.Outlined.BugReport, "日志与诊断", "运行环境与问题记录", iconTint = categoryTint("diag"), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.DIAGNOSTICS)) })
+                MenuItem(Icons.Outlined.Security, "隐私安全", "本地优先", iconTint = categoryTint("green"), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.PRIVACY)) })
+                MenuItem(Icons.Outlined.Info, "关于", desc = null, iconTint = categoryTint("gray"), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.ABOUT)) })
             }
         }
         } // 有查询词时，以上 4 个菜单组让位给搜索结果

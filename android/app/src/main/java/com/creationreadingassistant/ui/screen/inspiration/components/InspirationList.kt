@@ -22,7 +22,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Book
@@ -30,6 +29,8 @@ import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Tune
+import com.creationreadingassistant.ui.theme.categoryTint
+import com.creationreadingassistant.ui.theme.categoryTintText
 import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -348,7 +349,7 @@ internal fun InspirationList(
                         Icon(
                             Icons.Outlined.AutoAwesome,
                             contentDescription = null,
-                            tint = Color(0xFFD97706),
+                            tint = categoryTint("amber"),
                             modifier = Modifier
                                 .size(18.dp)
                                 .align(Alignment.TopEnd)
@@ -456,10 +457,10 @@ private fun InspirationRecordCard(
 ) {
     val spec = LocalComponentSpec.current
     val accentColor = when (item.type) {
-        "setting" -> Color(0xFF7C3AED)
-        "plot" -> Color(0xFFD97706)
-        "excerpt" -> Color(0xFF059669)
-        else -> Color(0xFF2563EB)
+        "setting" -> categoryTintText("indigo")
+        "plot" -> categoryTintText("amber")
+        "excerpt" -> categoryTintText("emerald")
+        else -> categoryTintText("blue2")
     }
 
     IslandCard(
@@ -472,7 +473,7 @@ private fun InspirationRecordCard(
                     Modifier.border(
                         width = 1.6.dp,
                         color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(spec.cardRadius),
                     )
                 } else {
                     Modifier

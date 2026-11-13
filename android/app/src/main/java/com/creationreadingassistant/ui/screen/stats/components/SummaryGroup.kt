@@ -29,6 +29,7 @@ import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.components.MetricMicroCard
 import com.creationreadingassistant.ui.screen.stats.StatsUi
 import com.creationreadingassistant.ui.screen.stats.formatCompactDuration
+import com.creationreadingassistant.ui.theme.categoryTint
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
@@ -68,7 +69,7 @@ internal fun SummaryGroup(
             ) {
                 MetricMicroCard(
                     icon = Icons.Outlined.AccessTime,
-                    iconTint = Color(0xFFD97706), // 暖琥珀
+                    iconTint = categoryTint("amber"), // 暖琥珀
                     label = "阅读时长",
                     value = formatCompactDuration(
                         animatedMinutes.toLong() * 60000,
@@ -82,7 +83,7 @@ internal fun SummaryGroup(
                 )
                 MetricMicroCard(
                     icon = Icons.Outlined.CalendarMonth,
-                    iconTint = Color(0xFF2563EB), // 晴空蓝
+                    iconTint = categoryTint("blue2"), // 晴空蓝
                     label = "阅读天数",
                     value = "$animatedDays 天",
                     subtitle = "开卷打卡",
@@ -96,7 +97,7 @@ internal fun SummaryGroup(
             ) {
                 MetricMicroCard(
                     icon = Icons.Outlined.Book,
-                    iconTint = Color(0xFF7C3AED), // 典雅紫
+                    iconTint = categoryTint("indigo"), // 典雅紫
                     label = "读过书籍",
                     value = "$animatedBooks 本",
                     subtitle = "阅读广度",
@@ -104,7 +105,7 @@ internal fun SummaryGroup(
                 )
                 MetricMicroCard(
                     icon = Icons.Outlined.CheckCircle,
-                    iconTint = Color(0xFF059669), // 自然翠绿
+                    iconTint = categoryTint("emerald"), // 自然翠绿
                     label = "已读完",
                     value = "$animatedCompleted 本",
                     subtitle = "翻越终章",

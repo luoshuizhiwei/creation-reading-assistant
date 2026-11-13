@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.categoryTint
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.bounceable
@@ -120,7 +121,7 @@ fun HomeReadingArchiveSection(
                         Icons.Outlined.AutoStories,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = Color(0xFFD97706),
+                        tint = categoryTint("amber"),
                     )
                 }
                 Column(

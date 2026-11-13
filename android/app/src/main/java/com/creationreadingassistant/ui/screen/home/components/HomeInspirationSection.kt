@@ -45,6 +45,7 @@ import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.SectionEmptyHint
 import com.creationreadingassistant.ui.components.SectionHeader
+import com.creationreadingassistant.ui.theme.categoryTint
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.bounceable
@@ -92,7 +93,7 @@ fun HomeInspirationSection(
                 leadingIcon = {
                     IconPedestal(
                         icon = Icons.Outlined.Lightbulb,
-                        tint = Color(0xFFD97706),
+                        tint = categoryTint("amber"),
                         size = 28.dp,
                         iconSize = 16.dp,
                     )
@@ -189,7 +190,7 @@ fun HomeInspirationItem(
                 Icon(
                     Icons.Outlined.FormatQuote,
                     contentDescription = null,
-                    tint = Color(0xFFD97706),
+                    tint = categoryTint("amber"),
                     modifier = Modifier.size(18.dp),
                 )
             }

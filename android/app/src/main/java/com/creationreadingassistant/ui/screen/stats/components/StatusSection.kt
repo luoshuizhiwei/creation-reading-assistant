@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.components.IslandSectionHeader
 import com.creationreadingassistant.ui.screen.stats.BookStatus
+import com.creationreadingassistant.ui.theme.categoryTint
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.animateEnter
@@ -61,7 +62,7 @@ internal fun StatusSection(
     val scheme = MaterialTheme.colorScheme
 
     val readingColor = scheme.primary
-    val completedColor = Color(0xFF059669) // 自然翡翠绿
+    val completedColor = categoryTint("emerald") // 自然翡翠绿
     val shelvedColor = Color(0xFF64748B)   // 岩青灰
     val unreadColor = Color(0xFF94A3B8)    // 素墨浅灰
     val errorColor = scheme.error          // 警示红

@@ -30,6 +30,7 @@ import com.creationreadingassistant.ui.components.IslandSectionHeader
 import com.creationreadingassistant.ui.components.MetricMicroCard
 import com.creationreadingassistant.ui.screen.stats.StatsUi
 import com.creationreadingassistant.ui.screen.stats.formatCompactDuration
+import com.creationreadingassistant.ui.theme.categoryTint
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
@@ -77,21 +78,21 @@ internal fun CreationSection(
     val items = listOf(
         CreationMetricItem(
             icon = Icons.Outlined.ChatBubble,
-            iconTint = Color(0xFF2563EB), // 知性蓝
+            iconTint = categoryTint("blue2"), // 知性蓝
             value = "$animatedNotes",
             label = "笔记记录",
             subtitle = "读中墨痕",
         ),
         CreationMetricItem(
             icon = Icons.Outlined.AutoAwesome,
-            iconTint = Color(0xFFD97706), // 金黄灵光
+            iconTint = categoryTint("amber"), // 金黄灵光
             value = "$animatedInspirations",
             label = "闪念灵感",
             subtitle = "思维火花",
         ),
         CreationMetricItem(
             icon = Icons.Outlined.AccessTime,
-            iconTint = Color(0xFF059669), // 自然翠绿
+            iconTint = categoryTint("emerald"), // 自然翠绿
             value = formatCompactDuration(stats.totalReadingMs, LocalDurationUnit.current),
             label = "沉浸时长",
             subtitle = "心流专注",
@@ -100,7 +101,7 @@ internal fun CreationSection(
         ),
         CreationMetricItem(
             icon = Icons.Outlined.CalendarMonth,
-            iconTint = Color(0xFF7C3AED), // 典雅紫
+            iconTint = categoryTint("indigo"), // 典雅紫
             value = "$animatedDays 天",
             label = "阅读天数",
             subtitle = "开卷有益",
@@ -118,7 +119,7 @@ internal fun CreationSection(
             IslandSectionHeader(
                 title = "阅读与创作",
                 icon = Icons.Outlined.AutoAwesome,
-                tint = Color(0xFFD97706),
+                tint = categoryTint("amber"),
                 trailing = {
                     Surface(
                         shape = PillShape,

@@ -91,6 +91,8 @@ import com.creationreadingassistant.ui.components.SearchResultCard
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.buildHighlighted
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.categoryTintText
+import com.creationreadingassistant.ui.theme.AppShapes
 import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.ListSkeleton
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
@@ -145,11 +147,11 @@ internal fun searchContentHitNavigation(
  */
 internal fun searchBookHitRoute(bookId: String): String = "reader/$bookId"
 
-private val SearchBookColor = Color(0xFF7C3AED)
-private val SearchInspColor = Color(0xFFD97706)
-private val SearchNoteColor = Color(0xFF0284C7)
-private val SearchHighlightColor = Color(0xFF059669)
-private val SearchContentColor = Color(0xFFBE185D)
+private val SearchBookColor @Composable get() = categoryTintText("indigo")
+private val SearchInspColor @Composable get() = categoryTintText("amber")
+private val SearchNoteColor @Composable get() = categoryTintText("sky")
+private val SearchHighlightColor @Composable get() = categoryTintText("emerald")
+private val SearchContentColor @Composable get() = categoryTintText("rose")
 
 /**
  * 测试观察接缝：全局搜索结果列表的只读快照。
@@ -716,7 +718,7 @@ private fun SearchIndexProgressCapsule(
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
+        shape = AppShapes.small,
         color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
         border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
     ) {

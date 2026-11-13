@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.AppShapes
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.bounceable
@@ -185,7 +186,7 @@ fun <T> CompactOptionPillRow(
         }
 
         Surface(
-            shape = RoundedCornerShape(10.dp),
+            shape = AppShapes.small,
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
             modifier = Modifier.fillMaxWidth(),
         ) {

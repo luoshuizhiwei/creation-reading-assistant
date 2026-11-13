@@ -51,6 +51,7 @@ import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.MutedCoverFallback
 import com.creationreadingassistant.ui.components.SectionEmptyHint
 import com.creationreadingassistant.ui.components.SectionHeader
+import com.creationreadingassistant.ui.theme.categoryTintText
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.listItemEnter
@@ -192,10 +193,10 @@ private fun CompletedCard(
                         .align(Alignment.TopEnd)
                         .padding(4.dp)
                         .clip(RoundedCornerShape(3.dp))
-                        .background(Color(0xFF059669).copy(alpha = 0.18f))
+                        .background(categoryTintText("emerald").copy(alpha = 0.18f))
                         .border(
                             width = spec.hairlineBorderWidth,
-                            color = Color(0xFF059669).copy(alpha = 0.85f),
+                            color = categoryTintText("emerald").copy(alpha = 0.85f),
                             shape = RoundedCornerShape(3.dp),
                         )
                         .padding(horizontal = 4.dp, vertical = 2.dp),
@@ -203,7 +204,7 @@ private fun CompletedCard(
                 ) {
                     Text(
                         text = "已读完",
-                        color = Color(0xFF059669),
+                        color = categoryTintText("emerald"),
                         fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Bold,
                         fontSize = 9.sp,
@@ -239,12 +240,12 @@ private fun CompletedCard(
                     modifier = Modifier
                         .size(5.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF059669)),
+                        .background(categoryTintText("emerald")),
                 )
                 Text(
                     text = "已读完",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF059669),
+                    color = categoryTintText("emerald"),
                     fontWeight = FontWeight.Medium,
                 )
             }

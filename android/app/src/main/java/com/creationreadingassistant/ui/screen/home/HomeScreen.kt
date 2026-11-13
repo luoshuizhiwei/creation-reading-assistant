@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
@@ -45,6 +44,7 @@ import com.creationreadingassistant.ui.screen.home.components.HomeContinueSectio
 import com.creationreadingassistant.ui.screen.home.components.HomeInspirationItem
 import com.creationreadingassistant.ui.screen.home.components.HomeMetricsSection
 import com.creationreadingassistant.ui.screen.home.components.HomeReadingArchiveSection
+import com.creationreadingassistant.ui.theme.categoryTint
 import com.creationreadingassistant.ui.theme.ListSkeleton
 import com.creationreadingassistant.ui.theme.MotionTokens
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
@@ -229,13 +229,13 @@ private fun EmptyInspirationHint(
                 modifier = Modifier
                     .size(28.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFFD97706).copy(alpha = 0.14f)),
+                    .background(categoryTint("amber").copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Outlined.Lightbulb,
                     contentDescription = null,
-                    tint = Color(0xFFD97706),
+                    tint = categoryTint("amber"),
                     modifier = Modifier.size(16.dp),
                 )
             }

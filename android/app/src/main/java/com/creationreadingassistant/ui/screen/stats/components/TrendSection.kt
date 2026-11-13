@@ -41,6 +41,7 @@ import com.creationreadingassistant.ui.components.IslandSectionHeader
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.stats.StatsUi
 import com.creationreadingassistant.ui.screen.stats.TrendItem
+import com.creationreadingassistant.ui.theme.categoryTintText
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.MotionTokens
 import com.creationreadingassistant.ui.theme.PillShape
@@ -175,7 +176,7 @@ private fun TrendChart(items: List<TrendItem>) {
                             ),
                             color = when {
                                 isToday -> scheme.primary
-                                isPeak -> Color(0xFFD97706)
+                                isPeak -> categoryTintText("amber")
                                 else -> scheme.onSurface
                             },
                             maxLines = 1,

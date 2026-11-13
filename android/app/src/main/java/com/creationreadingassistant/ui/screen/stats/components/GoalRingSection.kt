@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.IslandCard
+import com.creationreadingassistant.ui.theme.categoryTint
+import com.creationreadingassistant.ui.theme.categoryTintText
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
@@ -71,7 +73,9 @@ internal fun GoalRingSection(
         label = "goal-ring",
     )
     val trackColor = scheme.surfaceContainerHighest.copy(alpha = 0.45f)
-    val ringColor = if (achieved) Color(0xFF059669) else scheme.primary
+    val emerald = categoryTint("emerald")
+    val emeraldText = categoryTintText("emerald")
+    val ringColor = if (achieved) emerald else scheme.primary
     val todayMinutes = (todayMs / 60000).toInt()
     val percentage = (fraction * 100).toInt()
 
@@ -106,14 +110,14 @@ internal fun GoalRingSection(
                         Icon(
                             Icons.Outlined.CheckCircle,
                             contentDescription = null,
-                            tint = Color(0xFF059669),
+                            tint = emerald,
                             modifier = Modifier.size(24.dp),
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
                             text = "达成",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color(0xFF059669),
+                            color = emeraldText,
                             maxLines = 1,
                         )
                     } else {
@@ -154,16 +158,16 @@ internal fun GoalRingSection(
 
                     Surface(
                         shape = PillShape,
-                        color = if (achieved) Color(0xFF059669).copy(alpha = 0.12f) else scheme.primary.copy(alpha = 0.12f),
+                        color = if (achieved) emerald.copy(alpha = 0.12f) else scheme.primary.copy(alpha = 0.12f),
                         border = BorderStroke(
                             spec.hairlineBorderWidth,
-                            if (achieved) Color(0xFF059669).copy(alpha = 0.25f) else scheme.primary.copy(alpha = 0.25f),
+                            if (achieved) emerald.copy(alpha = 0.25f) else scheme.primary.copy(alpha = 0.25f),
                         ),
                     ) {
                         Text(
                             text = if (achieved) "已完成" else "$percentage%",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = if (achieved) Color(0xFF059669) else scheme.primary,
+                            color = if (achieved) emeraldText else scheme.primary,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
                         )
                     }
@@ -171,7 +175,7 @@ internal fun GoalRingSection(
 
                 GoalBadgePill(
                     icon = if (achieved) Icons.Outlined.TaskAlt else Icons.Outlined.Timer,
-                    iconTint = if (achieved) Color(0xFF059669) else Color(0xFF2563EB),
+                    iconTint = if (achieved) emerald else categoryTint("blue2"),
                     text = if (achieved) {
                         "目标 $goalMinutes 分钟 · 翻页不止"
                     } else {

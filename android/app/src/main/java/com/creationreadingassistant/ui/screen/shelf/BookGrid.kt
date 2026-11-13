@@ -97,7 +97,7 @@ internal fun SelectionBar(
     val haptic = rememberHaptic(rememberReducedMotion())
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(14.dp),
+        shape = LocalComponentSpec.current.listItemShape,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
         shadowElevation = 1.dp,
         modifier = Modifier

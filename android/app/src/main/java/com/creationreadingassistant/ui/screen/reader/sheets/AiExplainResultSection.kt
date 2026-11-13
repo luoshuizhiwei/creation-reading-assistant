@@ -28,20 +28,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.ui.theme.LocalReaderPaperPalette
 import com.creationreadingassistant.ui.theme.PillShape
+import com.creationreadingassistant.ui.theme.categoryTint
 import com.creationreadingassistant.ui.theme.bounceable
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.util.copyText
-
-private val VioletBlue = Color(0xFF6366F1)
-private val EmeraldGreen = Color(0xFF059669)
 
 @Composable
 internal fun AiExplainResultCard(
@@ -54,6 +52,8 @@ internal fun AiExplainResultCard(
     onSaveInspiration: (String, List<String>, List<String>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val paper = LocalReaderPaperPalette.current
+    val emerald = categoryTint("emerald")
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
     val clipboard = LocalClipboard.current
@@ -85,13 +85,13 @@ internal fun AiExplainResultCard(
                         modifier = Modifier
                             .size(28.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(VioletBlue.copy(alpha = 0.14f)),
+                            .background(paper.accent.copy(alpha = 0.14f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             Icons.Outlined.AutoAwesome,
                             contentDescription = null,
-                            tint = VioletBlue,
+                            tint = paper.accent,
                             modifier = Modifier.size(16.dp),
                         )
                     }
@@ -106,8 +106,8 @@ internal fun AiExplainResultCard(
                 if (loading) {
                     Surface(
                         shape = PillShape,
-                        color = EmeraldGreen.copy(alpha = 0.12f),
-                        border = BorderStroke(0.8.dp, EmeraldGreen.copy(alpha = 0.3f)),
+                        color = emerald.copy(alpha = 0.12f),
+                        border = BorderStroke(0.8.dp, emerald.copy(alpha = 0.3f)),
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -118,13 +118,13 @@ internal fun AiExplainResultCard(
                                 modifier = Modifier
                                     .size(6.dp)
                                     .clip(CircleShape)
-                                    .background(EmeraldGreen.copy(alpha = if (reducedMotion) 1f else waveAlpha)),
+                                    .background(emerald.copy(alpha = if (reducedMotion) 1f else waveAlpha)),
                             )
                             Text(
                                 "正在思考与解析…",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Medium,
-                                color = EmeraldGreen,
+                                color = paper.fg,
                             )
                         }
                     }
