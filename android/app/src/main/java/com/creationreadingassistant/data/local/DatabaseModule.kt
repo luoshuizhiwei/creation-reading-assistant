@@ -53,6 +53,8 @@ object DatabaseModule {
         // （index_search_terms_term，纯 DDL、不碰数据行），均保留既有数据。
         // 迁移失败时应崩溃并报明确错误，而非静默擦除用户数据。
         DatabaseSafetyNet.snapshotIfUpgrading(context, AppDatabase.DB_NAME, AppDatabase.SCHEMA_VERSION)
+        // R8：损坏库被 Android 默认删库重建前，先留一份损坏现场快照（数据可捞回）。
+        DatabaseSafetyNet.snapshotIfCorrupt(context, AppDatabase.DB_NAME)
         return Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DB_NAME)
             .addCallback(AppDatabase.CreateIndexCallback())
             .addMigrations(

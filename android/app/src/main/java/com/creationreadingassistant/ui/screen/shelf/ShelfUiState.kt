@@ -35,6 +35,11 @@ internal data class ShelfUiState(
     val shelfBooks: List<ShelfBookItem> = emptyList(),
     val isRefreshing: Boolean = false,
     /**
+     * R8 书架卡刷新修复：加载超时或 Room flow 异常的错误态。
+     * true 时骨架分支给出「加载失败 + 重试」而非永久骨架。
+     */
+    val libraryLoadFailed: Boolean = false,
+    /**
      * 来源文件在系统目录被改过、待用户确认后才刷新的 bookId 集合；
      * 确认前仅在书卡打「可更新」标签，不改变正文；确认后将替换内部正文副本并推进来源基线。
      */

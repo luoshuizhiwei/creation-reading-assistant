@@ -671,7 +671,23 @@ abstract class AppDatabase : RoomDatabase() {
      */
     class CreateIndexCallback : RoomDatabase.Callback() {
         override fun onOpen(db: SupportSQLiteDatabase) {
+            val openStartMs = android.os.SystemClock.elapsedRealtime()
             super.onOpen(db)
+            // R8 书架卡刷新修复（P2）：阅读进度 500ms debounce 高频写入会让 WAL 持续膨胀，
+            // 冷启动回放/首查询可能极慢。开库后主动 TRUNCATE 检查点并留耗时日志，
+            // 下次复现可直接从 logcat 读取 WAL 大小与开库耗时。检查点失败不影响启动。
+            runCatching {
+                val walRow = db.query("PRAGMA wal_checkpoint(TRUNCATE)").use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        (0 until cursor.columnCount).joinToString(",") { cursor.getString(it) }
+                    } else {
+                        "no-row"
+                    }
+                }
+                AppLog.debug("DB", "onOpen checkpoint: $walRow")
+            }.onFailure { e ->
+                AppLog.w("DB", "onOpen checkpoint 失败（已忽略）: ${e.message}")
+            }
             // 部分索引为性能优化项；个别设备/列定义差异不应拖垮开库，故逐条容错。
             PARTIAL_INDEX_SQL.forEach { sql ->
                 runCatching { db.execSQL(sql) }
@@ -680,6 +696,7 @@ abstract class AppDatabase : RoomDatabase() {
                         AppLog.w("DB", "建索引失败（已忽略）: ${e.message}")
                     }
             }
+            AppLog.debug("DB", "onOpen total=${android.os.SystemClock.elapsedRealtime() - openStartMs}ms")
         }
     }
 }

@@ -664,4 +664,94 @@ class ShelfViewModelTest {
         // 给出即时反馈
         assertEquals("书架已是最新，没有检测到源文件更新", feedbackMessage)
     }
+    @Test
+    fun `library load timeout marks failure so the shelf cannot hang on the skeleton forever`() =
+        runTest(mainDispatcher.scheduler) {
+            // R8 书架卡刷新修复：Room 首发射永不到达（DB 打开挂起）时，
+            // 加载超时的 UI 计时器会调用 markLibraryLoadFailed，失败态必须置真；
+            // 且 libraryLoaded 仍为 false，避免把「加载失败」误判成「空书架」。
+            val neverEmits = MutableSharedFlow<List<BookEntity>>()
+            val vm = createVm(booksFlow = neverEmits)
+            val collectJob = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                vm.books.collect { }
+            }
+            testScheduler.advanceUntilIdle()
+            assertFalse(vm.libraryLoadFailed.value)
+
+            vm.markLibraryLoadFailed() // 模拟 ShelfRoute 的 LibraryLoadTimeoutMillis 计时器
+            testScheduler.advanceUntilIdle()
+            assertTrue("超时后必须给出失败态，否则用户面对永久骨架", vm.libraryLoadFailed.value)
+            assertFalse("加载失败不等于加载完成", vm.libraryLoaded.value)
+
+            collectJob.cancel()
+            testScheduler.advanceUntilIdle()
+        }
+
+    @Test
+    fun `room flow error is caught and exposes the retry state instead of crashing`() =
+        runTest(mainDispatcher.scheduler) {
+            // R8：Room flow 抛异常（损坏 DB/WAL）时 catch 置失败态，
+            // 而不是让异常经 collect 传播导致崩溃或静默永久骨架。
+            val broken = kotlinx.coroutines.flow.flow<List<BookEntity>> { error("db corrupt") }
+            val vm = createVm(booksFlow = broken)
+            val collectJob = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                vm.books.collect { }
+            }
+            testScheduler.advanceUntilIdle()
+            assertTrue("Room flow 异常必须转成失败态", vm.libraryLoadFailed.value)
+            assertFalse(vm.libraryLoaded.value)
+
+            collectJob.cancel()
+            testScheduler.advanceUntilIdle()
+        }
+
+    @Test
+    fun `retryLoadLibrary clears failure and restarts the upstream flow`() =
+        runTest(mainDispatcher.scheduler) {
+            // R8：重试必须清失败态并重启 observeBooks() 上游（flatMapLatest(tick)）。
+            // 第二次上游正常发射后加载完成、失败态保持清除。
+            val bookFlow = MutableSharedFlow<List<BookEntity>>()
+            val vm = createVm(booksFlow = bookFlow)
+            var subscribeCount = 0
+            val countingFlow = kotlinx.coroutines.flow.flow<List<BookEntity>> {
+                subscribeCount++
+                bookFlow.collect { value -> emit(value) }
+            }
+            every { repository.observeBooks() } returns countingFlow
+
+            val collectJob = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                vm.books.collect { }
+            }
+            testScheduler.advanceUntilIdle()
+            vm.markLibraryLoadFailed()
+            assertTrue(vm.libraryLoadFailed.value)
+
+            vm.retryLoadLibrary()
+            testScheduler.advanceUntilIdle()
+            assertFalse("重试必须清除失败态", vm.libraryLoadFailed.value)
+            assertTrue("重试后必须重启 observeBooks() 上游", subscribeCount >= 2)
+
+            bookFlow.emit(listOf(book("b1", "测试书")))
+            testScheduler.advanceUntilIdle()
+            assertTrue("重试后收到发射即算加载完成", vm.libraryLoaded.value)
+            assertFalse(vm.libraryLoadFailed.value)
+
+            collectJob.cancel()
+            testScheduler.advanceUntilIdle()
+        }
+
+    @Test
+    fun `refresh resets the indicator even when the first DB query never returns`() =
+        runTest(mainDispatcher.scheduler) {
+            // R8：旧版 refresh() 内 observeBooks().first() 永久挂起 → isRefreshing 卡 true
+            // （刷新圈永久显示）。加 withTimeout 后超时到达必须复位。
+            val hanging = kotlinx.coroutines.flow.flow<List<BookEntity>> { kotlinx.coroutines.delay(Long.MAX_VALUE) }
+            every { repository.observeBooks() } returns hanging
+            every { repository.observeProgress() } returns kotlinx.coroutines.flow.flowOf(emptyList())
+            val vm = createVm(booksFlow = hanging)
+            vm.refresh()
+            testScheduler.advanceUntilIdle()
+            assertFalse("首查询挂起超时后刷新指示器必须复位", vm.isRefreshing.value)
+        }
+
 }

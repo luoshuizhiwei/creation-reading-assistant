@@ -77,6 +77,9 @@ internal fun focusIdsForBatch(
 internal const val SOURCE_REFRESH_PROGRESS_NOTE =
     "同步不会主动清除已有阅读记录；但正文更新后章节会重新划分，阅读位置也可能随之变化。"
 
+
+/** R8 书架卡刷新修复：书架首帧加载的超时上限；超过即给出失败态而非永久骨架。 */
+internal const val LibraryLoadTimeoutMillis = 8_000L
 /**
  * 来源更新确认弹窗的正文。抽成纯函数以便定向测试：文案边界是这里唯一可判定的部分，
  * 不需要 Compose 运行时。
@@ -100,6 +103,10 @@ internal fun ShelfRoute(
     val vmState by viewModel.uiState.collectAsStateWithLifecycle()
     val shelfBooks by viewModel.shelfBooks.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+
+    // R8 书架卡刷新修复：加载失败态（超时 / Room flow 异常）
+    val libraryLoadFailed by viewModel.libraryLoadFailed
+        .collectAsStateWithLifecycle(initialValue = false)
     val session by viewModel.session.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -158,6 +165,13 @@ internal fun ShelfRoute(
     // 于是先渲染空态「书架还空着」再跳到列表（真机可复现）。对齐 InspirationRoute 的做法：
     // 骨架只由首次 emission 驱动，Loaded(空) 才落空态。
     val libraryLoaded by viewModel.libraryLoaded.collectAsStateWithLifecycle(initialValue = false)
+
+    // R8 书架卡刷新修复：进入书架后超时仍未收到 Room 首发射，置加载失败态，
+    // 让骨架分支给出重试入口而不是永久骨架。
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(LibraryLoadTimeoutMillis)
+        viewModel.markLibraryLoadFailed()
+    }
 
     // ======= 顶栏：搜索 / 菜单 / 选择模式 =======
     var showPageMenu by remember { mutableStateOf(false) }
@@ -267,6 +281,7 @@ internal fun ShelfRoute(
         auxiliary = vmState.auxiliary,
         shelfBooks = shelfBooks,
         isRefreshing = isRefreshing,
+        libraryLoadFailed = libraryLoadFailed,
         contentUpdatedBookIds = contentUpdatedBookIds,
         newBookIds = newBookIds,
         query = "",
@@ -914,6 +929,7 @@ private fun handleShelfAction(
         // 下拉刷新同时同步源文件更新（M-BUG-03 第二阶段）：结果通过 Snackbar 反馈，
         // 「无更新」也必须有回执，否则用户无法区分「没更新」与「手势没生效」。
         ShelfAction.TriggerRefresh -> viewModel.refresh { showMessage(it) }
+        ShelfAction.RetryLoadLibrary -> viewModel.retryLoadLibrary()
         else -> Unit
     }
 }

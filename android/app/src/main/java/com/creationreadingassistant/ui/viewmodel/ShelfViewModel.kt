@@ -43,13 +43,16 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
@@ -74,6 +77,9 @@ internal const val SOURCE_REFRESH_TITLE_MAX_CHARS = 30
 
 /** 残留守卫消息的判定标记：EPUB（`EpubRepository`）与 TXT/MD（`ShelfImporter`）守卫共用同一句式。 */
 private const val SOURCE_REFRESH_RESIDUE_MARKER = "替换残留"
+
+/** R8 书架卡刷新修复：加载/刷新的超时上限，超时后 UI 给出错误态而非永久骨架/刷新圈。 */
+private const val LibraryLoadTimeoutMillis = 8_000L
 
 /** 一本刷新失败的书的展示信息：书名 + 底层原因原文。 */
 internal data class SourceRefreshFailureUi(
@@ -320,8 +326,45 @@ class ShelfViewModel @Inject constructor(
     private val _libraryLoaded = MutableStateFlow(false)
     val libraryLoaded: StateFlow<Boolean> = _libraryLoaded.asStateFlow()
 
-    val books: StateFlow<List<BookEntity>> = repository.observeBooks()
-        .onEach { _libraryLoaded.value = true }
+    /**
+     * R8 书架"一直显示刷新"修复：DB 打开/首查询挂起或异常时，骨架不能永久显示。
+     * - `_libraryLoadFailed`：加载超时或 Room flow 异常的错误态，UI 据此给出重试入口。
+     * - `_libraryRetryTick`：重试时递增，`flatMapLatest` 重启 `observeBooks()` 上游。
+     * - `catch`：Room flow 异常不再向上传播（此前会经 collect 崩溃或静默卡骨架）。
+     */
+    private val _libraryLoadFailed = MutableStateFlow(false)
+    val libraryLoadFailed: StateFlow<Boolean> = _libraryLoadFailed.asStateFlow()
+    private val _libraryRetryTick = MutableStateFlow(0)
+
+    fun markLibraryLoadFailed() {
+        if (!_libraryLoaded.value) _libraryLoadFailed.value = true
+    }
+
+    fun retryLoadLibrary() {
+        _libraryLoadFailed.value = false
+        _libraryRetryTick.value += 1
+        viewModelScope.launch {
+            try {
+                withTimeout(LibraryLoadTimeoutMillis) {
+                    repository.observeBooks().first()
+                    repository.observeProgress().first()
+                }
+                _libraryLoaded.value = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _libraryLoadFailed.value = true
+            }
+        }
+    }
+
+    val books: StateFlow<List<BookEntity>> = _libraryRetryTick
+        .flatMapLatest { repository.observeBooks() }
+        .onEach {
+            _libraryLoaded.value = true
+            _libraryLoadFailed.value = false
+        }
+        .catch { _libraryLoadFailed.value = true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val tags: StateFlow<List<TagEntity>> = taxonomyRepository.observeTags()
@@ -693,10 +736,14 @@ class ShelfViewModel @Inject constructor(
         viewModelScope.launch {
             _isRefreshing.value = true
             try {
+                // R8 书架卡刷新修复：首查询可能因 DB 层挂起（损坏 WAL 恢复等）而永久
+                // 不返回，导致刷新圈永久卡住——加超时，超时后照常复位并反馈。
                 runCatching {
-                    withContext(ioDispatcher) {
-                        repository.observeBooks().first()
-                        repository.observeProgress().first()
+                    withTimeout(LibraryLoadTimeoutMillis) {
+                        withContext(ioDispatcher) {
+                            repository.observeBooks().first()
+                            repository.observeProgress().first()
+                        }
                     }
                 }
                 delay(350) // 保证刷新反馈有最短可见时长

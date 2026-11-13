@@ -119,4 +119,7 @@ internal sealed interface ShelfAction {
 
     // ========= 下拉刷新 =========
     data object TriggerRefresh : ShelfAction
+
+    /** R8 书架卡刷新修复：加载失败后的手动重试入口。 */
+    data object RetryLoadLibrary : ShelfAction
 }

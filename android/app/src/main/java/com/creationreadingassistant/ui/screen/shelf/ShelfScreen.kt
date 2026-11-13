@@ -498,6 +498,22 @@ private fun ShelfContent(
                             reducedMotion = reducedMotion,
                         )
                     }
+                    // R8 书架卡刷新修复：加载超时 / Room flow 异常时给出重试入口，
+                    // 不让骨架永久显示（此前 DB 层挂起时用户没有任何自救手段）。
+                    if (state.libraryLoadFailed) {
+                        item(key = "shelf-load-failed", span = { GridItemSpan(maxLineSpan) }) {
+                            FullEmptyState(
+                                icon = { LineArtBook(modifier = Modifier.size(56.dp)) },
+                                title = "书架加载失败",
+                                body = "书库读取超时或出错。可尝试重试；若反复出现，请检查存储空间后重启应用。",
+                                contentPadding = 32.dp,
+                                primaryAction = "重试加载" to {
+                                    haptic(HapticFeedbackType.TextHandleMove)
+                                    onAction(ShelfAction.RetryLoadLibrary)
+                                },
+                            )
+                        }
+                    }
                 } else if (state.filtered.isEmpty()) {
                     val emptyShelf = state.library.books.isEmpty()
                     val searchNoResult = state.library.books.isNotEmpty() && state.debouncedQuery.isNotEmpty()
