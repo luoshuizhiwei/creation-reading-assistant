@@ -1,5 +1,10 @@
 # 当前交接入口
 
+## 2026-11-13 R8 书架卡刷新修复批（ZCode，用户确认"先修复"）
+
+用户报告 0.5.1 早期构建上百小时后书架"一直显示刷新、无法加载内容且未恢复"。诊断实锤：Kotlin 主线 `refresh()` 首查询无超时 + `books` flow 无 catch/错误态/超时 → DB 层挂起时刷新圈与骨架永久卡住、用户无自救；Android 对损坏 DB 默认删库重建（数据静默丢失）。修复 10 文件（commit `c1f1270`）：`ShelfViewModel` `withTimeout(8s)`+`flatMapLatest(retry)`+`catch`+`libraryLoadFailed`/`retryLoadLibrary`；Route/Screen 8s 超时「书架加载失败+重试加载」UI；`AppDatabase.onOpen` `wal_checkpoint(TRUNCATE)`+耗时日志；`DatabaseSafetyNet.snapshotIfCorrupt` 开库前 `integrity_check` 留损坏现场快照。验证：修前红（旧 VM 编译失败）→定向 32/32 绿→全量 JVM **3850/3851**（唯一红 `WebDavBackupTest` 已实锤 HEAD 基线同样红=既存陈旧测试，与本批无关）。真机：`b5f77182…` 书架正常加载 + `onOpen checkpoint: 0,0,0`/`total=13ms` logcat 实证；故障注入损坏 DB → Android 自动重建（快照保护由 JVM 7/7 覆盖）。**最终候选=`e4e167da…`/53,031,344B**（`16-final-assemble` rc=0）；最终包真机装机 BLOCKED（HyperOS `INSTALL_FAILED_USER_RESTRICTED`，按钮变「继续安装」仍被拒）→ NOT_RUN，同源代码已有真机验证。设备恢复完成（产品缺席/`.test`在装/Download104/历史ZIP在位）。**G-R8-3**=`0a81ac04…` 输出位被覆盖且未保全（二次同类遗漏，如实登记）。待 Root：WebDavBackupTest 陈旧红裁决、TalkBack 人工专项、新提交 `c1f1270` 未 push（分支领先 origin 1）。交付：`E:/AgentWork/CRA/rds-v1-real-device-smoke/root-checks/r8-zcode-search-landing-fix-v1/`（REPORT §10、ready appendix3、shelf-hang-fix.patch 21KB、shelf-fix-shas.json、08-16 各测试/构建日志、故障注入截图与 logcat）。
+
+
 ## 2026-11-13 R8 收尾批（ZCode，四项全部完成）
 
 ① 新候选 `0a81ac04…` vs 旧包 `5ef408d7…` **entry 级对比 PASS**（565=565、resources/assets/libs 零差、未压缩总差 +2720B 全在 dex，2MB zip 体积差=zipflinger 波动，疑点排除）。② 定向门禁 **412/412 rc=0**（搜索族+源导航+备份+接线+新回归）。③④ **五个本地提交**：`3a478bca`(fix 3 源文件)→`cebe771`(current.md)→`04ef16f`(13 份 coordination/handoff 归档)→`2dee4c8`(2 份 TalkBack 探针测试)→`5dde584`(探针适配 MD 夹具+收尾交接)；**工作树清零、暂存 0**，stray `0` 已删（留原证）。**TalkBack instrumentation 尝试 BLOCKED**：探针已适配（第001章→第01节）+androidTest APK `b8b32e74…` 构建完成，但设备出现并行变动（产品包被并行卸载+非本批包 `local.creationReadingAssistant.mobile` 在装=用户亲自操作），按 owner 冲突停写未执行 `am instrument`；下次唯一动作见 `r8-zcode-search-landing-fix-v1/evidence/talkback-instrumentation-blocked.md`。**冻结 APK 链**：现行候选=`0a81ac04…`（离线 412 门禁+真机首屏 7391 修复验证+**远页普遍性第二数据点：查询20 首屏 46.3% 直接含 MD-20**）；`5ef408d7…`=修复前基准（已保全）；`fc600e8c…`=R8 真机 A1-A6 历史基准。**恢复缺口 R8-H1**=收尾复验批误卸 .test 包，基线内容（4b0177c9）无盘上副本，已以 ca9c4458… 重装如实登记。
