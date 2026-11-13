@@ -1,5 +1,14 @@
 # 当前交接入口
 
+## 2026-11-13 Qwen4 视觉规格实施合入（ZCode 闭环）
+### 设备待办补完（2026-11-13 17:25）
+
+设备空闲后完成：`4232ce75…` 装机 SHA 回读一致；浅色零回归 **PASS**（新旧包浅色 Profile raw 像素差异 0.827% 全在状态栏 y=15..48，内容区零差异）；深色对比度 **PASS**（分类图标提亮可辨、72.5% 差异集中图标列）；恢复 EXACT MATCH。**AI 附页护眼绿/暖纸文本 NOT_RUN**（设备无中性测试书+AI 链路需配置，离线 9 档纸张实算 ≥7.3 + JVM 断言保证，不伪造）。证据 `zcode-android-visual-closure-v1/evidence/`（4 张截图+raw 差异+device-baseline/restore）。剩余仅 Root 裁决项（WebDavBackupTest 陈旧红/TalkBack 人工专项/P5-P7）与择机补 AI 附页截图。
+
+
+Qwen4 两阶段交付（只读规格 → 单向 patch）已由 ZCode 审查并合入：18 文件（新增 `ui/theme/CategoryTint.kt`，17 文件颜色实参替换/等值 token 化/新增 ContrastRatioTest 断言），`PATCH_ROUNDTRIP_OK=True`、before SHA 18/18 与 D 树一致。裁决：接受 Qwen4 对 SPEC §3.3 的实算修正（AI 附页文本 `paper.accent` 暖纸 4.219<4.5 → 改 `paper.fg` ≥7.3），登记为经实算修正的规格偏差；P5/P6/P7/D5/D6 排除。硬门：构建前保全 `e4e167da…`（逐位一致）。**一次 E 树同步错位事故**（多拼一层 android/）导致 01/02 轮跑旧树作废，已修正；Qwen4 侧 NOT_RUN 的两处编译缺口已最小修复（`SearchScreen` spec→12.dp、`ContrastRatioTest` dark→darkTheme）。真实验证：定向 JVM **165/165 rc=0**（ContrastRatioTest 8 项含 4 新增断言、锁定 token 值未漂移）、`:app:assembleDebug` rc=0、**新候选 `4232ce7528c8a547602686b91745cb7f01621398ef5a636787a9d41c6caf3a53`/54,088,510B**（7/21 dex 含 CategoryTint）。设备截图/装机 **NOT_RUN**（真机前台持续 NotificationShade=用户占用，按合同停设备写入、不伪造）；浅色零回归由"浅值未变"断言机械保证。设备状态保持基线。待设备空闲补浅深截图+AI 附页护眼绿/暖纸文本核对；Root 裁决 WebDavBackupTest 陈旧红/TalkBack 人工专项/P5-P7。交付 `E:/AgentWork/CRA/rds-v1-real-device-smoke/root-checks/zcode-android-visual-closure-v1/`。
+
+
 ## 2026-11-13 R8 书架卡刷新修复批（ZCode，用户确认"先修复"）
 
 用户报告 0.5.1 早期构建上百小时后书架"一直显示刷新、无法加载内容且未恢复"。诊断实锤：Kotlin 主线 `refresh()` 首查询无超时 + `books` flow 无 catch/错误态/超时 → DB 层挂起时刷新圈与骨架永久卡住、用户无自救；Android 对损坏 DB 默认删库重建（数据静默丢失）。修复 10 文件（commit `c1f1270`）：`ShelfViewModel` `withTimeout(8s)`+`flatMapLatest(retry)`+`catch`+`libraryLoadFailed`/`retryLoadLibrary`；Route/Screen 8s 超时「书架加载失败+重试加载」UI；`AppDatabase.onOpen` `wal_checkpoint(TRUNCATE)`+耗时日志；`DatabaseSafetyNet.snapshotIfCorrupt` 开库前 `integrity_check` 留损坏现场快照。验证：修前红（旧 VM 编译失败）→定向 32/32 绿→全量 JVM **3850/3851**（唯一红 `WebDavBackupTest` 已实锤 HEAD 基线同样红=既存陈旧测试，与本批无关）。真机：`b5f77182…` 书架正常加载 + `onOpen checkpoint: 0,0,0`/`total=13ms` logcat 实证；故障注入损坏 DB → Android 自动重建（快照保护由 JVM 7/7 覆盖）。**最终候选=`e4e167da…`/53,031,344B**（`16-final-assemble` rc=0）；最终包真机装机 BLOCKED（HyperOS `INSTALL_FAILED_USER_RESTRICTED`，按钮变「继续安装」仍被拒）→ NOT_RUN，同源代码已有真机验证。设备恢复完成（产品缺席/`.test`在装/Download104/历史ZIP在位）。**G-R8-3**=`0a81ac04…` 输出位被覆盖且未保全（二次同类遗漏，如实登记）。待 Root：WebDavBackupTest 陈旧红裁决、TalkBack 人工专项、新提交 `c1f1270` 未 push（分支领先 origin 1）。交付：`E:/AgentWork/CRA/rds-v1-real-device-smoke/root-checks/r8-zcode-search-landing-fix-v1/`（REPORT §10、ready appendix3、shelf-hang-fix.patch 21KB、shelf-fix-shas.json、08-16 各测试/构建日志、故障注入截图与 logcat）。
