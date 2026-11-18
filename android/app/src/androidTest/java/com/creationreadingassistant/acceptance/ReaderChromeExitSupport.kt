@@ -3,7 +3,9 @@ package com.creationreadingassistant.acceptance
 import android.accessibilityservice.AccessibilityService
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.printToString
@@ -31,6 +33,7 @@ import androidx.test.platform.app.InstrumentationRegistry
  */
 internal object ReaderChromeExitSupport {
 
+    const val BACK_TAG = "reader-back-btn"
     const val BACK_DESCRIPTION = "返回"
 
     data class Attempt(
@@ -60,7 +63,7 @@ internal object ReaderChromeExitSupport {
     }
 
     private fun backVisible(rule: ComposeTestRule): Boolean =
-        rule.onAllNodesWithContentDescription(BACK_DESCRIPTION).fetchSemanticsNodes().isNotEmpty()
+        rule.onAllNodesWithTag(BACK_TAG).fetchSemanticsNodes().isNotEmpty()
 
     private fun awaitBackVisible(rule: ComposeTestRule, timeoutMs: Long): Boolean {
         val deadline = System.currentTimeMillis() + timeoutMs
@@ -106,7 +109,7 @@ internal object ReaderChromeExitSupport {
             }
             used = if (afterTap) "toolbar-back" else "system-back"
             if (afterTap) {
-                rule.onNodeWithContentDescription(BACK_DESCRIPTION).performClick()
+                rule.onNodeWithTag(BACK_TAG).performClick()
             } else {
                 systemBack = true
                 used = "system-back"

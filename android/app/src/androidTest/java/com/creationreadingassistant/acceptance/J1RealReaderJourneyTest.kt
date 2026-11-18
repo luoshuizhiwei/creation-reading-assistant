@@ -18,6 +18,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
@@ -262,7 +263,7 @@ class J1RealReaderJourneyTest {
 
     /** 阅读器顶栏「返回」控件节点数量（>0 视为阅读器控件可见）。 */
     private fun readerChromeBackCount(): Int =
-        composeRule.onAllNodesWithContentDescription("返回").fetchSemanticsNodes().size
+        composeRule.onAllNodesWithTag("reader-back-btn").fetchSemanticsNodes().size
 
     /**
      * 采集一次真实页面状态：关键节点计数 + merged/unmerged 语义树全文。

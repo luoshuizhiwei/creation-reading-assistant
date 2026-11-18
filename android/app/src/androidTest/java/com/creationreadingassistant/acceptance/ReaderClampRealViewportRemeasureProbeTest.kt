@@ -9,6 +9,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.assertIsDisplayed
@@ -914,7 +915,7 @@ class ReaderClampRealViewportRemeasureProbeTest {
 
     private fun waitControlsHidden() {
         composeRule.waitUntil(25_000) {
-            composeRule.onAllNodesWithContentDescription("返回").fetchSemanticsNodes().isEmpty()
+            composeRule.onAllNodesWithTag("reader-back-btn").fetchSemanticsNodes().isEmpty()
         }
     }
 

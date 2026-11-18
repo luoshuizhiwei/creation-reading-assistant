@@ -69,6 +69,17 @@
   验证：`:app:compileDebugKotlin` **rc=0**、`:app:compileDebugAndroidTestKotlin` **rc=0**；MuMu 实例 1 实跑 7 个 acceptance 类（18 tests）：
   原来因缺 `craRunId` 在 `@Before` 提前抛 `Root must bind craRunId` 导致**根本未执行**的 3 项（`D2RelinkUserJourneyAcceptTest` ×2、`InspirationCategorySourceRetentionDeviceTest` ×1），**现已全部 100% 真正进入执行阶段**（耗时分别达 0.989s、0.777s、22.742s），真实结论为 UI 阶段失败（D2 找不到“更多”按钮节点，Inspiration 找不到标签输入入口，与既有 MaterialGathering 同根因）。
   原通过的 10 项全部稳定保持通过；设备已正常关机、无被测包残留。详见 [craRunId 绑定报告](<E:/AgentWork/CRA/mate70-startup-diagnostics-v1/REPORT-crarunid-binding.md>)。
+- **UI 验收用例无障碍文案锚点迁移为稳定 testTag（2026-11-18 13:03，DSH）**：消除无障碍文案脆弱耦合，生产端新增 3 个稳定 testTag（`shelf-more-actions`、`inspiration-taxonomy-toggle`、`inspiration-new-tag-input`），测试端完成定位方式迁移与灵感面板折叠卡片展开前置补齐。
+  排查确认 `ReaderExternalPendingFailureProductionTest.kt:200` 等另外 3 处均指向阅读器内部「更多」，非书架按钮，严格未动。
+  验证：`:app:compileDebugKotlin` **rc=0**、`:app:compileDebugAndroidTestKotlin` **rc=0**、`:app:testDebugUnitTest --tests "*Search*"` **rc=0（205 项 0 失败）**。
+  MuMu 实例 1（`127.0.0.1:16416`，ALN-AL00 / API 32）实跑 3 个类（5 tests）：原 4 处阻断全部 **100% 跨越**（D2 成功执行书架批量选择/清缓存向后推进 45~57 行；灵感面板两项「标签输入入口必须存在」断言全部通过，成功走通输入与 tags/categories 表写入），原阻断彻底消除；暴露的下一阶段断言分别为清缓存后返回（D2）与面板保存可用（灵感）；设备已安全关机、无测试包残留。详见 [testTag 锚点迁移报告](<E:/AgentWork/CRA/mate70-startup-diagnostics-v1/REPORT-testtag-anchors.md>)。
+- **第三批文案漂移点修掉：D2 验收双绿灯（2026-11-18 13:25，DSH）**：生产端新增 2 个 testTag（`ReaderChrome.kt` 顶栏返回 `reader-back-btn`、`ReaderInspirationSheet.kt` 顶栏保存 `inspiration-save-btn`），测试端对应切换为 tag 定位。
+  验证：`:app:compileDebugKotlin` **rc=0**、`:app:compileDebugAndroidTestKotlin` **rc=0**、`:app:testDebugUnitTest --tests "*Search*"` **rc=0（205 项 0 失败）**。
+  MuMu 实例 1 实跑 3 个类（5 tests）：**D2RelinkUserJourneyAcceptTest 2 项全绿（PASS）**（8.271s 与 11.479s，原阻断彻底解除）；灵感面板保存按钮成功触发，灵感落库完全通过，两用例分别推进至退出选区清理（Inspiration）与退出离开阅读器（MaterialGathering）；通过率由 1/5 提升至 3/5；设备已安全关机、无测试包残留。详见 [第三批 testTag 锚点落地报告](<E:/AgentWork/CRA/mate70-startup-diagnostics-v1/REPORT-testtag-anchors-2.md>)。
+- **第四批测试侧「按旧文案找返回」稳定锚点迁移与退出链路走通（2026-11-18 14:10，DSH）**：测试侧残存 17 处「找返回」逐条判读完成：7 处弹层/附页内部返回（生产本身为 `"返回"`）严格保留原样，10 处阅读器顶栏返回全面迁至 `reader-back-btn`；公共支撑 `ReaderChromeExitSupport.kt` 迁至 `reader-back-btn`。
+  上一轮剩余 2 个红灯的退出阻断 **100% 彻底打通**：`MaterialGatheringJourneyTest` 跨越行 1596 `必须真实离开阅读器`，成功通过 P4 退出与 P5 搜索（`mat_40_exit` 与 `mat_50_search` 均 PASS），一路推进至行 1666；`InspirationCategorySourceRetentionDeviceTest` 跨越行 255/1480 选区残留退出阻断，成功走通 P4-P7 核心逻辑 300 多行，一路推进至行 539。
+  验证：`:app:compileDebugKotlin` **rc=0**、`:app:compileDebugAndroidTestKotlin` **rc=0**、`:app:testDebugUnitTest --tests "*Search*"` **rc=0（205 项 0 失败）**。
+  MuMu 实例 1（`127.0.0.1:16416`）实跑 5 个类：`D2Relink...` 2 项全绿保持；新停顿点代码级深度归因完成：行 539 与行 1666 均停在「返回阅读处」，根本原因为两用例是从灵感详情页（阅读器外部）点击「查阅原文位置」进入，按 Root 174 既有架构裁决（`NestedTemporaryReaderEntryTest`），外部临时查阅因离域 `endReaderSession` 清空栈，顶栏按合同不组合「返回阅读处」按钮，用例存在断言假设漂移；设备已安全关机（errcode 0）、端口释放、无测试包残留。详见 [测试侧锚点迁移与退出走通报告](<E:/AgentWork/CRA/mate70-startup-diagnostics-v1/REPORT-testtag-anchors-3.md>)。
 - **待确认（用户裁决）**：`J1RealReaderFixtures` 证据 JSON 的 `workManagerSchedulers` 少了 `SearchIndexScheduler` 一项；
   若跨轮对比需要保留历史字段名，可回退该 1 行（不影响编译与门禁）。
 - **未提交**：本轮全部改动只在工作树，未 commit/push。

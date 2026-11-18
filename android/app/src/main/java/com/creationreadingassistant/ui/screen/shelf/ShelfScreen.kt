@@ -251,7 +251,9 @@ internal fun ShelfScreen(
                                 else ShelfAction.TogglePageMenu
                             )
                         },
-                        modifier = Modifier.semantics { contentDescription = "更多操作" },
+                        modifier = Modifier
+                            .testTag("shelf-more-actions")
+                            .semantics { contentDescription = "更多操作" },
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.MoreHoriz,

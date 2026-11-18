@@ -1407,8 +1407,13 @@ class MaterialGatheringJourneyTest {
         // 69-v1-B：真实语义入口写入本轮唯一标签与分类（不再按输入框数量猜测）
         uniqueTag = "取材标签-$runId"
         uniqueCategory = "取材分类-$runId"
+        val toggle = composeRule.onAllNodesWithTag("inspiration-taxonomy-toggle")
+        if (toggle.fetchSemanticsNodes().isNotEmpty()) {
+            toggle[0].performClick()
+            composeRule.waitForIdle()
+        }
         assertTrue("标签输入入口必须存在", waitFor("mat_30_save", UI_TIMEOUT_MS, "标签输入可见") {
-            composeRule.onAllNodes(hasText("新标签，逗号或空格分隔…", substring = true))
+            composeRule.onAllNodesWithTag("inspiration-new-tag-input")
                 .fetchSemanticsNodes().isNotEmpty()
         })
         addChipViaUi("新标签，逗号或空格分隔…", uniqueTag)
@@ -1427,9 +1432,9 @@ class MaterialGatheringJourneyTest {
                 ?.toIntOrNull() ?: 0) == 1
         })
         assertTrue("必须能点击「保存灵感」", waitFor("mat_30_save", UI_TIMEOUT_MS, "保存按钮可用") {
-            textVisible("保存灵感")
+            composeRule.onAllNodesWithTag("inspiration-save-btn").fetchSemanticsNodes().isNotEmpty()
         })
-        composeRule.onNodeWithText("保存灵感").performClick()
+        composeRule.onNodeWithTag("inspiration-save-btn").performClick()
         composeRule.waitForIdle()
         val saved = waitFor("mat_30_save", SAVE_TIMEOUT_MS, "Room 中出现本轮灵感") {
             (rawOne(
@@ -1654,6 +1659,10 @@ class MaterialGatheringJourneyTest {
             waitFor("mat_60_return", UI_TIMEOUT_MS, "临时查阅正文") {
                 readerReady() && textVisible(renderedPageProbe)
             })
+        if (composeRule.onAllNodesWithContentDescription("返回阅读处").fetchSemanticsNodes().isEmpty()) {
+            composeRule.onRoot().performClick()
+            composeRule.waitForIdle()
+        }
         assertTrue("临时查阅必须提供「返回阅读处」", waitFor("mat_60_return", UI_TIMEOUT_MS, "返回阅读处可见") {
             composeRule.onAllNodesWithContentDescription("返回阅读处").fetchSemanticsNodes().isNotEmpty()
         })

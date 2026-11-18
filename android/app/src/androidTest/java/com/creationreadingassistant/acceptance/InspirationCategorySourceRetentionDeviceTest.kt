@@ -790,8 +790,13 @@ class InspirationCategorySourceRetentionDeviceTest {
         assertEquals("标题保存前读回必须等于本轮标题", title, readBack(titleNode))
         assertTrue("想法保存前读回必须含本轮标记", readBack(ideaNode)?.contains(runId) == true)
         if (tag != null) {
+            val toggle = composeRule.onAllNodesWithTag("inspiration-taxonomy-toggle")
+            if (toggle.fetchSemanticsNodes().isNotEmpty()) {
+                toggle[0].performClick()
+                composeRule.waitForIdle()
+            }
             assertTrue("标签输入入口必须存在", waitFor(lastPhase, UI_TIMEOUT_MS, "标签输入") {
-                composeRule.onAllNodes(hasText("新标签，逗号或空格分隔…", substring = true))
+                composeRule.onAllNodesWithTag("inspiration-new-tag-input")
                     .fetchSemanticsNodes().isNotEmpty()
             })
             addChipViaUi("新标签，逗号或空格分隔…", tag)
@@ -817,8 +822,13 @@ class InspirationCategorySourceRetentionDeviceTest {
     }
 
     private fun saveSheet(phase: String) {
-        assertTrue("保存按钮必须可用", waitFor(phase, UI_TIMEOUT_MS, "保存灵感") { textVisible("保存灵感") })
-        composeRule.onNodeWithText("保存灵感").performClick()
+        assertTrue(
+            "保存按钮必须可用",
+            waitFor(phase, UI_TIMEOUT_MS, "保存灵感") {
+                composeRule.onAllNodesWithTag("inspiration-save-btn").fetchSemanticsNodes().isNotEmpty()
+            },
+        )
+        composeRule.onNodeWithTag("inspiration-save-btn").performClick()
         composeRule.waitForIdle()
     }
 
@@ -1464,12 +1474,20 @@ class InspirationCategorySourceRetentionDeviceTest {
             pressBack()
             assertTrue("下拉菜单必须关闭", waitFor(lastPhase, UI_TIMEOUT_MS, "菜单消失") { !textVisible("记为灵感") })
         }
-        if (composeRule.onAllNodesWithTag(ExportExcerptRoundTripVerdict.SELECTION_TOOLBAR_EXCERPT_TAG,
-                useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()) {
-            pressBack()
+        val hasSelection = composeRule.onAllNodesWithTag(
+            ExportExcerptRoundTripVerdict.SELECTION_TOOLBAR_EXCERPT_TAG,
+            useUnmergedTree = true,
+        ).fetchSemanticsNodes().isNotEmpty()
+        if (hasSelection) {
             assertTrue("选区微条与工具条必须消失", waitFor(lastPhase, UI_TIMEOUT_MS, "清除选区") {
-                composeRule.onAllNodesWithTag(ExportExcerptRoundTripVerdict.SELECTION_TOOLBAR_EXCERPT_TAG,
-                    useUnmergedTree = true).fetchSemanticsNodes().isEmpty() && !textVisible("复制")
+                val empty = composeRule.onAllNodesWithTag(
+                    ExportExcerptRoundTripVerdict.SELECTION_TOOLBAR_EXCERPT_TAG,
+                    useUnmergedTree = true,
+                ).fetchSemanticsNodes().isEmpty() && !textVisible("复制")
+                if (!empty) {
+                    pressBack()
+                }
+                empty
             })
         }
     }
@@ -1482,14 +1500,14 @@ class InspirationCategorySourceRetentionDeviceTest {
             assertTrue("笔记面板必须关闭", waitFor(lastPhase, UI_TIMEOUT_MS, "关闭笔记面板") { !textVisible("笔记与标注") })
         }
         clearReaderSelection()
-        if (composeRule.onAllNodesWithContentDescription("返回").fetchSemanticsNodes().isEmpty()) {
+        if (composeRule.onAllNodesWithTag("reader-back-btn").fetchSemanticsNodes().isEmpty()) {
             composeRule.onRoot().performTouchInput { click(center) }
             composeRule.waitForIdle()
         }
         assertTrue("阅读器返回入口必须唯一", waitFor(lastPhase, UI_TIMEOUT_MS, "阅读器返回按钮") {
-            composeRule.onAllNodesWithContentDescription("返回").fetchSemanticsNodes().size == 1
+            composeRule.onAllNodesWithTag("reader-back-btn").fetchSemanticsNodes().size == 1
         })
-        composeRule.onAllNodesWithContentDescription("返回")[0].performClick()
+        composeRule.onNodeWithTag("reader-back-btn").performClick()
         composeRule.waitForIdle()
         assertTrue("回到书架必须成立", waitFor(lastPhase, UI_TIMEOUT_MS, "回到书架") { topLevelPage() == "shelf" })
     }
@@ -1508,14 +1526,14 @@ class InspirationCategorySourceRetentionDeviceTest {
             assertTrue("笔记面板必须关闭", waitFor(phase, UI_TIMEOUT_MS, "关闭笔记面板") { !textVisible("笔记与标注") })
         }
         clearReaderSelection()
-        if (composeRule.onAllNodesWithContentDescription("返回").fetchSemanticsNodes().isEmpty()) {
+        if (composeRule.onAllNodesWithTag("reader-back-btn").fetchSemanticsNodes().isEmpty()) {
             composeRule.onRoot().performTouchInput { click(center) }
             composeRule.waitForIdle()
         }
         assertTrue("阅读器返回入口必须唯一", waitFor(phase, UI_TIMEOUT_MS, "阅读器返回按钮") {
-            composeRule.onAllNodesWithContentDescription("返回").fetchSemanticsNodes().size == 1
+            composeRule.onAllNodesWithTag("reader-back-btn").fetchSemanticsNodes().size == 1
         })
-        composeRule.onAllNodesWithContentDescription("返回")[0].performClick()
+        composeRule.onNodeWithTag("reader-back-btn").performClick()
         composeRule.waitForIdle()
 
         fun inspirationDetailVisible(): Boolean =

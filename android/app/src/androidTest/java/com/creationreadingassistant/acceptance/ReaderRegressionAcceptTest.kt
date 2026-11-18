@@ -9,6 +9,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
@@ -178,7 +179,7 @@ class ReaderRegressionAcceptTest {
             .fetchSemanticsNodes().size
 
     private fun readerChromeBackCount(): Int =
-        composeRule.onAllNodesWithContentDescription("返回").fetchSemanticsNodes().size
+        composeRule.onAllNodesWithTag("reader-back-btn").fetchSemanticsNodes().size
 
     private fun waitHome() {
         composeRule.waitUntil(20_000) { homeSearchNodeCount() > 0 }

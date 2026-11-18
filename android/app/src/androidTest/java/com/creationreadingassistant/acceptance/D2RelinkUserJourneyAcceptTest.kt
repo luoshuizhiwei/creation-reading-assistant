@@ -283,7 +283,7 @@ class D2RelinkUserJourneyAcceptTest {
 
         // P4：产品“移除正文”入口：更多 → 批量选择 → 选中 → 清缓存
         markPhase("t96_d2_40_clear_cache")
-        composeRule.onAllNodesWithContentDescription("更多")[0].performClick()
+        composeRule.onAllNodesWithTag("shelf-more-actions")[0].performClick()
         composeRule.waitForIdle()
         assertTrue("书架更多菜单必须出现「批量选择」", waitFor(lastPhase, UI_TIMEOUT_MS, "批量选择") {
             composeRule.onAllNodesWithText("批量选择").fetchSemanticsNodes().isNotEmpty()
@@ -340,7 +340,7 @@ class D2RelinkUserJourneyAcceptTest {
         assertTrue("重新关联后必须能读到本轮正文", waitFor(lastPhase, UI_TIMEOUT_MS, "正文可见") {
             composeRule.onAllNodesWithText("第1章 重新关联测试", substring = true).fetchSemanticsNodes().isNotEmpty()
         })
-        composeRule.onAllNodesWithContentDescription("返回")[0].performClick()
+        composeRule.onNodeWithTag("reader-back-btn").performClick()
         composeRule.waitForIdle()
         assertTrue("必须回到书架", ensureOnShelf(lastPhase))
         writeEvidence("t96_d2_50_relink_same", mapOf("bookId" to bookId, "contentSha" to sha256(bodyText.toByteArray())))
@@ -521,7 +521,7 @@ class D2RelinkUserJourneyAcceptTest {
         })
 
         markPhase("t96v7_40_clear_cache")
-        composeRule.onAllNodesWithContentDescription("更多")[0].performClick()
+        composeRule.onAllNodesWithTag("shelf-more-actions")[0].performClick()
         composeRule.waitForIdle()
         assertTrue("书架更多菜单必须出现「批量选择」", waitFor(lastPhase, UI_TIMEOUT_MS, "批量选择") {
             composeRule.onAllNodesWithText("批量选择").fetchSemanticsNodes().isNotEmpty()
@@ -566,7 +566,7 @@ class D2RelinkUserJourneyAcceptTest {
         assertTrue("重新关联后必须读到 EPUB 章节正文", waitFor(lastPhase, UI_TIMEOUT_MS, "EPUB 正文可见") {
             composeRule.onAllNodesWithText(epubBody.take(12), substring = true).fetchSemanticsNodes().isNotEmpty()
         })
-        composeRule.onAllNodesWithContentDescription("返回")[0].performClick()
+        composeRule.onNodeWithTag("reader-back-btn").performClick()
         composeRule.waitForIdle()
         assertTrue("必须回到书架", ensureOnShelf(lastPhase))
         val assetsAfterReading = assetSnapshot()

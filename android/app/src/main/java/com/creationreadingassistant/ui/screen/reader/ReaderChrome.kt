@@ -604,6 +604,7 @@ internal fun ReaderTopChrome(
             IconButton(
                 onClick = { onAction(ReaderChromeAction.Back) },
                 modifier = Modifier
+                    .testTag("reader-back-btn")
                     .semantics { contentDescription = "返回书架" }
                     .clip(RoundedCornerShape(spec.pedestalRadius))
                     .border(spec.hairlineBorderWidth, paper.fg.copy(alpha = spec.hairlineAlpha), RoundedCornerShape(spec.pedestalRadius)),

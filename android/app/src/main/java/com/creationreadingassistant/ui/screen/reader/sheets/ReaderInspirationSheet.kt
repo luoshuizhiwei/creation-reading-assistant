@@ -272,6 +272,7 @@ internal fun InspirationPage(
                     saveError = null
                     onSave(id, draftTitle.trim(), draftBody.trim(), draftTags, draftCategoryIds)
                 },
+                modifier = Modifier.testTag("inspiration-save-btn"),
                 enabled = canSave && !awaitingSave,
             ) {
                 when {
@@ -451,7 +452,9 @@ internal fun InspirationPage(
                     shape = RoundedCornerShape(14.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("inspiration-taxonomy-toggle"),
                 ) {
                     Row(
                         modifier = Modifier
@@ -568,6 +571,7 @@ internal fun InspirationPage(
                             newTagInput = ""
                         }
                     },
+                    modifier = Modifier.testTag("inspiration-new-tag-input"),
                     enabled = !awaitingSave,
                 )
                 TextButton(
