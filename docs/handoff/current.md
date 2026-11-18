@@ -74,6 +74,18 @@
 - **未提交**：本轮全部改动只在工作树，未 commit/push。
 
 
+- **基线提交（2026-11-18 12:43）**：`6cd4ce5` chore(baseline)，135 文件 +13747/-6951，把 1377cf9 以来全部未提交改动固化为
+  审查基线（含上述三阶段 + Legado 导入 + Room v17 + 阅读内核优化）。**仅本地提交，未 push**。此后审查用 `6cd4ce5..工作树`
+  做对照；此前任何 "对比 HEAD" 的结论都会把历史未提交改动误判为本轮越界（Antigravity 12:40 的审查即因此产生 3 条假阳性：
+  `ProfileViewModel` Legado 函数、`AppDatabase` v17、`MainActivity` 重排，均早于本轮）。
+- **登记：设备端剩余红灯（2026-11-18 12:43，DSH）**：`craRunId` 绑定补齐后（见 11:46 条），原先「未执行」的 3 项已真正执行，
+  **真实结论是 UI 阶段失败**（D2 找不到「更多」按钮节点、Inspiration 找不到标签输入入口），与 `MaterialGatheringJourneyTest` 同根因。
+  目前仍红的一族（J1 journey01/02/03、MdReadingResume、MaterialGathering、D2×2、Inspiration×1）**均未归因**：缺改动前基线 APK
+  对照，无法区分「索引按需改造引入」与更早的既有缺陷。按用户决定先登记、不逐项修。
+- **审查基线提示**：后续任何代码级归因请以 `6cd4ce5` 之后的工作树为准；早于该提交的「diff HEAD」结论必然产生假阳性
+  （Antigravity 2026-11-18 12:40 的审查即因此误报 3 条越界：`ProfileViewModel` Legado 函数、`AppDatabase` v17、`MainActivity` 重排）。
+- **Antigravity 现状**：个人配额 2026-11-18 12:40 耗尽（17:36:29 重置），中断的是「独立代码审查」子任务，非 craRunId 实施；
+  中断后 `compileDebugKotlin` + `compileDebugAndroidTestKotlin` 实测仍 rc=0。
 ## 2026-11-17 Mate 70 对照问题修复
 
 当前 D 工作树候选 `8a14246e165dccc0f53eac32b6a5ef1d2bf0e7b421d3d7d007e5a3454fd4f893`，修复书架查询异常后无法重新订阅、重试超时回到骨架的问题，并提高夜读灵感占位字和字号滑杆端点对比。定向 JVM 39/39；当前包在 MuMu 实测夜读两处对比，装机 SHA 一致，基线已恢复。Mate 70 Pro 的 HDC 已接入。用户报告覆盖安装后闪退，两次实机冷启动均复现进程在约 9 秒后退出。Android 异常栈尚未取得，手机安装字节未回读。此前导出的 ZIP 为 0 B，未有可恢复备份，保持现有安装及数据。见 [修复报告](<E:/AgentWork/CRA/mate70-mobile-fixes-v1/REPORT.md>)。
