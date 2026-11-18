@@ -12,8 +12,11 @@ object LearningProgressEstimator {
         actualCounts: Map<Int, Int>,
         atBookEnd: Boolean = false,
     ): Float {
-        if (estimatedCounts.isEmpty()) return 0f
-        if (atBookEnd) return 100f
+        return prepare(estimatedCounts, actualCounts).percent(chapterIndex, charOffset, atBookEnd)
+    }
+
+    /** 已测章节变化时重建一次，连续翻页只查询章前缀，避免逐帧扫描全书。 */
+    fun prepare(estimatedCounts: List<Int>, actualCounts: Map<Int, Int>): Prepared {
 
         var knownEstimated = 0L
         var knownActual = 0L
@@ -31,14 +34,29 @@ object LearningProgressEstimator {
             actualCounts[index]?.coerceAtLeast(0)?.toDouble()
                 ?: estimatedCounts[index].coerceAtLeast(1) * ratio
 
-        val chapter = chapterIndex.coerceIn(0, estimatedCounts.lastIndex)
-        var before = 0.0
-        for (index in 0 until chapter) before += effective(index)
-        val currentCount = effective(chapter)
-        val position = before + charOffset.coerceAtLeast(0).coerceAtMost(currentCount.toInt())
+        val counts = DoubleArray(estimatedCounts.size)
+        val before = DoubleArray(estimatedCounts.size)
         var total = 0.0
-        for (index in estimatedCounts.indices) total += effective(index)
-        if (total <= 0.0) return 0f
-        return (position * 100.0 / total).toFloat().coerceIn(0f, 100f)
+        for (index in estimatedCounts.indices) {
+            before[index] = total
+            counts[index] = effective(index)
+            total += counts[index]
+        }
+        return Prepared(counts, before, total)
+    }
+
+    class Prepared internal constructor(
+        private val counts: DoubleArray,
+        private val before: DoubleArray,
+        private val total: Double,
+    ) {
+        fun percent(chapterIndex: Int, charOffset: Int, atBookEnd: Boolean = false): Float {
+            if (counts.isEmpty()) return 0f
+            if (atBookEnd) return 100f
+            if (total <= 0.0) return 0f
+            val chapter = chapterIndex.coerceIn(0, counts.lastIndex)
+            val position = before[chapter] + charOffset.coerceAtLeast(0).coerceAtMost(counts[chapter].toInt())
+            return (position * 100.0 / total).toFloat().coerceIn(0f, 100f)
+        }
     }
 }

@@ -18,20 +18,28 @@ object Clusterizer {
         else -> false
     }
 
-    fun of(text: String, ruler: TextRuler): Clusters {
+    fun of(text: String, ruler: TextRuler, checkActive: () -> Unit = {}): Clusters {
         if (text.isEmpty()) {
             return Clusters(text, intArrayOf(0), FloatArray(0), IntArray(0))
         }
 
         val widths = FloatArray(text.length)
-        ruler.getTextWidths(text, widths)
+        ruler.getTextWidths(text, widths, checkActive)
+        checkActive()
 
-        val starts = ArrayList<Int>(text.length + 1)
-        val adv = ArrayList<Float>(text.length)
-        val kls = ArrayList<Int>(text.length)
+        // 字符数是簇数上界，直接写基本类型数组，避免逐字符装箱和列表复制。
+        val starts = IntArray(text.length + 1)
+        val adv = FloatArray(text.length)
+        val kls = IntArray(text.length)
+        var count = 0
 
         var i = 0
+        var nextCheck = 0
         while (i < text.length) {
+            if (i >= nextCheck) {
+                checkActive()
+                nextCheck = i + 256
+            }
             val start = i
             var w = widths[i]
             // 按码位取类别：代理对（𠮷 U+20BB7）单看高位半个不是汉字，
@@ -50,6 +58,10 @@ object Clusterizer {
 
             // 后续宽度为 0（组合字、变体选择符、ZWJ 及其后继）并入本簇
             while (i < text.length) {
+                if (i >= nextCheck) {
+                    checkActive()
+                    nextCheck = i + 256
+                }
                 val c = text[i]
                 val isJoiner = isZeroWidthJoinerLike(c)
                 if (widths[i] == 0f || isJoiner) {
@@ -72,17 +84,18 @@ object Clusterizer {
                 }
             }
 
-            starts.add(start)
-            adv.add(w)
-            kls.add(CharClass.classifyCodePoint(repCodePoint))
+            starts[count] = start
+            adv[count] = w
+            kls[count] = CharClass.classifyCodePoint(repCodePoint)
+            count++
         }
-        starts.add(text.length)
+        starts[count] = text.length
 
         return Clusters(
             text = text,
-            startInText = starts.toIntArray(),
-            advance = adv.toFloatArray(),
-            klass = kls.toIntArray(),
+            startInText = if (count == text.length) starts else starts.copyOf(count + 1),
+            advance = if (count == text.length) adv else adv.copyOf(count),
+            klass = if (count == text.length) kls else kls.copyOf(count),
         )
     }
 }

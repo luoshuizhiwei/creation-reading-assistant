@@ -762,7 +762,6 @@ object J1RealReaderFixtures {
             put("workManagerSchedulers", listOf(
                 "EpubSizeRepairTask",
                 "ReadingGoalScheduler",
-                "SearchIndexScheduler"
             ))
             put("cacheDir", JSONObject().apply {
                 put("cachePath", context.cacheDir.absolutePath)

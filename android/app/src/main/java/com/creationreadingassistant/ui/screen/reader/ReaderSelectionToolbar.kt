@@ -309,22 +309,17 @@ internal fun SelectionToolbar(
                     // R3-X1：高频动作由配置驱动（定义顺序渲染），每项权重相同；
                     // 末尾固定追加「更多」溢出按钮，保证次级动作永远可达。
                     primaryActions.forEach { action ->
-                        val visual = selectionActionVisual(action.id)
-                        SelectionCapsuleAction(
-                            icon = visual.icon,
+                        SelectionActionItem(
+                            icon = selectionActionIcon(action.id),
                             label = action.label,
-                            pedestalColor = visual.pedestalColor,
-                            iconTint = visual.iconTint,
                             onClick = { onActionClick(action.id) },
                             modifier = Modifier.weight(1f),
                         )
                     }
                     Box(modifier = Modifier.weight(1f)) {
-                        SelectionCapsuleAction(
+                        SelectionActionItem(
                             icon = Icons.Outlined.MoreHoriz,
                             label = OVERFLOW_LABEL,
-                            pedestalColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f),
-                            iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
                             onClick = { moreExpanded = true },
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -339,25 +334,16 @@ internal fun SelectionToolbar(
                             shadowElevation = paper.panelElevation,
                         ) {
                             moreActions.forEach { action ->
-                                val visual = selectionActionVisual(action.id)
                                 val enabled = action.id != "replace" || canCreateReplaceRule
                                 DropdownMenuItem(
                                     text = { Text(action.label, style = MaterialTheme.typography.bodyMedium) },
                                     leadingIcon = {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(28.dp)
-                                                .clip(CircleShape)
-                                                .background(visual.iconTint.copy(alpha = 0.12f)),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Icon(
-                                                visual.icon,
-                                                contentDescription = null,
-                                                tint = visual.iconTint,
-                                                modifier = Modifier.size(16.dp),
-                                            )
-                                        }
+                                        Icon(
+                                            selectionActionIcon(action.id),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(20.dp),
+                                        )
                                     },
                                     onClick = {
                                         moreExpanded = false
@@ -381,86 +367,11 @@ internal fun SelectionToolbar(
  * 「高亮 / 浏览器 / 复制」，用户把「书内搜索」放到第一屏就会看到一个灰点。
  * 未知 id（已被 [SelectionActions.sanitize] 挡在磁盘外侧）渲染成中性灰点。
  */
-private data class PrimaryActionVisual(
-    val icon: ImageVector,
-    val pedestalColor: Color,
-    val iconTint: Color,
-)
-
-private fun selectionActionVisual(id: String): PrimaryActionVisual = when (id) {
-    "highlight" -> PrimaryActionVisual(
-        icon = Icons.Outlined.BorderColor,
-        pedestalColor = Color(0xFFF9A825).copy(alpha = 0.15f),
-        iconTint = Color(0xFFF57F17),
-    )
-
-    "browser" -> PrimaryActionVisual(
-        icon = Icons.Outlined.Language,
-        pedestalColor = Color(0xFF00897B).copy(alpha = 0.14f),
-        iconTint = Color(0xFF00796B),
-    )
-
-    "copy" -> PrimaryActionVisual(
-        icon = Icons.Outlined.ContentCopy,
-        pedestalColor = Color(0xFF1E88E5).copy(alpha = 0.15f),
-        iconTint = Color(0xFF1565C0),
-    )
-
-    "dictionary" -> PrimaryActionVisual(
-        icon = Icons.AutoMirrored.Outlined.MenuBook,
-        pedestalColor = Color(0xFF6A1B9A).copy(alpha = 0.12f),
-        iconTint = Color(0xFF6A1B9A),
-    )
-
-    "note" -> PrimaryActionVisual(
-        icon = Icons.Outlined.EditNote,
-        pedestalColor = Color(0xFF5E35B1).copy(alpha = 0.12f),
-        iconTint = Color(0xFF5E35B1),
-    )
-
-    "replace" -> PrimaryActionVisual(
-        icon = Icons.Outlined.FindReplace,
-        pedestalColor = Color(0xFFEF6C00).copy(alpha = 0.12f),
-        iconTint = Color(0xFFEF6C00),
-    )
-
-    "search" -> PrimaryActionVisual(
-        icon = Icons.Outlined.Search,
-        pedestalColor = Color(0xFF0288D1).copy(alpha = 0.12f),
-        iconTint = Color(0xFF0288D1),
-    )
-
-    "ai" -> PrimaryActionVisual(
-        icon = Icons.Outlined.AutoAwesome,
-        pedestalColor = Color(0xFF00897B).copy(alpha = 0.12f),
-        iconTint = Color(0xFF00897B),
-    )
-
-    "inspiration" -> PrimaryActionVisual(
-        icon = Icons.Outlined.Lightbulb,
-        pedestalColor = Color(0xFF7E57C2).copy(alpha = 0.12f),
-        iconTint = Color(0xFF7E57C2),
-    )
-
-    "cancel" -> PrimaryActionVisual(
-        icon = Icons.Outlined.Close,
-        pedestalColor = Color(0xFFE53935).copy(alpha = 0.12f),
-        iconTint = Color(0xFFE53935),
-    )
-
-    else -> PrimaryActionVisual(
-        icon = Icons.Outlined.MoreHoriz,
-        pedestalColor = Color(0x00000000),
-        iconTint = Color(0xFF9E9E9E),
-    )
-}
-
+private fun selectionActionIcon(id: String): ImageVector = when (id) {    "highlight" -> Icons.Outlined.BorderColor    "browser" -> Icons.Outlined.Language    "copy" -> Icons.Outlined.ContentCopy    "dictionary" -> Icons.AutoMirrored.Outlined.MenuBook    "note" -> Icons.Outlined.EditNote    "replace" -> Icons.Outlined.FindReplace    "search" -> Icons.Outlined.Search    "ai" -> Icons.Outlined.AutoAwesome    "inspiration" -> Icons.Outlined.Lightbulb    "cancel" -> Icons.Outlined.Close    else -> Icons.Outlined.MoreHoriz}
 @Composable
-private fun SelectionCapsuleAction(
+private fun SelectionActionItem(
     icon: ImageVector,
     label: String,
-    pedestalColor: Color,
-    iconTint: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -476,21 +387,15 @@ private fun SelectionCapsuleAction(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(pedestalColor),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(17.dp),
-                )
-            }
-            Spacer(Modifier.height(3.dp))
+            // MD3 文本选择工具栏规范：图标无底座、统一 onSurfaceVariant 单色
+            //（原每动作一色的圆形底座与全站克制单色调冲突）。
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp),
+            )
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,

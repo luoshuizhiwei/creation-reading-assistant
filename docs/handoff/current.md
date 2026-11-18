@@ -1,5 +1,125 @@
 # 当前交接入口
 
+## 2026-11-17 夜间：全文索引下线 + Mate 70 闪退收尾（DSH）
+
+**结论**：Mate 70 上"覆盖安装后约 9 秒闪退"的根因已定位并修复；用户已重装并在真机确认数据完整。
+
+- **根因（真机实测）**：用户库 **5.17 GB**，其中 `search_terms` **1.31 亿行 / 4.9 GB**（`text_basis` 的
+  display/original **各建一遍**，每行 `offsets` 仅 5–12 B，胖在行数）。库版本停在 v15，
+  每次启动都要迁移；而迁移前 `DatabaseSafetyNet.snapshotIfUpgrading` 整库复制（实测 **90–143 s**）、
+  开库前 `PRAGMA integrity_check` 全库扫描（数十秒）都在主线程 → 兼容容器 **9–12 s** 判无响应杀掉 →
+  迁移永远跑不完 → 下次重来。
+- **修复 1（`DatabaseSafetyNet`）**：库 > `MAX_SNAPSHOT_BYTES`(256 MB) 时跳过整库快照与完整性预检；
+  `fallbackToDestructiveMigration` 早已移除，跳过快照不引入静默丢数据风险。
+- **修复 2（搜索改按需）**：新增 `SearchIndexRepository.searchContentOnDemand()`（逐书逐章读正文子串匹配，
+  复用既有分章/EPUB 解包与大小上限），`searchContent()` 改委托它；旧索引查询路径 `searchContentByIndex` 已删除。
+  索引写入全部停用：`SearchIndexScheduler.start/enqueueOnce/triggerNow/enqueuePeriodic`、
+  `SearchIndexBookRefreshCoordinator.request`、`ReaderSearchIndexCoordinator.applySearchIndexRefresh` 均改为 no-op。
+- **修复 3（库 v17）**：`MIGRATION_16_17` 清空 `search_terms`/`search_index_state`/`search_index_coverage`
+  （只 DELETE 不 DROP，保留 Room 校验与 DAO 编译；真正回收磁盘需一次性后台 VACUUM）。
+- **新增：导入阅读记录**：`ReadingRecordsImporter` + 我的→存储/日志与诊断→「导入阅读记录（JSON）」。
+  按 `content_hash` 匹配本地书（退化"标题+大小"），恢复 reading_progress（本地较新则保留）/reading_sessions/
+  inspirations；匹配不到的书不新建、归属置空。**首版因灵感 `source_book_id` 写旧 id 触发外键约束整批回滚，已修**
+  （匹配不到置空 + 单条失败不拖垮整批）。
+- **数据保全**：导出 20 张表 → 2,051,198 B JSON（20 表：books 12 / reading_progress 11 / reading_sessions 2248 /
+  chapter_reads 1 / inspirations 2 / library_source_refs 9）。
+  电脑副本：`E:/AgentWork/CRA/mate70-startup-diagnostics-v1/phone-export/READING-RECORDS-BACKUP.json`。
+- **真机闭环（用户确认）**：卸载旧装 → 装 `cra-clean-0.5.1-v4.apk`（versionCode 4，干净包、无诊断代码）→
+  先导书 → 导入记录成功；只读核验首页：累计阅读 **124 小时 12 分钟 · 9 本**、续读《不死的黑蛇只想单纯的活着》25%、
+  在读 8 / 已读完 1、最近灵感已回。
+- **测试**：`--tests "*Search*"` 现 **全绿**；已删 3 个断言旧语义/旧机制的用例文件
+  （`SearchIndexRepositorySearchTest`、`SearchIndexCancelControlTest`、`SearchIndexBookRefreshCoordinatorTest`）。
+- **已删（2026-11-17 22:20）**：`ReaderSearchIndexCoordinator`（其纯函数 `currentSelectionSourceRange`
+  已内联进 `ReaderViewModel`），`compileDebugKotlin` 通过。
+- **已完成（2026-11-17 22:55，DSH）**：`SearchIndexScheduler`/`SearchIndexWorker`/`SearchIndexWorkerPolicy`/
+  `SearchIndexBookRefreshCoordinator` 四个空转类已删除，注入点全部清零：`App.kt`（import + `SearchIndexEntryPoint` +
+  后台线程 `start()`）、`ProfileViewModel`（`searchIndexRepository`/`searchIndexScheduler` 构造参数、`searchIndexProgress`、
+  `rebuildSearchIndex`、`handleProfileAction`、`cancelSearchIndex`、`anchorSentence`）、`ProfileUiState` 两个动作、
+  `ProfileRoute` 两个分支、`DiagnosticsSubPage` 停止索引入口 + 两个确认弹窗、`StorageSubPage` 索引卡与弹窗、
+  `SearchViewModel`/`SearchScreen` 静默进度胶囊、`SearchIndexRepository`（`scheduler`、`Progress`、`progress`、
+  `triggerFullRebuildNow`、`cancelIndexing`、`FullRebuildLaunch`、`CancelIndexingResult`）、`ShelfImporter` 与
+  `BookRepository` 的 `indexRefreshCoordinator`。`SearchIndexWorkerPolicy` 里仍被复用的三个纯函数
+  （`indexSweepResult`/`ChapterCounts`/`resumeChapterCounts`）已原样搬入 `SearchIndexRepository`。
+  验证：`:app:compileDebugKotlin`、`:app:testDebugUnitTest --tests "*Search*"`（**205 项 0 失败**）、
+  `:app:assembleDebug` 三条 **rc=0**；生产代码 grep 四个类名 + 两个注入名 **0 处**；APK
+  `8e92672fbc51ce2666ed22ced385902cf2cab167adc27f1b32a53eb3ca5c08ea` / 52,272,852 B。
+  详见 [删除报告](<E:/AgentWork/CRA/mate70-startup-diagnostics-v1/REPORT-index-deadcode-removal.md>)。
+- **已完成（2026-11-17 23:25，DSH，phase 2）**：androidTest 的 5 个已删符号引用（15 处 / 8 文件）清零 ——
+  只摘掉对已删索引 API 的构造参数/import，8 个文件的 `assert*` 计数改动前后逐个相同（13/78/15/112/106/23/0/37）；
+  `J1RealReaderFixtures` 运行期调度器证据清单去掉 `SearchIndexScheduler` 一项，`J1RealReaderJourneyTest` 3 行注释改写
+  （等待与断言未动）。`ReaderViewModel` 的无用 `searchIndexRepository` 注入（含 3 个单测构造实参）已删。
+  验证：`:app:compileDebugKotlin`、`--tests "*Search*"`（**205 项 0 失败**）、`:app:compileDebugAndroidTestKotlin`、
+  `:app:assembleDebugAndroidTest` **四条 rc=0**；androidTest grep 五个符号 **0 处**；新 debug APK
+  `83898578fbf5896e42d77b2fa51c8253177c4d40afba5307cedb39542d13977c` / 53,374,781 B。
+  **未在设备上执行仪器测试**。详见 [清理报告](<E:/AgentWork/CRA/mate70-startup-diagnostics-v1/REPORT-androidtest-cleanup.md>)。
+- **设备验证（2026-11-18 00:50，DSH）**：MuMu 实例 1「洛水之蔚」（serial `127.0.0.1:16416`，ALN-AL00 / Android 12 / API 32）实跑
+  `:app:connectedDebugAndroidTest`（合同允许的替代口径：只跑清理涉及的 7 个 acceptance 类，非全包）：**18 项 / 10 通过 / 8 失败 / 0 跳过**，两轮失败集合一致。
+  分类：**本轮删除导致 0 项**；3 项缺 `craRunId` 夹具前置（`D2RelinkUserJourneyAcceptTest` ×2、`InspirationCategorySourceRetentionDeviceTest` ×1，
+  setUp 即 `Root must bind craRunId`，单跑同样失败）；5 项为当前树**未归因的真实失败**（J1 journey01/02/03、MdReadingResume、MaterialGathering；
+  journey02 为 SearchScreen 内容命中键 `content-<bookId>-<basis>` 自 `21c5dbe` 起的多章冲突）。未修任何断言/超时、未加 @Ignore。
+  设备已恢复：AGP 自动卸载测试包、`MuMuManager control -v 1 shutdown`（`is_process_started=false`），跑前/跑后包清单一致。
+  证据与未归因说明见 [设备验证报告](<E:/AgentWork/CRA/mate70-startup-diagnostics-v1/REPORT-connected-androidtest-device.md>)，原始件在 `device-run-phase2/`。
+- **搜索命中键冲突已修（2026-11-18 11:05，DSH）**：`SearchScreen` 正文命中列表 key 原为 `content-<bookId>-<basis>`，同书多章命中必撞；
+  改为按数据自身定位推导（`bookId`+`textBasis`+`indexChapterIndex`+`charOffset`，完全相同重复行再追加出现序号），只改键、不动顺序/点击/高亮/分页。
+  验证：`:app:compileDebugKotlin` **rc=0**、`--tests "*Search*"` **rc=0（205 项 0 失败）**、设备（MuMu 实例 1）两轮跑 `J1RealReaderJourneyTest`：
+  键冲突异常 **0 次**（logcat/gradle 日志两轮均为 0），journey02 从「2.065s 抛 `Key ... already used`」变为「13.9s 跑过后段」。
+  **但 journey02 仍未 pass**：现卡在 `J1RealReaderJourneyTest.kt:1047`「返回搜索页后等输入框 10s 超时」，与 journey01/03 同属返回/导航问题（上一轮登记为未归因），
+  按边界未修未重试。设备已 `shutdown`（errcode 0）、无测试包残留。详见 [键冲突修复报告](<E:/AgentWork/CRA/mate70-startup-diagnostics-v1/REPORT-search-key-fix.md>)。
+- **craRunId 宿主自动绑定已补齐（2026-11-18 11:46，DSH）**：补齐 `CraIsolatedTestRunner`（及 `CraRunIdBindingListener`）在用例启动前的宿主参数绑定，彻底解除多类组合运行下的 `craRunId` 正则互斥与缺参崩溃。
+  验证：`:app:compileDebugKotlin` **rc=0**、`:app:compileDebugAndroidTestKotlin` **rc=0**；MuMu 实例 1 实跑 7 个 acceptance 类（18 tests）：
+  原来因缺 `craRunId` 在 `@Before` 提前抛 `Root must bind craRunId` 导致**根本未执行**的 3 项（`D2RelinkUserJourneyAcceptTest` ×2、`InspirationCategorySourceRetentionDeviceTest` ×1），**现已全部 100% 真正进入执行阶段**（耗时分别达 0.989s、0.777s、22.742s），真实结论为 UI 阶段失败（D2 找不到“更多”按钮节点，Inspiration 找不到标签输入入口，与既有 MaterialGathering 同根因）。
+  原通过的 10 项全部稳定保持通过；设备已正常关机、无被测包残留。详见 [craRunId 绑定报告](<E:/AgentWork/CRA/mate70-startup-diagnostics-v1/REPORT-crarunid-binding.md>)。
+- **待确认（用户裁决）**：`J1RealReaderFixtures` 证据 JSON 的 `workManagerSchedulers` 少了 `SearchIndexScheduler` 一项；
+  若跨轮对比需要保留历史字段名，可回退该 1 行（不影响编译与门禁）。
+- **未提交**：本轮全部改动只在工作树，未 commit/push。
+
+
+## 2026-11-17 Mate 70 对照问题修复
+
+当前 D 工作树候选 `8a14246e165dccc0f53eac32b6a5ef1d2bf0e7b421d3d7d007e5a3454fd4f893`，修复书架查询异常后无法重新订阅、重试超时回到骨架的问题，并提高夜读灵感占位字和字号滑杆端点对比。定向 JVM 39/39；当前包在 MuMu 实测夜读两处对比，装机 SHA 一致，基线已恢复。Mate 70 Pro 的 HDC 已接入。用户报告覆盖安装后闪退，两次实机冷启动均复现进程在约 9 秒后退出。Android 异常栈尚未取得，手机安装字节未回读。此前导出的 ZIP 为 0 B，未有可恢复备份，保持现有安装及数据。见 [修复报告](<E:/AgentWork/CRA/mate70-mobile-fixes-v1/REPORT.md>)。
+
+保全候选 `ac7f00a9…` 补齐新书导入全文索引，定向 JVM 401/401，MuMu 证实无需手动重建、7391 首屏命中及查询返回保留，并证实系统语音不可用时未切云端。保全候选 `8d2a152…` 为 v15→v16 迁移与真实 ZIP 31/31、定向 JVM 638/638、Legado 预览保留原读位、外观第三章及深色状态栏恢复的原证。
+
+最新在 MuMu 用旧 APK `0f8d63a8…` 实际生成合成书、位置、会话和灵感后，原地升级到 `ac7f00a9…`，书架能打开，真实 v15→v16，7 张既有表行摘要、正文 SHA 与读位一致，新增 8 张账本表。旧书的 7391 也无需手动重建便能搜到同一目标段。两份快照见修复报告，模拟器重启导致 boot_id 不同，持久基线一致。
+
+## 2026-11-16 Mate 70 与当前候选对照（问题登记）
+
+Mate 70 的旧安装与候选分别取证。MuMu 装机核对候选 10daa3e7…，已复现两项阻断：v15→v16 迁移遗漏旧手工索引清理，旧库启动崩溃；Legado 冲突位置默认预选，历史导入会覆盖原读位。当前源码仍可见两处。另复现全局短数字落点、统计口径、外观预览错章、深色状态栏恢复与听书自动联网提示边界。书内定位、书签回查、本书替换净化和合成 ZIP 空库恢复已有本候选正向证据。本轮另确认，外部历史账本各有 1 条数据时整包导出成功，但用该 ZIP 恢复空库后三层记录和导入批次均为 0。后续核验和二级页矩阵见 [对照报告](<E:/AgentWork/CRA/mate70-mobile-audit-v1/REPORT.md>)。Mate 70 尚无同包兼容验收；本批未实施修复。
+
+## 阅读内核优化 v3（真机已采样）
+
+候选 `0f8d63a810886646efe0552cad8208ec92987d2f165597299b9b5ca3895612d7`。大 Markdown 冷开章长解析不生成源跨度，手动翻页录制帧复用绘制层。定向 JVM 64/64，真机装机 SHA 一致并完成恢复。冷开索引至控制器首屏单次同夹具 5.527→4.979 秒，手动慢帧仍在。见 [报告](<E:/AgentWork/CRA/reader-kernel-device-v3/REPORT.md>)。另交 [Legado 导入方针](<E:/AgentWork/CRA/reader-kernel-device-v3/LEGADO-IMPORT-PLAN.md>)，功能未实施。
+
+## 阅读内核优化 v2（真机已采样）
+
+READER-KERNEL-DEVICE-v2，候选 `aba63e6874aed7d5959b4319f1d0466848a576952b5049e45c4abedf775118d2`。Markdown 索引重开命中，同一真机/9.9 MB 测试资料的索引后到控制器首屏区间，v1 约 7.4 秒，v2 冷开约 5.5 秒、重开 129 ms。手动短窗仍超过 30 ms，未确认稳定改善。定向 JVM 63/63，装机 SHA 对齐，设备已恢复。详见 [报告](<E:/AgentWork/CRA/reader-kernel-device-v2/REPORT.md>)。
+
+## 阅读内核真机候选（本机采样已完成）
+
+READER-KERNEL-DEVICE-v1 候选 1e639e9c… 已在 c49ac6cf 装机回读核实，完成 TXT 手动翻页、双向跨章、自动揭页提交和约 9.9 MB Markdown 首开采样。已按基线恢复设备。自动揭页短窗 p95 约 15–16 ms，手动短窗仍有超时帧，缺旧包 A/B。Markdown 索引日志到控制器首屏约 7.4 秒，区间待细分。详见 [报告](<E:/AgentWork/CRA/reader-kernel-device-v1/REPORT.md>)。
+
+## 阅读内核四项热路径优化（源码已交付）
+
+READER-KERNEL-HOT-PATHS-v1 完成配色与分页解耦、同章预取读取接力、翻页抓图移至空闲及 EPUB 校准查询减负。编译、测试、基准和设备暂缓。恢复验证后先查编译与分页/生命周期回归，再测主题切换、跨章、翻页帧时与长篇 EPUB 首屏。详见 [报告](<E:/AgentWork/CRA/reader-kernel-hot-paths-v1/REPORT.md>)。
+
+## 阅读内核连续性修正（sol，源码已交付）
+
+READER-KERNEL-SOL-CONTINUITY-v2 完成锚点与总页数解耦、反向翻页积压处理、手势生命周期、长段取消和 Markdown 跨行样式。下方只读审查是本批输入。编译、测试、设备暂缓，旧 APK 仅对应其原源码。恢复验证后先检查前缀翻页与重排锚点、跨章反向和拖拽期间邻页就绪，再测长段取消和帧时。见 [本批报告](<E:/AgentWork/CRA/reader-kernel-sol-continuity-v2/REPORT.md>)。
+
+## 2026-11-14 阅读内核只读审查与 sol 方案（尚未实施）
+
+已按当前工作树审查，确认五项优先工作：渐进分页锚点与最终页数解耦、等待翻页队列有界及反向取消、邻页更新与手势生命周期隔离、长段预处理取消、Markdown 跨行样式坐标与扫描优化。前两项是 continuity 的新增衔接问题，旧 492 项 JVM 结果不能覆盖。未修改产品源码，未运行测试/构建/设备。详见 [审查报告](<E:/AgentWork/CRA/reader-kernel-review-sol-v1/REPORT.md>) 与 [sol 完整实施词](<E:/AgentWork/CRA/reader-kernel-review-sol-v1/SOL-PROMPT.md>)。用户自行交给 sol，未自动派发；实施顺序 F1→F2→F3→F4→F5，继续遵守先不测试。位图和缓存预算仅列后续候选。下方 continuity 为本次审查输入，尚未据方案修正。
+
+## 2026-11-14 阅读内核连续性扩展（Codex Root）
+
+用户要求先不要测，继续推进移动端阅读内核源码。已落地六个生产文件中的按需装行、长原子单元复用、渐进分页中连续翻页及页位保留、后台替换投影、预取读盘与测宽隔离、Markdown 单次解析复用。对照范围和交付见 [本轮报告](<E:/AgentWork/CRA/reader-kernel-continuity-v1/REPORT.md>)。本轮静态核对，编译、单测、基准和设备运行均暂缓。待用户恢复验证后，先核对页位与连续翻页，再测帧时。下方 APK 和此前 JVM 证据仍对应上轮源码。
+
+## 2026-11-14 阅读内核性能优化（Codex Root）
+
+用户授权性能与流畅性升级。基线 HEAD `1377cf9`，5 生产文件 + 4 测试文件留工作树。已完成字素数组直接生成、排版/预取协作式取消、首屏宿主协程发布与过期请求过滤、EPUB 进度快照复用。原版关闭后仍排 200 段的回归已复现，新版在当前 1 段后停止；定向 JVM **492/492**，assembleDebug 与 diff-check 通过。十万字符切分分配 5,998,312→1,600,216 B；千章 EPUB 2,000 次进度读取 22.49→0.76 ms（开发机 JVM）；五十万字整章分页 63→67 ms，尚无总体提速证据。
+
+新候选 `291bf1a0df00e709dca485f8aff09f75fd1f5fa753bef7849161ef3c79cd5e5f`，52,894,992 B，位于既有 E candidate 的 app/build/outputs/apk/debug/app-debug.apk。上一 `4232ce75…` 已在构建前按 SHA 保全。交付 [REPORT](<E:/AgentWork/CRA/reader-kernel-performance-v1/REPORT.md>)，同目录含 ready、patch、SHA 与前后测试原证。**设备性能 NOT_RUN**，下一步测中性资料冷开首屏、连续跨章与字号重排帧时，核对续读/来源返回。上轮 Markdown 坐标迁移边界风险仍需单独复现。
+
 ## 2026-11-13 Qwen4 视觉规格实施合入（ZCode 闭环）
 ### 设备待办补完（2026-11-13 17:25）
 

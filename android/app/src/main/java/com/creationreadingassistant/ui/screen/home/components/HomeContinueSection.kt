@@ -210,7 +210,7 @@ private fun ContinueCard(
                         // 默认无衬线：DisplayFontFamily 字形子集缺部分汉字，回退后忽粗忽细
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                     val author = book.author

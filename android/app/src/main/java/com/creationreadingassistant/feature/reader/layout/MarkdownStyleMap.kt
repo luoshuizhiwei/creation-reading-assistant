@@ -23,28 +23,55 @@ object MarkdownStyleMap {
         MdInlineKind.LINK -> LINK
     }
 
-    /**
-     * 根据 [spans] 为 [line] 的每簇生成样式掩码。
-     * 返回值长度 = clusterCount + 1（末位占位 0）。
-     */
-    fun computeClusterStyles(line: LayoutLine, spans: List<MdInlineSpan>): IntArray? {
-        if (spans.isEmpty()) return null
-        val n = line.clusterCount
-        if (n <= 0) return null
-        val arr = IntArray(n + 1)
-        val lineStart = line.startInText
-        for (j in 0 until n) {
-            val cs = line.clusterStarts[j] - lineStart
-            val ce = line.clusterStarts[j + 1] - lineStart
-            if (ce <= cs) continue
-            var mask = 0
-            for (span in spans) {
-                if (span.start < ce && span.end > cs) {
-                    mask = mask or maskFor(span.kind)
+    fun computeClusterStyles(line: LayoutLine, spans: List<MdInlineSpan>): IntArray? =
+        if (spans.isEmpty()) null else ParagraphStyles(spans).stylesFor(line)
+
+    /** 每段只排序一次边界，按段内偏移顺序处理各行。 */
+    internal class ParagraphStyles(spans: List<MdInlineSpan>, private val checkActive: () -> Unit = {}) {
+        private data class Boundary(val offset: Int, val bit: Int, val delta: Int)
+
+        private val boundaries = buildList {
+            spans.forEachIndexed { index, span ->
+                if ((index and 255) == 0) checkActive()
+                if (span.start < span.end) {
+                    val bit = maskFor(span.kind)
+                    add(Boundary(span.start, bit, 1))
+                    add(Boundary(span.end, bit, -1))
                 }
             }
-            arr[j] = mask
+        }.sortedBy { it.offset }
+        private val activeCounts = IntArray(5)
+        private var activeMask = 0
+        private var cursor = 0
+
+        private fun consumeBoundary() {
+            if ((cursor and 255) == 0) checkActive()
+            val boundary = boundaries[cursor++]
+            val index = Integer.numberOfTrailingZeros(boundary.bit)
+            val count = activeCounts[index] + boundary.delta
+            activeCounts[index] = count
+            activeMask = if (count > 0) activeMask or boundary.bit else activeMask and boundary.bit.inv()
         }
-        return arr
+
+        fun stylesFor(line: LayoutLine): IntArray? {
+            val count = line.clusterCount
+            if (count <= 0) return null
+            val masks = IntArray(count + 1)
+            for (i in 0 until count) {
+                if ((i and 255) == 0) checkActive()
+                val start = line.clusterStarts[i]
+                val end = line.clusterStarts[i + 1]
+                if (end <= start) continue
+                while (cursor < boundaries.size && boundaries[cursor].offset <= start) consumeBoundary()
+                var mask = activeMask
+                // 簇内部即使样式开始后又结束，也要保留相交样式位。
+                while (cursor < boundaries.size && boundaries[cursor].offset < end) {
+                    consumeBoundary()
+                    mask = mask or activeMask
+                }
+                masks[i] = mask
+            }
+            return masks
+        }
     }
 }

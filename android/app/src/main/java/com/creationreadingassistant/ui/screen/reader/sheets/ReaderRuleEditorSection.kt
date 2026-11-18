@@ -167,7 +167,10 @@ internal fun EditorPreview(
             Spacer(Modifier.height(8.dp))
             when {
                 draft.pattern.isBlank() ->
-                    PreviewHint("请输入正则表达式后查看预览")
+                    PreviewHint(
+                        if (draft.kind == RuleKind.TOC || draft.advanced) "请输入正则表达式后查看预览"
+                        else "请输入要匹配的文字后查看预览",
+                    )
                 check is RuleDraftCheck.Invalid ->
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         check.errors.forEach { error ->
@@ -323,7 +326,9 @@ internal fun RuleEditor(
                 value = draft.name,
                 onValueChange = { onDraftChange(draft.copy(name = it)) },
                 label = { Text("规则名称") },
-                supportingText = { Text("留空时以正则表达式命名") },
+                supportingText = {
+                    Text(if (draft.kind == RuleKind.TOC || draft.advanced) "留空时以正则表达式命名" else "留空时以匹配文字命名")
+                },
                 singleLine = true,
                 shape = RoundedCornerShape(spec.islandRadius),
                 modifier = Modifier.fillMaxWidth(),
@@ -396,7 +401,11 @@ internal fun RuleEditor(
             )
             if (!draft.saveAsCorrection && !draft.advanced) {
                 Text(
-                    text = "普通模式对全文所有相同文字生效；只改选中这一处请选择上方「单处纠错」。",
+                    text = if (allowCorrection) {
+                        "普通模式对全文所有相同文字生效。只改选中这一处可选「单处纠错」。"
+                    } else {
+                        "普通模式对全文所有相同文字生效。只改一处请从正文选中文字。"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = layout.relatedGap),

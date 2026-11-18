@@ -12,6 +12,39 @@ class MarkdownDocumentTest {
 
     private val tempFiles = mutableListOf<File>()
 
+    @Test
+    fun `streaming index reuses identical bytes and invalidates same size edits`() {
+        val root = java.nio.file.Files.createTempDirectory("markdown-index-test").toFile()
+        try {
+            val source = File(root, "test.md")
+            val reopened = File(root, "reopen.md")
+            val text = "# First\n\n" + "**bold** text. ".repeat(80) + "\n\n# Second\n\n" + "plain text. ".repeat(80)
+            source.writeText(text)
+            reopened.writeText(text)
+            val phases = mutableListOf<String>()
+            fun open(file: File, offset: Int = 0) = MarkdownDocument.fromFileIndex(
+                file, TxtFileScanner.scan(file), initialOffset = offset, cacheDir = root,
+            ) { phase, _ -> phases += phase }
+            val first = open(source)
+            val offset = first.chapters.last().startOffset
+            val next = open(reopened, offset)
+            assertEquals(listOf("source-index-miss", "canonical-index", "source-index-hit", "canonical-index"), phases)
+            assertEquals(first.chapters, next.chapters)
+            assertEquals(first.text(first.chapters.lastIndex), next.text(next.chapters.lastIndex))
+            val oldLength = reopened.length()
+            val oldMtime = reopened.lastModified()
+            reopened.writeText(text.replace("**bold**", "xxboldxx"))
+            assertEquals(oldLength, reopened.length())
+            reopened.setLastModified(oldMtime)
+            phases.clear()
+            val edited = open(reopened)
+            assertEquals("source-index-miss", phases.first())
+            assertTrue(edited.totalChars > first.totalChars)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun `later chapter table and nested units share global carrier`() {
         val doc = MarkdownDocument("# First\n\nOpening.\n\n# Second\n\n| Name | Value |\n| --- | --- |\n| Neutral | Target |\n\n> Quote\n>\n> - Nested item")
         val chapter = (doc.blocks(1).single() as DocBlock.Markdown).chapter

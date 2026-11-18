@@ -6,8 +6,29 @@ import com.creationreadingassistant.data.local.dao.StatsSessionRow
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
+import java.time.ZoneId
 
 class StatsComputationTest {
+
+    @Test
+    fun `an empty past week does not show books or streaks from another week`() {
+        val anchor = LocalDate.of(2026, 11, 9)
+        val outsideWeek = anchor.plusDays(8).atStartOfDay(ZoneId.systemDefault()).toInstant().toString()
+        val stats = computeStats(
+            period = StatsPeriod.WEEK,
+            anchor = anchor,
+            sessions = listOf(StatsSessionRow("book", outsideWeek, 30_000, 100f)),
+            progress = listOf(StatsProgressRow("book", 100f, "finished", outsideWeek)),
+            books = listOf(StatsBookRow("book", 1024, "available")),
+            inspirations = emptyList(),
+            notes = emptyList(),
+        )
+
+        assertEquals(0, stats.readBooks)
+        assertEquals(0, stats.completed)
+        assertEquals(0, stats.streakLongest)
+        assertEquals(1, stats.status.completed)
+    }
 
     @Test
     fun `dashboard streak does not treat malformed occurred time as today`() {

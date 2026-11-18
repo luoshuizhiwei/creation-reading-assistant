@@ -21,6 +21,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 /**
@@ -46,6 +48,7 @@ enum class SearchNoticeKind {
 
     /** 正文查询失败：保留其他结果，但不能把失败当成没有正文命中。 */
     CONTENT_SEARCH_FAILED,
+    SEARCH_TIMED_OUT,
 }
 
 data class SearchNotice(
@@ -95,11 +98,6 @@ class SearchViewModel @Inject constructor(
 
     /** 搜索历史（SE2）。 */
     val history: StateFlow<List<String>> = historyStore.history
-
-    /** 全库全文索引构建状态与进度透明化流。 */
-    val indexProgress: StateFlow<SearchIndexRepository.Progress> =
-        runCatching { searchIndexRepository.progress }
-            .getOrDefault(MutableStateFlow(SearchIndexRepository.Progress(0L, 0, false)))
 
     private var searchJob: Job? = null
 
@@ -156,65 +154,69 @@ class SearchViewModel @Inject constructor(
         searchJob = viewModelScope.launch {
             delay(300) // debounce
             _loading.value = true
-            val results = withContext(ioDispatcher) {
-                val b = runCatching { bookRepository.search(query) }.getOrDefault(emptyList())
-                val i = runCatching { inspirationRepository.search(query) }.getOrDefault(emptyList())
-                val n = runCatching { noteRepository.searchNotes(query) }.getOrDefault(emptyList())
-                val h = runCatching { noteRepository.searchHighlights(query) }.getOrDefault(emptyList())
-                // R2-S1.3：全文索引首次真正被搜索 UI 消费（此前 searchContent 是死 seam）。
-                // 正文查询失败保留其他结果，并单独提示；取消必须继续传播。
-                // R2-S1.6：双通道口径——原文与替换显示文都搜，命中按 textBasis 标注来源。
-                var contentSearchFailed = false
-                val content = try {
-                    searchIndexRepository.searchContent(
-                        query,
-                        bases = setOf(SearchTextBasis.ORIGINAL, SearchTextBasis.DISPLAY),
-                    )
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (_: Exception) {
-                    contentSearchFailed = true
-                    emptyList()
-                }
-
-                val metadataIds = b.map { it.id }.toSet()
-                val contentIds = content.map { it.bookId }.toSet()
-                // 收集笔记/高亮/**正文命中**所属书籍名，供结果项展示来源（SE6）
-                // 用 IN 批量查询替代逐条 getById，消除 N+1。
-                // 注意必须包含**全部** contentIds：正文命中若同时也在元数据里命中，
-                // 列表里那本书是以正文行的形式出现的，仍然需要书名 ——
-                // 只取差集会让这些行退化成显示裸 bookId。
-                val neededIds = (n.map { it.book_id } + h.map { it.book_id }).filterNotNull().toSet() +
-                    contentIds
-                val titles = if (neededIds.isEmpty()) {
-                    emptyMap()
-                } else {
-                    runCatching { bookRepository.getByIds(neededIds).associate { it.id to it.title } }
-                        .getOrDefault(emptyMap())
-                }
-                SearchResults(
-                    books = b,
-                    inspirations = i,
-                    notes = n,
-                    highlights = h,
-                    bookTitles = titles,
-                    contentHits = content,
-                    booksAlsoMatchedInContent = metadataIds.intersect(contentIds),
-                    notice = if (contentSearchFailed) {
-                        SearchNotice(SearchNoticeKind.CONTENT_SEARCH_FAILED, 0)
-                    } else {
-                        buildNotice(content)
-                    },
-                )
-            }
-            // 已被更新的查询取代：本任务的迟到完成/收尾不得覆盖新任务的结果与加载状态。
-            // 上面的 runCatching 会把仓储抛出的 CancellationException 降级成空结果，
-            // 因此这里显式保留协程取消语义，而不是靠 isActive 静默跳过。
+            val request = async { queryResults(query) }
+            val results = withTimeoutOrNull(8_000) { request.await() }
+            if (results == null) request.cancel()
+            // 已被更新的查询取代：旧任务不得覆盖新任务的结果与加载状态。
             ensureActive()
-            _results.value = results
+            _results.value = results ?: SearchResults(
+                notice = SearchNotice(SearchNoticeKind.SEARCH_TIMED_OUT, 0),
+            )
             _loading.value = false
-            lastSearchedQuery = query
+            lastSearchedQuery = if (results == null) null else query
         }
+    }
+
+    private suspend fun queryResults(query: String): SearchResults = withContext(ioDispatcher) {
+        val b = runCatching { bookRepository.search(query) }.getOrDefault(emptyList())
+        val i = runCatching { inspirationRepository.search(query) }.getOrDefault(emptyList())
+        val n = runCatching { noteRepository.searchNotes(query) }.getOrDefault(emptyList())
+        val h = runCatching { noteRepository.searchHighlights(query) }.getOrDefault(emptyList())
+        // R2-S1.3：全文索引首次真正被搜索 UI 消费（此前 searchContent 是死 seam）。
+        // 正文查询失败保留其他结果，并单独提示；取消必须继续传播。
+        // R2-S1.6：双通道口径——原文与替换显示文都搜，命中按 textBasis 标注来源。
+        var contentSearchFailed = false
+        val content = try {
+            searchIndexRepository.searchContent(
+                query,
+                bases = setOf(SearchTextBasis.ORIGINAL, SearchTextBasis.DISPLAY),
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            contentSearchFailed = true
+            emptyList()
+        }
+
+        val metadataIds = b.map { it.id }.toSet()
+        val contentIds = content.map { it.bookId }.toSet()
+        // 收集笔记/高亮/**正文命中**所属书籍名，供结果项展示来源（SE6）
+        // 用 IN 批量查询替代逐条 getById，消除 N+1。
+        // 注意必须包含**全部** contentIds：正文命中若同时也在元数据里命中，
+        // 列表里那本书是以正文行的形式出现的，仍然需要书名 ——
+        // 只取差集会让这些行退化成显示裸 bookId。
+        val neededIds = (n.map { it.book_id } + h.map { it.book_id }).filterNotNull().toSet() +
+            contentIds
+        val titles = if (neededIds.isEmpty()) {
+            emptyMap()
+        } else {
+            runCatching { bookRepository.getByIds(neededIds).associate { it.id to it.title } }
+                .getOrDefault(emptyMap())
+        }
+        SearchResults(
+            books = b,
+            inspirations = i,
+            notes = n,
+            highlights = h,
+            bookTitles = titles,
+            contentHits = content,
+            booksAlsoMatchedInContent = metadataIds.intersect(contentIds),
+            notice = if (contentSearchFailed) {
+                SearchNotice(SearchNoticeKind.CONTENT_SEARCH_FAILED, 0)
+            } else {
+                buildNotice(content)
+            },
+        )
     }
 
     /**
@@ -260,14 +262,5 @@ class SearchViewModel @Inject constructor(
     /** 清空搜索历史。 */
     fun clearHistory() {
         viewModelScope.launch { historyStore.clear() }
-    }
-
-    /** 触发全库全文索引重建（清空游标并立即唤起后台 Worker）。 */
-    fun triggerRebuildIndex() {
-        viewModelScope.launch(ioDispatcher) {
-            runCatching {
-                searchIndexRepository.triggerFullRebuildNow()
-            }
-        }
     }
 }

@@ -110,6 +110,9 @@ internal fun ProfileRoute(
     val webDavMsg by viewModel.webDavMsg.collectAsStateWithLifecycle()
     val webDavBackups by viewModel.webDavBackups.collectAsStateWithLifecycle()
     val legadoBackups by viewModel.legadoBackups.collectAsStateWithLifecycle()
+    val legadoImportState by viewModel.legadoImport.collectAsStateWithLifecycle()
+    val legadoPendingPositions by viewModel.legadoPendingPositions.collectAsStateWithLifecycle()
+    val legadoImportBatches by viewModel.legadoImportBatches.collectAsStateWithLifecycle()
     val aiMsg by viewModel.aiMsg.collectAsStateWithLifecycle()
     val aiTesting by viewModel.aiTesting.collectAsStateWithLifecycle()
     val aiHttpWarning by viewModel.aiHttpWarning.collectAsStateWithLifecycle()
@@ -123,7 +126,6 @@ internal fun ProfileRoute(
     val syncLogs by viewModel.syncLogs.collectAsStateWithLifecycle()
     val syncPrefs by viewModel.syncPrefs.collectAsStateWithLifecycle()
     val aboutUpdate by viewModel.aboutUpdate.collectAsStateWithLifecycle()
-    val searchIndexProgress by viewModel.searchIndexProgress.collectAsStateWithLifecycle()
 
     // ---- 设置状态收集 ----
     val appearance by settingsVm.appearance.collectAsStateWithLifecycle()
@@ -323,6 +325,9 @@ internal fun ProfileRoute(
         webDavConfig = webDavConfig,
         webDavBackups = webDavBackups,
         legadoBackups = legadoBackups,
+        legadoImport = legadoImportState,
+        legadoPending = legadoPendingPositions,
+        legadoBatches = legadoImportBatches,
         appearance = appearance,
         reader = reader,
         selectionActions = selectionActions,
@@ -337,7 +342,6 @@ internal fun ProfileRoute(
         goal = goal,
         pendingDownloadCount = books.count { !isBookDownloaded(it) },
         indexBytes = books.sumOf { it.size.toLong() },
-        searchIndexProgress = searchIndexProgress,
     )
 
     // ---- Action 处理器 ----
@@ -514,12 +518,8 @@ private fun handleProfileAction(
             SyncToggleItem.INSPIRATIONS -> viewModel.setSyncInspirations(action.enabled)
         }
         is ProfileAction.SetConflictStrategy -> viewModel.setConflictStrategy(action.strategy)
-        // 搜索索引两个动作走 ViewModel 的**真实分发入口**：UI 与 JVM 定向测试共用同一份
-        // when 分支，不为测试复制一份转发逻辑（CRA-SEARCH-INDEX-CANCEL-CONTROL-v3）。
-        ProfileAction.RebuildSearchIndex,
-        ProfileAction.CancelSearchIndex,
-        ->
-            viewModel.handleProfileAction(action) { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }
+        is ProfileAction.ImportReadingRecords ->
+            viewModel.importReadingRecords(action.uri) { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }
 
         // ---- WebDAV ----
         is ProfileAction.SaveWebDav -> {
@@ -537,13 +537,20 @@ private fun handleProfileAction(
             )
         )
         ProfileAction.RefreshLegadoBackups -> viewModel.loadLegadoBackups()
-        is ProfileAction.ImportLegadoBackup -> onConfirmDialogChange(
-            ConfirmSpec(
-                title = "导入开源阅读记录",
-                message = "将只读取 ${action.filename} 内的 bookshelf.json，并只导入能以书名和作者唯一匹配到本地 EPUB 或纯文本书籍的阅读位置。不会导入书源、设置、书架分组或正文；本地已有更可靠位置的书，以及 Markdown 书，都会跳过。确认继续？",
-                onConfirm = { viewModel.importLegadoBackup(context, action.filename) },
-            )
-        )
+        // 预览是 WebDAV 页内的全屏容器（hiltViewModel 以 NavBackStackEntry 为作用域，
+        // 内存状态不跨 destination——不能 navigate 到独立子页，否则拿到新 VM 丢状态）。
+        is ProfileAction.ImportLegadoBackup -> viewModel.startLegadoPreviewFromWebDav(action.filename)
+        is ProfileAction.ImportLegadoDeviceZip -> viewModel.startLegadoPreviewFromDevice(context, action.uri)
+        is ProfileAction.LegadoSelectSource -> viewModel.selectLegadoSource(action.sourceId)
+        is ProfileAction.LegadoTogglePosition -> viewModel.toggleLegadoPosition(action.ordinal)
+        is ProfileAction.LegadoSetHistory -> viewModel.setLegadoHistory(action.importHistory)
+        is ProfileAction.LegadoToggleReplaceSnapshot -> viewModel.toggleLegadoReplaceSnapshot(action.rowKey)
+        is ProfileAction.LegadoSetNewSourceLabel -> viewModel.setLegadoNewSourceLabel(action.label)
+        is ProfileAction.LegadoSelectCandidate -> viewModel.selectLegadoCandidate(action.ordinal, action.bookId)
+        ProfileAction.LegadoCommit -> viewModel.commitLegadoImport()
+        is ProfileAction.LegadoUndo -> viewModel.undoLegadoBatch(action.batchId)
+        is ProfileAction.LegadoDeletePending -> viewModel.deleteLegadoPending(action.itemId)
+        ProfileAction.LegadoDismiss -> viewModel.dismissLegadoImport()
         ProfileAction.ClearWebDav -> {
             viewModel.clearWebDav()
             showMsg("WebDAV 配置已清除")

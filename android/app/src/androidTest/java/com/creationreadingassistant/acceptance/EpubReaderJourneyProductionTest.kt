@@ -178,15 +178,6 @@ class EpubReaderJourneyProductionTest {
             rootStore = com.creationreadingassistant.feature.library.LibraryRootStore(
                 context = appContext, scope = appScope),
             ioDispatcher = kotlinx.coroutines.Dispatchers.IO,
-            indexRefreshCoordinator = com.creationreadingassistant.data.repository.SearchIndexBookRefreshCoordinator(
-                searchIndexRepository = com.creationreadingassistant.data.repository.SearchIndexRepository(
-                    context = appContext, bookDao = db.bookDao(),
-                    bookContentDao = db.bookContentDao(), termDao = db.searchTermDao(),
-                    stateDao = db.searchIndexStateDao(), coverageDao = db.searchIndexCoverageDao(),
-                    tokenizer = com.creationreadingassistant.feature.search.SearchTokenizer(),
-                    rulesRepository = com.creationreadingassistant.feature.reader.rules.RulesRepository(
-                        dao = db.readerTextRuleDao(), correctionDao = db.readerCorrectionDao())),
-                applicationScope = appScope),
         )
         runBlocking {
             importer.importFiles(listOf(Uri.fromFile(epubFile)), sourceLabel = "测试 EPUB 旅程")

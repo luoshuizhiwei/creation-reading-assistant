@@ -22,32 +22,23 @@ import java.util.logging.Logger
  *   配合 [DocChapter.startOffset] 即可换算为全书偏移。
  */
 class MarkdownDocument private constructor(
-    private val fullText: String?,
+    private val wholeBookChapter: MarkdownParser.MarkdownChapter?,
     private val fileSource: File?,
     private val fileIndex: TxtFileIndex?,
     private val chapterSourceRanges: List<IntRange>,
     override val chapters: List<DocChapter>,
+    private val initialParsedChapter: Pair<Int, MarkdownParser.MarkdownChapter>? = null,
 ) : ReaderDocument {
 
-    /**
-     * 小文件模式整本解析的惰性缓存。
-     *
-     * 章节表构建时已解析过一次；首次 [blocks] / [migrateLegacyOffset] 访问时再次解析
-     * 并缓存，之后所有章节切片与旧进度迁移复用同一份产物，避免每章重复解析全书。
-     */
-    private val wholeBookChapter: MarkdownParser.MarkdownChapter? by lazy {
-        fullText?.let { MarkdownParser.parse(it) }
-    }
+    /** 小文件路径使用同一份解析产物构建目录和正文。 */
+    constructor(fullText: String) : this(MarkdownParser.parse(fullText))
 
-    /**
-     * 小文件路径：全文 + 按 H1/H2 切章。
-     */
-    constructor(fullText: String) : this(
-        fullText = fullText,
+    private constructor(chapter: MarkdownParser.MarkdownChapter) : this(
+        wholeBookChapter = chapter,
         fileSource = null,
         fileIndex = null,
         chapterSourceRanges = emptyList(),
-        chapters = buildChaptersFromText(fullText),
+        chapters = buildChaptersFromText(chapter),
     )
 
     companion object {
@@ -70,15 +61,71 @@ class MarkdownDocument private constructor(
          *
          * 该方法会解析每个章节一次以量取规范长度；解析在调用线程执行，调用方应置于 IO 线程。
          */
-        fun fromFileIndex(file: File, index: TxtFileIndex): MarkdownDocument {
-            val sourceChapters = scanSourceChapters(file, index)
-            val canonicalChapters = computeCanonicalChapters(file, index, sourceChapters)
+        fun fromFileIndex(
+            file: File,
+            index: TxtFileIndex,
+            initialOffset: Int = 0,
+            canonicalOffset: Boolean = true,
+            cacheDir: File? = null,
+            onPreparation: (String, Long) -> Unit = { _, _ -> },
+        ): MarkdownDocument {
+            val indexStarted = System.nanoTime()
+            val cache = cacheDir?.let { MarkdownChapterIndexCache(it, file, index.encoding) }
+            val cached = cache?.read(index.totalCharCount)
+            val sourceChapters = cached?.mapIndexed { i, chapter ->
+                SourceChapter(i, chapter.title, chapter.sourceStart until chapter.sourceEnd)
+            } ?: scanSourceChapters(file, index)
+            onPreparation(if (cached == null) "source-index-miss" else "source-index-hit", (System.nanoTime() - indexStarted) / 1_000_000)
+            val canonicalStarted = System.nanoTime()
+            val document = PlainTextDocument.fromFileIndex(file, index)
+            var initialChapter: Pair<Int, MarkdownParser.MarkdownChapter>? = null
+            var canonicalStart = 0
+            val canonicalChapters = sourceChapters.mapIndexed { i, source ->
+                val start = if (canonicalOffset) canonicalStart else source.sourceRange.first
+                val next = sourceChapters.getOrNull(i + 1)
+                // With known lengths we only parse the target. On a miss, length-only
+                // normalization computes the same coordinates for all other chapters.
+                val length = cached?.get(i)?.canonicalLength
+                val nextStart = if (canonicalOffset) length?.let { canonicalStart + it }
+                    else next?.sourceRange?.first
+                val target = (i == 0 || start <= initialOffset) &&
+                    (nextStart == null || initialOffset < nextStart)
+                val count = if (length == null || target) {
+                    val text = readSourceText(document, source.sourceRange)
+                    if (target && (length != null || !canonicalOffset)) {
+                        val chapter = MarkdownParser.parse(text, sourceOffsetShift = source.sourceRange.first)
+                        initialChapter = i to chapter
+                        chapter.canonicalText.length
+                    } else {
+                        val computed = MarkdownParser.canonicalLength(text)
+                        if (canonicalOffset && length == null &&
+                            (i == 0 || start <= initialOffset) &&
+                            (next == null || initialOffset < canonicalStart + computed)
+                        ) {
+                            initialChapter = i to MarkdownParser.parse(text, sourceOffsetShift = source.sourceRange.first)
+                        }
+                        computed
+                    }
+                } else length
+                val chapter = DocChapter(i, source.title, canonicalStart, count)
+                canonicalStart += count
+                chapter
+            }
+            if (cached == null) {
+                cache?.write(sourceChapters.zip(canonicalChapters) { source, chapter ->
+                    MarkdownChapterIndexCache.Chapter(
+                        source.title, source.sourceRange.first, source.sourceRange.last + 1, chapter.charCount,
+                    )
+                })
+            }
+            onPreparation("canonical-index", (System.nanoTime() - canonicalStarted) / 1_000_000)
             return MarkdownDocument(
-                fullText = null,
+                wholeBookChapter = null,
                 fileSource = file,
                 fileIndex = index,
                 chapterSourceRanges = sourceChapters.map { it.sourceRange },
                 chapters = canonicalChapters,
+                initialParsedChapter = initialChapter,
             )
         }
 
@@ -89,11 +136,7 @@ class MarkdownDocument private constructor(
          * 到下一个 H1 之前（或文本末尾）结束。H2-H6 仍作为语义块渲染并进入目录，
          * 但不单独拆分为阅读器章节。
          */
-        private fun buildChaptersFromText(fullText: String): List<DocChapter> {
-            if (fullText.isEmpty()) {
-                return listOf(DocChapter(0, "全文", 0, 0))
-            }
-            val chapter = MarkdownParser.parse(fullText)
+        private fun buildChaptersFromText(chapter: MarkdownParser.MarkdownChapter): List<DocChapter> {
             val headingBlocks = chapter.blocks.filterIsInstance<MarkdownBlock.Heading>()
                 .filter { it.level == 1 }
             if (headingBlocks.isEmpty()) {
@@ -285,34 +328,6 @@ class MarkdownDocument private constructor(
         }
 
         /**
-         * 对每个源章节读取源文本并解析，得到规范文本长度，最终重建基于规范偏移的 [DocChapter]。
-         */
-        private fun computeCanonicalChapters(
-            file: File,
-            index: TxtFileIndex,
-            sourceChapters: List<SourceChapter>,
-        ): List<DocChapter> {
-            val document = PlainTextDocument.fromFileIndex(file, index)
-            var canonicalOffset = 0
-            return sourceChapters.map { sourceChapter ->
-                val sourceText = readSourceText(document, sourceChapter.sourceRange)
-                val chapter = MarkdownParser.parse(
-                    source = sourceText,
-                    sourceOffsetShift = sourceChapter.sourceRange.first,
-                )
-                val charCount = chapter.canonicalText.length
-                val docChapter = DocChapter(
-                    index = sourceChapter.index,
-                    title = sourceChapter.title,
-                    startOffset = canonicalOffset,
-                    charCount = charCount,
-                )
-                canonicalOffset += charCount
-                docChapter
-            }
-        }
-
-        /**
          * 使用 [PlainTextDocument.readWindow] 有界读取源章节文本。
          * readWindow 保证不会一次性加载全文，且最大窗口受 [PlainTextDocument.MAX_WINDOW_CHARS] 限制。
          */
@@ -428,8 +443,7 @@ class MarkdownDocument private constructor(
         }
     }
 
-    override val totalChars: Int
-        get() = chapters.sumOf { it.charCount.toLong() }.toInt()
+    override val totalChars: Int = chapters.sumOf { it.charCount.toLong() }.toInt()
 
     /**
      * 解析坐标空间：true = 小文件整本解析（[blocks] 的 canonicalRange 已是全书全局坐标）；
@@ -437,12 +451,12 @@ class MarkdownDocument private constructor(
      * 搜索命中换算（[com.creationreadingassistant.ui.screen.reader.markdownScrollSearchHits]）
      * 依赖此基准选择 blockGlobalBase。
      */
-    val isWholeDocumentParse: Boolean get() = fullText != null
+    val isWholeDocumentParse: Boolean get() = wholeBookChapter != null
 
     override fun blocks(chapterIndex: Int): List<DocBlock> {
-        if (fullText != null) {
+        val whole = wholeBookChapter
+        if (whole != null) {
             val docChapter = chapters.getOrNull(chapterIndex) ?: return emptyList()
-            val whole = wholeBookChapter ?: return emptyList()
 
             // 本章在整本规范文本中的 canonical 区间 [startOffset, startOffset + charCount)。
             val start = docChapter.startOffset
@@ -468,6 +482,9 @@ class MarkdownDocument private constructor(
             )
             return listOf(DocBlock.Markdown(chapter))
         }
+        initialParsedChapter?.takeIf { it.first == chapterIndex }?.let {
+            return listOf(DocBlock.Markdown(it.second))
+        }
         val range = chapterSourceRanges.getOrNull(chapterIndex) ?: return emptyList()
         val file = fileSource ?: return emptyList()
         val index = fileIndex ?: return emptyList()
@@ -482,7 +499,7 @@ class MarkdownDocument private constructor(
      * [text] remains chapter-local for progress, search and TTS consumers.
      */
     fun renderCanonicalText(chapterIndex: Int): String =
-        if (fullText != null) wholeBookChapter?.canonicalText.orEmpty() else text(chapterIndex)
+        wholeBookChapter?.canonicalText ?: text(chapterIndex)
 
     override fun text(chapterIndex: Int): String {
         val blocks = blocks(chapterIndex)
@@ -504,8 +521,8 @@ class MarkdownDocument private constructor(
      */
     fun migrateLegacyOffset(sourceOffset: Int): Int {
         val clamped = sourceOffset.coerceAtLeast(0)
-        if (fullText != null) {
-            val chapter = wholeBookChapter ?: return clamped.coerceAtMost(totalChars)
+        val chapter = wholeBookChapter
+        if (chapter != null) {
             return chapter.offsetMap.toCanonical(clamped).coerceIn(0, totalChars)
         }
         val file = fileSource ?: return clamped.coerceAtMost(totalChars)
@@ -516,11 +533,14 @@ class MarkdownDocument private constructor(
             ?: chapterSourceRanges.indexOfLast { it.first <= clamped }
                 .takeIf { it >= 0 }
                 ?: 0
+        initialParsedChapter?.takeIf { it.first == sourceChapterIdx }?.let {
+            return it.second.offsetMap.toCanonical(clamped).coerceIn(0, totalChars)
+        }
         val range = chapterSourceRanges.getOrNull(sourceChapterIdx) ?: return clamped.coerceAtMost(totalChars)
         val document = PlainTextDocument.fromFileIndex(file, index)
         val text = readSourceText(document, range)
-        val chapter = MarkdownParser.parse(text, sourceOffsetShift = range.first)
-        return chapter.offsetMap.toCanonical(clamped).coerceIn(0, totalChars)
+        val parsedChapter = MarkdownParser.parse(text, sourceOffsetShift = range.first)
+        return parsedChapter.offsetMap.toCanonical(clamped).coerceIn(0, totalChars)
     }
 
     private data class RawChapter(

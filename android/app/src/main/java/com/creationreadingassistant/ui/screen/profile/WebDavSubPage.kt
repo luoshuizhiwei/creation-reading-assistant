@@ -1,5 +1,8 @@
 package com.creationreadingassistant.ui.screen.profile
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -77,6 +81,11 @@ internal fun WebDavSubPage(
     onAction: (ProfileAction) -> Unit,
     scaffoldPadding: PaddingValues,
 ) {
+    // LEGADO-IMPORT-PLAN-v2：预览页为页内全屏容器（同 entry 同 VM，状态不跨 destination）。
+    if (state.legadoImport.phase != LegadoImportPhase.IDLE) {
+        LegadoImportPreview(state, onAction, scaffoldPadding)
+        return
+    }
     val reducedMotion = rememberReducedMotion()
     // 设置子页共用 Route 下发的列表状态：搜索命中项需要它来滚动定位
     val settingsListState = rememberSettingsPageListState()
@@ -88,6 +97,13 @@ internal fun WebDavSubPage(
     val backups = state.webDavBackups
     val legadoBackups = state.legadoBackups
     val hasSavedPass = initialPass.isNotBlank()
+
+    // LEGADO-IMPORT-PLAN-v2：本机备份 ZIP 走 SAF 选择器进入统一预览。
+    val legadoZipLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        uri?.let { onAction(ProfileAction.ImportLegadoDeviceZip(it)) }
+    }
 
     var url by remember { mutableStateOf(initialUrl) }
     var user by remember { mutableStateOf(initialUser) }
@@ -249,6 +265,14 @@ internal fun WebDavSubPage(
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = textFieldColors(),
+                                supportingText = {
+                                    // 常驻帮助文字（CoverAI-12）：不随输入消失
+                                    Text(
+                                        "填到目录路径即可，以 / 结尾",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
                             )
                         }
 
@@ -284,6 +308,14 @@ internal fun WebDavSubPage(
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp),
                                 visualTransformation = if (passVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                supportingText = {
+                                    // 常驻帮助文字：坚果云等要求「应用专用密码」而非登录密码
+                                    Text(
+                                        "建议使用应用专用密码，不用登录密码",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
                                 trailingIcon = {
                                     IconButton(onClick = { passVisible = !passVisible }) {
                                         Icon(
@@ -610,7 +642,7 @@ internal fun WebDavSubPage(
                             },
                         )
                         Text(
-                            "兼容 HapeLee/legado-with-MD3 的 backup*.zip。仅从 bookshelf.json 读取章节位置，并只更新书名与作者唯一匹配的本地书；书源、设置、分组与正文不会导入。Markdown 因章节规则不同暂不支持导入，会如实计入跳过。",
+                            "兼容 HapeLee/legado-with-MD3（固定 schema）的 backup*.zip。统一预览后提交：续读位置默认保留本地、可逐书确认替换；阅读会话/按日/书级历史进入独立来源账本，不并入本地阅读统计。旧版与官方版未验证即不支持；书签划线不在本功能范围。",
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 17.sp,
@@ -627,6 +659,18 @@ internal fun WebDavSubPage(
                             Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("扫描开源阅读备份")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                haptic(HapticFeedbackType.TextHandleMove)
+                                legadoZipLauncher.launch(arrayOf("application/zip", "application/octet-stream"))
+                            },
+                            shape = PillShape,
+                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                        ) {
+                            Icon(Icons.Outlined.FolderOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("从本机选择备份 ZIP")
                         }
                         if (legadoBackups.isEmpty()) {
                             Text(

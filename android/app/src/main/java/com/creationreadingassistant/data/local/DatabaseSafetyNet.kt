@@ -36,6 +36,18 @@ object DatabaseSafetyNet {
     internal const val KEEP_SNAPSHOTS = 2
 
     /**
+     * 整库快照的体积上限。超过就**不复制**。
+     *
+     * 原因：这份复制发生在 Room 打开库之前、且是同步 I/O。2026-11-17 Mate 70 实测：
+     * 用户库 5.17 GB + WAL 987 MB，一次复制 90 秒以上，主线程被完全占住，
+     * 兼容容器在 9–12 秒就把进程判为无响应杀掉 —— 迁移永远执行不到，
+     * 而每次启动都会重来一遍（库始终停在 v15）。
+     * [DatabaseModule] 已移除 fallbackToDestructiveMigration()，迁移失败会抛异常而不是静默清库，
+     * 所以对大库跳过快照不会带来"悄悄丢数据"的风险。
+     */
+    internal const val MAX_SNAPSHOT_BYTES = 256L * 1024 * 1024
+
+    /**
      * SQLite 文件头里 user_version 的字节偏移，见 https://sqlite.org/fileformat.html#user_version_number
      * 4 字节大端。
      */
@@ -56,6 +68,16 @@ object DatabaseSafetyNet {
             val onDisk = readUserVersion(dbFile) ?: return
             // onDisk == 0 表示空库/新建库；>= codeVersion 表示不升级（含降级，降级另有风险但不在此处理）
             if (onDisk <= 0 || onDisk >= codeVersion) return
+
+            val dbBytes = dbFile.length()
+            if (dbBytes > MAX_SNAPSHOT_BYTES) {
+                AppLog.w(
+                    TAG,
+                    "迁移前快照跳过：库 " + (dbBytes / (1024 * 1024)) + " MB 超过上限 " +
+                        (MAX_SNAPSHOT_BYTES / (1024 * 1024)) + " MB（v" + onDisk + " → v" + codeVersion + "）",
+                )
+                return
+            }
 
             val dir = File(context.noBackupFilesDir, SNAPSHOT_DIR).apply { mkdirs() }
             val stamp = System.currentTimeMillis()
@@ -90,6 +112,18 @@ object DatabaseSafetyNet {
         runCatching {
             val dbFile = context.getDatabasePath(dbName)
             if (!dbFile.isFile || dbFile.length() <= 0L) return
+            // integrity_check 是全库扫描，代价与库体积成正比。2026-11-17 Mate 70 实测：
+            // 5.17 GB 的库上这一步动辄数十秒，主线程直接被卡到被系统判为无响应并杀掉，
+            // 应用永远起不来。大库跳过预检：真损坏时 openDatabase 仍会抛
+            // SQLiteDatabaseCorruptException，走下面的 onFailure 分支照样留现场快照。
+            if (dbFile.length() > MAX_SNAPSHOT_BYTES) {
+                AppLog.w(
+                    TAG,
+                    "开库前完整性预检跳过：库 " + (dbFile.length() / (1024 * 1024)) + " MB 超过上限 " +
+                        (MAX_SNAPSHOT_BYTES / (1024 * 1024)) + " MB",
+                )
+                return
+            }
             val db = android.database.sqlite.SQLiteDatabase.openDatabase(
                 dbFile.path, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY,
             )

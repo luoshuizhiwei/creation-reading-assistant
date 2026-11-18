@@ -1,5 +1,26 @@
 # 下一位 agent 接手说明（2026-11-04 收官版）
 
+> 2026-11-17 夜间最新：[current](current.md) 页首「全文索引下线 + Mate 70 闪退收尾」。搜索已改按需扫描、
+> 索引写入全部 no-op、库升 v17、新增"导入阅读记录(JSON)"；真机已重装并核对数据。
+> 待办=删除 5 个 no-op 索引类及其注入点与 3 个过时用例（清单见 current 页首末条）。
+
+
+> 2026-11-17 [Mate 70／候选问题修复](<E:/AgentWork/CRA/mate70-mobile-fixes-v1/REPORT.md>) 最新本地 APK 为 8a14246e…，书架异常、重试超时、恢复用例通过，夜读文字在 MuMu 实测。前代已验证旧库原地升级、Legado 预览与整包备份、新旧书全文搜索。HDC 暂无 Mate 70，接入后在隔离资料下复验原书架、搜索和兼容界面。原问题见 [对照报告](<E:/AgentWork/CRA/mate70-mobile-audit-v1/REPORT.md>)。
+
+> 最新阅读内核批次 READER-KERNEL-DEVICE-v3，见 [报告](<E:/AgentWork/CRA/reader-kernel-device-v3/REPORT.md>)。Legado 记录导入见 [方针](<E:/AgentWork/CRA/reader-kernel-device-v3/LEGADO-IMPORT-PLAN.md>)，候固定版本样包确认后实施。
+
+> 阅读内核最新批次为 READER-KERNEL-DEVICE-v2。[真机与离线报告](<E:/AgentWork/CRA/reader-kernel-device-v2/REPORT.md>) 记录冷开、缓存重开和翻页限制。后续先细分冷开阶段和抓手动翻页 trace。
+
+> 阅读内核最新批次为 READER-KERNEL-DEVICE-v1。真机采样及恢复已完成，进一步延续见 [采集报告](<E:/AgentWork/CRA/reader-kernel-device-v1/REPORT.md>)。
+
+> 阅读内核最新接续为 READER-KERNEL-HOT-PATHS-v1。按 [报告](<E:/AgentWork/CRA/reader-kernel-hot-paths-v1/REPORT.md>) 延续四项优化后的验证，当前用户仍暂缓运行测试与设备。
+
+> 阅读内核最新接续：READER-KERNEL-SOL-CONTINUITY-v2 已交付源码、差量和指纹，运行验证暂缓。恢复验证后的顺序及剩余边界见 [本批报告](<E:/AgentWork/CRA/reader-kernel-sol-continuity-v2/REPORT.md>)。前一段审查仅用于追溯。
+
+> 2026-11-14 最新接续：用户要求先只读审查，由 sol 实施。见 [审查与五项顺序方案](<E:/AgentWork/CRA/reader-kernel-review-sol-v1/REPORT.md>)、[完整实施词](<E:/AgentWork/CRA/reader-kernel-review-sol-v1/SOL-PROMPT.md>)。当前方案未执行；保持不测试、不构建、不动设备；此前工作树必须保留。
+
+> 2026-11-14 接续更新。以 [current](current.md) 页首阅读内核连续性扩展为准。六个生产文件已更新，编译与运行验证按用户要求暂缓。APK `291bf1a0…` 为上一轮候选。范围与后续验证见 [本轮报告](<E:/AgentWork/CRA/reader-kernel-continuity-v1/REPORT.md>)。下文 2026-11-04 状态为历史交接。
+
 > 项目处于**收官待决策**态：两产品线全部标准质量门绿，无未完成的自主工作。接手者先读本文件和 [current](current.md)，然后看"待用户决策"四项——不需要重启任何批次。
 
 ## 最小启动

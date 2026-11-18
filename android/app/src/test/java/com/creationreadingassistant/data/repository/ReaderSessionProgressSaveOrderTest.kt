@@ -93,7 +93,6 @@ class ReaderSessionProgressSaveOrderTest {
             shelfBookDao = mockk(relaxed = true),
             chapterReadDao = mockk(relaxed = true),
             searchIndexRepository = null,
-            indexRefreshCoordinator = null,
             context = mockk { every { filesDir } returns tmp.newFolder("files") },
         )
         epubRepository = EpubRepository(

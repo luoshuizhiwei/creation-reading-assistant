@@ -6,8 +6,6 @@ import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.ChapterReadRepository
 import com.creationreadingassistant.data.repository.NoteRepository
-import com.creationreadingassistant.data.repository.SearchIndexRepository
-import com.creationreadingassistant.data.repository.SearchIndexScheduler
 import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordinator
@@ -93,8 +91,6 @@ class ReaderSingleCorrectionCapabilityTest {
     private lateinit var pageIndexManager: ReaderPageIndexManager
     private lateinit var aiClient: AiClient
     private lateinit var rulesRepository: RulesRepository
-    private lateinit var searchIndexRepository: SearchIndexRepository
-    private lateinit var searchIndexScheduler: SearchIndexScheduler
     private lateinit var correctionDao: FakeReaderCorrectionDao
 
     private lateinit var viewModel: ReaderViewModel
@@ -119,8 +115,6 @@ class ReaderSingleCorrectionCapabilityTest {
         aiClient = mockk(relaxed = true)
         correctionDao = FakeReaderCorrectionDao()
         rulesRepository = RulesRepository(InMemoryRuleDao(), correctionDao)
-        searchIndexRepository = mockk(relaxed = true)
-        searchIndexScheduler = mockk(relaxed = true)
 
         io.mockk.every { taxonomyRepository.observeCategories() } returns flowOf(emptyList())
         io.mockk.every { taxonomyRepository.observeTags() } returns flowOf(emptyList())
@@ -156,8 +150,6 @@ class ReaderSingleCorrectionCapabilityTest {
         pageIndexManager = pageIndexManager,
         aiClient = aiClient,
         rulesRepository = rulesRepository,
-        searchIndexRepository = searchIndexRepository,
-        searchIndexScheduler = searchIndexScheduler,
         appScope = kotlinx.coroutines.CoroutineScope(testDispatcher),
         ioDispatcher = ioDispatcher,
         defaultDispatcher = UnconfinedTestDispatcher(),

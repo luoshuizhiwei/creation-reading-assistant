@@ -81,6 +81,7 @@ private val KEY_PAPER_TEXTURE = booleanPreferencesKey("appearance_paper_texture"
 private val KEY_USE_DYNAMIC_COLOR = booleanPreferencesKey("appearance_use_dynamic_color")
 /** 仅暗模式下生效：把应用外壳背景/表面收敛为纯黑，AMOLED 屏省电且对比度更高。 */
 private val KEY_AMOLED_PURE_BLACK = booleanPreferencesKey("appearance_amoled_pure_black")
+private val KEY_HOLD_TO_DELETE = booleanPreferencesKey("appearance_hold_to_delete")
 
 // ---- Reader ----
 private val KEY_READER_MODE = stringPreferencesKey("reader_mode")              // paged | scroll
@@ -189,6 +190,8 @@ data class AppearanceSettings(
     val useDynamicColor: Boolean = false,
     /** 仅暗模式下生效：把应用外壳背景/表面收敛为纯黑，AMOLED 屏省电且对比度更高。 */
     val amoledPureBlack: Boolean = false,
+    /** 书架删书改用「长按确认」（Hold to Confirm 进度环）替代确认弹窗；默认关。 */
+    val holdToDelete: Boolean = false,
 )
 
 data class ReaderSettings(
@@ -508,6 +511,7 @@ class SettingsStore @Inject constructor(
             paperTexture = prefs[KEY_PAPER_TEXTURE] ?: true,
             useDynamicColor = prefs[KEY_USE_DYNAMIC_COLOR] ?: false,
             amoledPureBlack = prefs[KEY_AMOLED_PURE_BLACK] ?: false,
+            holdToDelete = prefs[KEY_HOLD_TO_DELETE] ?: false,
         ).also { loaded ->
             backfillBootThemeIfNeeded(loaded.themeMode)
         }
@@ -662,6 +666,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_PAPER_TEXTURE] = next.paperTexture
             prefs[KEY_USE_DYNAMIC_COLOR] = next.useDynamicColor
             prefs[KEY_AMOLED_PURE_BLACK] = next.amoledPureBlack
+            prefs[KEY_HOLD_TO_DELETE] = next.holdToDelete
         }
     }
 

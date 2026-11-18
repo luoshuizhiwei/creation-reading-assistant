@@ -64,6 +64,8 @@ import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
 import com.creationreadingassistant.ui.viewmodel.TxtRuleScanStatus
 import com.creationreadingassistant.ui.viewmodel.matchesSession
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * READER-PAGES-v1：升级为**全屏附页**的入口集合（合同 §3）。
@@ -311,16 +313,34 @@ internal fun ReaderSheetHost(
     val tocBookmarkListState = rememberSaveable(bid, key = "reader-toc-list-bookmarks", saver = LazyListState.Saver) { LazyListState() }
     val tocNoteListState = rememberSaveable(bid, key = "reader-toc-list-notes", saver = LazyListState.Saver) { LazyListState() }
     var tocAutoLocated by rememberSaveable(bid, key = "reader-toc-auto-located") { mutableStateOf(false) }
-    // THEME 预览快照：**开页时**按 bookId/章节捕获一次 ≤800 字符的稳定只读片段（合同 P2）。
-    // pageTarget 必须参与 key：宿主常驻组合，若只按书/章为键，会在文档未加载的首帧
-    // 捕获到空串并永久滞留；以 pageTarget 翻转为「开页」信号重新捕获。
-    // 滑块拖动只改变渲染，不重捕获文字。
-    val themePreviewText = remember(
-        pageTarget,
-        bid,
-        state.document.chapterIndex,
-        state.document.txtChapterIndex,
-    ) { state.document.contentText.take(READER_PAGE_PREVIEW_MAX_CHARS) }
+    val document = state.document
+    val chapter = if (document.isTxt) document.txtChapterIndex else document.chapterIndex
+    val chaptered = document.markdownDocument ?: document.epubDocument
+    val stream = document.txtStreamingDocument
+    val txtStart = document.chapterStartOffsets.getOrNull(chapter) ?: 0
+    val txtEnd = document.chapterStartOffsets.getOrNull(chapter + 1)
+    var themePreviewText by remember(pageTarget, bid, chapter, chaptered, stream, txtStart, txtEnd, document.plainContent) {
+        mutableStateOf("")
+    }
+    LaunchedEffect(pageTarget, bid, chapter, chaptered, stream, txtStart, txtEnd, document.plainContent) {
+        if (pageTarget != ReaderSheet.THEME) return@LaunchedEffect
+        val length = (txtEnd?.minus(txtStart) ?: READER_PAGE_PREVIEW_MAX_CHARS)
+            .coerceIn(0, READER_PAGE_PREVIEW_MAX_CHARS)
+        themePreviewText = when {
+            chaptered != null -> withContext(Dispatchers.IO) {
+                chaptered.text(chapter).take(READER_PAGE_PREVIEW_MAX_CHARS)
+            }
+            stream != null -> withContext(Dispatchers.IO) {
+                stream.readWindowAround(txtStart, before = 0, after = length)
+            }
+            document.isTxt -> {
+                val text = document.plainContent
+                val start = txtStart.coerceIn(0, text.length)
+                text.substring(start, start + minOf(length, text.length - start))
+            }
+            else -> document.contentText.take(READER_PAGE_PREVIEW_MAX_CHARS)
+        }
+    }
 
     ReaderPageDialogHost(
         target = pageTarget,

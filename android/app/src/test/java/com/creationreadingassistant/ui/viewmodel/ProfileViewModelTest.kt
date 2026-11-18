@@ -15,7 +15,6 @@ import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.repository.StatsRepository
 import com.creationreadingassistant.data.repository.SearchIndexRepository
-import com.creationreadingassistant.data.repository.SearchIndexScheduler
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.feature.sync.JsonBridge
 import com.creationreadingassistant.feature.sync.LegadoReadingProgressImporter
@@ -63,7 +62,6 @@ class ProfileViewModelTest {
     private val bookRepository = mockk<BookRepository>()
     private val statsRepository = mockk<StatsRepository>()
     private val searchIndexRepository = mockk<SearchIndexRepository>(relaxed = true)
-    private val searchIndexScheduler = mockk<SearchIndexScheduler>(relaxed = true)
 
     // 子页专用实体流是否被收集的标记
     private val bookEntitiesCollected = AtomicBoolean(false)
@@ -130,12 +128,18 @@ class ProfileViewModelTest {
             webDavConfigStore = webDavConfigStore,
             webDavBackup = mockk<WebDavBackup>(relaxed = true),
             legadoImporter = mockk<LegadoReadingProgressImporter>(relaxed = true),
+            legadoPipeline = com.creationreadingassistant.feature.sync.legado.LegadoImportPipeline(
+                db = mockk(relaxed = true),
+                bookDao = mockk(relaxed = true),
+                progressDao = mockk(relaxed = true),
+                legadoDao = mockk(relaxed = true),
+                documentLoader = mockk(relaxed = true),
+            ),
             aiClient = mockk<AiClient>(relaxed = true),
             bookRepository = bookRepository,
             noteRepository = mockk<NoteRepository>(relaxed = true),
             statsRepository = statsRepository,
-            searchIndexRepository = searchIndexRepository,
-            searchIndexScheduler = searchIndexScheduler,
+            recordsImporter = mockk<com.creationreadingassistant.data.repository.ReadingRecordsImporter>(relaxed = true),
             goalStore = goalStore,
             goalScheduler = goalScheduler,
             syncPrefsStore = syncPrefsStore,
@@ -156,29 +160,6 @@ class ProfileViewModelTest {
         withTimeout(5_000) { vm.homeSummary.first(predicate) }
     }
 
-    /**
-     * 护栏：「重建索引」必须走仓储里挂了孤儿行回收的那条入口。
-     *
-     * 曾经的实现是自己内联 `invalidateSweepForFullRebuild()` + `triggerNow(force = true)`，
-     * 绕过了 `triggerFullRebuildNow()` 里的 `purgeOrphanIndexRows()` ⇒ 用户从
-     * 「存储 / 日志与诊断」页点「重建索引」，已删书的残留索引行永远清不掉
-     * （只有搜索结果页的索引状态胶囊那条入口会清）。
-     */
-    @Test
-    fun `rebuild search index delegates to the repository entry that purges orphan rows`() =
-        runTest(mainDispatcher) {
-            val messages = mutableListOf<String>()
-
-            vm.rebuildSearchIndex { messages += it }
-
-            // 1) 必须调用仓储入口 —— 孤儿行回收挂在它里面
-            coVerify(exactly = 1) { searchIndexRepository.triggerFullRebuildNow(searchIndexScheduler) }
-            // 2) 不得自己内联那两行（等价于绕过回收）
-            coVerify(exactly = 0) { searchIndexRepository.invalidateSweepForFullRebuild() }
-            verify(exactly = 0) { searchIndexScheduler.triggerNow(any()) }
-            // 3) 成功回调仍要给出用户可读提示
-            assertEquals(1, messages.size)
-        }
 
     @Test
     fun `home summary subscription must not trigger sub-page entity loads`() = runTest(mainDispatcher) {

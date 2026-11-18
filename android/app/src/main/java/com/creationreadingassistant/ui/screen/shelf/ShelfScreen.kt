@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -503,6 +504,7 @@ private fun ShelfContent(
                     if (state.libraryLoadFailed) {
                         item(key = "shelf-load-failed", span = { GridItemSpan(maxLineSpan) }) {
                             FullEmptyState(
+                                modifier = Modifier.fillMaxWidth().height((LocalConfiguration.current.screenHeightDp * 0.62f).dp),
                                 icon = { LineArtBook(modifier = Modifier.size(56.dp)) },
                                 title = "书架加载失败",
                                 body = "书库读取超时或出错。可尝试重试；若反复出现，请检查存储空间后重启应用。",
@@ -519,6 +521,7 @@ private fun ShelfContent(
                     val searchNoResult = state.library.books.isNotEmpty() && state.debouncedQuery.isNotEmpty()
                     item(key = "shelf-empty", span = { GridItemSpan(maxLineSpan) }) {
                         FullEmptyState(
+                            modifier = Modifier.fillMaxWidth().height((LocalConfiguration.current.screenHeightDp * 0.62f).dp),
                             icon = { LineArtBook(modifier = Modifier.size(56.dp)) },
                             title = when {
                                 emptyShelf -> "书架还空着"

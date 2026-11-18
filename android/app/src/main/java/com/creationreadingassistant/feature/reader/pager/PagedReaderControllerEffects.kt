@@ -6,6 +6,7 @@ import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -180,10 +181,17 @@ internal fun PagedReaderControllerEffects(
     // 任务86-v1-A：本宿主会话是否已上报过位置。remember 无 key，跨 controller 重建保留，
     // 用来区分「本会话首次落位」与「重建后的过渡排版」。
     val positionEverReported = remember { mutableStateOf(false) }
+    val lastReportedPercent = remember { mutableFloatStateOf(0f) }
     LaunchedEffect(controller) {
-        snapshotFlow { Triple(controller.chapterIndex, controller.pageIndex, controller.pageCount) }
-            .collect { (_, _, count) ->
-                if (count > 0 && !controller.isLayingOut) {
+        snapshotFlow {
+            if (controller.canReportPosition) {
+                Triple(controller.chapterIndex, controller.pageIndex, controller.hasFinalPageCount)
+            } else {
+                null
+            }
+        }
+            .collect { position ->
+                if (position != null && controller.canReportPosition) {
                     val range = controller.currentPageRangeAbs
                     val decision = decidePagedPositionReport(
                         everReported = positionEverReported.value,
@@ -207,23 +215,28 @@ internal fun PagedReaderControllerEffects(
                         "reported" to decision.shouldReport,
                         "percent" to controller.progressPercent,
                     )
-                    if (decision.shouldReport) {
+                    val percent = controller.progressPercent
+                    if (decision.shouldReport || (percent == 100f && lastReportedPercent.floatValue < 100f)) {
                         positionEverReported.value = true
-                        latestOnPositionChanged(controller.currentPageStartAbs, controller.progressPercent)
+                        lastReportedPercent.floatValue = percent
+                        latestOnPositionChanged(anchor.intValue, percent)
                     }
-                    latestOnPageIndexChanged(
-                        bookId,
-                        controller.chapterIndex,
-                        controller.pageIndex,
-                        controller.pageCount,
-                        controller.currentPageStartAbs,
-                        controller.currentPageRangeAbs?.last ?: controller.currentPageStartAbs,
-                        controller.progressPercent,
-                    )
+                    val finalPageCount = controller.hasFinalPageCount
+                    if (finalPageCount) {
+                        latestOnPageIndexChanged(
+                            bookId,
+                            controller.chapterIndex,
+                            controller.pageIndex,
+                            controller.pageCount,
+                            controller.currentPageStartAbs,
+                            controller.currentPageRangeAbs?.last ?: controller.currentPageStartAbs,
+                            controller.progressPercent,
+                        )
+                    }
                     pageInfo.value = PageInfo(
                         chapterIndex = controller.chapterIndex,
                         pageIndex = controller.pageIndex,
-                        pageCount = controller.pageCount,
+                        pageCount = if (finalPageCount) controller.pageCount else 0,
                         progressPercent = controller.progressPercent,
                     )
                 }
@@ -271,14 +284,14 @@ internal fun PagedReaderControllerEffects(
                 revealer.reset()
                 lastSeen = now
             }
-            // 排版中不推进揭动画（当前页尚未稳定），帧时间交给 250ms 上限兜底
-            if (controller.isLayingOut) {
+            val elapsed = frame - previousFrame
+            previousFrame = frame
+            // 相邻页已在首批结果中时可继续揭页。等待新页的时间不计入揭页进度。
+            if (controller.isLayingOut && !controller.hasNextReadyPage) {
                 layoutCount++
                 revealProgress = revealer.value
                 continue
             }
-            val elapsed = frame - previousFrame
-            previousFrame = frame
             if (revealer.advance(elapsed, interval)) {
                 AppLog.debug("AutoPagingDebug", "turn: interval=$interval elapsed=$elapsed layoutSkip=$layoutCount progress=${revealer.value}")
                 layoutCount = 0

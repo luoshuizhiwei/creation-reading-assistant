@@ -740,7 +740,8 @@ fun AppTheme(
     )
     MaterialTheme(
         colorScheme = animatedColorScheme,
-        typography = AppTypography,
+        // 暗色下字重降一档（光渗效应补偿，见 Typography.appTypography）
+        typography = remember(darkTheme) { appTypography(darkTheme) },
         shapes = AppShapes,
         content = content,
     )

@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.sync.Mutex
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
@@ -171,24 +172,28 @@ fun PagedReaderHost(
     val density = LocalDensity.current
     val fontPx = with(density) { fontSizeSp.sp.toPx() }
 
-    // 绘制与测量必须用同一支 Paint 的配置，否则测出来的宽度与画出来的不一致
-    val paint = remember(fontPx, fontWeightBold, textColor, customFontPath) {
+    // 测宽和绘制共享字形配置；文字颜色仅参与绘制。
+    val measurementPaint = remember(fontPx, fontWeightBold, customFontPath) {
         TextPaint().apply {
             isAntiAlias = true
             textSize = fontPx
-            color = textColor.toArgb()
             isFakeBoldText = fontWeightBold
             if (customFontPath.isNotBlank()) {
                 typeface = ReaderFontManager.loadTypeface(customFontPath) ?: Typeface.DEFAULT
             }
         }
     }
+    val paint = remember(measurementPaint, textColor) {
+        TextPaint(measurementPaint).apply { color = textColor.toArgb() }
+    }
     val headingPaint = remember(paint) { TextPaint(paint).apply { isFakeBoldText = true } }
-    val typefaceKey = remember(paint, customFontPath) {
-        PaintTextRuler.typefaceKeyOf(paint.typeface, paint.textSize, paint.letterSpacing, customFontPath) +
+    val typefaceKey = remember(measurementPaint, customFontPath) {
+        PaintTextRuler.typefaceKeyOf(measurementPaint.typeface, measurementPaint.textSize, measurementPaint.letterSpacing, customFontPath) +
             "|b=$fontWeightBold"
     }
-    val ruler = remember(paint, typefaceKey) { PaintTextRuler(paint, typefaceKey) }
+    val ruler = remember(measurementPaint, typefaceKey) { PaintTextRuler(measurementPaint, typefaceKey) }
+    // 视口重排可能替换 controller，旧排版退出前仍和新 controller 共用这把锁。
+    val layoutMutex = remember(ruler) { Mutex() }
     val oracle = remember { IcuBreakOracle() }
     val scope = rememberCoroutineScope()
 
@@ -292,6 +297,7 @@ fun PagedReaderHost(
                         scope = scope,
                         store = store,
                         contentKey = contentKey,
+                        layoutMutex = layoutMutex,
                     )
                 }
 
@@ -361,7 +367,7 @@ fun PagedReaderHost(
                     textColor = textColor,
                     selRange = selRange,
                     turnRequest = turnRequest,
-                    revealProgress = revealProgress.floatValue,
+                    revealProgress = { revealProgress.floatValue },
                     tapZoneMode = tapZoneMode,
                     tapActionPreset = tapActionPreset,
                     density = density,

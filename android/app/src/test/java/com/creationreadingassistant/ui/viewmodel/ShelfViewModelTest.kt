@@ -8,7 +8,6 @@ import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.LibrarySourceAvailability
 import com.creationreadingassistant.data.repository.BookCacheClearOutcome
 import com.creationreadingassistant.data.repository.BookRepository
-import com.creationreadingassistant.data.repository.SearchIndexBookRefreshCoordinator
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.ContinueReadingStore
@@ -162,7 +161,6 @@ class ShelfViewModelTest {
             rootStore = mockk { coEvery { loadRoot() } returns null },
             ioDispatcher = Dispatchers.Unconfined,
             // S04-2：ShelfImporter 新增协调器参数；本测试不断言索引刷新行为，用 relaxed mock。
-            indexRefreshCoordinator = mockk(relaxed = true),
         )
         return ShelfViewModel(
             context = context,
@@ -722,14 +720,15 @@ class ShelfViewModelTest {
             val collectJob = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
                 vm.books.collect { }
             }
-            testScheduler.advanceUntilIdle()
+            testScheduler.runCurrent()
+            val previousSubscriptions = subscribeCount
             vm.markLibraryLoadFailed()
             assertTrue(vm.libraryLoadFailed.value)
 
             vm.retryLoadLibrary()
-            testScheduler.advanceUntilIdle()
+            testScheduler.runCurrent()
             assertFalse("重试必须清除失败态", vm.libraryLoadFailed.value)
-            assertTrue("重试后必须重启 observeBooks() 上游", subscribeCount >= 2)
+            assertTrue("重试后必须重启 observeBooks() 上游", subscribeCount > previousSubscriptions)
 
             bookFlow.emit(listOf(book("b1", "测试书")))
             testScheduler.advanceUntilIdle()
@@ -738,6 +737,35 @@ class ShelfViewModelTest {
 
             collectJob.cancel()
             testScheduler.advanceUntilIdle()
+        }
+
+    @Test
+    fun `failed library subscription can retry twice while the screen remains subscribed`() =
+        runTest(mainDispatcher.scheduler) {
+            val initialFailure = kotlinx.coroutines.flow.flow<List<BookEntity>> { error("db unavailable") }
+            val vm = createVm(booksFlow = initialFailure)
+            val collectJob = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                vm.books.collect { }
+            }
+            testScheduler.runCurrent()
+            assertTrue(vm.libraryLoadFailed.value)
+
+            every { repository.observeBooks() } returns MutableSharedFlow()
+            vm.retryLoadLibrary()
+            testScheduler.runCurrent()
+            assertFalse(vm.libraryLoadFailed.value)
+            testScheduler.advanceTimeBy(8_001)
+            assertTrue("重试超时后恢复重试按钮", vm.libraryLoadFailed.value)
+            assertFalse(vm.libraryLoaded.value)
+
+            val expected = listOf(book("recovered", "测试书"))
+            every { repository.observeBooks() } returns kotlinx.coroutines.flow.flowOf(expected)
+            vm.retryLoadLibrary()
+            testScheduler.runCurrent()
+            assertEquals(expected, vm.books.value)
+            assertFalse(vm.libraryLoadFailed.value)
+            assertTrue(vm.libraryLoaded.value)
+            collectJob.cancel()
         }
 
     @Test

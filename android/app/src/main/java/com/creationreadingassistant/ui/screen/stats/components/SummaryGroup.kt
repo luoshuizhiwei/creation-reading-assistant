@@ -75,7 +75,7 @@ internal fun SummaryGroup(
                         animatedMinutes.toLong() * 60000,
                         LocalDurationUnit.current,
                     ),
-                    subtitle = "累计沉浸",
+                    subtitle = "阅读页前台时长",
                     modifier = Modifier.weight(1f),
                     // 阅读时长是本组唯一的时长展示位 ⇒ 本区块只此一个切换入口；
                     // 「阅读天数」是整数计数（不经过 formatter），不挂入口。

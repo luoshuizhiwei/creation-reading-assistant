@@ -88,6 +88,33 @@ class SearchViewModelTest {
         }
 
     @Test
+    fun `a stalled query stops loading and can be retried`() = runTest(mainDispatcher) {
+        val query = "测试词"
+        val gate = SearchGate<List<BookEntity>>()
+        coEvery { bookRepository.search(query) } coAnswers { gate.await() }
+
+        vm.search(query)
+        val book = BookEntity(id = "retry", title = query, format = "txt", updated_at = "now")
+        try {
+            advanceTimeBy(400)
+            assertTrue(vm.loading.value)
+            advanceTimeBy(8_000)
+            assertFalse(vm.loading.value)
+            assertEquals(SearchNoticeKind.SEARCH_TIMED_OUT, vm.results.value.notice?.kind)
+
+            coEvery { bookRepository.search(query) } returns listOf(book)
+            vm.search(query)
+            advanceUntilIdle()
+            gate.release(emptyList())
+            advanceUntilIdle()
+            assertEquals(listOf(book), vm.results.value.books)
+            assertFalse(vm.loading.value)
+        } finally {
+            if (gate.isWaiting) gate.release(emptyList())
+        }
+    }
+
+    @Test
     fun `blank query should clear results`() = runTest(mainDispatcher) {
         vm.search("")
         assertEquals(0, vm.results.value.books.size + vm.results.value.inspirations.size + vm.results.value.notes.size)
@@ -432,7 +459,7 @@ class SearchViewModelTest {
             coEvery { inspirationRepository.search("B") } returns emptyList()
             coEvery { noteRepository.searchNotes("B") } returns emptyList()
             vm.search("B")
-            advanceUntilIdle()
+            advanceTimeBy(301)
             try {
                 assertTrue(vm.loading.value)
                 vm.search("A")
@@ -456,7 +483,7 @@ class SearchViewModelTest {
             coEvery { inspirationRepository.search("B") } returns emptyList()
             coEvery { noteRepository.searchNotes("B") } returns emptyList()
             vm.search("B")
-            advanceUntilIdle()
+            advanceTimeBy(301)
             try {
                 assertTrue(vm.loading.value)
                 vm.search("")
@@ -483,14 +510,14 @@ class SearchViewModelTest {
                 coEvery { noteRepository.searchNotes(q) } returns emptyList()
             }
             vm.search("B")
-            advanceUntilIdle()
+            advanceTimeBy(301)
             try {
                 assertTrue(vm.loading.value)
                 vm.search("C")
-                advanceUntilIdle()
+                advanceTimeBy(301)
                 assertTrue("C must remain pending at this checkpoint", vm.loading.value)
                 gateB.release(listOf(book("b1", "book B")))
-                advanceUntilIdle()
+                advanceTimeBy(1)
                 assertTrue("B must not settle C loading", vm.loading.value)
                 assertTrue("B must not publish stale results", vm.results.value.books.isEmpty())
                 gateC.release(listOf(book("c1", "book C")))

@@ -6,18 +6,6 @@ import org.junit.Test
 class SearchIndexWorkerPolicyTest {
 
     @Test
-    fun `first two failed attempts retry`() {
-        assertEquals(SearchIndexWorkerFailureAction.RETRY, searchIndexWorkerFailureAction(0))
-        assertEquals(SearchIndexWorkerFailureAction.RETRY, searchIndexWorkerFailureAction(1))
-    }
-
-    @Test
-    fun `third and later failed attempts stop automatic retry`() {
-        assertEquals(SearchIndexWorkerFailureAction.FAIL, searchIndexWorkerFailureAction(2))
-        assertEquals(SearchIndexWorkerFailureAction.FAIL, searchIndexWorkerFailureAction(5))
-    }
-
-    @Test
     fun `reaching the end of the snapshot completes the sweep`() {
         assertEquals(IndexSweepResult.COMPLETED, indexSweepResult(reached = 26, from = 0, until = 26))
     }

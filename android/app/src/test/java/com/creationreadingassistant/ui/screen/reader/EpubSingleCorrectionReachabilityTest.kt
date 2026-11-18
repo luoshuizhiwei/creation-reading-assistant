@@ -104,70 +104,9 @@ class EpubSingleCorrectionReachabilityTest {
 
     // ── 3. 命令门控：锚点仍需 source range 非 null ──────────────────────
 
-    @Test
-    fun `unknown source end still cannot anchor a correction`() {
-        // 回归钉子：sourceEnd = -1（F3 前形态）依然返回 null
-        val state = com.creationreadingassistant.ui.screen.reader.ReaderScreenState(
-            selectedText = "某段文字",
-            selectedRangeStart = 100,
-            selectedGlobalOffset = -1,
-            selectedSourceEnd = -1,
-        )
-        assertEquals(
-            null,
-            com.creationreadingassistant.ui.viewmodel.ReaderSearchIndexCoordinator
-                .currentSelectionSourceRange(state),
-        )
-    }
 
-    @Test
-    fun `empty start cannot anchor a correction even with a valid end`() {
-        val state = com.creationreadingassistant.ui.screen.reader.ReaderScreenState(
-            selectedText = "某段文字",
-            selectedRangeStart = -1,
-            selectedGlobalOffset = -1,
-            selectedSourceEnd = 200,
-        )
-        assertEquals(
-            null,
-            com.creationreadingassistant.ui.viewmodel.ReaderSearchIndexCoordinator
-                .currentSelectionSourceRange(state),
-        )
-    }
 
-    @Test
-    fun `an inverted range cannot anchor a correction`() {
-        val state = com.creationreadingassistant.ui.screen.reader.ReaderScreenState(
-            selectedText = "某段文字",
-            selectedRangeStart = 500,
-            selectedGlobalOffset = -1,
-            selectedSourceEnd = 100, // start > end
-        )
-        assertEquals(
-            null,
-            com.creationreadingassistant.ui.viewmodel.ReaderSearchIndexCoordinator
-                .currentSelectionSourceRange(state),
-        )
-    }
 
     // ── 4. 记录 F3 之后确实有锚点（这是 P2-2 的事实，不是缺陷判定） ──────
 
-    @Test
-    fun `after F3 a non paged epub block selection does produce an anchorable range`() {
-        // 事实记录：F3 让非分页 EPUB 的 sourceEnd 变真实值后，
-        // currentSelectionSourceRange 确实不再返回 null。
-        // 这**不**意味着单处纠错可达 —— 能力位仍判 Unavailable（第 1 组），
-        // 且 F4 之后 ViewModel 会在命令层再拦一次（见 ReaderSingleCorrectionCapabilityTest）。
-        val state = com.creationreadingassistant.ui.screen.reader.ReaderScreenState(
-            selectedText = "某段文字",
-            selectedRangeStart = -1,
-            selectedGlobalOffset = 100,
-            selectedSourceEnd = 104,
-        )
-        assertEquals(
-            100 to 104,
-            com.creationreadingassistant.ui.viewmodel.ReaderSearchIndexCoordinator
-                .currentSelectionSourceRange(state),
-        )
-    }
 }

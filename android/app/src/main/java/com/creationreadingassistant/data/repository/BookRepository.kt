@@ -69,12 +69,6 @@ class BookRepository @Inject constructor(
      * 生产路径恒为非空，因此所有调用点都用安全调用 `?.` 兜底，避免测试上下文下空指针。
      */
     private val searchIndexRepository: SearchIndexRepository? = null,
-    /**
-     * 异步逐书搜索索引刷新协调器（S04-2 / S03-3 接缝）。
-     * 用于撤销删除恢复书籍后，在 ApplicationScope 中异步触发该书的索引重建，解除同步阻塞。
-     * 默认 null 仅用于测试/mock 构造（Hilt 在生产中按类型自动注入真实实例）。
-     */
-    private val indexRefreshCoordinator: SearchIndexBookRefreshCoordinator? = null,
     @ApplicationContext private val context: Context,
 ) {
     fun observeBooks(): Flow<List<BookEntity>> = bookDao.observeAllActive()
@@ -602,9 +596,6 @@ class BookRepository @Inject constructor(
                     .map { it.copy(deleted_at = null) },
             )
         }
-        if (restored) {
-            indexRefreshCoordinator?.request(bookId)
-        }
     }
 
     /** 撤销一次删除：按快照恢复资料、关系与正文缓存，返回逐项结果。 */
@@ -673,36 +664,6 @@ class BookRepository @Inject constructor(
                     shelfLinksByBook = shelfLinksByBook,
                     chapterReadsByBook = chapterReadsByBook,
                 )
-            }
-        }
-        // M-BUG-10 / S03-3（撤销自愈）：被删的书在删除时已清掉全文索引，撤销恢复后必须重建，
-        // 否则该书在下次全量重建前不可全文搜索（增量索引游标只前进，不会回退到它）。
-        // 索引器幂等（先删该书行再重建），这里只对「确实被本次撤销恢复」的书触发，
-        // 避免把已活跃或未恢复的书的索引也重扫一遍。
-        // S03-3：优先通过 indexRefreshCoordinator 提交异步请求（解除同步阻塞）；
-        // 若未注入协调器（如旧测试夹具），回退至 searchIndexRepository 同步重建以维持测试兼容。
-        if (indexRefreshCoordinator != null) {
-            reports
-                .filter { it.restoredBook }
-                .map { it.bookId }
-                .forEach { bookId ->
-                    indexRefreshCoordinator.request(bookId)
-                }
-        } else {
-            searchIndexRepository?.let { repo ->
-                reports
-                    .filter { it.restoredBook }
-                    .map { it.bookId }
-                    .forEach { bookId ->
-                        runCatching {
-                            withContext(Dispatchers.IO) { repo.reindexBookById(bookId) }
-                        }.onFailure { e ->
-                            AppLog.w(
-                                "BookRepository",
-                                "撤销后重建搜索索引失败（book=${bookId.take(8)}），将在下次后台扫描自愈：${e.message ?: e.javaClass.simpleName}",
-                            )
-                        }
-                    }
             }
         }
         return reports

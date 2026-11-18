@@ -30,12 +30,18 @@ internal class PendingTurnQueue(val capacity: Int = PENDING_TURN_CAPACITY) {
      */
     fun enqueue(direction: Int): Boolean {
         if (direction == 0) return false
-        val last = directions.lastOrNull()
-        if (last != null && last != direction) directions.clear()
+        discardOpposite(direction)
         if (directions.size >= capacity) return false
         directions.addLast(direction)
         return true
     }
+
+    fun discardOpposite(direction: Int) {
+        val last = directions.lastOrNull()
+        if (last != null && last != direction) clear()
+    }
+
+    fun peek(): Int? = directions.firstOrNull()
 
     /** 取队首待处理方向；没有则 null。 */
     fun poll(): Int? = directions.removeFirstOrNull()

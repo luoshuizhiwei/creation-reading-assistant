@@ -35,6 +35,7 @@ import com.creationreadingassistant.data.local.dao.SearchIndexStateDao
 import com.creationreadingassistant.data.local.dao.SearchIndexStateRow
 import com.creationreadingassistant.data.local.dao.SearchTermDao
 import com.creationreadingassistant.data.local.dao.SearchTermRow
+import com.creationreadingassistant.data.local.dao.LegadoImportDao
 import com.creationreadingassistant.data.local.dao.LibrarySourceRefDao
 import com.creationreadingassistant.data.local.entity.LibrarySourceRefEntity
 import com.creationreadingassistant.data.local.entity.BookContentEntity
@@ -59,6 +60,14 @@ import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
 import com.creationreadingassistant.data.local.entity.SyncStateEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.data.local.entity.ChapterReadEntity
+import com.creationreadingassistant.data.local.entity.LegadoImportSourceEntity
+import com.creationreadingassistant.data.local.entity.LegadoImportSubjectEntity
+import com.creationreadingassistant.data.local.entity.LegadoBookBindingEntity
+import com.creationreadingassistant.data.local.entity.LegadoExternalSessionEntity
+import com.creationreadingassistant.data.local.entity.LegadoExternalDaySnapshotEntity
+import com.creationreadingassistant.data.local.entity.LegadoExternalBookSnapshotEntity
+import com.creationreadingassistant.data.local.entity.LegadoImportBatchEntity
+import com.creationreadingassistant.data.local.entity.LegadoImportBatchItemEntity
 
 /**
  * 数据库 schema 版本。唯一真源 —— [AppDatabase] 的 `@Database(version)` 与
@@ -67,7 +76,7 @@ import com.creationreadingassistant.data.local.entity.ChapterReadEntity
  * 提成顶层 const 而不是放进 companion，是因为注解参数必须是编译期常量，
  * 而在 `@Database` 上引用被注解类自己的嵌套常量会构成循环引用。
  */
-const val APP_DATABASE_SCHEMA_VERSION = 15
+const val APP_DATABASE_SCHEMA_VERSION = 17
 
 /**
  * 原生端 Room 数据库（v1）。
@@ -103,6 +112,9 @@ const val APP_DATABASE_SCHEMA_VERSION = 15
  *    只建新表：记录书籍与授权来源文件的引用关系和观测状态，供目录页分层
  *    判定（精确已入架 / 同内容 / 可能重复 / 内容有更新）提供比较基线。
  *    该表不是正文事实源，来源不可用时阅读器仍只依赖内部稳定副本。
+ *  - v15→v16：新增 Legado 记录导入独立账本 8 表（LEGADO-IMPORT-PLAN-v2 §3/§9）：
+ *    来源库/主体/绑定/外部会话/按日快照/书级快照/批次/批次项。只建新表，
+ *    不触碰书库/进度/批注/会话；外部历史绝不进入 reading_sessions。
  * exportSchema = true：schema 导出到 app/schemas/，供 MigrationTestHelper 校验。
  */
 @Database(
@@ -123,6 +135,14 @@ const val APP_DATABASE_SCHEMA_VERSION = 15
         SearchIndexStateRow::class,
         SearchIndexCoverageRow::class,
         LibrarySourceRefEntity::class,
+        LegadoImportSourceEntity::class,
+        LegadoImportSubjectEntity::class,
+        LegadoBookBindingEntity::class,
+        LegadoExternalSessionEntity::class,
+        LegadoExternalDaySnapshotEntity::class,
+        LegadoExternalBookSnapshotEntity::class,
+        LegadoImportBatchEntity::class,
+        LegadoImportBatchItemEntity::class,
     ],
     version = APP_DATABASE_SCHEMA_VERSION,
     exportSchema = true,
@@ -154,6 +174,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun searchIndexStateDao(): SearchIndexStateDao
     abstract fun searchIndexCoverageDao(): SearchIndexCoverageDao
     abstract fun librarySourceRefDao(): LibrarySourceRefDao
+    abstract fun legadoImportDao(): LegadoImportDao
 
     companion object {
         const val DB_NAME = "creation_reading_assistant_native"
@@ -544,6 +565,169 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 dropPartialIndexes(db)
                 db.execSQL("DROP INDEX IF EXISTS `index_search_terms_term`")
+            }
+        }
+
+        /**
+         * v15→v16：新增 Legado 导入独立账本 8 表（LEGADO-IMPORT-PLAN-v2）。
+         * 纯 CREATE TABLE/INDEX，不改既有行；索引名必须与 @Index 声明的
+         * Room 默认名逐字一致，否则迁移后 schema 校验失败。
+         */
+        /**
+         * v16→v17：清空全文索引三张表（2026-11-17，S4）。
+         *
+         * 搜索已改为按需扫描（CONTRACT-search-index-removal.md），索引不再使用；
+         * 真机实测 `search_terms` 达 1.31 亿行 / 4.9 GB，是库膨胀到 5.17 GB 的唯一主体。
+         *
+         * 这里**只 DELETE 不 DROP**：保留表结构可让 Room 校验、既有 DAO 与 UI 继续编译，
+         * 真正把磁盘页还给系统由后续一次性 VACUUM 完成（5 GB 库的 VACUUM 不能放在启动路径，
+         * 需后台执行且可中断）。
+         */
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DELETE FROM search_terms")
+                db.execSQL("DELETE FROM search_index_state")
+                db.execSQL("DELETE FROM search_index_coverage")
+            }
+        }
+
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                dropPartialIndexes(db)
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `legado_import_sources` (" +
+                        "`source_id` TEXT NOT NULL, `label` TEXT NOT NULL, " +
+                        "`adapter_version` TEXT NOT NULL, `created_at` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`source_id`))",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `legado_import_subjects` (" +
+                        "`subject_id` TEXT NOT NULL, `source_id` TEXT NOT NULL, " +
+                        "`kind` TEXT NOT NULL, `book_name` TEXT NOT NULL, " +
+                        "`book_author` TEXT NOT NULL, `book_url` TEXT NOT NULL, " +
+                        "`origin` TEXT, `created_at` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`subject_id`), " +
+                        "FOREIGN KEY(`source_id`) REFERENCES `legado_import_sources`(`source_id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE )",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_import_subjects_source_id` " +
+                        "ON `legado_import_subjects` (`source_id`)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `legado_book_bindings` (" +
+                        "`binding_id` TEXT NOT NULL, `subject_id` TEXT NOT NULL, " +
+                        "`book_id` TEXT, `confirmed_at` TEXT NOT NULL, " +
+                        "`confirmation` TEXT NOT NULL, `content_identity` TEXT, " +
+                        "`content_version` INTEGER NOT NULL, `needs_review` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`binding_id`), " +
+                        "FOREIGN KEY(`subject_id`) REFERENCES `legado_import_subjects`(`subject_id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                        "FOREIGN KEY(`book_id`) REFERENCES `books`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE SET NULL )",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_book_bindings_subject_id` " +
+                        "ON `legado_book_bindings` (`subject_id`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_book_bindings_book_id` " +
+                        "ON `legado_book_bindings` (`book_id`)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `legado_external_sessions` (" +
+                        "`session_id` TEXT NOT NULL, `source_id` TEXT NOT NULL, " +
+                        "`subject_id` TEXT NOT NULL, `device_id` TEXT NOT NULL, " +
+                        "`start_ms` INTEGER NOT NULL, `end_ms` INTEGER NOT NULL, " +
+                        "`chapter_index` INTEGER, `created_by_batch` TEXT, " +
+                        "`created_at` TEXT NOT NULL, PRIMARY KEY(`session_id`), " +
+                        "FOREIGN KEY(`source_id`) REFERENCES `legado_import_sources`(`source_id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                        "FOREIGN KEY(`subject_id`) REFERENCES `legado_import_subjects`(`subject_id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE )",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_external_sessions_source_id` " +
+                        "ON `legado_external_sessions` (`source_id`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_external_sessions_subject_id` " +
+                        "ON `legado_external_sessions` (`subject_id`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_external_sessions_created_by_batch` " +
+                        "ON `legado_external_sessions` (`created_by_batch`)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `legado_external_day_snapshots` (" +
+                        "`snapshot_id` TEXT NOT NULL, `source_id` TEXT NOT NULL, " +
+                        "`subject_id` TEXT NOT NULL, `device_id` TEXT NOT NULL, " +
+                        "`date` TEXT NOT NULL, `read_time_ms` INTEGER NOT NULL, " +
+                        "`read_words` INTEGER NOT NULL, `first_read_ms` INTEGER NOT NULL, " +
+                        "`last_read_ms` INTEGER NOT NULL, `created_by_batch` TEXT, " +
+                        "`updated_at` TEXT NOT NULL, PRIMARY KEY(`snapshot_id`), " +
+                        "FOREIGN KEY(`source_id`) REFERENCES `legado_import_sources`(`source_id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                        "FOREIGN KEY(`subject_id`) REFERENCES `legado_import_subjects`(`subject_id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE )",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_external_day_snapshots_source_id` " +
+                        "ON `legado_external_day_snapshots` (`source_id`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_external_day_snapshots_subject_id` " +
+                        "ON `legado_external_day_snapshots` (`subject_id`)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `legado_external_book_snapshots` (" +
+                        "`snapshot_id` TEXT NOT NULL, `source_id` TEXT NOT NULL, " +
+                        "`subject_id` TEXT NOT NULL, `device_id` TEXT NOT NULL, " +
+                        "`read_time_ms` INTEGER NOT NULL, `last_read_ms` INTEGER NOT NULL, " +
+                        "`created_by_batch` TEXT, `updated_at` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`snapshot_id`), " +
+                        "FOREIGN KEY(`source_id`) REFERENCES `legado_import_sources`(`source_id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE , " +
+                        "FOREIGN KEY(`subject_id`) REFERENCES `legado_import_subjects`(`subject_id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE )",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_external_book_snapshots_source_id` " +
+                        "ON `legado_external_book_snapshots` (`source_id`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_external_book_snapshots_subject_id` " +
+                        "ON `legado_external_book_snapshots` (`subject_id`)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `legado_import_batches` (" +
+                        "`batch_id` TEXT NOT NULL, `source_id` TEXT NOT NULL, " +
+                        "`adapter_version` TEXT NOT NULL, `archive_fingerprint` TEXT NOT NULL, " +
+                        "`archive_label` TEXT NOT NULL, `created_at` TEXT NOT NULL, " +
+                        "`status` TEXT NOT NULL, `undo_note` TEXT, " +
+                        "PRIMARY KEY(`batch_id`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_import_batches_source_id` " +
+                        "ON `legado_import_batches` (`source_id`)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `legado_import_batch_items` (" +
+                        "`item_id` TEXT NOT NULL, `batch_id` TEXT NOT NULL, " +
+                        "`subject_id` TEXT, `kind` TEXT NOT NULL, `book_id` TEXT, " +
+                        "`row_key` TEXT, `payload_json` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`item_id`), " +
+                        "FOREIGN KEY(`batch_id`) REFERENCES `legado_import_batches`(`batch_id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE )",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_import_batch_items_batch_id` " +
+                        "ON `legado_import_batch_items` (`batch_id`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_legado_import_batch_items_subject_id` " +
+                        "ON `legado_import_batch_items` (`subject_id`)",
+                )
             }
         }
 

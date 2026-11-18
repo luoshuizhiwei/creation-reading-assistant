@@ -57,6 +57,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
@@ -92,10 +94,10 @@ internal fun DiagnosticsSubPage(
     var selectedLevel by remember { mutableStateOf<String?>(null) }
     var selectedModule by remember { mutableStateOf<String?>(null) }
     var showClearConfirm by remember { mutableStateOf(false) }
-    // R6-B7：全库索引重建需要二次确认（会重置增量游标，后台分窗口重扫全书）
-    var showRebuildIndexConfirm by remember { mutableStateOf(false) }
-    // §6.9 停止索引构建二次确认
-    var showCancelIndexConfirm by remember { mutableStateOf(false) }
+    // 2026-11-17：重装后从导出的记录 JSON 恢复读位/会话/灵感
+    val recordsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) onAction(ProfileAction.ImportReadingRecords(uri))
+    }
 
     val modules = remember(logs) { logs.map { it.module }.distinct().sorted() }
     val filtered = remember(logs, selectedLevel, selectedModule) {
@@ -168,28 +170,6 @@ internal fun DiagnosticsSubPage(
             },
         )
     }
-
-    if (showRebuildIndexConfirm) {
-        RebuildSearchIndexConfirmDialog(
-            onDismiss = { showRebuildIndexConfirm = false },
-            onConfirm = {
-                showRebuildIndexConfirm = false
-                onAction(ProfileAction.RebuildSearchIndex)
-            },
-        )
-    }
-    // §6.9-v3 停止索引构建二次确认（在跑与排队共用同一条真实动作分发）
-    if (showCancelIndexConfirm) {
-        SearchIndexCancelConfirmDialog(
-            queued = !state.searchIndexProgress.isRunning && state.searchIndexProgress.isQueued,
-            onDismiss = { showCancelIndexConfirm = false },
-            onConfirm = {
-                showCancelIndexConfirm = false
-                onAction(ProfileAction.CancelSearchIndex)
-            },
-        )
-    }
-
     PageLazyColumn(
         scaffoldPadding = scaffoldPadding,
         modifier = Modifier.fillMaxSize(),
@@ -255,10 +235,6 @@ internal fun DiagnosticsSubPage(
             }
         }
 
-        // 2. 日志与索引维护：原「搜索索引」独立卡与「诊断日志」卡只差一个分区的语义，
-        //    合并为一张操作卡 —— 导出 / 清空 / 重建索引三行动作 + 级别与模块筛选。
-        //    链路：重建按钮 → ProfileAction.RebuildSearchIndex → ProfileViewModel.rebuildSearchIndex()
-        //    → SearchIndexRepository.triggerFullRebuildNow()，只覆盖活跃书，期间仍可搜索。
         item {
             CompactSettingsGroup(
                 title = "日志与索引",
@@ -300,8 +276,8 @@ internal fun DiagnosticsSubPage(
 
                 CompactItemDivider()
                 CompactSettingRow(
-                    title = "重建搜索索引",
-                    subtitle = "后台执行，不阻塞阅读",
+                    title = "导入阅读记录（JSON）",
+                    subtitle = "重装后恢复读位、阅读会话与灵感",
                     leading = {
                         Icon(
                             Icons.Outlined.Refresh,
@@ -312,38 +288,13 @@ internal fun DiagnosticsSubPage(
                     },
                     trailing = {
                         Text(
-                            text = "执行",
+                            text = "选择文件",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
-                    onClick = { showRebuildIndexConfirm = true },
+                    onClick = { recordsPicker.launch(arrayOf("application/json", "text/plain", "*/*")) },
                 )
-
-                // §6.9-v3 在跑**或已排队**都显示停止入口：排队/等待重试阶段此前没有入口
-                if (state.searchIndexProgress.canCancel) {
-                    CompactItemDivider()
-                    CompactSettingRow(
-                        title = if (state.searchIndexProgress.isRunning) "停止搜索索引" else "撤下排队的索引构建",
-                        subtitle = "保留断点，下次续建",
-                        leading = {
-                            Icon(
-                                Icons.Outlined.Stop,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.error,
-                            )
-                        },
-                        trailing = {
-                            Text(
-                                text = "停止",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        },
-                        onClick = { showCancelIndexConfirm = true },
-                    )
-                }
 
                 exportMsg?.let { msg ->
                     Text(

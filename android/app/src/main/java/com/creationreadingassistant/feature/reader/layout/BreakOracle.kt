@@ -22,6 +22,11 @@ interface BreakOracle {
      * 返回长度为 `text.length + 1` 的位图，`true` 表示该字符位置允许断行。
      */
     fun breaks(text: String): BooleanArray
+
+    fun breaks(text: String, checkActive: () -> Unit): BooleanArray {
+        checkActive()
+        return breaks(text)
+    }
 }
 
 /**
@@ -32,7 +37,9 @@ class JdkBreakOracle : BreakOracle {
 
     private val iterator = ThreadLocal.withInitial { BreakIterator.getLineInstance() }
 
-    override fun breaks(text: String): BooleanArray {
+    override fun breaks(text: String): BooleanArray = breaks(text) {}
+
+    override fun breaks(text: String, checkActive: () -> Unit): BooleanArray {
         val out = BooleanArray(text.length + 1)
         if (text.isEmpty()) {
             out[0] = true
@@ -42,7 +49,9 @@ class JdkBreakOracle : BreakOracle {
         val it = requireNotNull(iterator.get()) { "ThreadLocal.withInitial 保证非空" }
         it.setText(text)
         var p = it.first()
+        var visited = 0
         while (p != BreakIterator.DONE) {
+            if ((visited++ and 255) == 0) checkActive()
             if (p in out.indices) out[p] = true
             p = it.next()
         }

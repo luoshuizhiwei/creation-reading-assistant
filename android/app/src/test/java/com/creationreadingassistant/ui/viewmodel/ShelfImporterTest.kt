@@ -13,7 +13,6 @@ import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.LibrarySourceAvailability
 import com.creationreadingassistant.data.local.entity.LibrarySourceRefEntity
 import com.creationreadingassistant.data.repository.BookRepository
-import com.creationreadingassistant.data.repository.SearchIndexBookRefreshCoordinator
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.library.LibraryRootStore
@@ -87,7 +86,6 @@ class ShelfImporterTest {
     private lateinit var sourceIndex: LibrarySourceIndex
     private lateinit var rootStore: LibraryRootStore
     private lateinit var shelfBooks: MutableStateFlow<List<BookEntity>>
-    private lateinit var indexRefreshCoordinator: SearchIndexBookRefreshCoordinator
     private lateinit var importer: ShelfImporter
 
     @Before
@@ -118,9 +116,6 @@ class ShelfImporterTest {
         }
         shelfBooks = MutableStateFlow(emptyList())
         // 协调器 mock：默认 request() 不阻塞、不抛出（relaxed = false；必须显式 stub 或 verify）
-        indexRefreshCoordinator = mockk {
-            every { request(any()) } returns Unit
-        }
         importer = ShelfImporter(
             context = context,
             repository = repository,
@@ -132,7 +127,6 @@ class ShelfImporterTest {
             sourceIndex = sourceIndex,
             rootStore = rootStore,
             ioDispatcher = io,
-            indexRefreshCoordinator = indexRefreshCoordinator,
         )
         importer.booksProvider = { shelfBooks.value }
     }
@@ -1329,66 +1323,9 @@ class ShelfImporterTest {
 
     // ===== S04-2：异步索引重建接缝（SearchIndexBookRefreshCoordinator） =====
 
-    @Test
-    fun `refreshFromSource success submits index refresh request exactly once with correct bookId`() = runTest {
-        mockkStatic(DocumentsContract::class)
-        try {
-            every { DocumentsContract.buildDocumentUri(any(), any()) } returns uriMock("content://source/doc")
-            stubTxtContent("b.txt", "替换正文")
-            coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt").copy(content_hash = md5Hex("替换正文"))
-            coEvery { bookDao.runInTransaction(any()) } returns Unit
-            coEvery { sourceIndex.snapshot() } returns listOf(sourceRef(sizeBytes = 1L, lastModifiedMillis = 1_000L))
 
-            val result = importer.refreshFromSource("b1")
 
-            assertTrue("result=$result", result is SourceRefreshResult.Success)
-            // 关键不变量：成功后恰好提交一次，且传入正确的 bookId。
-            verify(exactly = 1) { indexRefreshCoordinator.request("b1") }
-        } finally {
-            unmockkStatic(DocumentsContract::class)
-        }
-    }
 
-    @Test
-    fun `refreshFromSource failure does not submit index refresh request`() = runTest {
-        mockkStatic(DocumentsContract::class)
-        try {
-            every { DocumentsContract.buildDocumentUri(any(), any()) } returns uriMock("content://source/doc")
-            // 原书是 EPUB，来源是 TXT → 修复路径格式校验拒绝
-            every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("b.txt", 10L)
-            coEvery { bookDao.getById("b1") } returns book("b1", format = "epub", fileName = "a.epub")
-            coEvery { historyStore.addEntry(any()) } returns Unit
-            coEvery { sourceIndex.snapshot() } returns listOf(sourceRef())
-
-            val result = importer.refreshFromSource("b1")
-
-            assertTrue("result=$result", result is SourceRefreshResult.Failed)
-            // 失败不得提交索引重建请求
-            verify(exactly = 0) { indexRefreshCoordinator.request(any()) }
-        } finally {
-            unmockkStatic(DocumentsContract::class)
-        }
-    }
-
-    @Test
-    fun `refreshFromSource NoSourceRef does not submit index refresh request`() = runTest {
-        coEvery { sourceIndex.snapshot() } returns emptyList()
-
-        val result = importer.refreshFromSource("b1")
-
-        assertEquals(SourceRefreshResult.NoSourceRef, result)
-        verify(exactly = 0) { indexRefreshCoordinator.request(any()) }
-    }
-
-    @Test
-    fun `refreshFromSource missing documentId does not submit index refresh request`() = runTest {
-        coEvery { sourceIndex.snapshot() } returns listOf(sourceRef(documentId = null))
-
-        val result = importer.refreshFromSource("b1")
-
-        assertEquals(SourceRefreshResult.NoSourceRef, result)
-        verify(exactly = 0) { indexRefreshCoordinator.request(any()) }
-    }
 
     @Test
     fun `refreshFromSource success result is unchanged even when coordinator request is called`() = runTest {

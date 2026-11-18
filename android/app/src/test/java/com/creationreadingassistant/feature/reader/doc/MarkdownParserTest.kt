@@ -8,6 +8,20 @@ class MarkdownParserTest {
     // ── H1～H6 标题 ────────────────────────────────────────────
 
     @Test
+    fun `length parsing without source spans keeps canonical coordinates`() {
+        val samples = listOf(
+            "# 标题\r\n\r\n正文 `代码` **粗体**，![图注](image.png) [链接](https://example.com)。",
+            "> 引用\n> - [x] 任务\n> - 选项😀\n\n---\n\n~~~kt\nval x = 1\n~~~",
+            "| A | B |\n| - | - |\n| <b>字</b> | 甲 &amp; 乙 |",
+            "<div>测试&#x4E2D;</div>\n\n末段  \n换行",
+        )
+        for (source in samples) {
+            assertEquals(MarkdownParser.parse(source, sourceOffsetShift = 200).canonicalText.length,
+                MarkdownParser.canonicalLength(source))
+        }
+    }
+
+    @Test
     fun `parse heading levels`() {
         val source = """
             # H1

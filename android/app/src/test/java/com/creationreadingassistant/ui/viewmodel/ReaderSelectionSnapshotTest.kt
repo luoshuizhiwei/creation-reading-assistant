@@ -6,8 +6,6 @@ import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.ChapterReadRepository
 import com.creationreadingassistant.data.repository.NoteRepository
-import com.creationreadingassistant.data.repository.SearchIndexRepository
-import com.creationreadingassistant.data.repository.SearchIndexScheduler
 import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordinator
@@ -73,8 +71,6 @@ class ReaderSelectionSnapshotTest {
     private lateinit var pageIndexManager: ReaderPageIndexManager
     private lateinit var aiClient: AiClient
     private lateinit var rulesRepository: RulesRepository
-    private lateinit var searchIndexRepository: SearchIndexRepository
-    private lateinit var searchIndexScheduler: SearchIndexScheduler
     private lateinit var appScope: CoroutineScope
 
     private lateinit var ruleDao: ReaderTextRuleDao
@@ -101,8 +97,6 @@ class ReaderSelectionSnapshotTest {
         aiClient = mockk(relaxed = true)
         ruleDao = SnapshotTestRuleDao()
         rulesRepository = RulesRepository(ruleDao, FakeReaderCorrectionDao())
-        searchIndexRepository = mockk(relaxed = true)
-        searchIndexScheduler = mockk(relaxed = true)
         appScope = CoroutineScope(testDispatcher)
 
         everyFlowDefaults()
@@ -142,8 +136,6 @@ class ReaderSelectionSnapshotTest {
         pageIndexManager = pageIndexManager,
         aiClient = aiClient,
         rulesRepository = rulesRepository,
-        searchIndexRepository = searchIndexRepository,
-        searchIndexScheduler = searchIndexScheduler,
         appScope = appScope,
         ioDispatcher = ioDispatcher,
         defaultDispatcher = UnconfinedTestDispatcher(),

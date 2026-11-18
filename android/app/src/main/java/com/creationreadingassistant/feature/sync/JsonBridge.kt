@@ -9,6 +9,7 @@ import com.creationreadingassistant.data.local.dao.CategoryDao
 import com.creationreadingassistant.data.local.dao.ChapterReadDao
 import com.creationreadingassistant.data.local.dao.HighlightDao
 import com.creationreadingassistant.data.local.dao.InspirationDao
+import com.creationreadingassistant.data.local.dao.LegadoImportDao
 import com.creationreadingassistant.data.local.dao.LibrarySourceRefDao
 import com.creationreadingassistant.data.local.dao.NoteDao
 import com.creationreadingassistant.data.local.dao.ReaderCorrectionDao
@@ -232,10 +233,13 @@ data class LocalExport(
     val textRules: List<TextRuleExport> = emptyList(),
     @SerialName("reader_text_corrections")
     val textCorrections: List<CorrectionExport> = emptyList(),
+    @SerialName("legado_ledger")
+    val legadoLedger: LegadoLedgerBackup? = null,
 ) {
     companion object {
         /** 当前导出结构版本；导入侧拒绝不认识的版本，防止未来 schema 被按旧结构静默导入。 */
         const val CURRENT_SCHEMA_VERSION = 1
+        const val LEDGER_SCHEMA_VERSION = 2
     }
 }
 
@@ -280,6 +284,7 @@ class JsonBridge @Inject constructor(
     private val sourceRefDao: LibrarySourceRefDao? = null,
     private val textRuleDao: ReaderTextRuleDao? = null,
     private val correctionDao: ReaderCorrectionDao? = null,
+    private val legadoDao: LegadoImportDao? = null,
 ) {
     private val json = localExportJson
 
@@ -329,7 +334,12 @@ class JsonBridge @Inject constructor(
                 dao.listForBook(bookEnv.payload.id).map { CorrectionExport.fromEntity(it) }
             }
         } ?: emptyList()
+        var legadoLedger: LegadoLedgerBackup? = null
+        legadoDao?.let { dao ->
+            bookDao.runInTransaction { legadoLedger = LegadoLedgerBackup.read(dao) }
+        }
         return LocalExport(
+            schemaVersion = if (legadoLedger == null) LocalExport.CURRENT_SCHEMA_VERSION else LocalExport.LEDGER_SCHEMA_VERSION,
             exportedAt = Instant.now().toString(),
             deviceId = dev,
             books = books,
@@ -348,6 +358,7 @@ class JsonBridge @Inject constructor(
             librarySourceRefs = sourceRefs,
             textRules = textRules,
             textCorrections = textCorrections,
+            legadoLedger = legadoLedger,
         )
     }
 
@@ -395,8 +406,10 @@ class JsonBridge @Inject constructor(
         onMergeResult: (ImportMergeResult) -> Unit,
     ) {
         // 未来 schema 演进时在这里按版本分派解析；未知版本宁可拒绝也不能静默按旧结构导入。
-        if (export.schemaVersion != LocalExport.CURRENT_SCHEMA_VERSION) {
-            error("备份格式版本不受支持（schemaVersion=${export.schemaVersion}，当前支持 ${LocalExport.CURRENT_SCHEMA_VERSION}），已拒绝导入")
+        when (export.schemaVersion) {
+            LocalExport.CURRENT_SCHEMA_VERSION -> require(export.legadoLedger == null) { "旧版备份不能包含外部阅读账本。" }
+            LocalExport.LEDGER_SCHEMA_VERSION -> requireNotNull(export.legadoLedger) { "备份缺少外部阅读账本。" }
+            else -> error("备份格式版本不受支持（schemaVersion=${export.schemaVersion}），已拒绝导入")
         }
 
         val acceptedBookIds = mutableSetOf<String>()
@@ -557,6 +570,12 @@ class JsonBridge @Inject constructor(
                         }
                     }
                 }
+            }
+            export.legadoLedger?.let { ledger ->
+                val referenced = ledger.bindings.mapNotNull { it.book_id }.distinct()
+                val available = batchLoad(referenced) { bookDao.getByIds(it) }
+                    .filter { it.deleted_at == null }.mapTo(HashSet()) { it.id }
+                ledger.restore(checkNotNull(legadoDao) { "外部阅读账本不可用。" }, available)
             }
         }
     }

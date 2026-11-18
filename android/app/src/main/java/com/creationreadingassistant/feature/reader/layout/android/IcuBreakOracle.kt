@@ -22,7 +22,9 @@ class IcuBreakOracle : BreakOracle {
 
     private val iterator = ThreadLocal.withInitial { BreakIterator.getLineInstance() }
 
-    override fun breaks(text: String): BooleanArray {
+    override fun breaks(text: String): BooleanArray = breaks(text) {}
+
+    override fun breaks(text: String, checkActive: () -> Unit): BooleanArray {
         val out = BooleanArray(text.length + 1)
         if (text.isEmpty()) {
             out[0] = true
@@ -32,7 +34,9 @@ class IcuBreakOracle : BreakOracle {
         val it = requireNotNull(iterator.get()) { "ThreadLocal.withInitial 保证非空" }
         it.setText(text)
         var p = it.first()
+        var visited = 0
         while (p != BreakIterator.DONE) {
+            if ((visited++ and 255) == 0) checkActive()
             if (p in out.indices) out[p] = true
             p = it.next()
         }

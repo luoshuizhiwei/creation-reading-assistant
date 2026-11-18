@@ -15,6 +15,7 @@ data class StatsProgressRow(
     val book_id: String,
     val progress_percent: Float,
     val completion_state: String,
+    val completed_at: String? = null,
 )
 
 data class StatsBookRow(

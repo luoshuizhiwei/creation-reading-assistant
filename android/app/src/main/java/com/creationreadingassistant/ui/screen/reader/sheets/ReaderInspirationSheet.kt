@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.Style
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -43,6 +44,11 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import kotlinx.coroutines.delay
+import androidx.compose.ui.draw.scale
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.Animatable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -149,6 +155,8 @@ internal fun InspirationPage(
     var pendingEntityId by rememberSaveable(bookId) { mutableStateOf<String?>(null) }
     /** 有派发未收到结果的保存（保存中禁重复提交）。 */
     var awaitingSave by rememberSaveable(bookId) { mutableStateOf(false) }
+    /** 保存成功后的对勾闪烁窗（欠阻尼回弹），期间编辑锁定保持。 */
+    var savedFlash by remember { mutableStateOf(false) }
     /** 最近一次失败的可见错误（保存中/成功后清空）。 */
     var saveError by remember { mutableStateOf<String?>(null) }
 
@@ -180,8 +188,13 @@ internal fun InspirationPage(
         val id = pendingEntityId ?: return@LaunchedEffect
         when (val outcome = saveOutcome) {
             is InspirationSaveOutcome.Saved -> if (outcome.requestId == id) {
+                // 落库成功：先给「欠阻尼对勾」700ms（Ludi-05 点赞欠阻尼性格），
+                // 期间 awaitingSave 保持 true → P1 全页编辑锁定不提前解除；
+                // 随后按合同 P3 顺序清草稿 → 清选区 → 关页 → 提示。
+                savedFlash = true
+                delay(700)
                 awaitingSave = false
-                // 落库成功才：清草稿 → 清选区 → 关页 → 提示（合同 P3 顺序）。
+                savedFlash = false
                 clearDraft()
                 onClearSelection()
                 onSaveNotice("已保存灵感，并记录来源阅读位置")
@@ -245,6 +258,8 @@ internal fun InspirationPage(
             }
         },
         trailing = {
+            // 保存反馈（林逸-02 简化 + Ludi-05 欠阻尼）：保存中文字淡出并原地转圈；
+            // 成功信号到达后页面即关（反馈由 onClose+onSaveNotice 承载），失败回退为可重试态。
             TextButton(
                 onClick = {
                     // 内部再查在途状态：防止重组间隙重入派发第二份相同请求。
@@ -259,7 +274,33 @@ internal fun InspirationPage(
                 },
                 enabled = canSave && !awaitingSave,
             ) {
-                Text(if (awaitingSave) "保存中…" else "保存")
+                when {
+                    savedFlash -> {
+                        // 欠阻尼回弹（一次轻微过冲后归位）：保存成功的 Q 弹确认。
+                        val scale = remember { Animatable(0.6f) }
+                        LaunchedEffect(Unit) {
+                            scale.animateTo(
+                                1f,
+                                spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                            )
+                        }
+                        Icon(
+                            Icons.Outlined.Check,
+                            contentDescription = "已保存",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .scale(scale.value),
+                        )
+                    }
+                    awaitingSave -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                    else -> Text("保存")
+                }
             }
         },
     ) {
@@ -726,7 +767,7 @@ private fun QuickAddInlineBar(
                             Text(
                                 placeholder,
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.outline,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         innerTextField()

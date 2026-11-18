@@ -40,6 +40,7 @@ fun SystemBarsEffect(
     policy: SystemBarsPolicy,
     base: Boolean = false,
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
+    content: @Composable () -> Unit = {},
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -51,9 +52,11 @@ fun SystemBarsEffect(
         }
         CompositionLocalProvider(LocalSystemBarsHost provides host) {
             SystemBarsRegistration(policy, base, host, lifecycleOwner)
+            content()
         }
     } else {
         SystemBarsRegistration(policy, base, existingHost, lifecycleOwner)
+        content()
     }
 }
 

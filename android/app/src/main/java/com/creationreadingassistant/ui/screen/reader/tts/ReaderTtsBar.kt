@@ -482,6 +482,12 @@ internal fun TtsSettingsContent(
                 }
             }
 
+            Text(
+                text = "神经语音会将正在朗读的文字发送到在线语音服务。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             // 3. 声音与音色（圆润微胶囊芯片单选导轨，带选中态高光微徽章）
             val voices = tts.availableVoices
                 .filter { it.locale.startsWith("zh") }

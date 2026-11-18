@@ -59,6 +59,7 @@ object WidthAdjuster {
         val adv: FloatArray,
         val gapAfter: FloatArray,
         val drawShift: FloatArray,
+        checkActive: () -> Unit = {},
     ) {
         /**
          * 前缀和：`pre[i]` 为前 i 簇的总宽（含其间的 gap）。
@@ -69,6 +70,7 @@ object WidthAdjuster {
          */
         val pre: FloatArray = FloatArray(adv.size + 1).also { p ->
             for (i in adv.indices) {
+                if ((i and 255) == 0) checkActive()
                 p[i + 1] = p[i] + adv[i] + (if (i + 1 < adv.size) gapAfter[i] else 0f)
             }
         }
@@ -84,7 +86,7 @@ object WidthAdjuster {
         }
     }
 
-    fun phaseA(c: Clusters, cfg: LayoutConfig): PhaseA {
+    fun phaseA(c: Clusters, cfg: LayoutConfig, checkActive: () -> Unit = {}): PhaseA {
         val n = c.count
         val adv = c.advance.copyOf()
         val gap = FloatArray(n)
@@ -92,6 +94,7 @@ object WidthAdjuster {
         val em = cfg.em
 
         for (i in 0 until n - 1) {
+            if ((i and 255) == 0) checkActive()
             val k = c.klass[i]
             val kn = c.klass[i + 1]
 
@@ -113,8 +116,11 @@ object WidthAdjuster {
             }
         }
         // 兜底：任何路径都不允许出现负推进，否则 clusterX 会倒退。
-        for (i in 0 until n) if (adv[i] < 0f) adv[i] = 0f
-        return PhaseA(adv, gap, shift)
+        for (i in 0 until n) {
+            if ((i and 255) == 0) checkActive()
+            if (adv[i] < 0f) adv[i] = 0f
+        }
+        return PhaseA(adv, gap, shift, checkActive)
     }
 
     /**

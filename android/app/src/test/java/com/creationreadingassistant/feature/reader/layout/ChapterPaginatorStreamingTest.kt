@@ -38,6 +38,22 @@ class ChapterPaginatorStreamingTest {
     }
 
     @Test
+    fun testWaitingTurnPublishesOneEarlyPrefixBetweenScheduledSnapshots() {
+        val input = paragraphs("正文内容。".repeat(1000))
+        val config = cfg(widthEm = 8f, heightEm = 4f)
+        val published = mutableListOf<Int>()
+        val final = ChapterPaginator.paginateProgressiveText(
+            input, config, ruler, oracle,
+            initialPageThreshold = 4,
+            publishGrowingPrefix = true,
+            shouldPublishEarly = { it >= 5 },
+            onInitialPages = { published.add(it.pages.size) },
+        )
+        assertEquals(listOf(4, 5, 8), published.take(3))
+        assertTrue(final.pageStarts.contentEquals(ChapterPaginator.paginate(input, config, ruler, oracle).pageStarts))
+    }
+
+    @Test
     fun testProgressivePaginationProducesIdenticalLayout() {
         val paras = paragraphs(*Array(12) { "这是第" + it + "段用于测试流式排版等价性的长正文。".repeat(10) })
         val config = cfg()

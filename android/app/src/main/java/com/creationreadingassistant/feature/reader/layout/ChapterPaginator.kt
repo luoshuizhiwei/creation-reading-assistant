@@ -58,20 +58,18 @@ object ChapterPaginator {
         }
     }
 
-    private data class Item(val line: LayoutLine, val para: LayoutParagraph, val isParaEnd: Boolean)
+    private data class Item(
+        val line: LayoutLine,
+        val para: LayoutParagraph,
+        val isParaEnd: Boolean,
+    ) : BlockItem {
+        override val startOffset: Int get() = para.charOffset + line.startInText
+        override val endOffset: Int get() = para.charOffset + line.endInText
+    }
 
     private sealed interface BlockItem {
         val startOffset: Int
         val endOffset: Int
-
-        data class Text(
-            val line: LayoutLine,
-            val para: LayoutParagraph,
-            val isParaEnd: Boolean,
-        ) : BlockItem {
-            override val startOffset: Int get() = para.charOffset + line.startInText
-            override val endOffset: Int get() = para.charOffset + line.endInText
-        }
 
         data class Image(
             val block: LayoutBlock.Image,
@@ -83,15 +81,9 @@ object ChapterPaginator {
         }
     }
 
-    /** 按需流式驱动段落装行，避免大章节全量 map 的瞬时内存峰值与 GC 停顿。 */
-    private class ParagraphItemStream(
-        private val paragraphs: List<LayoutParagraph>,
-        private val cfg: LayoutConfig,
-        private val ruler: TextRuler,
-        private val oracle: BreakOracle,
-    ) {
-        private var paraIndex = 0
-        private val deque = ArrayDeque<Item>()
+    /** 只缓存分页所需的前瞻行，以及被 keep-with-next 推回的行。 */
+    private class ItemStream<T : Any>(private val items: Iterator<T>) {
+        private val deque = ArrayDeque<T>()
 
         val hasNext: Boolean
             get() {
@@ -99,93 +91,46 @@ object ChapterPaginator {
                 return deque.isNotEmpty()
             }
 
-        fun peek(): Item? {
+        fun peek(): T? {
             fillIfNeeded()
             return deque.firstOrNull()
         }
 
-        fun poll(): Item? {
+        fun poll(): T? {
             fillIfNeeded()
             return if (deque.isNotEmpty()) deque.removeFirst() else null
         }
 
-        fun pushBack(item: Item) {
+        fun pushBack(item: T) {
             deque.addFirst(item)
         }
 
         private fun fillIfNeeded() {
-            while (deque.isEmpty() && paraIndex < paragraphs.size) {
-                val p = paragraphs[paraIndex++]
-                if (p.text.isEmpty()) continue
-                val lines = LineComposer.layoutParagraph(p, cfg, ruler, oracle)
-                lines.forEachIndexed { i, ln ->
-                    ln.listMarker = p.listMarker
-                    deque.addLast(Item(ln, p, i == lines.lastIndex))
-                }
-            }
+            if (deque.isEmpty() && items.hasNext()) deque.addLast(items.next())
         }
     }
 
-    /** 混排图文按需流式驱动装行。 */
-    private class BlockItemStream(
-        private val blocks: List<LayoutBlock>,
-        private val cfg: LayoutConfig,
-        private val ruler: TextRuler,
-        private val oracle: BreakOracle,
-    ) {
-        private var blockIndex = 0
-        private val deque = ArrayDeque<BlockItem>()
-
-        val hasNext: Boolean
-            get() {
-                fillIfNeeded()
-                return deque.isNotEmpty()
-            }
-
-        fun peek(): BlockItem? {
-            fillIfNeeded()
-            return deque.firstOrNull()
-        }
-
-        fun poll(): BlockItem? {
-            fillIfNeeded()
-            return if (deque.isNotEmpty()) deque.removeFirst() else null
-        }
-
-        fun pushBack(item: BlockItem) {
-            deque.addFirst(item)
-        }
-
-        private fun fillIfNeeded() {
-            while (deque.isEmpty() && blockIndex < blocks.size) {
-                val block = blocks[blockIndex++]
-                when (block) {
-                    is LayoutBlock.Text -> {
-                        val para = block.paragraph
-                        if (para.text.isNotEmpty()) {
-                            val lines = LineComposer.layoutParagraph(para, cfg, ruler, oracle)
-                            lines.forEachIndexed { i, line ->
-                                line.listMarker = para.listMarker
-                                deque.addLast(BlockItem.Text(line, para, i == lines.lastIndex))
-                            }
-                        }
-                    }
-                    is LayoutBlock.Image -> {
-                        val intrinsicW = if (block.widthPx > 0f && block.heightPx > 0f) block.widthPx else cfg.contentWidthPx
-                        val intrinsicH = if (block.widthPx > 0f && block.heightPx > 0f) block.heightPx else cfg.contentWidthPx * 0.75f
-                        val availableImageHeight = (cfg.contentHeightPx - cfg.contentTopPaddingPx).coerceAtLeast(1f)
-                        val scale = minOf(1f, cfg.contentWidthPx / intrinsicW, availableImageHeight / intrinsicH)
-                        deque.addLast(BlockItem.Image(block, intrinsicW * scale, intrinsicH * scale))
-                    }
-                }
-            }
+    private fun paragraphItems(
+        paragraph: LayoutParagraph,
+        cfg: LayoutConfig,
+        ruler: TextRuler,
+        oracle: BreakOracle,
+        checkActive: () -> Unit,
+    ): Sequence<Item> = sequence {
+        val lines = LineComposer.paragraphLines(paragraph, cfg, ruler, oracle, checkActive).iterator()
+        while (lines.hasNext()) {
+            val line = lines.next()
+            line.listMarker = paragraph.listMarker
+            // 前瞻保留旧的末行定义，包含段末只剩空格的情况。
+            yield(Item(line, paragraph, isParaEnd = !lines.hasNext()))
         }
     }
 
     /**
      * 纯文本流式排版主干。
-     * 当 [onInitialPages] 非空且已排页数达到 [initialPageThreshold] 且覆盖 [targetOffset] 时，
-     * 立即产出阶段性 [ChapterLayout] 供首屏无缝即时渲染。
+     * 当页数达到 [initialPageThreshold] 且前瞻页起点越过 [targetOffset] 时，
+     * 提供 [onInitialPages] 快照，保证后续分页不会改变目标偏移所在页。
+     * [publishGrowingPrefix] 允许继续发布页数翻倍的快照，使所有快照的复制量保持线性。
      */
     fun paginateProgressiveText(
         paragraphs: List<LayoutParagraph>,
@@ -194,9 +139,15 @@ object ChapterPaginator {
         oracle: BreakOracle,
         targetOffset: Int = 0,
         initialPageThreshold: Int = 2,
+        checkActive: () -> Unit = {},
+        publishGrowingPrefix: Boolean = false,
+        shouldPublishEarly: (Int) -> Boolean = { false },
         onInitialPages: ((ChapterLayout) -> Unit)? = null,
     ): ChapterLayout {
-        val stream = ParagraphItemStream(paragraphs, cfg, ruler, oracle)
+        checkActive()
+        val items = paragraphs.asSequence()
+            .flatMap { paragraphItems(it, cfg, ruler, oracle, checkActive) }
+        val stream = ItemStream(items.iterator())
         if (!stream.hasNext) {
             // 空白章也必须有一页，否则 pageStarts 声称有页而 pages 为空，
             // 控制器会结束排版但 currentPage 永远为 null，UI 随之永久转圈。
@@ -214,9 +165,11 @@ object ChapterPaginator {
         val pages = ArrayList<Page>()
         val starts = ArrayList<Int>()
         val charCount = paragraphs.sumOf { it.text.length }
-        var initialDispatched = false
+        var nextPublishThreshold = initialPageThreshold
+        var earlyPublished = false
 
         while (stream.hasNext) {
+            checkActive()
             val pageLines = ArrayList<LayoutLine>()
             val pageItems = ArrayList<Item>()
             var used = cfg.contentTopPaddingPx
@@ -259,11 +212,19 @@ object ChapterPaginator {
             )
             pages.add(page)
 
-            if (!initialDispatched && onInitialPages != null) {
-                val satisfiedCount = pages.size >= initialPageThreshold
-                val satisfiedOffset = if (targetOffset <= 0) true else page.endCharOffset >= targetOffset
-                if (satisfiedCount && satisfiedOffset && stream.hasNext) {
-                    initialDispatched = true
+            val scheduled = pages.size >= nextPublishThreshold
+            val early = publishGrowingPrefix && !earlyPublished &&
+                nextPublishThreshold != initialPageThreshold && !scheduled
+            if (onInitialPages != null && (scheduled || early)) {
+                val next = stream.peek()
+                if (next != null && absoluteOffset(next.para, next.line.startInText) > targetOffset &&
+                    (scheduled || shouldPublishEarly(pages.size))) {
+                    if (scheduled) {
+                        nextPublishThreshold = if (publishGrowingPrefix) pages.size * 2 else Int.MAX_VALUE
+                        earlyPublished = false
+                    } else {
+                        earlyPublished = true
+                    }
                     onInitialPages(ChapterLayout(pages.toList(), starts.toIntArray(), charCount))
                 }
             }
@@ -297,8 +258,12 @@ object ChapterPaginator {
         oracle: BreakOracle,
         targetOffset: Int = 0,
         initialPageThreshold: Int = 2,
+        checkActive: () -> Unit = {},
+        publishGrowingPrefix: Boolean = false,
+        shouldPublishEarly: (Int) -> Boolean = { false },
         onInitialPages: ((ChapterLayout) -> Unit)? = null,
     ): ChapterLayout {
+        checkActive()
         if (blocks.all { it is LayoutBlock.Text }) {
             return paginateProgressiveText(
                 paragraphs = blocks.map { (it as LayoutBlock.Text).paragraph },
@@ -307,11 +272,33 @@ object ChapterPaginator {
                 oracle = oracle,
                 targetOffset = targetOffset,
                 initialPageThreshold = initialPageThreshold,
+                checkActive = checkActive,
+                publishGrowingPrefix = publishGrowingPrefix,
+                shouldPublishEarly = shouldPublishEarly,
                 onInitialPages = onInitialPages,
             )
         }
 
-        val stream = BlockItemStream(blocks, cfg, ruler, oracle)
+        val stream = ItemStream(iterator<BlockItem> {
+            for (block in blocks) {
+                checkActive()
+                when (block) {
+                    is LayoutBlock.Text -> {
+                        for (item in paragraphItems(block.paragraph, cfg, ruler, oracle, checkActive)) {
+                            yield(item)
+                        }
+                    }
+                    is LayoutBlock.Image -> {
+                        val hasIntrinsicSize = block.widthPx > 0f && block.heightPx > 0f
+                        val width = if (hasIntrinsicSize) block.widthPx else cfg.contentWidthPx
+                        val height = if (hasIntrinsicSize) block.heightPx else cfg.contentWidthPx * 0.75f
+                        val availableHeight = (cfg.contentHeightPx - cfg.contentTopPaddingPx).coerceAtLeast(1f)
+                        val scale = minOf(1f, cfg.contentWidthPx / width, availableHeight / height)
+                        yield(BlockItem.Image(block, width * scale, height * scale))
+                    }
+                }
+            }
+        })
         if (!stream.hasNext) {
             return ChapterLayout(
                 pages = listOf(
@@ -337,9 +324,11 @@ object ChapterPaginator {
                 is LayoutBlock.Image -> block.anchorOffset
             }
         } ?: 0
-        var initialDispatched = false
+        var nextPublishThreshold = initialPageThreshold
+        var earlyPublished = false
 
         while (stream.hasNext) {
+            checkActive()
             val pageItems = ArrayList<BlockItem>()
             var used = cfg.contentTopPaddingPx
 
@@ -355,7 +344,7 @@ object ChapterPaginator {
             // 标题的下一项可以是正文行，也可以是图片；两种情况都不能把标题孤留页底。
             if (pageItems.size > 1 && stream.hasNext) {
                 val last = pageItems.last()
-                if (last is BlockItem.Text && last.line.role.isHeading()) {
+                if (last is Item && last.line.role.isHeading()) {
                     val removed = pageItems.removeAt(pageItems.lastIndex)
                     stream.pushBack(removed)
                     used -= itemHeight(last, cfg) + spacingAfter(last, cfg)
@@ -373,7 +362,7 @@ object ChapterPaginator {
 
             pageItems.forEachIndexed { index, item ->
                 when (item) {
-                    is BlockItem.Text -> {
+                    is Item -> {
                         lines += item.line
                         lineTops += y
                         paraOffsets += item.para.charOffset
@@ -408,11 +397,19 @@ object ChapterPaginator {
             )
             pages += page
 
-            if (!initialDispatched && onInitialPages != null) {
-                val satisfiedCount = pages.size >= initialPageThreshold
-                val satisfiedOffset = if (targetOffset <= 0) true else page.endCharOffset >= targetOffset
-                if (satisfiedCount && satisfiedOffset && stream.hasNext) {
-                    initialDispatched = true
+            val scheduled = pages.size >= nextPublishThreshold
+            val early = publishGrowingPrefix && !earlyPublished &&
+                nextPublishThreshold != initialPageThreshold && !scheduled
+            if (onInitialPages != null && (scheduled || early)) {
+                val next = stream.peek()
+                if (next != null && next.startOffset > targetOffset &&
+                    (scheduled || shouldPublishEarly(pages.size))) {
+                    if (scheduled) {
+                        nextPublishThreshold = if (publishGrowingPrefix) pages.size * 2 else Int.MAX_VALUE
+                        earlyPublished = false
+                    } else {
+                        earlyPublished = true
+                    }
                     onInitialPages(ChapterLayout(pages.toList(), starts.toIntArray(), charCount))
                 }
             }
@@ -432,6 +429,7 @@ object ChapterPaginator {
         cfg: LayoutConfig,
         ruler: TextRuler,
         oracle: BreakOracle,
+        checkActive: () -> Unit = {},
     ): ChapterLayout = paginateProgressive(
         blocks = blocks,
         cfg = cfg,
@@ -439,16 +437,17 @@ object ChapterPaginator {
         oracle = oracle,
         targetOffset = 0,
         initialPageThreshold = Int.MAX_VALUE,
+        checkActive = checkActive,
         onInitialPages = null,
     )
 
     private fun itemHeight(item: BlockItem, cfg: LayoutConfig): Float = when (item) {
-        is BlockItem.Text -> lineHeight(item.line, cfg)
+        is Item -> lineHeight(item.line, cfg)
         is BlockItem.Image -> item.height
     }
 
     private fun spacingAfter(item: BlockItem, cfg: LayoutConfig): Float = when (item) {
-        is BlockItem.Text -> if (item.isParaEnd) cfg.paragraphSpacingPx else 0f
+        is Item -> if (item.isParaEnd) cfg.paragraphSpacingPx else 0f
         is BlockItem.Image -> cfg.paragraphSpacingPx
     }
 

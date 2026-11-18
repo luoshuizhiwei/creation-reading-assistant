@@ -301,7 +301,21 @@ internal fun computeStats(
     }
     val unreadable = books.size - displayable.size
     val status = BookStatus(reading, completed, unread, unreadable, books.size, shelved)
-    val readBooks = displayable.count { hasRead(it.id, progressMap[it.id]) }
+    val periodBookIds = periodSessions.mapTo(HashSet()) { it.book_id }
+    val readBooks = if (period == StatsPeriod.TOTAL) {
+        displayable.count { hasRead(it.id, progressMap[it.id]) }
+    } else {
+        displayable.count { it.id in periodBookIds }
+    }
+    val completedInPeriod = if (period == StatsPeriod.TOTAL) {
+        completed
+    } else {
+        displayable.count { book ->
+            val p = progressMap[book.id]
+            ReadingCompletionState.fromStorage(p?.completion_state) == ReadingCompletionState.FINISHED &&
+                parseDate(p?.completed_at)?.let { inRange(rs to re, it) } == true
+        }
+    }
 
     val sizeMap = books.associate { it.id to it.size }
     val maxProg = mutableMapOf<String, Float>()
@@ -325,14 +339,14 @@ internal fun computeStats(
     val noteCount = notes.count { parseDate(it.created_at)?.let { d -> inRange(rs to re, d) } == true }
     val inspirationCount = inspirations.count { parseDate(it.created_at)?.let { d -> inRange(rs to re, d) } == true }
 
-    val streak = computeReadingStreak(valid)
+    val streak = computeReadingStreak(periodSessions, today = minOf(re.minusDays(1), today()))
     val trend = buildTrend(period, anchor, valid)
 
     return StatsUi(
         totalReadingMs = totalReadingMs,
         readingDays = readingDays,
         readBooks = readBooks,
-        completed = completed,
+        completed = completedInPeriod,
         sessionCount = sessionCount,
         streakCurrent = streak.current,
         streakLongest = streak.longest,

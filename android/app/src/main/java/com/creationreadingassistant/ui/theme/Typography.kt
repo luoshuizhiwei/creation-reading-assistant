@@ -64,6 +64,10 @@ private fun cjk(
     lineHeight = (size * lineHeight).sp,
     fontWeight = weight,
     letterSpacing = tracking.sp,
+    // 等宽数字锁死（tabular-nums）：进度百分比、统计计数、日期等数字位数变化时
+    // 不左右晃动（Ludi《大厂 UI 五个魔鬼细节》04A）。汉字不受影响；阅读正文走
+    // 独立 ReaderSettings，排版内核零触碰。
+    fontFeatureSettings = "tnum",
     lineHeightStyle = CjkLineHeightStyle,
 )
 
@@ -90,3 +94,26 @@ val AppTypography = Typography(
     labelMedium = cjk(Sans, 12, 1.50, FontWeight.Medium),
     labelSmall = cjk(Sans, 11, 1.45, FontWeight.Medium),
 )
+
+/**
+ * 暗色模式字重降档（光渗效应补偿，Ludi《大厂 UI 五个魔鬼细节》02）：
+ * 黑底白字因人眼光晕扩散，视觉上比实际笔画粗约一成；暗色下全站 SemiBold→Medium、
+ * Medium→Normal 各降一档，让亮/暗两种模式的文字观感粗细一致。层级改由
+ * size + 暗色下更亮的文字颜色承担。只动有字重的档位；display/body 本就是
+ * Normal，不再往下降（400 以下中文笔画过细）。
+ */
+fun appTypography(darkTheme: Boolean): Typography = if (!darkTheme) {
+    AppTypography
+} else {
+    AppTypography.copy(
+        headlineLarge = AppTypography.headlineLarge.copy(fontWeight = FontWeight.Normal),
+        headlineMedium = AppTypography.headlineMedium.copy(fontWeight = FontWeight.Medium),
+        headlineSmall = AppTypography.headlineSmall.copy(fontWeight = FontWeight.Medium),
+        titleLarge = AppTypography.titleLarge.copy(fontWeight = FontWeight.Medium),
+        titleMedium = AppTypography.titleMedium.copy(fontWeight = FontWeight.Medium),
+        titleSmall = AppTypography.titleSmall.copy(fontWeight = FontWeight.Medium),
+        labelLarge = AppTypography.labelLarge.copy(fontWeight = FontWeight.Normal),
+        labelMedium = AppTypography.labelMedium.copy(fontWeight = FontWeight.Normal),
+        labelSmall = AppTypography.labelSmall.copy(fontWeight = FontWeight.Normal),
+    )
+}

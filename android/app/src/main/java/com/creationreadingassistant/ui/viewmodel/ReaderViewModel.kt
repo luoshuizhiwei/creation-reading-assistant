@@ -51,8 +51,6 @@ import com.creationreadingassistant.data.local.CoroutineScopeModule.ApplicationS
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import com.creationreadingassistant.data.repository.ReaderProgressSaveOrder
-import com.creationreadingassistant.data.repository.SearchIndexRepository
-import com.creationreadingassistant.data.repository.SearchIndexScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -138,8 +136,6 @@ class ReaderViewModel @Inject constructor(
     val pageIndexManager: ReaderPageIndexManager,
     val aiClient: AiClient,
     private val rulesRepository: RulesRepository,
-    private val searchIndexRepository: SearchIndexRepository,
-    private val searchIndexScheduler: SearchIndexScheduler,
     @ApplicationScope private val appScope: CoroutineScope,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
@@ -587,8 +583,6 @@ class ReaderViewModel @Inject constructor(
                     }
                 }
                 if (command == null) return@io
-                // 受影响范围必须在 execute **之前**判定：删除类命令执行后规则行已不在。
-                val indexPlan = ReaderSearchIndexCoordinator.planForCommand(command, rulesRepository)
                 val result = rulesRepository.execute(action.bookId, command)
                 if (result is RuleMutationResult.Migrated) {
                     // 快速单选 / 迁移：同步旧单选显示 id，并发布结果供统一重扫策略消费
@@ -601,17 +595,6 @@ class ReaderViewModel @Inject constructor(
                     // 选区工具条与规则表单的「选中文本」预填也须一并失效。
                     // 失败路径（Rejected/NotAnchorable/NotFound）不清——选区仍有效，用户可重试。
                     updateScreen { it.withSelectionCleared() }
-                }
-                if (indexPlan != null &&
-                    (result is RuleMutationResult.Success || result is RuleMutationResult.Saved)
-                ) {
-                    ReaderSearchIndexCoordinator.applySearchIndexRefresh(
-                        bookId = action.bookId,
-                        plan = indexPlan,
-                        appScope = appScope,
-                        searchIndexRepository = searchIndexRepository,
-                        searchIndexScheduler = searchIndexScheduler,
-                    )
                 }
             }
             is ReaderAction.ClearRuleMutationResult -> _ruleMutationResult.value = null
@@ -698,10 +681,22 @@ class ReaderViewModel @Inject constructor(
      * 前置：调用方已确认当前书具备可安全改写的 source 坐标（第 1 道能力门）。
      * 这里只回答「有没有锚点」与「草稿文字是否就是当前选区文字」，返回 null 表示拒绝。
      */
+    /** 选区在源文本上的起止（原 [ReaderSearchIndexCoordinator] 的纯函数，随索引下线内联）。 */
+    private fun currentSelectionSourceRange(state: ReaderScreenState): Pair<Int, Int>? {
+        val end = state.selectedSourceEnd
+        if (end < 0) return null
+        val start = when {
+            state.selectedRangeStart >= 0 -> state.selectedRangeStart
+            state.selectedGlobalOffset >= 0 -> state.selectedGlobalOffset
+            else -> return null
+        }
+        return if (start in 0 until end) start to end else null
+    }
+
     private fun resolveSingleCorrectionAnchor(
         draft: RuleCommand.SaveSingleCorrection,
     ): RuleCommand? {
-        val anchor = ReaderSearchIndexCoordinator.currentSelectionSourceRange(_screenState.value)
+        val anchor = currentSelectionSourceRange(_screenState.value)
             ?: run {
                 _ruleMutationResult.value = RuleMutationResult.NotAnchorable(
                     "当前没有可用的选区位置，请先在正文中长按选中要纠错的文字",

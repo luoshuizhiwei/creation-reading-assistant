@@ -1,5 +1,11 @@
 package com.creationreadingassistant.ui.screen.reader.tts
 
+import android.content.Context
+import com.creationreadingassistant.ui.screen.reader.openTts
+import com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -44,39 +50,29 @@ class TtsNoticePolicyTest {
         assertTrue(holder.gatePlay() is TtsPlayResult.Accepted)
     }
 
-    // ── 引擎不可用时的自动切换（打破错误态够不到引擎选择器的死锁）──────────
-
     @Test
-    fun `系统引擎不可用自动切换到神经语音`() {
-        assertEquals(
-            com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId.EDGE,
-            TtsNoticePolicy.autoSwitchEngineOnUnavailable(
-                com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId.SYSTEM,
-            ),
+    fun `unavailable system TTS leaves online output an explicit choice`() {
+        val host = mockk<TtsEngineHost>(relaxed = true)
+        every { host.engineId } returns TtsEngineId.SYSTEM
+        every { host.availability } returns TtsAvailability.Unavailable
+        every { host.play(any(), any(), any(), any()) } returns TtsPlayResult.Rejected("本地语音不可用")
+        var controlsVisible = false
+        openTts(
+            contentText = "测试正文",
+            epubBook = null,
+            isMarkdown = false,
+            ttsResumeChapter = 0,
+            chapterIndex = 0,
+            ttsResumeOffset = 0,
+            tts = host,
+            bookTitle = "测试 TXT",
+            currentChapterTitle = "测试章",
+            context = mockk<Context>(),
+            onShowTtsChange = { controlsVisible = it },
+            showNotice = {},
         )
-    }
-
-    @Test
-    fun `神经语音不可用不再切换避免两端都坏时循环`() {
-        assertEquals(
-            null,
-            TtsNoticePolicy.autoSwitchEngineOnUnavailable(
-                com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId.EDGE,
-            ),
-        )
-    }
-
-    @Test
-    fun `自动切换仅在引擎判定不可用时触发`() {
-        assertTrue(
-            TtsNoticePolicy.shouldAutoSwitchOnReject(TtsAvailability.Unavailable),
-        )
-        assertTrue(
-            "初始化中不抢跑切换",
-            !TtsNoticePolicy.shouldAutoSwitchOnReject(TtsAvailability.Initializing),
-        )
-        assertTrue(
-            !TtsNoticePolicy.shouldAutoSwitchOnReject(TtsAvailability.Ready),
-        )
+        assertTrue(controlsVisible)
+        verify(exactly = 1) { host.play(any(), any(), any(), any()) }
+        verify(exactly = 0) { host.switchEngine(TtsEngineId.EDGE) }
     }
 }

@@ -70,7 +70,6 @@ class BookRepositoryTest {
     private lateinit var shelfBookDao: ShelfBookDao
     private lateinit var chapterReadDao: ChapterReadDao
     private lateinit var searchIndexRepository: SearchIndexRepository
-    private lateinit var indexRefreshCoordinator: SearchIndexBookRefreshCoordinator
 
     private lateinit var repository: BookRepository
 
@@ -94,7 +93,6 @@ class BookRepositoryTest {
         shelfBookDao = mockk(relaxed = true)
         chapterReadDao = mockk(relaxed = true)
         searchIndexRepository = mockk(relaxed = true)
-        indexRefreshCoordinator = mockk(relaxed = true)
         repository = BookRepository(
             bookDao = bookDao,
             bookContentDao = bookContentDao,
@@ -108,8 +106,6 @@ class BookRepositoryTest {
             bookCategoryDao = bookCategoryDao,
             shelfBookDao = shelfBookDao,
             chapterReadDao = chapterReadDao,
-            searchIndexRepository = searchIndexRepository,
-            indexRefreshCoordinator = indexRefreshCoordinator,
             context = mockk {
                 every { filesDir } returns tmp.newFolder("files")
             },
@@ -239,116 +235,10 @@ class BookRepositoryTest {
 
     // ── S03-3：撤销删除接入异步索引协调器（解除同步阻塞） ───────
 
-    @Test
-    fun `restoreBook calls indexRefreshCoordinator request once on successful restore without synchronous reindex`() = runTest {
-        val deletedBook = BookEntity(
-            id = "b1",
-            title = "甲书",
-            format = "txt",
-            updated_at = "2026-01-01T00:00:00Z",
-            deleted_at = "2026-01-02T00:00:00Z",
-        )
-        coEvery { bookDao.getDeleted() } returns listOf(deletedBook)
 
-        repository.restoreBook("b1")
 
-        // 成功恢复后调用 indexRefreshCoordinator.request(bookId) 恰好 1 次
-        verify(exactly = 1) { indexRefreshCoordinator.request("b1") }
-        // 关键断言（解除同步阻塞）：不再同步等待或调用 searchIndexRepository.reindexBookById
-        coVerify(exactly = 0) { searchIndexRepository.reindexBookById(any()) }
-    }
 
-    @Test
-    fun `restoreBook does not call indexRefreshCoordinator request when book not found in deleted`() = runTest {
-        coEvery { bookDao.getDeleted() } returns emptyList()
 
-        repository.restoreBook("non_existing")
-
-        // 恢复失败时绝不提交重建请求
-        verify(exactly = 0) { indexRefreshCoordinator.request(any()) }
-        coVerify(exactly = 0) { searchIndexRepository.reindexBookById(any()) }
-    }
-
-    @Test
-    fun `restoreBook does not call indexRefreshCoordinator request when deleted_at is null`() = runTest {
-        val activeBook = BookEntity(
-            id = "b1",
-            title = "未被删除的书",
-            format = "txt",
-            updated_at = "2026-01-01T00:00:00Z",
-            deleted_at = null,
-        )
-        coEvery { bookDao.getDeleted() } returns listOf(activeBook)
-
-        repository.restoreBook("b1")
-
-        // 无有效删除时间戳时不提交重建请求
-        verify(exactly = 0) { indexRefreshCoordinator.request(any()) }
-        coVerify(exactly = 0) { searchIndexRepository.reindexBookById(any()) }
-    }
-
-    @Test
-    fun `restoreDeletion delegates to async coordinator and does not synchronously wait for reindex`() = runTest {
-        val stamp = "2026-01-02T00:00:00Z"
-        val snapshot = BookDeletionSnapshot(
-            bookId = "b1",
-            deletedAt = stamp,
-            book = BookEntity(id = "b1", title = "甲书", format = "txt", updated_at = "2026-01-01T00:00:00Z"),
-            progress = null,
-            sessions = emptyList(),
-            notes = emptyList(),
-            highlights = emptyList(),
-            file = null,
-            content = null,
-            contentPayloadRetained = false,
-            tagIds = emptyList(),
-            categoryIds = emptyList(),
-            shelfLinks = emptyList(),
-            chapterReads = emptyList(),
-        )
-        coEvery { bookDao.getDeleted() } returns listOf(
-            BookEntity(id = "b1", title = "甲书", format = "txt", updated_at = "2026-01-01T00:00:00Z", deleted_at = stamp),
-        )
-
-        val report = repository.restoreDeletion(snapshot, LiveRelationTargets.EMPTY)
-
-        assertTrue(report.restoredBook)
-        // 恢复成功时调用协调器恰好 1 次
-        verify(exactly = 1) { indexRefreshCoordinator.request("b1") }
-        // 关键断言（解除同步阻塞）：不再同步调用 searchIndexRepository.reindexBookById
-        coVerify(exactly = 0) { searchIndexRepository.reindexBookById(any()) }
-    }
-
-    @Test
-    fun `restoreDeletion does not call coordinator request when book is not restored`() = runTest {
-        val stamp = "2026-01-02T00:00:00Z"
-        val snapshot = BookDeletionSnapshot(
-            bookId = "b1",
-            deletedAt = stamp,
-            book = null,
-            progress = null,
-            sessions = emptyList(),
-            notes = emptyList(),
-            highlights = emptyList(),
-            file = null,
-            content = null,
-            contentPayloadRetained = false,
-            tagIds = emptyList(),
-            categoryIds = emptyList(),
-            shelfLinks = emptyList(),
-            chapterReads = emptyList(),
-        )
-        // 模拟未命中（库中无活跃书，也无已删书，且快照无书籍行）
-        coEvery { bookDao.getByIds(any()) } returns emptyList()
-        coEvery { bookDao.getDeleted() } returns emptyList()
-
-        val report = repository.restoreDeletion(snapshot, LiveRelationTargets.EMPTY)
-
-        assertFalse(report.restoredBook)
-        // 未恢复成功时绝不提交重建请求
-        verify(exactly = 0) { indexRefreshCoordinator.request(any()) }
-        coVerify(exactly = 0) { searchIndexRepository.reindexBookById(any()) }
-    }
 
     // ── 阅读进度 / 完成状态 ────────────────────────────────
 

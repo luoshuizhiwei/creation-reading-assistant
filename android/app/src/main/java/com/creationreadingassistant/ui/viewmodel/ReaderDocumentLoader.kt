@@ -102,16 +102,20 @@ class ReaderDocumentLoader @Inject constructor(
                 val result = loadAttempt?.getOrNull()
                     ?: throw loadAttempt?.exceptionOrNull()
                         ?: IllegalArgumentException("本书暂无可阅读的 Markdown 正文（需重新导入或同步下载）")
+                val stored = parseStoredOffset(progress?.current_location_json)
                 val markdownDocument = if (result.isStreaming) {
                     val file = result.sourceFile
                         ?: throw IllegalStateException("流式 Markdown 缺少源文件")
                     val index = result.fileIndex
                         ?: throw IllegalStateException("流式 Markdown 缺少文件索引")
-                    MarkdownDocument.fromFileIndex(file, index)
+                    MarkdownDocument.fromFileIndex(
+                        file, index, stored.offset, stored.space == "canonical", context.cacheDir,
+                    ) { phase, elapsedMs ->
+                        AppLog.debug("TxtPerfTrace", "MarkdownPrepare $phase: $elapsedMs ms")
+                    }
                 } else {
                     MarkdownDocument(result.fullText ?: "")
                 }
-                val stored = parseStoredOffset(progress?.current_location_json)
                 val initialOffset = if (stored.space == "canonical") {
                     stored.offset
                 } else {

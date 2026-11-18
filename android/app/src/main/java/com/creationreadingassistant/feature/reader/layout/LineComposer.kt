@@ -22,31 +22,49 @@ object LineComposer {
         cfg: LayoutConfig,
         ruler: TextRuler,
         oracle: BreakOracle,
-    ): List<LayoutLine> {
-        if (p.text.isEmpty()) return emptyList()
+        checkActive: () -> Unit = {},
+    ): List<LayoutLine> = paragraphLines(p, cfg, ruler, oracle, checkActive).toList()
 
-        val c = Clusterizer.of(p.text, ruler)
-        if (c.count == 0) return emptyList()
+    /** 保留整段测宽和断点上下文，按分页器的消费速度生成行对象。 */
+    internal fun paragraphLines(
+        p: LayoutParagraph,
+        cfg: LayoutConfig,
+        ruler: TextRuler,
+        oracle: BreakOracle,
+        checkActive: () -> Unit,
+    ): Sequence<LayoutLine> = sequence {
+        checkActive()
+        if (p.text.isEmpty()) return@sequence
 
-        val atom = AtomicUnits.compute(c)
-        val brk = oracle.breaks(p.text)
-        val a = WidthAdjuster.phaseA(c, cfg)
+        val c = Clusterizer.of(p.text, ruler, checkActive)
+        if (c.count == 0) return@sequence
+
+        checkActive()
+        val atom = AtomicUnits.compute(c, checkActive)
+        checkActive()
+        val brk = oracle.breaks(p.text, checkActive)
+        checkActive()
+        val a = WidthAdjuster.phaseA(c, cfg, checkActive)
         // 前缀和由相位 A 一并算好（二分与相位 B 的宽度都靠它）
         val pre = a.pre
 
-        val lines = ArrayList<LayoutLine>()
+        val baseIndent = when (p.role) {
+            BlockRole.QUOTE -> cfg.em * (cfg.listIndentEm + cfg.quoteExtraIndentEm)
+            BlockRole.LIST_ITEM_BULLET,
+            BlockRole.LIST_ITEM_NUMBER,
+            BlockRole.TASK_ITEM_UNCHECKED,
+            BlockRole.TASK_ITEM_CHECKED -> cfg.em * cfg.listIndentEm * p.indentLevel.coerceAtLeast(1)
+            else -> 0f
+        }
+        checkActive()
+        val styles = p.inlineSpans.takeIf { it.isNotEmpty() }
+            ?.let { MarkdownStyleMap.ParagraphStyles(it, checkActive) }
         var lineStart = 0
         var first = true
+        var overflowRun: AtomicUnits.Run? = null
 
         while (lineStart < c.count) {
-            val baseIndent = when (p.role) {
-                BlockRole.QUOTE -> cfg.em * (cfg.listIndentEm + cfg.quoteExtraIndentEm)
-                BlockRole.LIST_ITEM_BULLET,
-                BlockRole.LIST_ITEM_NUMBER,
-                BlockRole.TASK_ITEM_UNCHECKED,
-                BlockRole.TASK_ITEM_CHECKED -> cfg.em * cfg.listIndentEm * p.indentLevel.coerceAtLeast(1)
-                else -> 0f
-            }
+            checkActive()
             val firstLineIndent = if (first && p.role == BlockRole.BODY) cfg.firstLineIndentPx else 0f
             val indent = baseIndent + firstLineIndent
             val avail = (cfg.contentWidthPx - indent).coerceAtLeast(cfg.em * 2f)
@@ -69,11 +87,17 @@ object LineComposer {
             if (end < c.count) {
                 val floor = lineStart + cfg.minLineClusters
                 var k = end
-                while (k > floor && !breakOk(c, atom, brk, k, lineStart, cfg)) k--
+                while (k > floor && !breakOk(c, atom, brk, k, lineStart, cfg)) {
+                    if ((k and 255) == 0) checkActive()
+                    k--
+                }
                 end = if (k > floor && breakOk(c, atom, brk, k, lineStart, cfg)) {
                     k
                 } else {
-                    advanceToOverflow(c, a, atom, lineStart, end, avail, cfg)
+                    // 长 URL 或数字串跨多行时，只测一次这个连续单元。
+                    val run = overflowRun?.takeIf { end in it } ?: AtomicUnits.runAt(c, atom, end, checkActive)
+                    if (run != null) overflowRun = run
+                    advanceToOverflow(c, a, run, lineStart, end, avail, cfg)
                 }
                 b = WidthAdjuster.phaseB(c, a, lineStart, end, cfg)
             }
@@ -94,15 +118,14 @@ object LineComposer {
                 overflowed = overflowed,
                 cfg = cfg,
             )
-            line.clusterStyles = MarkdownStyleMap.computeClusterStyles(line, p.inlineSpans)
-            lines.add(line)
+            line.clusterStyles = styles?.stylesFor(line)
+            yield(line)
 
-            val next = skipLeadingSpaces(c, end)
+            val next = skipLeadingSpaces(c, end, checkActive)
             // 绝对不允许原地踏步，否则死循环
             lineStart = if (next > lineStart) next else lineStart + 1
             first = false
         }
-        return lines
     }
 
     /** 找到最大的 end 使 [from, end) 的宽度不超过 avail。 */
@@ -153,15 +176,13 @@ object LineComposer {
     private fun advanceToOverflow(
         c: Clusters,
         a: WidthAdjuster.PhaseA,
-        atom: IntArray,
+        run: AtomicUnits.Run?,
         lineStart: Int,
         from: Int,
         avail: Float,
         cfg: LayoutConfig,
     ): Int {
-        if (from >= c.count) return c.count
-
-        if (AtomicUnits.exceedsLine(c, atom, from, avail)) {
+        if (run != null && run.width > avail) {
             // 逃生：该单元比一行还长，降级为「任意簇边界可断」。
             //
             // 断在 from 本身 —— 它就是③④算出的「恰好放得下」的边界，已经是最优断点。
@@ -170,16 +191,10 @@ object LineComposer {
             // 代价却是实打实的：逃生分支覆盖到的**每一行**都凭空多出一簇，
             // 稳定溢出半个到一个字宽，而且整行被标成 overflowed 从而放弃两端对齐。
             // 长省略号串、长破折号串、网址、长数字串在中文网文里都能触发。
-            return from.coerceAtMost(c.count)
+            return from
         }
 
-        val id = atom[from]
-        var k = from
-        if (id != AtomicUnits.NONE) {
-            while (k < c.count && atom[k] == id) k++
-        } else {
-            k = from + 1
-        }
+        var k = run?.endExclusive ?: (from + 1)
         // 跳出单元后再往前找一个不违反禁首的位置，最多再走几簇。
         // 除簇数上限外还有宽度闸门：连续禁首标点（「』」」这类）能让前扫一路推进，
         // 没有闸门时溢出量没有上界。宁可在这里停下接受一个禁首违例，
@@ -196,9 +211,12 @@ object LineComposer {
         return k.coerceIn(from, c.count)
     }
 
-    private fun skipLeadingSpaces(c: Clusters, from: Int): Int {
+    private fun skipLeadingSpaces(c: Clusters, from: Int, checkActive: () -> Unit): Int {
         var i = from
-        while (i < c.count && c.klass[i] == CharClass.SPACE) i++
+        while (i < c.count && c.klass[i] == CharClass.SPACE) {
+            if ((i and 255) == 0) checkActive()
+            i++
+        }
         return i
     }
 

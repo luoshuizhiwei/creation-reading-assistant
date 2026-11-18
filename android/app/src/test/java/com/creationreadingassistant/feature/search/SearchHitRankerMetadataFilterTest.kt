@@ -48,6 +48,23 @@ class SearchHitRankerMetadataFilterTest {
     )
 
     @Test
+    fun fullQueryTermDeterminesCoordinateBeforeAuxiliaryUnigrams() {
+        val hits = listOf(
+            raw(chapterIndex = 1, spanStart = 1, spanLen = 1, term = "3"),
+            raw(chapterIndex = 3, spanStart = 1, spanLen = 1, term = "3"),
+            raw(chapterIndex = 3, spanStart = 598, spanLen = 4, term = "7391"),
+        )
+        val ranked = SearchHitRanker.rank(hits, active, primaryTerms = setOf("7391")).single()
+        assertEquals(3, ranked.indexChapterIndex)
+        assertEquals(598, ranked.charOffset)
+        assertEquals(4, ranked.matchLength)
+
+        val fallback = SearchHitRanker.rank(hits.take(2), active, primaryTerms = setOf("7391")).single()
+        assertEquals(1, fallback.indexChapterIndex)
+        assertEquals(1, fallback.charOffset)
+    }
+
+    @Test
     fun metadataOnlyGroupIsFilteredFromContentChannel() {
         // 原 84 场景：标题 token（ch=0、无 span）。修复前 → SearchHit(isMetadataHit) 混入；
         // 修复后 → 正文通道返回空（书名命中归「书籍」tab）。

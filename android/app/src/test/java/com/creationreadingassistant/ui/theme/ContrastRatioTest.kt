@@ -38,6 +38,15 @@ class ContrastRatioTest {
     }
 
     @Test
+    fun `dark reader secondary text is readable on the strongest paper surface`() {
+        for (key in listOf("follow", "night", "sepia_dark", "ink_night")) {
+            val paper = paperPalette(key, darkTheme = true)
+            val ratio = contrastRatio(paper.fgMuted, paper.panelStrong)
+            assertTrue("$key secondary text on paper controls: $ratio", ratio >= 4.5)
+        }
+    }
+
+    @Test
     fun `all palettes meet WCAG AA for onSurface vs surface`() {
         AppPalette.entries.forEach { palette ->
             listOf(false, true).forEach { dark ->

@@ -50,10 +50,18 @@ class PaintTextRuler(
         cjkWidth = scratch[0]
     }
 
-    override fun getTextWidths(text: String, out: FloatArray) {
+    override fun getTextWidths(text: String, out: FloatArray) =
+        getTextWidths(text, out) {}
+
+    override fun getTextWidths(text: String, out: FloatArray, checkActive: () -> Unit) {
         require(out.size >= text.length) { "out 长度不足：${out.size} < ${text.length}" }
         var i = 0
+        var nextCheck = 0
         while (i < text.length) {
+            if (i >= nextCheck) {
+                checkActive()
+                nextCheck = i + 256
+            }
             val c = text[i]
             val code = c.code
 

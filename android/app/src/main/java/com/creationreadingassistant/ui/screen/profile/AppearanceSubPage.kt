@@ -149,6 +149,19 @@ internal fun AppearanceSubPage(
 
                         SectionDivider()
 
+                        SettingsAnchor("appearance_hold_to_delete") {
+                            SettingSwitchRow(
+                                title = "长按删除书籍",
+                                subtitle = "开启后删除书籍需按住进度环 1.5 秒确认，替代确认弹窗",
+                                checked = state.appearance.holdToDelete,
+                                onCheckedChange = { checked ->
+                                    onAction(ProfileAction.UpdateAppearance { copy(holdToDelete = checked) })
+                                },
+                            )
+                        }
+
+                        SectionDivider()
+
                         SettingsAnchor("appearance_duration_day") {
                             SettingSwitchRow(
                                 title = "时长按「天」显示",

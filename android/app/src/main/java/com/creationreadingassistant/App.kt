@@ -4,8 +4,6 @@ import android.app.Application
 import android.content.Context
 import android.os.Trace
 import android.util.Log
-import com.creationreadingassistant.data.repository.SearchIndexRepository
-import com.creationreadingassistant.data.repository.SearchIndexScheduler
 import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.EpubSizeRepairTask
 import com.creationreadingassistant.ui.onboarding.ONBOARDING_PREFS
@@ -129,17 +127,17 @@ class App : Application() {
                     .applyApplicationNightMode(this, mode)
             }
         }
-        // 三项启动接线一律放到后台线程，不在主线程串行执行。
+        // 两项启动接线一律放到后台线程，不在主线程串行执行。
         //
         // 为什么必须这样：`EntryPointAccessors.fromApplication(...)` 会即时构建该 EntryPoint
         // 的 Hilt 子图，连带构造 AppDatabase 单例，而 [DatabaseModule.provideDatabase] 里
         // 会调用 [DatabaseSafetyNet.snapshotIfUpgrading] —— 版本升级那一次要把**整个库文件**
         // 复制一份（本机实测库可达 319MB），在主线程上就是数秒级冻结。即使是普通启动，
-        // 这三步也各自带磁盘 I/O（WorkManager 库、通知渠道、文件头读取），StrictMode 在
+        // 这两步也各自带磁盘 I/O（WorkManager 库、通知渠道、文件头读取），StrictMode 在
         // 真机上抓到了对应的 DiskReadViolation。
         //
-        // 三项都是「发起即忘」的后台初始化，首帧不依赖它们完成：EPUB 修复是异步修复任务、
-        // 目标提醒只注册渠道并排期、搜索索引只入队 WorkManager。放到后台既不改变语义，
+        // 两项都是「发起即忘」的后台初始化，首帧不依赖它们完成：EPUB 修复是异步修复任务、
+        // 目标提醒只注册渠道并排期。放到后台既不改变语义，
         // 也把这段耗时从首帧关键路径上摘掉。
         Thread({
             runCatching {
@@ -153,15 +151,6 @@ class App : Application() {
                     .scheduler()
                     .start()
             }.onFailure { Log.w(TAG_BOOT, "阅读目标调度启动失败", it) }
-            // 全文搜索索引（R2-S1）：入队一次性 + 每日周期 WorkManager 建索引任务。
-            // 修复：此前 SearchIndexScheduler 从未被任何生产代码调用，SearchIndexWorker 因此
-            // 从不入队，search_terms 恒为空 —— 全局搜索的「正文」通道始终没有数据可查，
-            // 界面会长期停在「全文索引尚未建立」。这里与 GoalScheduler 同款接线。
-            runCatching {
-                EntryPointAccessors.fromApplication(this, SearchIndexEntryPoint::class.java)
-                    .searchIndexScheduler()
-                    .start()
-            }.onFailure { Log.w(TAG_BOOT, "搜索索引调度启动失败", it) }
         }, "cra-startup").start()
         trace("App", "onCreate end")
     }
@@ -188,19 +177,4 @@ internal object AppContextHolder {
 @InstallIn(SingletonComponent::class)
 internal interface EpubRepairEntryPoint {
     fun epubSizeRepairTask(): EpubSizeRepairTask
-}
-
-/** WorkManager 进程外重建时获取全文搜索索引仓储的 Hilt 入口。 */
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface SearchIndexEntryPoint {
-    fun repository(): SearchIndexRepository
-
-    /**
-     * 方法名不能叫 `scheduler()`：Hilt 把同模块所有 `@EntryPoint` 合成到同一个
-     * `SingletonC` 组件类，而 [com.creationreadingassistant.feature.goal.GoalSchedulerEntryPoint]
-     * 已有同签名的 `scheduler()`（返回 `ReadingGoalScheduler`），Java 不允许同一个类里
-     * 出现「同名同参、仅返回类型不同」的两个方法 —— 会直接编译失败。
-     */
-    fun searchIndexScheduler(): SearchIndexScheduler
 }

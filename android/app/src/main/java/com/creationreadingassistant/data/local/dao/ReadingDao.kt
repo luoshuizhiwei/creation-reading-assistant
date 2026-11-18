@@ -24,7 +24,7 @@ interface ReadingProgressDao {
     fun observeAllActive(): Flow<List<ReadingProgressEntity>>
 
     @Query(
-        "SELECT book_id, progress_percent, completion_state " +
+        "SELECT book_id, progress_percent, completion_state, completed_at " +
             "FROM reading_progress WHERE deleted_at IS NULL"
     )
     fun observeStatsRows(): Flow<List<StatsProgressRow>>

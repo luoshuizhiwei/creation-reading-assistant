@@ -18,7 +18,6 @@ import com.creationreadingassistant.feature.annotations.AnnotationType
 import com.creationreadingassistant.feature.sync.PairingManager
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.ConflictStrategy
-import com.creationreadingassistant.data.repository.FullRebuildLaunch
 import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.repository.StatsRepository
 import com.creationreadingassistant.data.repository.SyncOptions
@@ -28,6 +27,13 @@ import com.creationreadingassistant.data.settings.SyncPrefs
 import com.creationreadingassistant.data.settings.SyncPrefsStore
 import com.creationreadingassistant.feature.sync.JsonBridge
 import com.creationreadingassistant.feature.sync.LegadoReadingProgressImporter
+import com.creationreadingassistant.data.local.entity.LegadoImportBatchEntity
+import com.creationreadingassistant.data.local.entity.LegadoImportBatchItemEntity
+import com.creationreadingassistant.feature.sync.legado.LegadoBackupParser
+import com.creationreadingassistant.feature.sync.legado.LegadoImportPipeline
+import com.creationreadingassistant.ui.screen.profile.LegadoImportPhase
+import com.creationreadingassistant.ui.screen.profile.LegadoImportUi
+import android.provider.OpenableColumns
 import com.creationreadingassistant.feature.sync.LocalZipBackup
 import com.creationreadingassistant.feature.sync.LocalZipRestoreState
 import com.creationreadingassistant.feature.sync.WebDavBackup
@@ -150,12 +156,12 @@ class ProfileViewModel @Inject constructor(
     private val webDavConfigStore: WebDavConfigStore,
     private val webDavBackup: WebDavBackup,
     private val legadoImporter: LegadoReadingProgressImporter,
+    private val legadoPipeline: com.creationreadingassistant.feature.sync.legado.LegadoImportPipeline,
     private val aiClient: AiClient,
     private val bookRepository: BookRepository,
     private val noteRepository: NoteRepository,
     private val statsRepository: StatsRepository,
-    private val searchIndexRepository: com.creationreadingassistant.data.repository.SearchIndexRepository,
-    private val searchIndexScheduler: com.creationreadingassistant.data.repository.SearchIndexScheduler,
+    private val recordsImporter: com.creationreadingassistant.data.repository.ReadingRecordsImporter,
     private val goalStore: com.creationreadingassistant.data.settings.GoalStore,
     private val goalScheduler: com.creationreadingassistant.feature.goal.ReadingGoalScheduler,
     private val syncPrefsStore: SyncPrefsStore,
@@ -250,11 +256,6 @@ class ProfileViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = ProfileHomeSummary(),
         )
-
-    /** 全库全文索引进度流。 */
-    val searchIndexProgress: StateFlow<com.creationreadingassistant.data.repository.SearchIndexRepository.Progress> =
-        runCatching { searchIndexRepository.progress }
-            .getOrDefault(MutableStateFlow(com.creationreadingassistant.data.repository.SearchIndexRepository.Progress(0L, 0, false)))
 
     // ---- 阅读笔记（统一高亮 / 批注 / 书签）----
 
@@ -517,108 +518,21 @@ class ProfileViewModel @Inject constructor(
         appendSyncLog("已解除配对")
     }
 
+    /**
+     * 导入「阅读记录」JSON（2026-11-17）：重装后把旧库的读位/会话/灵感挂回本地书。
+     * 匹配按 content_hash，退化到「标题+大小」；匹配不到的书不新建，只在结果里列出。
+     */
+    fun importReadingRecords(uri: android.net.Uri, onDone: (String) -> Unit = {}) {
+        viewModelScope.launch(ioDispatcher) {
+            onDone("正在导入…")
+            val report = recordsImporter.importFromUri(uri)
+            val summary = report.summary()
+            AppLog.event("RecordsImport", summary.replace("\n", " | "))
+            onDone(summary)
+        }
+    }
+
     // ---- 同步 ----
-    /**
-     * R6-B7：「修复搜索」入口。置脏增量扫描游标 + 回收孤儿索引行 + 重新入队一次性扫描作业——
-     * 重建由既有后台 worker 分预算窗口惰性完成，绝不在交互路径同步全库重建
-     * （全库可达数 GB / 数十分钟，见索引构建真机量化）。幂等，可重复触发。
-     *
-     * 走 [SearchIndexRepository.triggerFullRebuildNow] 而不是内联复制它的两行：那条路径里
-     * 挂了孤儿索引行回收（`purgeOrphanIndexRows`）。此前这里自己调
-     * `invalidateSweepForFullRebuild()` + `searchIndexScheduler.triggerNow(force = true)`，
-     * 绕过了回收 ⇒ 从「存储 / 日志与诊断」页点「重建索引」清不掉已删书的残留索引行
-     * （只有搜索结果页那条索引状态胶囊会清）。两个用户入口现统一到仓储同一函数。
-     */
-    fun rebuildSearchIndex(onDone: (String) -> Unit = {}) {
-        viewModelScope.launch(ioDispatcher) {
-            runCatching {
-                searchIndexRepository.triggerFullRebuildNow(searchIndexScheduler)
-            }.onSuccess { launch ->
-                AppLog.event("SearchIndex", "用户触发全库索引重建（结果=$launch）")
-                // 反馈必须如实：取消与重置/排队的先后不同，用户看到的结果也不同。
-                onDone(
-                    when (launch) {
-                        FullRebuildLaunch.RESET_QUEUED ->
-                            "已重置索引进度，后台将立即分批重建全库；期间搜索结果可能暂时不全。"
-
-                        FullRebuildLaunch.RESET_NOT_QUEUED ->
-                            "索引进度已重置到起点，但你随后取消了这次构建，因此没有重新排队；" +
-                                "下次冷启动或再次点击重建时会从头扫描。"
-
-                        FullRebuildLaunch.SKIPPED_CANCELLED ->
-                            "重建未执行：取消请求先于重置到达，扫描断点与已建索引行原样保留。"
-
-                        // 穷举：新增分支时编译期就会报错，不会退化成「假装已重置」
-                    },
-                )
-            }.onFailure {
-                AppLog.e("SearchIndex", "重建搜索索引失败：${it.message}")
-                onDone("重建失败：${it.message ?: "未知错误"}")
-            }
-        }
-    }
-
-    /**
-     * 真实动作分发入口（CRA-SEARCH-INDEX-CANCEL-CONTROL-v3）：
-     * `ProfileRoute` 的 Compose `when` 与 JVM 定向测试共用**这一份**分发逻辑 ——
-     * 不另建测试专用转发，也不复制分支。收口范围刻意只到搜索索引两个动作：
-     * 其余 `ProfileAction` 仍由 `ProfileRoute` 原样处理，不把整张 when 表搬进 ViewModel。
-     */
-    internal fun handleProfileAction(action: ProfileAction, onDone: (String) -> Unit = {}) {
-        when (action) {
-            ProfileAction.RebuildSearchIndex -> rebuildSearchIndex(onDone)
-            ProfileAction.CancelSearchIndex -> cancelSearchIndex(onDone)
-            else -> Unit
-        }
-    }
-
-    /**
-     * CRA-SEARCH-INDEX-CANCEL-CONTROL-v1：取消后台索引构建（S1「可取消」用户入口）。
-     *
-     * 与 [rebuildSearchIndex] 相对：重建**重置游标从头扫**，取消**只停止当前构建并保留断点**。
-     * 反馈文案严格按实际状态给出，**绝不把取消说成索引完成**：
-     * - 确有构建在跑 → 「已请求停止…」，并按 [CancelIndexingResult.anchorPreserved] 决定是否
-     *   能说「断点保留」—— 若全量重建已经把游标重置到起点，就必须如实说「下次从头扫描」；
-     * - 只有排队中的构建 → 撤下排队，同样如实反馈；
-     * - 本来就没在跑也没排队 → 「当前没有正在进行的后台索引构建」（不谎报成功取消）。
-     *
-     * 取消后再次触发（冷启动 / 周期任务 / [rebuildSearchIndex]）分别走既有续建与
-     * 显式全量重建语义，本方法不改写它们的行为。
-     */
-    fun cancelSearchIndex(onDone: (String) -> Unit = {}) {
-        viewModelScope.launch(ioDispatcher) {
-            runCatching {
-                searchIndexRepository.cancelIndexing()
-            }.onSuccess { result ->
-                AppLog.event("SearchIndex", "用户取消后台索引构建（$result）")
-                onDone(
-                    when {
-                        result.resetPending -> "重置正在提交；已请求停止后续索引构建，扫描断点以提交结果为准。"
-                        !result.stoppedSomething -> "当前没有正在进行的后台索引构建。"
-                        result.wasRunning -> "已请求停止索引构建；" + anchorSentence(result.anchorPreserved)
-                        else -> "已撤下排队中的索引构建；" + anchorSentence(result.anchorPreserved)
-                    },
-                )
-            }.onFailure {
-                AppLog.e("SearchIndex", "取消索引构建失败：${it.message}")
-                onDone("取消失败：${it.message ?: "未知错误"}")
-            }
-        }
-    }
-
-    /**
-     * 断点保留与否的措辞：重置已经提交时**不得**声称「断点保留」。
-     *
-     * 注意「已建好的索引行」和「扫描游标」是两回事 —— 全量重建只重置游标、不删索引行，
-     * 所以这句话永远可以承诺前者，但只有 [anchorPreserved] 为真时才能承诺后者。
-     */
-    private fun anchorSentence(anchorPreserved: Boolean): String =
-        if (anchorPreserved) {
-            "已完成的章节与扫描断点保留，下次将从此处继续。"
-        } else {
-            "已建好的索引行保留，但扫描进度已在全量重建时重置到起点，下次将从头扫描。"
-        }
-
     fun syncNow(autoDownloadBooks: Boolean = true) {
         viewModelScope.launch(ioDispatcher) {
             _syncing.value = true
@@ -786,6 +700,215 @@ class ProfileViewModel @Inject constructor(
                     AppLog.e("WebDAV", "开源阅读记录导入失败：${error.message}")
                 }
         }
+    }
+
+    // ---- Legado 导入预览-提交（LEGADO-IMPORT-PLAN-v2） ----
+    private val _legadoImport = MutableStateFlow(LegadoImportUi())
+    internal val legadoImport: StateFlow<LegadoImportUi> = _legadoImport.asStateFlow()
+
+    internal val legadoPendingPositions: StateFlow<List<LegadoImportBatchItemEntity>> =
+        legadoPipeline.observePendingPositions()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    internal val legadoImportBatches: StateFlow<List<LegadoImportBatchEntity>> =
+        legadoPipeline.observeBatches()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 预览期持有的原始归档字节（换来源库时重算冲突清点用；≤64MiB，离开页面即释放）。 */
+    private var legadoPreviewBytes: ByteArray? = null
+    private var legadoPreviewLabel: String? = null
+
+    private fun neutralArchiveName(context: Context, uri: Uri): String = runCatching {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    }.getOrNull()?.takeIf { it.isNotBlank() } ?: "本机备份"
+
+    private suspend fun buildLegadoPreview(bytes: ByteArray, label: String, sourceId: String?): LegadoImportUi {
+        val preview = legadoPipeline.buildPreview(bytes, label, sourceId = sourceId)
+        return LegadoImportUi(
+            phase = LegadoImportPhase.READY,
+            preview = preview,
+            selectedOrdinals = preview.positions
+                .filter { it.importable && it.category != LegadoImportPipeline.PositionCategory.CONFLICT }
+                .map { it.ordinal }
+                .toSet(),
+            importHistory = _legadoImport.value.importHistory,
+            selectedSourceId = sourceId,
+            newSourceLabel = preview.newSourceLabelDefault,
+        )
+    }
+
+    fun startLegadoPreviewFromWebDav(filename: String) {
+        viewModelScope.launch(ioDispatcher) {
+            _legadoImport.value = LegadoImportUi(phase = LegadoImportPhase.PARSING)
+            runCatching { webDavManager.downloadLegadoBackupBytes(filename) }
+                .mapCatching { bytes ->
+                    legadoPreviewBytes = bytes
+                    legadoPreviewLabel = filename
+                    buildLegadoPreview(bytes, filename, sourceId = null)
+                }
+                .onSuccess { state ->
+                    _legadoImport.value = state
+                    AppLog.event("Legado", "开源阅读备份预览就绪：${state.preview?.positions?.size ?: 0} 条位置")
+                }
+                .onFailure { error ->
+                    _legadoImport.value = LegadoImportUi(
+                        phase = LegadoImportPhase.FAILED,
+                        error = error.message ?: "解析失败",
+                    )
+                    AppLog.e("Legado", "备份解析失败：${error.message}")
+                }
+        }
+    }
+
+    fun startLegadoPreviewFromDevice(context: Context, uri: Uri) {
+        viewModelScope.launch(ioDispatcher) {
+            _legadoImport.value = LegadoImportUi(phase = LegadoImportPhase.PARSING)
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: throw IllegalStateException("无法读取所选文件")
+            }.mapCatching { bytes ->
+                check(bytes.size <= LegadoBackupParser.MAX_ARCHIVE_BYTES) { "备份超过 64 MiB，已拒绝读取" }
+                val label = neutralArchiveName(context, uri)
+                legadoPreviewBytes = bytes
+                legadoPreviewLabel = label
+                buildLegadoPreview(bytes, label, sourceId = null)
+            }
+                .onSuccess { state ->
+                    _legadoImport.value = state
+                    AppLog.event("Legado", "本机备份预览就绪：${state.preview?.positions?.size ?: 0} 条位置")
+                }
+                .onFailure { error ->
+                    _legadoImport.value = LegadoImportUi(
+                        phase = LegadoImportPhase.FAILED,
+                        error = error.message ?: "解析失败",
+                    )
+                    AppLog.e("Legado", "本机备份解析失败：${error.message}")
+                }
+        }
+    }
+
+    private fun rebuildLegadoPreview() {
+        val bytes = legadoPreviewBytes ?: return
+        val label = legadoPreviewLabel ?: return
+        viewModelScope.launch(ioDispatcher) {
+            runCatching { buildLegadoPreview(bytes, label, sourceId = _legadoImport.value.selectedSourceId) }
+                .onSuccess { state ->
+                    // 保留用户已做过的选择意图：候选覆盖中失效的条目剔除。
+                    val validIds = state.preview?.positions?.map { it.ordinal }?.toSet() ?: emptySet()
+                    val validKeys: Set<String> = (
+                        state.preview?.history?.dayConflicts?.map { it.rowKey }.orEmpty() +
+                            state.preview?.history?.bookConflicts?.map { it.rowKey }.orEmpty()
+                        ).toSet()
+                    _legadoImport.value = state.copy(
+                        candidateOverrides = _legadoImport.value.candidateOverrides.filterKeys { it in validIds },
+                        replaceSnapshotKeys = _legadoImport.value.replaceSnapshotKeys.intersect(validKeys),
+                    )
+                }
+                .onFailure { error ->
+                    _legadoImport.value = _legadoImport.value.copy(
+                        phase = LegadoImportPhase.FAILED,
+                        error = error.message ?: "重新预览失败",
+                    )
+                }
+        }
+    }
+
+    fun selectLegadoSource(sourceId: String?) {
+        if (_legadoImport.value.selectedSourceId == sourceId) return
+        _legadoImport.value = _legadoImport.value.copy(selectedSourceId = sourceId)
+        rebuildLegadoPreview()
+    }
+
+    fun toggleLegadoPosition(ordinal: Int) {
+        val current = _legadoImport.value
+        val next = if (ordinal in current.selectedOrdinals) {
+            current.selectedOrdinals - ordinal
+        } else {
+            current.selectedOrdinals + ordinal
+        }
+        _legadoImport.value = current.copy(selectedOrdinals = next)
+    }
+
+    fun setLegadoHistory(importHistory: Boolean) {
+        _legadoImport.value = _legadoImport.value.copy(importHistory = importHistory)
+    }
+
+    fun toggleLegadoReplaceSnapshot(rowKey: String) {
+        val current = _legadoImport.value
+        val next = if (rowKey in current.replaceSnapshotKeys) {
+            current.replaceSnapshotKeys - rowKey
+        } else {
+            current.replaceSnapshotKeys + rowKey
+        }
+        _legadoImport.value = current.copy(replaceSnapshotKeys = next)
+    }
+
+    fun setLegadoNewSourceLabel(label: String) {
+        _legadoImport.value = _legadoImport.value.copy(newSourceLabel = label)
+    }
+
+    fun selectLegadoCandidate(ordinal: Int, bookId: String) {
+        _legadoImport.value = _legadoImport.value.copy(
+            candidateOverrides = _legadoImport.value.candidateOverrides + (ordinal to bookId),
+        )
+    }
+
+    fun commitLegadoImport() {
+        val current = _legadoImport.value
+        val preview = current.preview ?: return
+        viewModelScope.launch(ioDispatcher) {
+            _legadoImport.value = current.copy(phase = LegadoImportPhase.COMMITTING, error = null)
+            val result = legadoPipeline.commit(
+                preview,
+                LegadoImportPipeline.CommitSelection(
+                    sourceId = current.selectedSourceId,
+                    newSourceLabel = current.newSourceLabel,
+                    importPositionOrdinals = current.selectedOrdinals,
+                    importHistory = current.importHistory,
+                    replaceSnapshotRowKeys = current.replaceSnapshotKeys,
+                    candidateOverrides = current.candidateOverrides,
+                ),
+            )
+            if (result.ok) {
+                _legadoImport.value = _legadoImport.value.copy(
+                    phase = LegadoImportPhase.COMMITTED,
+                    lastResult = result,
+                )
+                AppLog.event(
+                    "Legado",
+                    "导入提交：位置 ${result.importedPositions}，会话 +${result.counts.sessions}，" +
+                        "日 +${result.counts.daysCreated}，书 +${result.counts.booksCreated}，待关联 ${result.pendingPositions}",
+                )
+            } else {
+                _legadoImport.value = _legadoImport.value.copy(
+                    phase = if (result.message.contains("重新预览")) LegadoImportPhase.FAILED else _legadoImport.value.phase,
+                    error = result.message,
+                )
+                AppLog.e("Legado", "导入提交失败：${result.message}")
+            }
+        }
+    }
+
+    fun undoLegadoBatch(batchId: String) {
+        viewModelScope.launch(ioDispatcher) {
+            val result = legadoPipeline.undoBatch(batchId)
+            _legadoImport.value = _legadoImport.value.copy(lastUndo = result)
+            AppLog.event("Legado", "批次撤销：${result.status}（撤销 ${result.reverted}/保留 ${result.kept}）")
+        }
+    }
+
+    fun deleteLegadoPending(itemId: String) {
+        viewModelScope.launch(ioDispatcher) {
+            legadoPipeline.deletePendingPosition(itemId)
+        }
+    }
+
+    fun dismissLegadoImport() {
+        legadoPreviewBytes = null
+        legadoPreviewLabel = null
+        _legadoImport.value = LegadoImportUi()
     }
 
     fun clearWebDav() {

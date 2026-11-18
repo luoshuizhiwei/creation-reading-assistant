@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -185,7 +186,6 @@ fun SearchScreen(
     val results by viewModel.results.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
-    val indexProgress by viewModel.indexProgress.collectAsStateWithLifecycle()
     var tab by viewModel.tabState
     val focusRequester = remember { FocusRequester() }
     val reducedMotion = rememberReducedMotion()
@@ -230,7 +230,7 @@ fun SearchScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
+        Column(Modifier.padding(padding).imePadding().fillMaxSize()) {
             // 顶部优雅搜索框
             OutlinedTextField(
                 value = query,
@@ -276,17 +276,6 @@ fun SearchScreen(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { if (query.isNotBlank()) viewModel.addHistory(query) }),
             )
-
-            // 全库全文搜索索引状态透明感知胶囊
-            val showIndexCapsule = indexProgress.isRunning ||
-                (indexProgress.totalBooks > 0 && indexProgress.indexedBooks < indexProgress.totalBooks)
-            if (showIndexCapsule) {
-                SearchIndexProgressCapsule(
-                    progress = indexProgress,
-                    onRebuild = { viewModel.triggerRebuildIndex() },
-                    modifier = Modifier.padding(horizontal = layout.pageHorizontal, vertical = 2.dp),
-                )
-            }
 
             // Tab 筛选分类微胶囊轨
             Row(
@@ -346,6 +335,7 @@ fun SearchScreen(
                 results.notice?.let { notice ->
                     SearchNoticeBanner(
                         notice = notice,
+                        onRetry = { viewModel.search(query) },
                         modifier = Modifier.padding(
                             horizontal = layout.pageHorizontal,
                             vertical = 4.dp,
@@ -485,6 +475,21 @@ fun SearchScreen(
                     )
                 }
                 else -> {
+                    // 命中键：同一本书多章节/多位置命中时，仅用 (bookId, 文本基准) 会撞键，
+                    // LazyColumn 直接抛 IllegalArgumentException（真机 journey02 实测）。
+                    // 改用数据自身携带的定位信息 (索引章节号, 章内偏移) 扩展；对完全相同的
+                    // 重复行再追加出现序号。键只由数据推导，不随重组/滚动变化，
+                    // 不引入随机值或 hashCode，也不单靠下标。
+                    val contentHitKeys = remember(results.contentHits) {
+                        val seen = HashMap<String, Int>(results.contentHits.size)
+                        results.contentHits.map { hit ->
+                            val base = "content-${hit.bookId}-${hit.textBasis.wire}-" +
+                                "${hit.indexChapterIndex}-${hit.charOffset ?: -1}"
+                            val dup = seen[base] ?: 0
+                            seen[base] = dup + 1
+                            if (dup == 0) base else "$base#$dup"
+                        }
+                    }
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
@@ -536,7 +541,7 @@ fun SearchScreen(
                         if (tab == "all" || tab == "content") {
                             itemsIndexed(
                                 items = results.contentHits,
-                                key = { _, hit -> "content-${hit.bookId}-${hit.textBasis.wire}" },
+                                key = { index, _ -> contentHitKeys[index] },
                                 contentType = { _, _ -> "search-content" },
                             ) { index, hit ->
                                 val bookTitle = results.bookTitles[hit.bookId]
@@ -661,12 +666,12 @@ fun SearchScreen(
 /**
  * 完整性提示条。
  *
- * 只做「说明」，不给操作 —— 索引构建由后台 worker 负责，这里一旦给出「立即重建」之类的
- * 按钮，就会诱使用人在搜索页上触发重 I/O。
+ * 查询超时可重试当前关键词。索引覆盖提示不触发重建。
  */
 @Composable
 private fun SearchNoticeBanner(
     notice: SearchNotice,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val text = when (notice.kind) {
@@ -676,6 +681,8 @@ private fun SearchNoticeBanner(
             "有 ${notice.affectedBooks} 本书只索引了部分内容，正文搜索结果可能不全"
         SearchNoticeKind.CONTENT_SEARCH_FAILED ->
             "正文搜索失败，以下仅显示书名、作者、笔记等其他搜索结果"
+        SearchNoticeKind.SEARCH_TIMED_OUT ->
+            "搜索超时，请重试。"
     }
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -695,86 +702,12 @@ private fun SearchNoticeBanner(
             Spacer(Modifier.width(8.dp))
             Text(
                 text = text,
+                modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onTertiaryContainer,
             )
-        }
-    }
-}
-
-/**
- * 全库全文索引进度胶囊：状态感知与手动唤起重建。
- */
-@Composable
-private fun SearchIndexProgressCapsule(
-    progress: com.creationreadingassistant.data.repository.SearchIndexRepository.Progress,
-    onRebuild: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val isRunning = progress.isRunning
-    val total = progress.totalBooks
-    val indexed = progress.indexedBooks
-    val pct = if (total > 0) ((indexed.toFloat() / total) * 100f).toInt().coerceIn(0, 100) else 0
-
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = AppShapes.small,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
-        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        Icons.Outlined.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = if (isRunning) {
-                            "全文索引构建中：$indexed / $total 本 ($pct%)"
-                        } else {
-                            "全文索引待完成：已索引 $indexed / $total 本"
-                        },
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                if (!isRunning) {
-                    TextButton(
-                        onClick = onRebuild,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        modifier = Modifier.height(24.dp),
-                    ) {
-                        Text(
-                            text = "立即构建",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
-            }
-            if (isRunning && total > 0) {
-                LinearProgressIndicator(
-                    progress = { (indexed.toFloat() / total).coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth().height(3.dp).clip(PillShape),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                )
+            if (notice.kind == SearchNoticeKind.SEARCH_TIMED_OUT) {
+                TextButton(onClick = onRetry) { Text("重试") }
             }
         }
     }

@@ -83,6 +83,18 @@ class ProfileWebDavManager(
         legadoImporter.importArchive(zip)
     }
 
+    /** 下载指定 Legado 备份的原始字节（预览链路入口；64 MiB 上限由解析器再强制）。 */
+    suspend fun downloadLegadoBackupBytes(filename: String): ByteArray {
+        val cfg = webDavConfigStore.config ?: throw IllegalStateException("请先填写 WebDAV 配置")
+        return webDavBackup.getBytes(
+            url = cfg.url,
+            user = cfg.user,
+            pass = cfg.pass,
+            filename = filename,
+            maxBytes = MAX_LEGADO_BACKUP_BYTES,
+        ).getOrThrow()
+    }
+
     private companion object {
         const val MAX_LEGADO_BACKUP_BYTES = 64L * 1024L * 1024L
     }

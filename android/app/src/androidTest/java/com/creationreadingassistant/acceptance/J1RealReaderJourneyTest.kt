@@ -431,7 +431,7 @@ class J1RealReaderJourneyTest {
 
     /**
      * v9：按生产命中规则推导同书某查询的期望展示坐标（与 journey01 同一判据）。
-     * 生产 SearchIndexWorker 可能重建索引（deleteByBook 后按章重建），故有界等待推导值连续 3 次一致。
+     * 全文索引写入已下线，生产侧不再重建索引行；此处有界等待保留为防御（推导值连续 3 次一致）。
      */
     private fun awaitStableDerived(
         bookId: String,
@@ -636,7 +636,7 @@ class J1RealReaderJourneyTest {
         stepRecord["save_cause_note"] = "仅确认已有持久位置（可能来自初始夹具或阅读器进入后按生产页起始合同重写）；不证明本轮新保存、Back完成或队列排空"
 
         // 步骤 1.5 前置：等待生产索引对 B 稳定（只读）。
-        // 生产 App 会自行调度 SearchIndexWorker 重建索引（先 deleteByBook 再按章重建），
+        // 全文索引写入已下线，生产侧不再重建索引行（此前为 deleteByBook 后按章重建），
         // 夹具写入的索引行可能被重算；因此卡片显示的命中位置必须由**当前实际索引行**
         // 按生产合同推导（SearchOffsets.parse(offsets).first().start → SearchScreen 渲染"第 N 字附近"），
         // 而不是沿用夹具写入时的全书偏移。
@@ -693,7 +693,7 @@ class J1RealReaderJourneyTest {
             query = J1RealReaderFixtures.SEARCH_QUERY_B,
             bodyText = contentB.bodyText,
         )
-        // 生产 SearchIndexWorker 可能重建索引（deleteByBook 后按章重建），有界等待推导值连续 3 次一致
+        // 全文索引写入已下线，生产侧不再重建索引行；有界等待保留为防御，推导值连续 3 次一致
         val deriveDeadline = System.currentTimeMillis() + 15_000
         var lastDerived: Int? = null
         var sameDerived = 0

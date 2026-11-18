@@ -14,6 +14,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Response
@@ -128,7 +129,14 @@ class AiClient(
             if (ai.baseUrl.isBlank()) error("AI 接口地址未配置。")
             if (!isNetworkAvailable()) error("当前无网络连接，请检查网络后重试。")
             warnIfInsecureHttp(ai.baseUrl)
-            val url = ai.baseUrl.trimEnd('/') + "/v1/chat/completions"
+            val baseUrl = ai.baseUrl.trim().toHttpUrl()
+            val basePath = baseUrl.encodedPath.trimEnd('/')
+            val endpoint = when {
+                basePath.endsWith("/chat/completions") -> basePath
+                basePath.endsWith("/v1") -> "$basePath/chat/completions"
+                else -> "$basePath/v1/chat/completions"
+            }
+            val url = baseUrl.newBuilder().encodedPath(endpoint).build()
 
             // 用户的个性化提示词（AI 设置页）是全局风格偏好：追加到所有 system 指令之后，
             // 对阅读辅助 / AI 解读 / 灵感打磨 / 问答全部生效。

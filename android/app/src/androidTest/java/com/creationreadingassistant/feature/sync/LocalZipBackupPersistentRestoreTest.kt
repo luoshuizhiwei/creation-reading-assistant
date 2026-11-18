@@ -10,6 +10,14 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.creationreadingassistant.data.local.AppDatabase
 import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.data.local.entity.LegadoBatchItemKind
+import com.creationreadingassistant.data.local.entity.LegadoExternalBookSnapshotEntity
+import com.creationreadingassistant.data.local.entity.LegadoExternalDaySnapshotEntity
+import com.creationreadingassistant.data.local.entity.LegadoExternalSessionEntity
+import com.creationreadingassistant.data.local.entity.LegadoImportBatchEntity
+import com.creationreadingassistant.data.local.entity.LegadoImportBatchItemEntity
+import com.creationreadingassistant.data.local.entity.LegadoImportSourceEntity
+import com.creationreadingassistant.data.local.entity.LegadoImportSubjectEntity
 import com.creationreadingassistant.data.local.entity.LibrarySourceRefEntity
 import com.creationreadingassistant.data.local.entity.ReaderCorrectionEntity
 import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
@@ -100,6 +108,47 @@ class LocalZipBackupPersistentRestoreTest {
     }
 
     // ================= 用例 1：导出 → 重置 → ZIP 恢复 → 关闭 → 重开 对账 =================
+
+    @Test
+    fun zipRoundTripPreservesExternalLedgerAndBatchWithoutImportingLocalSessions() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val exportContext = IsolatedSyncTestContext(context, newTestRoot("ledger-export"))
+        val db = openPersistentDb()
+        val ledger = db.legadoImportDao()
+        val time = "2026-11-01T00:00:00Z"
+        ledger.insertSource(LegadoImportSourceEntity("source", "测试归档", "md3@4efe2496", time))
+        ledger.insertSubjectsIfAbsent(listOf(
+            LegadoImportSubjectEntity("subject", "source", "work", "测试 TXT", "", "", null, time),
+        ))
+        ledger.insertBatch(LegadoImportBatchEntity("batch", "source", "md3@4efe2496", "fixture", "测试归档", time, "committed", null))
+        ledger.insertSessionsIfAbsent(listOf(
+            LegadoExternalSessionEntity("session", "source", "subject", "", 1_000L, 2_000L, 1L, "batch", time),
+        ))
+        ledger.insertDaySnapshotsIfAbsent(listOf(
+            LegadoExternalDaySnapshotEntity("day", "source", "subject", "", "2026-11-01", 1_000L, 1L, 1_000L, 2_000L, "batch", time),
+        ))
+        ledger.insertBookSnapshotsIfAbsent(listOf(
+            LegadoExternalBookSnapshotEntity("book", "source", "subject", "", 1_000L, 2_000L, "batch", time),
+        ))
+        ledger.insertBatchItems(listOf(
+            LegadoImportBatchItemEntity("item", "batch", "subject", LegadoBatchItemKind.SESSION_CREATED, null, "session", "{}"),
+        ))
+        val expected = LegadoLedgerBackup.read(ledger)
+        assertNotNull(expected)
+        val zipFile = File(exportContext.cacheDir, "external-history.zip")
+        LocalZipBackup(buildBridge(db), Dispatchers.Unconfined).exportZip(exportContext, Uri.fromFile(zipFile))
+        db.close()
+        openedDatabases.remove(db)
+        deleteTestDbFiles()
+
+        val restored = openPersistentDb()
+        val restoreContext = IsolatedSyncTestContext(context, newTestRoot("ledger-restore"))
+        val backup = LocalZipBackup(buildBridge(restored), Dispatchers.Unconfined)
+        repeat(2) { backup.importZip(restoreContext, Uri.fromFile(zipFile)) }
+
+        assertEquals(expected, LegadoLedgerBackup.read(restored.legadoImportDao()))
+        assertTrue(restored.readingSessionDao().observeAllActive().first().isEmpty())
+    }
 
     @Test
     fun zipBackupRoundTripRestoresFiveCategoriesAndFilesAcrossCloseReopen() = runTest {
@@ -207,7 +256,12 @@ class LocalZipBackupPersistentRestoreTest {
 
         // 7. 恢复出的书源文件逐字节对账
         val restoredBooksDir = File(restoreWrapper.filesDir, "books")
+        val journal = File(restoredBooksDir, LocalZipBackup.JOURNAL_NAME)
+        if (journal.exists()) {
+            assertEquals("恢复日志不应有未完成条目", "[]", journal.readText().trim())
+        }
         val restoredFiles = restoredBooksDir.walkTopDown().filter { it.isFile }
+            .filterNot { it == journal }
             .associate { it.relativeTo(restoredBooksDir).invariantSeparatorsPath to it.readBytes() }
         assertEquals(
             "恢复出的文件集合必须与打包前一致",
@@ -651,6 +705,7 @@ class LocalZipBackupPersistentRestoreTest {
         sourceRefDao = database.librarySourceRefDao(),
         textRuleDao = database.readerTextRuleDao(),
         correctionDao = database.readerCorrectionDao(),
+        legadoDao = database.legadoImportDao(),
     )
 
     /** 五类记录的规范逻辑摘要（排序后逐行哈希）：跨关闭/重开的最终对账凭证。 */

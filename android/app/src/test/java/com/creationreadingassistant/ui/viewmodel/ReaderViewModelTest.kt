@@ -18,8 +18,6 @@ import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.ChapterReadRepository
 import com.creationreadingassistant.data.repository.ReaderProgressSaveOrder
 import com.creationreadingassistant.data.repository.NoteRepository
-import com.creationreadingassistant.data.repository.SearchIndexRepository
-import com.creationreadingassistant.data.repository.SearchIndexScheduler
 import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.data.settings.TtsResume
@@ -111,8 +109,6 @@ class ReaderViewModelTest {
     private lateinit var pageIndexManager: ReaderPageIndexManager
     private lateinit var aiClient: AiClient
     private lateinit var rulesRepository: RulesRepository
-    private lateinit var searchIndexRepository: SearchIndexRepository
-    private lateinit var searchIndexScheduler: SearchIndexScheduler
     private lateinit var appScope: CoroutineScope
     private lateinit var ruleDao: InMemoryReaderTextRuleDao
 
@@ -139,8 +135,6 @@ class ReaderViewModelTest {
 
         ruleDao = InMemoryReaderTextRuleDao()
         rulesRepository = RulesRepository(ruleDao, FakeReaderCorrectionDao())
-        searchIndexRepository = mockk(relaxed = true)
-        searchIndexScheduler = mockk(relaxed = true)
         appScope = CoroutineScope(testDispatcher)
 
         every { taxonomyRepository.observeCategories() } returns flowOf(emptyList())
@@ -178,8 +172,6 @@ class ReaderViewModelTest {
             pageIndexManager = pageIndexManager,
             aiClient = aiClient,
             rulesRepository = rulesRepository,
-            searchIndexRepository = searchIndexRepository,
-            searchIndexScheduler = searchIndexScheduler,
             appScope = appScope,
             ioDispatcher = ioDispatcher,
             defaultDispatcher = UnconfinedTestDispatcher(),
@@ -1466,39 +1458,6 @@ class ReaderViewModelTest {
         assertFalse(state.showColorRow)
     }
 
-    @Test
-    fun `global replace rule change wakes a REPLACE sweep instead of a silently dropped KEEP enqueue`() =
-        runTest {
-            // 规则变更置脏后必须用 REPLACE 唤起后台重扫。
-            //
-            // 曾经的实现用 SearchIndexScheduler.enqueueOnce()（ExistingWorkPolicy.KEEP）：当唯一
-            // 任务名对应的 work 正处于 RUNNING 时，这次入队会被 WorkManager **静默丢弃**；而在跑的
-            // 那个 worker 会继续把 last_scanned_book_id 往前写，**覆盖掉**
-            // invalidateSweepForFullRebuild() 刚重置的游标 ⇒ 换了全局替换规则后全库重扫
-            // **根本不会发生**，旧规则下建的索引行一直生效（搜索命中旧文本）。
-            //
-            // 反向验证方式：把 ReaderViewModel 里那行改回 enqueueOnce()，本用例必须 FAIL。
-            viewModel.onAction(
-                ReaderAction.ExecuteRuleCommand(
-                    "book-1",
-                    RuleCommand.SaveCustomReplace(
-                        name = "全局净化",
-                        pattern = "广告",
-                        replacement = "",
-                        scope = RuleScope.GLOBAL,
-                    ),
-                ),
-            )
-            awaitIo()
-
-            assertTrue(viewModel.ruleMutationResult.value is RuleMutationResult.Saved)
-            coVerify(exactly = 1) { searchIndexRepository.invalidateSweepForFullRebuild() }
-            verify(exactly = 1) { searchIndexScheduler.triggerNow(force = true) }
-            verify(exactly = 0) { searchIndexScheduler.enqueueOnce() }
-            // 规则变更不涉及删书，不得顺带走孤儿回收（千万行表的全表 distinct 扫描）。
-            // 这条锁住「不改成 triggerFullRebuildNow()」的决定。
-            coVerify(exactly = 0) { searchIndexRepository.purgeOrphanIndexRows() }
-        }
 
     @Test
     fun `failed correction keeps selection intact for retry`() = runTest {

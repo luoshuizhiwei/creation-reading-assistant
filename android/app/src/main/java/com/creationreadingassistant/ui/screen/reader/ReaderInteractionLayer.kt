@@ -42,6 +42,7 @@ import com.creationreadingassistant.ui.screen.reader.tts.TtsBar
 import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
 import com.creationreadingassistant.data.settings.SelectionActionSettings
 import com.creationreadingassistant.data.settings.SelectionActions
+import com.creationreadingassistant.ui.theme.MotionTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPanelSurface
@@ -354,8 +355,18 @@ internal fun BoxScope.ReaderInteractionLayer(
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .navigationBarsPadding(),
-        enter = if (reducedMotion) fadeIn(tween(120)) else (slideInVertically(initialOffsetY = { it / 3 }) + fadeIn(tween(160))),
-        exit = if (reducedMotion) fadeOut(tween(120)) else (slideOutVertically(targetOffsetY = { it / 3 }) + fadeOut(tween(120))),
+        // MD3 contextual toolbar 出现方式：淡入为主 + 从自身下方轻微上升
+        //（emphasized decelerate，~240ms）；消失为快速纯淡出（无滑出）。
+        enter = if (reducedMotion) {
+            fadeIn(tween(120))
+        } else {
+            fadeIn(tween(240, easing = MotionTokens.StandardEasing)) +
+                slideInVertically(
+                    initialOffsetY = { it / 4 },
+                    animationSpec = tween(240, easing = MotionTokens.StandardEasing),
+                )
+        },
+        exit = if (reducedMotion) fadeOut(tween(120)) else fadeOut(tween(120)),
     ) {
         SelectionToolbar(
             paper = state.paper,

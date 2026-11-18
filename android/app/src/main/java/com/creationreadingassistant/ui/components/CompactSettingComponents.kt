@@ -397,7 +397,7 @@ fun CompactSliderRow(
                 Text(
                     text = minLabel,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(end = 4.dp),
                 )
             }
@@ -415,7 +415,7 @@ fun CompactSliderRow(
                 Text(
                     text = maxLabel,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 4.dp),
                 )
             }

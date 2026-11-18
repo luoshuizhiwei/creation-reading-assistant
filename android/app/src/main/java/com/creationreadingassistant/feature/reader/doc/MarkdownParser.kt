@@ -69,6 +69,10 @@ object MarkdownParser {
     private val htmlNumericDecRegex = Regex("&#(\\d{1,7});")
     private val htmlNumericHexRegex = Regex("&#[xX]([0-9a-fA-F]{1,6});")
 
+    private val lengthParser: Parser by lazy {
+        Parser.builder().extensions(extensions).includeSourceSpans(IncludeSourceSpans.NONE).build()
+    }
+
     private val parser: Parser = Parser.builder()
         .extensions(extensions)
         .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
@@ -78,6 +82,10 @@ object MarkdownParser {
     fun parse(source: String, sourceOffsetShift: Int = 0): MarkdownChapter {
         return Session(source, sourceOffsetShift, parser).parse()
     }
+
+    /** 使用同一规范化流程计算长度，省去不参与章节索引的偏移映射。 */
+    internal fun canonicalLength(source: String): Int =
+        Session(source, 0, lengthParser).canonicalLength()
 
     /** 解析结果。 */
     data class MarkdownChapter(
@@ -103,9 +111,13 @@ object MarkdownParser {
         private val blocks = mutableListOf<MarkdownBlock>()
         private val headings = mutableListOf<MdHeading>()
 
+        fun canonicalLength(): Int {
+            parser.parse(source).accept(BlockVisitor())
+            return canonical.length
+        }
+
         fun parse(): MarkdownChapter {
-            val document = parser.parse(source)
-            document.accept(BlockVisitor())
+            parser.parse(source).accept(BlockVisitor())
             finish()
             val resultBlocks = blocks.toList()
             return MarkdownChapter(

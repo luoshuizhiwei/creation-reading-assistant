@@ -2,48 +2,66 @@ package com.creationreadingassistant.testing
 
 import android.app.Application
 import android.content.Context
+import android.os.Bundle
 import android.util.Log
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.AndroidJUnitRunner
+import java.lang.reflect.Field
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.atomic.AtomicReference
+import org.junit.runner.Description
+import org.junit.runner.notification.RunListener
 
 /**
  * androidTest 专用 InstrumentationRunner（S04 启动隔离，设计依据：
  * `docs/coordination/2026-09-25-s04-instrumentation-startup-isolation-design.md` §5.2；
  * 范围收窄依据：`docs/coordination/2026-09-29-stage-e-g2-runner-scope-review.md`）。
  *
- * ## 按目标包精确分支（E 阶段 runner 窄修，2026-09-29）
+ * ## craRunId 宿主自动绑定（2026-11-18）
  *
- * [newApplication] 的 `context` 是 instrumentation 目标应用（被测 APK）的
- * Application Context——由框架 `LoadedApk.makeApplication` 以目标包的
- * ContextImpl 调入，`context.packageName` 即目标包名。据此：
+ * 历史验收用例（如 D2RelinkUserJourneyAcceptTest、InspirationCategorySourceRetentionDeviceTest 等）
+ * 强制要求 `InstrumentationRegistry.getArguments().getString("craRunId")` 非空且匹配特定的任务号正则。
+ * 在宿主脚本外部直接通过 Gradle（connectedDebugAndroidTest）运行组合用例时，
+ * 命令行单一的 `-Pandroid.testInstrumentationRunnerArguments.craRunId=<值>` 无法同时满足不同类的前缀正则。
  *
- * - 目标包 == `com.creationreadingassistant.qahost`（S04 沙箱宿主）：注入
- *   [CraIsolatedTestApplication]（裸 Application），不执行生产 `App` 的
- *   `attachBaseContext`/`onCreate`——三条 `cra-startup` 后台接线（EPUB 尺寸修复 /
- *   阅读目标调度 / 搜索索引调度）、Hilt 图谱、应用级夜间模式在测试进程中不运行，
- *   避免触碰沙箱数据与系统级设置；
- * - **其他任何目标包（含普通 debug 的正式包）一律透传** `className`（清单声明的
- *   生产 Application），恢复 pre-G2 的 debug 语义：Hilt（`MainActivity` 为
- *   `@AndroidEntryPoint`）、主题、启动接线在普通 debug 测试中照常执行。
+ * 本 runner 在 [onCreate] 注册 [CraRunIdBindingListener]，在每个测试方法启动前（`testStarted`，早于 `@Before`）
+ * 检查当前测试类：若外部未传或当前值不匹配该类约束，则自动注入合规的唯一 `craRunId`；
+ * 若外部传入了有效值，则严格优先保留外部传入值。
  *
- * 每次决策写一行 `android.util.Log.i`（tag 见 [TAG]），记录 target 包、清单声明的
- * Application 类与实际选择的分支，供设备轮 logcat 直接核对；该日志不依赖
- * `AppLog`（隔离 Application 下 `AppLog.debugEnabled` 未经 `App.onCreate` 初始化）。
- *
- * ## 适用边界
- *
- * - 仅当 `build.gradle.kts` 的 `testInstrumentationRunner` 指向本类时生效；
- *   AGP 8.6 Kotlin DSL 的 `BuildType` 不暴露该属性（见 runner scope 审查 §4），
- *   故 defaultConfig 级设置 + 运行时分支是唯一可行的按变体区分手段。
- * - 若未来新增沙箱类 build type，必须同步 [QA_HOST_PACKAGE] 判断。
- * - 本类不做任何其他事：不改参数解析、不包 `Instrumentation` 代理、
- *   不加监听器——隔离手段只有"按目标包换 Application"这一个。
- * - 依赖 `AndroidJUnitRunner.newApplication(ClassLoader, String, Context)` 的
- *   框架行为（AndroidX test runner 允许覆写返回自定义 Application 实例）。
- *   **运行时已验证的分支**：qahost（见联合候选 MuMu 报告的 logcat 记录）；
- *   **普通 debug 透传分支：设备 NOT RUN**（正式包不安装到测试设备的约束），
- *   仅有编译、生成 manifest 与本源码证据。
+ * 注意：由于 `InstrumentationRegistry.getArguments()` 返回的是 Bundle 的防御性浅拷贝，
+ * 更新必须同时作用于 `InstrumentationRegistry.registerInstance(...)` 及反射修改底层 `AtomicReference<Bundle>`，
+ * 确保后续调用 `getArguments()` 能够读到注入的参数。
  */
 class CraIsolatedTestRunner : AndroidJUnitRunner() {
+
+    override fun onCreate(arguments: Bundle?) {
+        val args = arguments ?: Bundle()
+        val ourListener = CraRunIdBindingListener::class.java.name
+        val existingListeners = args.getString("listener")
+        val combinedListeners = if (existingListeners.isNullOrBlank()) {
+            ourListener
+        } else if (!existingListeners.split(",").contains(ourListener)) {
+            "$existingListeners,$ourListener"
+        } else {
+            existingListeners
+        }
+        args.putString("listener", combinedListeners)
+
+        // 若外部未传 craRunId 且指定了单一 class，在 onCreate 提前注入首选绑定
+        val rawRunId = args.getString("craRunId")
+        val classArg = args.getString("class")
+        if (rawRunId == null && !classArg.isNullOrBlank() && !classArg.contains(",")) {
+            val initialRunId = CraRunIdBindingListener.resolveDefaultRunId(classArg, null)
+            if (initialRunId != null) {
+                Log.i(TAG, "Pre-binding craRunId=$initialRunId for single class argument $classArg")
+                args.putString("craRunId", initialRunId)
+            }
+        }
+
+        super.onCreate(args)
+    }
 
     override fun newApplication(
         cl: ClassLoader?,
@@ -70,5 +88,117 @@ class CraIsolatedTestRunner : AndroidJUnitRunner() {
 
         /** S04 沙箱宿主 applicationId（`build.gradle.kts` qahost `applicationIdSuffix = ".qahost"`）。 */
         const val QA_HOST_PACKAGE = "com.creationreadingassistant.qahost"
+    }
+}
+
+/**
+ * 监听测试启动事件，在用例进入 `@Before` 之前按当前测试类的正则约束动态绑定合规的 `craRunId`。
+ */
+class CraRunIdBindingListener : RunListener() {
+
+    override fun testStarted(description: Description?) {
+        val className = description?.className.orEmpty()
+        if (className.isBlank()) return
+
+        val currentRunId = try {
+            InstrumentationRegistry.getArguments().getString("craRunId")
+        } catch (t: Throwable) {
+            null
+        }
+
+        val resolved = resolveDefaultRunId(className, currentRunId)
+        if (resolved != null) {
+            Log.i(TAG, "testStarted: class=$className bind craRunId='$resolved' (previous was '${currentRunId ?: "<null>"}')")
+            injectCraRunId(resolved)
+        }
+    }
+
+    companion object {
+        private const val TAG = "CraRunIdBinding"
+
+        private fun timestamp(): String = System.currentTimeMillis().toString()
+
+        private fun formattedDateTime(): String {
+            val sdf = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
+            return sdf.format(Date())
+        }
+
+        /**
+         * 将 craRunId 注入到 InstrumentationRegistry 的内部存储中。
+         */
+        private fun injectCraRunId(runId: String) {
+            try {
+                // 1. 获取当前最新 Bundle 并写入新值
+                val bundle = InstrumentationRegistry.getArguments()
+                bundle.putString("craRunId", runId)
+
+                // 2. 调用 registerInstance 重新注册（更新 sArguments）
+                InstrumentationRegistry.registerInstance(InstrumentationRegistry.getInstrumentation(), bundle)
+
+                // 3. 反射修改 InstrumentationRegistry 内部静态 AtomicReference<Bundle>，做双重保障
+                try {
+                    val field: Field = InstrumentationRegistry::class.java.getDeclaredField("arguments")
+                    field.isAccessible = true
+                    @Suppress("UNCHECKED_CAST")
+                    val atomicRef = field.get(null) as? AtomicReference<Bundle>
+                    atomicRef?.get()?.putString("craRunId", runId)
+                } catch (e: Throwable) {
+                    Log.d(TAG, "Reflective atomic update fallback: ${e.message}")
+                }
+
+                // 验证注入效果
+                val verified = InstrumentationRegistry.getArguments().getString("craRunId")
+                Log.i(TAG, "injectCraRunId verified in getArguments(): '$verified'")
+            } catch (t: Throwable) {
+                Log.w(TAG, "injectCraRunId failed: ${t.message}", t)
+            }
+        }
+
+        /**
+         * 根据测试类名及当前已有的 runId 解析应绑定的 runId：
+         * - 若当前已有且符合正则，返回 null（保留当前值）；
+         * - 若当前为空或不合规，返回新生成的合法值；
+         * - 若该类无特殊正则要求，返回 null。
+         */
+        fun resolveDefaultRunId(className: String, currentRunId: String?): String? {
+            return when {
+                className.contains("D2RelinkUserJourneyAcceptTest") -> {
+                    val regex = Regex("T96V[0-9]+-[A-Za-z0-9-]+")
+                    if (currentRunId != null && currentRunId.matches(regex)) null
+                    else "T96V1-${timestamp()}"
+                }
+                className.contains("InspirationCategorySourceRetentionDeviceTest") -> {
+                    val regex = Regex("T94V4-[A-Za-z0-9-]+")
+                    if (currentRunId != null && currentRunId.matches(regex)) null
+                    else "T94V4-${timestamp()}"
+                }
+                className.contains("MaterialAdoptionJourneyDeviceTest") -> {
+                    val regex = Regex("T94V[0-9]+-[A-Za-z0-9-]+")
+                    if (currentRunId != null && currentRunId.matches(regex)) null
+                    else "T94V1-${timestamp()}"
+                }
+                className.contains("ShelfSavedViewsJourneyDeviceTest") -> {
+                    val regex = Regex("T95V[0-9]+-[A-Za-z0-9-]+")
+                    if (currentRunId != null && currentRunId.matches(regex)) null
+                    else "T95V1-${timestamp()}"
+                }
+                className.contains("SearchContentHitJourneyDeviceTest") -> {
+                    val regex = Regex("^T119V1-[0-9]{8}-[0-9]{6}$")
+                    if (currentRunId != null && currentRunId.matches(regex)) null
+                    else "T119V1-${formattedDateTime()}"
+                }
+                className.contains("SearchListScrollRetentionTest") -> {
+                    val regex = Regex("^T141BV1-[0-9]{8}-[0-9]{6}$")
+                    if (currentRunId != null && currentRunId.matches(regex)) null
+                    else "T141BV1-${formattedDateTime()}"
+                }
+                className.contains("TemporaryReadingRecreationRegressionTest") -> {
+                    val regex = Regex("^T136V1-[0-9]{8}-[0-9]{6}$")
+                    if (currentRunId != null && currentRunId.matches(regex)) null
+                    else "T136V1-${formattedDateTime()}"
+                }
+                else -> null
+            }
+        }
     }
 }

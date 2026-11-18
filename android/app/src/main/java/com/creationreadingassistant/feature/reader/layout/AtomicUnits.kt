@@ -23,35 +23,52 @@ object AtomicUnits {
      *
      * @return 长度等于 [clusters].count 的数组，元素为单元 id 或 [NONE]
      */
-    fun compute(clusters: Clusters): IntArray {
+    fun compute(clusters: Clusters, checkActive: () -> Unit = {}): IntArray {
         val n = clusters.count
-        val out = IntArray(n) { NONE }
+        val out = IntArray(n) { i ->
+            if ((i and 255) == 0) checkActive()
+            NONE
+        }
         if (n == 0) return out
 
         var nextId = 0
         var i = 0
+        var nextCheck = 0
         while (i < n) {
+            if (i >= nextCheck) {
+                checkActive()
+                nextCheck = i + 256
+            }
             val k = clusters.klass[i]
             when {
                 // 成对标点：连续的同类破折号/省略号归为一个单元
                 k == CharClass.DASH || k == CharClass.ELLIPSIS -> {
                     var j = i
-                    while (j < n && clusters.klass[j] == k) j++
-                    if (j - i >= 2) markRange(out, i, j, nextId++)
+                    while (j < n && clusters.klass[j] == k) {
+                        if ((j and 255) == 0) checkActive()
+                        j++
+                    }
+                    if (j - i >= 2) markRange(out, i, j, nextId++, checkActive)
                     i = j
                 }
                 // 叠用叹号/问号（如 ！？、？！、！！、？？）：连续出现成对的情感标点不可拆行
                 isExclamationOrQuestion(clusters.text[clusters.startInText[i]]) -> {
                     var j = i
-                    while (j < n && isExclamationOrQuestion(clusters.text[clusters.startInText[j]])) j++
-                    if (j - i >= 2) markRange(out, i, j, nextId++)
+                    while (j < n && isExclamationOrQuestion(clusters.text[clusters.startInText[j]])) {
+                        if ((j and 255) == 0) checkActive()
+                        j++
+                    }
+                    if (j - i >= 2) markRange(out, i, j, nextId++, checkActive)
                     i = j
                 }
                 // 西文词与数字串：连续的拉丁/数字视为一体
                 CharClass.isLatinLike(k) -> {
                     var j = i
-                    while (j < n && (CharClass.isLatinLike(clusters.klass[j]) || isInWordPunct(clusters, j))) j++
-                    if (j - i >= 2) markRange(out, i, j, nextId++)
+                    while (j < n && (CharClass.isLatinLike(clusters.klass[j]) || isInWordPunct(clusters, j))) {
+                        if ((j and 255) == 0) checkActive()
+                        j++
+                    }
+                    if (j - i >= 2) markRange(out, i, j, nextId++, checkActive)
                     i = j
                 }
                 else -> i++
@@ -62,29 +79,40 @@ object AtomicUnits {
         // 只认人名间隔号 ·・‧，不认分隔号 ／ / —— 否则 URL 末尾的 `/` 会把紧随其后的
         // 中文也粘进这个原子单元里。
         for (idx in 1 until n - 1) {
+            if ((idx and 255) == 0) checkActive()
             if (CharClass.isNameSeparator(clusters.text[clusters.startInText[idx]])) {
                 val id = if (out[idx - 1] != NONE) out[idx - 1] else nextId++
-                markRange(out, idx - 1, idx + 2, id)
+                out[idx - 1] = id
+                out[idx] = id
+                out[idx + 1] = id
             }
         }
         return out
     }
 
-    /**
-     * 原子单元是否长于一行，需降级为可断。
-     *
-     * @return 该单元的簇宽总和是否超过 [avail]
-     */
-    fun exceedsLine(clusters: Clusters, atom: IntArray, at: Int, avail: Float): Boolean {
-        val id = atom.getOrNull(at) ?: return false
-        if (id == NONE) return false
-        var lo = at
-        while (lo > 0 && atom[lo - 1] == id) lo--
-        var hi = at
-        while (hi + 1 < atom.size && atom[hi + 1] == id) hi++
-        var w = 0f
-        for (i in lo..hi) w += clusters.advance[i]
-        return w > avail
+    internal data class Run(val start: Int, val endExclusive: Int, val width: Float) {
+        operator fun contains(index: Int): Boolean = index >= start && index < endExclusive
+    }
+
+    internal fun runAt(clusters: Clusters, atom: IntArray, at: Int, checkActive: () -> Unit = {}): Run? {
+        val id = atom[at]
+        if (id == NONE) return null
+        var start = at
+        while (start > 0 && atom[start - 1] == id) {
+            if ((start and 255) == 0) checkActive()
+            start--
+        }
+        var endExclusive = at + 1
+        while (endExclusive < atom.size && atom[endExclusive] == id) {
+            if ((endExclusive and 255) == 0) checkActive()
+            endExclusive++
+        }
+        var width = 0f
+        for (i in start until endExclusive) {
+            if ((i and 255) == 0) checkActive()
+            width += clusters.advance[i]
+        }
+        return Run(start, endExclusive, width)
     }
 
     /** 单元内部的连接标点：小数点、千分位逗号、连字符、下划线、斜杠 */
@@ -97,8 +125,11 @@ object AtomicUnits {
             CharClass.isLatinLike(clusters.klass[i + 1])
     }
 
-    private fun markRange(out: IntArray, from: Int, until: Int, id: Int) {
-        for (i in from until until.coerceAtMost(out.size)) out[i] = id
+    private fun markRange(out: IntArray, from: Int, until: Int, id: Int, checkActive: () -> Unit) {
+        for (i in from until until.coerceAtMost(out.size)) {
+            if ((i and 255) == 0) checkActive()
+            out[i] = id
+        }
     }
 
     private fun isExclamationOrQuestion(c: Char): Boolean =

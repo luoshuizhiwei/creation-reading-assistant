@@ -23,8 +23,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.creationreadingassistant.feature.library.ImportBatchSuccesses
 import com.creationreadingassistant.feature.library.deletion.DeletionScope
@@ -97,6 +101,7 @@ internal fun ShelfRoute(
     modifier: Modifier = Modifier,
     viewModel: ShelfViewModel = hiltViewModel(),
     taxonomyVm: TaxonomyViewModel = hiltViewModel(),
+    settingsVm: com.creationreadingassistant.ui.viewmodel.SettingsViewModel = hiltViewModel(),
     initialDetailBookId: String? = null,
 ) {
     // ======= ViewModel 源数据 collect =======
@@ -203,6 +208,8 @@ internal fun ShelfRoute(
     var showSortSheet by remember { mutableStateOf(false) }
     var showDesktopBooks by remember { mutableStateOf(false) }
     var confirmDeleteIds by remember { mutableStateOf<List<String>?>(null) }
+    val holdToDelete = settingsVm.appearance.collectAsStateWithLifecycle().value.holdToDelete
+    var holdDeleteIds by remember { mutableStateOf<List<String>?>(null) }
     var restorePromptBookId by remember { mutableStateOf<String?>(null) }
 
     // ======= 新导入未查看标签 =======
@@ -316,7 +323,18 @@ internal fun ShelfRoute(
     fun toggleSelected(id: String) {
         if (selectedIds.contains(id)) selectedIds.remove(id) else selectedIds.add(id)
     }
-    fun requestDelete(ids: List<String>) { confirmDeleteIds = ids }
+    fun requestDelete(ids: List<String>) {
+        // 设置里开启「长按删除书籍」时，确认弹窗替换为 Hold to Confirm 面板。
+        if (holdToDelete) holdDeleteIds = ids else confirmDeleteIds = ids
+    }
+
+    fun executeDelete(ids: List<String>) {
+        if (selectionMode) exitSelection()
+        // 整批走一次事务、一张凭证：撤销范围与提示数量一致（与弹窗确认路径同源）。
+        viewModel.deleteBooks(ids) { ok ->
+            if (!ok) showMessage(deletionFailedMessage(context))
+        }
+    }
 
     // ======= 纯 Screen + Snackbar（用 Local 桥）=======
     androidx.compose.foundation.layout.Box(modifier = modifier.testTag("shelf-route")) {
@@ -653,11 +671,7 @@ internal fun ShelfRoute(
                     onClick = {
                         val ids = delIds
                         confirmDeleteIds = null
-                        if (selectionMode) exitSelection()
-                        // 整批走一次事务、一张凭证：撤销范围与这里提示的数量一致。
-                        viewModel.deleteBooks(ids) { ok ->
-                            if (!ok) showMessage(deletionFailedMessage(context))
-                        }
+                        executeDelete(ids)
                     },
                 ) {
                     androidx.compose.material3.Text(
@@ -667,6 +681,46 @@ internal fun ShelfRoute(
             },
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = { confirmDeleteIds = null }) {
+                    androidx.compose.material3.Text("取消")
+                }
+            },
+        )
+    }
+    val holdIds = holdDeleteIds
+    if (holdIds != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { holdDeleteIds = null },
+            title = {
+                androidx.compose.material3.Text(
+                    deletionConfirmTitle(context, DeletionScope.DELETE_BOOK),
+                )
+            },
+            text = {
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    androidx.compose.material3.Text(
+                        deletionConfirmBody(
+                            context = context,
+                            scope = DeletionScope.DELETE_BOOK,
+                            bookCount = holdIds.size,
+                            undoSeconds = viewModel.undoWindowSeconds,
+                        ),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    com.creationreadingassistant.ui.components.HoldToConfirmButton(
+                        contentDescription = "按住以删除所选书籍",
+                        confirmedLabel = "已确认删除",
+                        onConfirmed = {
+                            val ids = holdIds
+                            holdDeleteIds = null
+                            executeDelete(ids)
+                        },
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    )
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { holdDeleteIds = null }) {
                     androidx.compose.material3.Text("取消")
                 }
             },

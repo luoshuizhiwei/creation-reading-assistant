@@ -89,26 +89,30 @@ fun HomeMetricsSection(
                 value = rememberCountUp(completedCount, "home.metrics.completed", reducedMotion).toString(),
                 subtext = "翻越终章",
             )
-            val minutesCountUp = rememberCountUp((todayReadingMs / 60000).toInt(), "home.metrics.today", reducedMotion)
-            GridStat(
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("metric-today"),
-                label = if (dailyGoalMinutes > 0) {
-                    "今日 /${dailyGoalMinutes}分"
-                } else {
-                    stringResource(R.string.home_today)
-                },
-                value = formatDuration(
-                    minutesCountUp.toLong() * 60000L,
-                    LocalDurationUnit.current,
-                    DurationStyle.COMPACT,
-                ),
-                subtext = if (dailyGoalMinutes > 0) "目标进度" else "今日沉浸",
-                // 本周概览内唯一的时长展示位 ⇒ 本区块只此一个切换入口。
-                valueModifier = Modifier.durationUnitToggle(),
-            )
         }
+
+        // 宽卡（今日沉浸）：今日阅读是唯一的时长数值且承载单位切换与目标进度，
+        // 从等宽三联中拆出来占满整行，打破四张同构卡的模板感（unslop: vary the sizes）。
+        val todayCountUp = rememberCountUp((todayReadingMs / 60000).toInt(), "home.metrics.today", reducedMotion)
+        GridStat(
+            modifier = Modifier
+                .fillMaxWidth()
+                .animateEnter(120, reducedMotion)
+                .testTag("metric-today"),
+            label = if (dailyGoalMinutes > 0) {
+                "今日 /${dailyGoalMinutes}分"
+            } else {
+                stringResource(R.string.home_today)
+            },
+            value = formatDuration(
+                todayCountUp.toLong() * 60000L,
+                LocalDurationUnit.current,
+                DurationStyle.COMPACT,
+            ),
+            subtext = if (dailyGoalMinutes > 0) "目标进度" else "今日沉浸",
+            // 本周概览内唯一的时长展示位 ⇒ 本区块只此一个切换入口。
+            valueModifier = Modifier.durationUnitToggle(),
+        )
     }
 }
 

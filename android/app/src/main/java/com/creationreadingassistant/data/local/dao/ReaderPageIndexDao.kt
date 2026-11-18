@@ -32,10 +32,12 @@ interface ReaderPageIndexDao {
     @Query("DELETE FROM reader_page_index")
     suspend fun clearAll()
 
-    /** 每章只取最近一次真实 char_count，供 EPUB 学习比率进度跨会话复用。 */
+    data class ChapterCharCount(val chapter_index: Int, val char_count: Int)
+
+    /** 按写入时间排序，调用方取每章首条。只加载 EPUB 校准所需的两列。 */
     @Query(
-        "SELECT * FROM reader_page_index WHERE content_key = :contentKey " +
+        "SELECT chapter_index, char_count FROM reader_page_index WHERE content_key = :contentKey " +
             "ORDER BY created_at DESC",
     )
-    suspend fun listRecent(contentKey: String): List<ReaderPageIndexEntity>
+    suspend fun listRecentCharCounts(contentKey: String): List<ChapterCharCount>
 }

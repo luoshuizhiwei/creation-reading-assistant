@@ -53,6 +53,8 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
@@ -335,36 +337,39 @@ class ShelfViewModel @Inject constructor(
     private val _libraryLoadFailed = MutableStateFlow(false)
     val libraryLoadFailed: StateFlow<Boolean> = _libraryLoadFailed.asStateFlow()
     private val _libraryRetryTick = MutableStateFlow(0)
+    private var libraryRetryTimeout: Job? = null
 
     fun markLibraryLoadFailed() {
-        if (!_libraryLoaded.value) _libraryLoadFailed.value = true
+        if (_libraryRetryTick.value == 0 && !_libraryLoaded.value) _libraryLoadFailed.value = true
     }
 
     fun retryLoadLibrary() {
         _libraryLoadFailed.value = false
-        _libraryRetryTick.value += 1
-        viewModelScope.launch {
-            try {
-                withTimeout(LibraryLoadTimeoutMillis) {
-                    repository.observeBooks().first()
-                    repository.observeProgress().first()
-                }
-                _libraryLoaded.value = true
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                _libraryLoadFailed.value = true
-            }
+        libraryRetryTimeout?.cancel()
+        libraryRetryTimeout = viewModelScope.launch {
+            delay(LibraryLoadTimeoutMillis)
+            _libraryLoadFailed.value = true
         }
+        _libraryRetryTick.value += 1
     }
 
     val books: StateFlow<List<BookEntity>> = _libraryRetryTick
-        .flatMapLatest { repository.observeBooks() }
-        .onEach {
-            _libraryLoaded.value = true
-            _libraryLoadFailed.value = false
+        .flatMapLatest { attempt ->
+            flow { emitAll(repository.observeBooks()) }
+                .onEach {
+                    if (_libraryRetryTick.value == attempt) {
+                        libraryRetryTimeout?.cancel()
+                        _libraryLoaded.value = true
+                        _libraryLoadFailed.value = false
+                    }
+                }
+                .catch {
+                    if (_libraryRetryTick.value == attempt) {
+                        libraryRetryTimeout?.cancel()
+                        _libraryLoadFailed.value = true
+                    }
+                }
         }
-        .catch { _libraryLoadFailed.value = true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val tags: StateFlow<List<TagEntity>> = taxonomyRepository.observeTags()

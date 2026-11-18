@@ -26,6 +26,7 @@ object SearchHitRanker {
         activeBookIds: Set<String>,
         coverageProvider: (bookId: String, textBasisWire: String) -> Pair<SearchCoverageState?, String?>? = { _, _ -> null },
         limit: Int = 50,
+        primaryTerms: Set<String> = emptySet(),
     ): List<SearchHit> {
         if (rawMatches.isEmpty() || limit <= 0) return emptyList()
         val live = rawMatches.filter { it.bookId in activeBookIds }
@@ -34,7 +35,8 @@ object SearchHitRanker {
         return live.groupBy { it.bookId to it.textBasis }
             .mapNotNull { (key, matches) ->
                 val (bookId, basis) = key
-                val (chapterIndex, span) = SearchHitSelection.pickCoordinate(matches)
+                val primaryMatches = matches.filter { it.span != null && it.term in primaryTerms }
+                val (chapterIndex, span) = SearchHitSelection.pickCoordinate(primaryMatches.ifEmpty { matches })
                 // R6-S（RDS-ROOT-DECISION-20261106-v1）：正文通道不得返回纯元数据命中。
                 //
                 // 原错误链（真机 2026-11-06 事件链原证）：书名 token（如「测试MD-84」的 84）

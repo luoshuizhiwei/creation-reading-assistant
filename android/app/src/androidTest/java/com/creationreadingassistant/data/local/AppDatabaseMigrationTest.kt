@@ -2117,6 +2117,21 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    @Test
+    fun migrate_15_to_16_accepts_a_database_previously_opened_by_the_app() {
+        migrationTestHelper.createDatabase(TEST_DB, 15).use { db ->
+            db.execSQL("CREATE INDEX idx_books_hash ON books(content_hash)")
+            db.execSQL("CREATE INDEX idx_books_updated ON books(updated_at) WHERE deleted_at IS NULL")
+        }
+
+        migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 16, true, AppDatabase.MIGRATION_15_16,
+        ).use { db ->
+            assertFalse(indexExists(db, "idx_books_hash"))
+            assertFalse(indexExists(db, "idx_books_updated"))
+        }
+    }
+
     // ─── 13 → 15 代表性历史链 ───────────────────────────────────────────
 
     /**
@@ -2254,7 +2269,7 @@ class AppDatabaseMigrationTest {
         val context: Context = ApplicationProvider.getApplicationContext()
         tearDownOpenCallbackDb(context)
 
-        // 先用 v14 fixture 铺一个待升级的库，再交给 Room 正式打开（触发 14→15 + onOpen）。
+        // 用 v14 fixture 经完整迁移链升级，再验证正式开库回调。
         var seeded = migrationTestHelper.createDatabase(OPEN_CALLBACK_DB, 14)
         seeded.execSQL(
             "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
@@ -2283,17 +2298,18 @@ class AppDatabaseMigrationTest {
                 AppDatabase.MIGRATION_12_13,
                 AppDatabase.MIGRATION_13_14,
                 AppDatabase.MIGRATION_14_15,
+                AppDatabase.MIGRATION_15_16,
             )
             .build()
 
         try {
-            // 触发开库：onUpgrade（14→15）与 CreateIndexCallback.onOpen 都在首次连接时发生。
+            // onUpgrade 与 CreateIndexCallback.onOpen 都在首次连接时发生。
             val handle = db.openHelper.writableDatabase
 
-            // 1. 迁移确实跑到了 v15
+            // 1. 迁移确实跑到了当前版本
             val versionCursor = handle.query("PRAGMA user_version")
             assertTrue(versionCursor.moveToFirst())
-            assertEquals("开库后应已升到 v15", 15, versionCursor.getInt(0))
+            assertEquals("开库后应已升到 v16", 16, versionCursor.getInt(0))
             versionCursor.close()
 
             // 2. 数据保留

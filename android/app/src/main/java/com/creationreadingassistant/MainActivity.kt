@@ -118,22 +118,23 @@ class MainActivity : ComponentActivity() {
                 SystemBarsEffect(
                     policy = SystemBarsPolicy.normal(appDark = darkTheme),
                     base = true,
-                )
-                AppTheme(
-                    darkTheme = darkTheme,
-                    palette = AppPalette.fromStored(appearance.colorPalette),
-                    useDynamicColor = appearance.useDynamicColor,
-                    amoledPureBlack = appearance.amoledPureBlack,
                 ) {
-                    CompositionLocalProvider(
-                        LocalDurationUnit provides durationUnit,
-                        LocalDurationUnitToggle provides toggleDurationUnit,
+                    AppTheme(
+                        darkTheme = darkTheme,
+                        palette = AppPalette.fromStored(appearance.colorPalette),
+                        useDynamicColor = appearance.useDynamicColor,
+                        amoledPureBlack = appearance.amoledPureBlack,
                     ) {
-                        Box(Modifier.fillMaxSize()) {
-                            AppNavigation()
-                            // 只在**明确读到「未完成」**时渲染；null（读取中）不渲染，避免闪烁。
-                            if (onboardingCompleted == false) {
-                                OnboardingOverlay(onClose = { onboardingCompleted = true })
+                        CompositionLocalProvider(
+                            LocalDurationUnit provides durationUnit,
+                            LocalDurationUnitToggle provides toggleDurationUnit,
+                        ) {
+                            Box(Modifier.fillMaxSize()) {
+                                AppNavigation()
+                                // 只在**明确读到「未完成」**时渲染；null（读取中）不渲染，避免闪烁。
+                                if (onboardingCompleted == false) {
+                                    OnboardingOverlay(onClose = { onboardingCompleted = true })
+                                }
                             }
                         }
                     }

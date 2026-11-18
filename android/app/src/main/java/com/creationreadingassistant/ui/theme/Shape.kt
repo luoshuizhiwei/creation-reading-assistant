@@ -1,6 +1,8 @@
 package com.creationreadingassistant.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
@@ -28,6 +30,18 @@ val DialogShape = RoundedCornerShape(18.dp)
 
 /** 胶囊形。用于筛选 chip 与圆形按钮，替代散落各处的 RoundedCornerShape(999.dp)。 */
 val PillShape = RoundedCornerShape(percent = 50)
+
+/**
+ * 同心圆角算式（操场跑道规则）：外圈圆角 = 里圈圆角 + 缝宽。
+ *
+ * 卡片内嵌套控件/色块贴边时，里圈若与外圈同半径，拐角处的缝会一头宽一头窄；
+ * 用本函数由外圈半径与内边距直接算出里圈半径，内外弧线同心，缝隙处处一致。
+ * 结果按 4px 网格向下取整，且不低于 4dp（低于 4dp 的圆角在触控控件上显得生硬）。
+ */
+fun innerRadiusOf(outerRadius: Dp, gap: Dp): Dp {
+    val raw = (outerRadius.value - gap.value).coerceAtLeast(4f)
+    return ((raw / 4f).toInt() * 4).dp
+}
 
 /** 细进度条圆角（比 extraSmall 更小一档）。
  *  统一取代进度条/滑条 clip 里散落的 `RoundedCornerShape(2.dp)` 字面量。*/

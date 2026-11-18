@@ -7,8 +7,12 @@ import com.creationreadingassistant.data.settings.AppearanceSettings
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.data.settings.SelectionActionSettings
 import com.creationreadingassistant.data.settings.SyncPrefs
+import android.net.Uri
+import com.creationreadingassistant.data.local.entity.LegadoImportBatchEntity
+import com.creationreadingassistant.data.local.entity.LegadoImportBatchItemEntity
 import com.creationreadingassistant.feature.sync.WebDavBackup
 import com.creationreadingassistant.feature.sync.WebDavConfigStore
+import com.creationreadingassistant.feature.sync.legado.LegadoImportPipeline
 import com.creationreadingassistant.ui.viewmodel.AboutUpdateState
 import com.creationreadingassistant.ui.viewmodel.ProfileHomeSummary
 import com.creationreadingassistant.ui.viewmodel.ProfileLibraryState
@@ -22,8 +26,29 @@ internal enum class ProfileSubPage {
     TAGS, CATEGORIES, SHELVES, READING, NOTES,
     /** R3-X1：选区工具条动作 / 查询目标 / 离线词库。 */
     SELECTION,
-    STORAGE, PRIVACY, ABOUT, DIAGNOSTICS
+    STORAGE, PRIVACY, ABOUT, DIAGNOSTICS,
+    /** LEGADO-IMPORT-PLAN-v2：统一「导入阅读记录」预览-提交页。 */
+    LEGADO_IMPORT,
 }
+
+/** Legado 导入预览页的阶段。 */
+internal enum class LegadoImportPhase { IDLE, PARSING, READY, COMMITTING, COMMITTED, FAILED }
+
+/** Legado 导入预览页的可选状态（选择项在此层持有，管线模型保持不可变）。 */
+@Immutable
+internal data class LegadoImportUi(
+    val phase: LegadoImportPhase = LegadoImportPhase.IDLE,
+    val error: String? = null,
+    val preview: LegadoImportPipeline.LegadoPreview? = null,
+    val selectedOrdinals: Set<Int> = emptySet(),
+    val importHistory: Boolean = true,
+    val selectedSourceId: String? = null,
+    val newSourceLabel: String = "",
+    val replaceSnapshotKeys: Set<String> = emptySet(),
+    val candidateOverrides: Map<Int, String> = emptyMap(),
+    val lastResult: LegadoImportPipeline.CommitResult? = null,
+    val lastUndo: LegadoImportPipeline.UndoResult? = null,
+)
 
 internal val ProfileSubPage.routeSegment: String
     get() = name.lowercase()
@@ -69,12 +94,14 @@ internal fun subPageTitle(page: ProfileSubPage?): String = when (page) {
     ProfileSubPage.PRIVACY -> "隐私安全"
     ProfileSubPage.ABOUT -> "关于"
     ProfileSubPage.DIAGNOSTICS -> "日志与诊断"
+    ProfileSubPage.LEGADO_IMPORT -> "导入阅读记录"
     null -> "我的"
 }
 
 internal fun subPageEyebrow(page: ProfileSubPage?): String = when (page) {
     ProfileSubPage.SYNC -> "局域网同步"
     ProfileSubPage.WEBDAV -> "跨设备备份"
+    ProfileSubPage.LEGADO_IMPORT -> "开源阅读"
     ProfileSubPage.APPEARANCE -> "外观"
     ProfileSubPage.READER -> "阅读体验"
     ProfileSubPage.GOAL -> "目标"
@@ -134,6 +161,9 @@ internal data class ProfileUiState(
     val webDavConfig: WebDavConfigStore.Config? = null,
     val webDavBackups: List<WebDavBackup.BackupFile> = emptyList(),
     val legadoBackups: List<WebDavBackup.BackupFile> = emptyList(),
+    val legadoImport: LegadoImportUi = LegadoImportUi(),
+    val legadoPending: List<LegadoImportBatchItemEntity> = emptyList(),
+    val legadoBatches: List<LegadoImportBatchEntity> = emptyList(),
     val appearance: AppearanceSettings = AppearanceSettings(),
     val reader: ReaderSettings = ReaderSettings(),
     /** R3-X1：选区工具条动作 / 查询目标配置。 */
@@ -150,8 +180,6 @@ internal data class ProfileUiState(
     val pendingDownloadCount: Int = 0,
     val indexBytes: Long = 0L,
     val goal: GoalPageState = GoalPageState(),
-    val searchIndexProgress: com.creationreadingassistant.data.repository.SearchIndexRepository.Progress =
-        com.creationreadingassistant.data.repository.SearchIndexRepository.Progress(0L, 0, false),
 )
 
 // ============================== Action ==============================
@@ -175,11 +203,8 @@ internal sealed interface ProfileAction {
     data object OpenInspirations : ProfileAction
     data object GoBack : ProfileAction
 
-    /** R6-B7：重置全库搜索索引进度并重新入队后台扫描（惰性、分窗口）。 */
-    data object RebuildSearchIndex : ProfileAction
-
-    /** §6.9：用户取消正在进行的后台索引构建（保留断点，下次续建）。 */
-    data object CancelSearchIndex : ProfileAction
+    /** 导入阅读记录 JSON（2026-11-17，重装后恢复读位/会话/灵感）。 */
+    data class ImportReadingRecords(val uri: android.net.Uri) : ProfileAction
 
     // Sync
     data class StartPairing(val rawQr: String) : ProfileAction
@@ -207,6 +232,21 @@ internal sealed interface ProfileAction {
     data class DownloadRestore(val filename: String) : ProfileAction
     data object RefreshLegadoBackups : ProfileAction
     data class ImportLegadoBackup(val filename: String) : ProfileAction
+
+    /** 从本机 SAF 选择的 Legado 备份 ZIP 进入预览。 */
+    data class ImportLegadoDeviceZip(val uri: Uri) : ProfileAction
+
+    // Legado 导入预览页操作（LEGADO-IMPORT-PLAN-v2 §6）
+    data class LegadoSelectSource(val sourceId: String?) : ProfileAction
+    data class LegadoTogglePosition(val ordinal: Int) : ProfileAction
+    data class LegadoSetHistory(val importHistory: Boolean) : ProfileAction
+    data class LegadoToggleReplaceSnapshot(val rowKey: String) : ProfileAction
+    data class LegadoSetNewSourceLabel(val label: String) : ProfileAction
+    data class LegadoSelectCandidate(val ordinal: Int, val bookId: String) : ProfileAction
+    data object LegadoCommit : ProfileAction
+    data class LegadoUndo(val batchId: String) : ProfileAction
+    data class LegadoDeletePending(val itemId: String) : ProfileAction
+    data object LegadoDismiss : ProfileAction
     data object ClearWebDav : ProfileAction
 
     // Settings

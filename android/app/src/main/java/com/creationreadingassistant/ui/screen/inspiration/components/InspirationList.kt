@@ -346,15 +346,6 @@ internal fun InspirationList(
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(38.dp),
                         )
-                        Icon(
-                            Icons.Outlined.AutoAwesome,
-                            contentDescription = null,
-                            tint = categoryTint("amber"),
-                            modifier = Modifier
-                                .size(18.dp)
-                                .align(Alignment.TopEnd)
-                                .padding(top = 8.dp, end = 8.dp),
-                        )
                     }
                 },
                 title = title,

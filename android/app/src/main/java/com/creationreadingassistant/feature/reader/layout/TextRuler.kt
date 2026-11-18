@@ -23,6 +23,11 @@ interface TextRuler {
      */
     fun getTextWidths(text: String, out: FloatArray)
 
+    fun getTextWidths(text: String, out: FloatArray, checkActive: () -> Unit) {
+        checkActive()
+        getTextWidths(text, out)
+    }
+
     /** 标识字体来源，进排版指纹。换系统字体后必须让缓存失效。 */
     val typefaceKey: String
 }
@@ -45,10 +50,18 @@ class FakeTextRuler(
     private val fullWidthPunctScale: Float = 1f,
 ) : TextRuler {
 
-    override fun getTextWidths(text: String, out: FloatArray) {
+    override fun getTextWidths(text: String, out: FloatArray) =
+        getTextWidths(text, out) {}
+
+    override fun getTextWidths(text: String, out: FloatArray, checkActive: () -> Unit) {
         require(out.size >= text.length) { "out 长度不足：${out.size} < ${text.length}" }
         var i = 0
+        var nextCheck = 0
         while (i < text.length) {
+            if (i >= nextCheck) {
+                checkActive()
+                nextCheck = i + 256
+            }
             val c = text[i]
             if (Character.isHighSurrogate(c) && i + 1 < text.length &&
                 Character.isLowSurrogate(text[i + 1])

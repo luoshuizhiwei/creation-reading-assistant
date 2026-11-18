@@ -90,25 +90,8 @@ internal fun openTts(
     } else {
         resumeAt
     }
-    val result0 = tts.play(contentText, bookTitle, currentChapterTitle.ifBlank { "正文" }, playStart)
-    AppLog.debug("TtsOpen", "play#1 engine=${tts.engineId} avail=${tts.availability} result=$result0")
-    // 系统语音引擎不可用（ROM 缺失/损坏 TTS 引擎）时自动改用神经语音重试一次：
-    // 否则错误态够不到 TTS 栏里的引擎选择器，形成死锁。EDGE 失败会自行回退 SYSTEM
-    // 并给出明确错误；两端都坏时不循环（策略 EDGE -> null）。
-    var result: TtsPlayResult = result0
-    if (result0 is TtsPlayResult.Rejected &&
-        TtsNoticePolicy.shouldAutoSwitchOnReject(tts.availability)
-    ) {
-        val switched = TtsNoticePolicy.autoSwitchEngineOnUnavailable(tts.engineId)
-        if (switched != null) {
-            tts.switchEngine(switched)
-            result = tts.play(contentText, bookTitle, currentChapterTitle.ifBlank { "正文" }, playStart)
-            AppLog.debug("TtsOpen", "play#2 engine=$switched avail=${tts.availability} result=$result")
-            if (result is TtsPlayResult.Accepted) {
-                showNotice("系统语音引擎不可用，已改用${switched.displayLabel}朗读（需联网）。")
-            }
-        }
-    }
+    val result = tts.play(contentText, bookTitle, currentChapterTitle.ifBlank { "正文" }, playStart)
+    AppLog.debug("TtsOpen", "engine=${tts.engineId} avail=${tts.availability} result=$result")
     if (result is TtsPlayResult.Rejected) {
         // 提示策略：被动 init failure 静默；用户主动打开听书且引擎不可用时恰好提示一次
         //（snackbar 带去设置）并进程内 reinitialize；未就绪显示可解释原因；主动错误不被吞。

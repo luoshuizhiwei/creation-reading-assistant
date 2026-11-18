@@ -98,6 +98,15 @@ class AiClientTest {
     }
 
     @Test
+    fun `chat retains a versioned provider base path`() = runTest {
+        aiState.value = aiState.value.copy(baseUrl = server.url("/compatible-mode/v1/").toString())
+        server.enqueue(MockResponse().setBody(chatJson()).setResponseCode(200))
+
+        assertTrue(newClient().chat("s", "u").isSuccess)
+        assertEquals("/compatible-mode/v1/chat/completions", server.takeRequest().path)
+    }
+
+    @Test
     fun `chat sends non-stream request body`() = runTest {
         server.enqueue(MockResponse().setBody(chatJson()).setResponseCode(200))
 

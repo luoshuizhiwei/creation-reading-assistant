@@ -15,7 +15,6 @@ import com.creationreadingassistant.data.local.entity.BookFileEntity
 import com.creationreadingassistant.data.local.entity.LibrarySourceAvailability
 import com.creationreadingassistant.data.local.entity.LibrarySourceRefEntity
 import com.creationreadingassistant.data.repository.BookRepository
-import com.creationreadingassistant.data.repository.SearchIndexBookRefreshCoordinator
 import com.creationreadingassistant.data.settings.ImportHistoryEntry
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.feature.reader.EpubRepository
@@ -95,7 +94,6 @@ class ShelfImporter @Inject constructor(
     private val sourceIndex: LibrarySourceIndex,
     private val rootStore: LibraryRootStore,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
-    private val indexRefreshCoordinator: SearchIndexBookRefreshCoordinator,
 ) {
 
     /**
@@ -284,10 +282,6 @@ class ShelfImporter @Inject constructor(
         val outcome = repairFileTyped(bookId, uri, enforceIdentityGate = false)
         if (!outcome.ok) return SourceRefreshResult.Failed(outcome.message)
         refreshSourceBaseline(ref, uri)
-        // 正文替换成功后，异步重建该书的搜索索引（S04-2）。
-        // 不等待重建完成，不把索引失败改变本次刷新结果：
-        // 失败由 SearchIndexBookRefreshCoordinator 写入 AppLog 并静默吞掉。
-        indexRefreshCoordinator.request(bookId)
         return SourceRefreshResult.Success(outcome.message)
     }
 

@@ -49,7 +49,6 @@ import com.creationreadingassistant.MainActivity
 import com.creationreadingassistant.ui.screen.reader.sheets.ReaderExportReceipts
 import com.creationreadingassistant.data.local.AppDatabase
 import com.creationreadingassistant.data.repository.BookRepository
-import com.creationreadingassistant.data.repository.SearchIndexBookRefreshCoordinator
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.feature.library.LibraryRootStore
 import com.creationreadingassistant.feature.library.LibrarySourceIndex
@@ -297,7 +296,6 @@ class MaterialGatheringJourneyTest {
             sourceIndex = LibrarySourceIndex(db.librarySourceRefDao()),
             rootStore = LibraryRootStore(context, CoroutineScope(Dispatchers.IO)),
             ioDispatcher = Dispatchers.IO,
-            indexRefreshCoordinator = mockk<SearchIndexBookRefreshCoordinator>(relaxed = true),
         )
     }
 

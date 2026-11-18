@@ -69,7 +69,7 @@ class PageIndexStore @Inject constructor(
 
     suspend fun knownCharCounts(contentKey: String): Map<Int, Int> =
         runCatching {
-            dao.listRecent(contentKey)
+            dao.listRecentCharCounts(contentKey)
                 .distinctBy { it.chapter_index }
                 .associate { it.chapter_index to it.char_count }
         }.getOrDefault(emptyMap())

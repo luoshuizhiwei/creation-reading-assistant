@@ -24,7 +24,6 @@ import com.creationreadingassistant.data.local.entity.LibrarySourceRefEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.repository.BookRepository
-import com.creationreadingassistant.data.repository.SearchIndexBookRefreshCoordinator
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.feature.library.LibraryRootStore
 import com.creationreadingassistant.feature.library.LibrarySourceIndex
@@ -213,7 +212,6 @@ class D2RelinkPersistenceAcceptTest {
             sourceIndex = LibrarySourceIndex(sourceDao),
             rootStore = LibraryRootStore(testContext, CoroutineScope(Dispatchers.IO)),
             ioDispatcher = Dispatchers.IO,
-            indexRefreshCoordinator = mockk<SearchIndexBookRefreshCoordinator>(relaxed = true),
         )
     }
 

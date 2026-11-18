@@ -9,6 +9,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -129,17 +132,21 @@ class PagedReaderControllerCrossChapterNavTest {
     }
 
     @Test
-    fun `multiple turns during initial layout are replayed in input order`() {
-        val scope = CoroutineScope(Job() + Dispatchers.Default)
+    fun `reversing during initial layout replaces pending forward turns`() = runBlocking {
+        val scope = CoroutineScope(coroutineContext + Job())
         val controller = buildController(scope)
         try {
+            // The host dispatcher cannot start layout until this coroutine suspends.
             controller.open(0)
             controller.nextPage()
             controller.nextPage()
             controller.prevPage()
 
-            waitUntil { !controller.isLayingOut && controller.pageIndex == 1 }
-            assertEquals("首屏排版期间的连续手势应按顺序回放", 0, controller.chapterIndex)
+            withTimeout(5000) {
+                while (controller.isLayingOut) yield()
+            }
+            assertEquals(0, controller.chapterIndex)
+            assertEquals(0, controller.pageIndex)
         } finally {
             controller.close()
             scope.cancel()
