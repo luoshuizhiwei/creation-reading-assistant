@@ -184,6 +184,7 @@ fun MutedCoverFallback(
  * @param percent        阅读进度；非 null 且 >=99.5f 时盖藏书印（仅书架需要，首页传 null）
  * @param sealSize       藏书印尺寸
  * @param showSheen      是否显示斜向实体书高光
+ * @param sealColor      藏书印印泥色（null = 随当前方向，legacy 回退朱砂）
  * @param fallback       无封面时的回退内容
  * @param overlay        覆盖在最上层的内容槽（如「已收藏」状态印章），由调用方自行定位
  */
@@ -195,6 +196,7 @@ fun BookCover(
     percent: Float? = null,
     sealSize: Dp = 22.dp,
     showSheen: Boolean = true,
+    sealColor: Color? = null,
     fallback: @Composable BoxScope.() -> Unit,
     overlay: (@Composable BoxScope.() -> Unit)? = null,
 ) {
@@ -235,6 +237,7 @@ fun BookCover(
             // 藏书印：读完才盖。必须画在高光层之上，否则会被叠加层压住。
             SealMark(
                 size = sealSize,
+                sealColor = sealColor,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(4.dp),

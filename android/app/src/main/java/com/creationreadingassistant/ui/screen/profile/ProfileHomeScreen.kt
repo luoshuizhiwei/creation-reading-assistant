@@ -61,7 +61,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.settings.SelectionActionSettings
 import com.creationreadingassistant.data.settings.SelectionActions
 import com.creationreadingassistant.ui.components.CompactItemDivider
@@ -71,10 +73,14 @@ import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.categoryTint
+import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.theme.lab.LocalThemeLabDirection
+import com.creationreadingassistant.ui.theme.lab.ThemeLabDirection
+import com.creationreadingassistant.ui.theme.lab.componentSpec
 import com.creationreadingassistant.ui.util.LocalDurationUnit
 import com.creationreadingassistant.ui.util.durationUnitToggle
 import com.creationreadingassistant.ui.util.formatDuration
@@ -153,12 +159,22 @@ internal fun ProfileHomeScreen(
             // 阅读档案：身份行 + 一行三格统计，整卡点击进入「我的阅读」。
             // 统计只在此处呈现一次，下方「我的阅读」行不再重复。
             item(key = "profile-archive") {
+                val direction = LocalThemeLabDirection.current
+                // 阴刻印章方向：身份行落在实心墨块上（白文反刻），统计行仍留在纸面。
+                val inkBlock = direction == ThemeLabDirection.YIN_SEAL
                 CompactSettingsGroup(
                     modifier = Modifier.animateEnter(reducedMotion = reducedMotion),
+                    containerColor = when (direction) {
+                        ThemeLabDirection.CHEN_GUANG -> MaterialTheme.colorScheme.surfaceContainerLow
+                        null -> MaterialTheme.colorScheme.surfaceContainerLow
+                        else -> MaterialTheme.colorScheme.surface
+                    },
+                    cornerRadius = direction?.componentSpec?.cardRadius ?: 16.dp,
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .then(if (inkBlock) Modifier.background(MaterialTheme.colorScheme.primary) else Modifier)
                             .clickable { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) }
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -167,25 +183,25 @@ internal fun ProfileHomeScreen(
                         Icon(
                             imageVector = Icons.Outlined.Book,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = if (inkBlock) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp),
                         )
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "创作阅读助手",
                                 style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = if (inkBlock) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
                                 text = "本地优先 · 点击查看阅读档案",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (inkBlock) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Icon(
                             imageVector = Icons.Outlined.ChevronRight,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (inkBlock) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -302,11 +318,18 @@ private fun RowScope.ArchiveStat(
     /** 时长行用它挂长按切换；「读完 / 灵感」两格不传，保持纯文本。 */
     valueModifier: Modifier = Modifier,
 ) {
+    // 宣纸 / 阴刻方向：统计数字走展示衬线（书卷气签名）；其余方向保持黑体。
+    val direction = LocalThemeLabDirection.current
+    val serifValue = direction == ThemeLabDirection.XUAN_GRAY || direction == ThemeLabDirection.YIN_SEAL
     Column(modifier = Modifier.weight(1f)) {
         Text(
             text = value,
             modifier = valueModifier,
-            style = MaterialTheme.typography.titleMedium,
+            style = if (serifValue) {
+                MaterialTheme.typography.titleMedium.copy(fontFamily = DisplayFontFamily)
+            } else {
+                MaterialTheme.typography.titleMedium
+            },
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
         )
@@ -320,10 +343,43 @@ private fun RowScope.ArchiveStat(
 
 @Composable
 private fun MenuGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
-    CompactSettingsGroup(
-        title = title,
-        content = content,
-    )
+    val direction = LocalThemeLabDirection.current
+    if (direction == null) {
+        CompactSettingsGroup(title = title, content = content)
+        return
+    }
+    // 方向样板：组标题用方向字阶（宣纸 / 阴刻走衬线），阴刻方向加一枚小方章标记（装饰，无文案）；
+    // 组容器形状 / 底色随方向组件规格。
+    val serifTitle = direction == ThemeLabDirection.XUAN_GRAY || direction == ThemeLabDirection.YIN_SEAL
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 4.dp, top = 4.dp),
+        ) {
+            if (direction == ThemeLabDirection.YIN_SEAL) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(1.dp)),
+                )
+            }
+            Text(
+                text = title,
+                style = if (serifTitle) {
+                    MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily)
+                } else {
+                    MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp)
+                },
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        CompactSettingsGroup(
+            containerColor = MaterialTheme.colorScheme.surface,
+            cornerRadius = direction.componentSpec.cardRadius,
+            content = content,
+        )
+    }
 }
 
 @Composable
@@ -337,6 +393,14 @@ private fun ColumnScope.MenuItem(
     onClick: () -> Unit,
 ) {
     val actualTint = if (danger) MaterialTheme.colorScheme.error else (iconTint ?: MaterialTheme.colorScheme.primary)
+    // 方向底座形状：阴刻方章 2dp / 宣纸 4dp / 青瓷 6dp / 晨光与 legacy 8dp。
+    val direction = LocalThemeLabDirection.current
+    val pedestalShape = when (direction) {
+        ThemeLabDirection.YIN_SEAL -> RoundedCornerShape(2.dp)
+        ThemeLabDirection.XUAN_GRAY -> RoundedCornerShape(4.dp)
+        ThemeLabDirection.QING_CI -> RoundedCornerShape(6.dp)
+        else -> RoundedCornerShape(8.dp)
+    }
     CompactSettingRow(
         title = label,
         subtitle = desc,
@@ -344,8 +408,8 @@ private fun ColumnScope.MenuItem(
             Box(
                 modifier = Modifier
                     .size(28.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(actualTint.copy(alpha = 0.12f)),
+                    .clip(pedestalShape)
+                    .background(actualTint.copy(alpha = if (direction == ThemeLabDirection.YIN_SEAL) 0.16f else 0.12f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

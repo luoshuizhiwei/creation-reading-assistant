@@ -226,7 +226,7 @@ fun <T> SettingSegmentedRow(
                                 style = MaterialTheme.typography.labelMedium,
                             )
                         },
-                        shape = com.creationreadingassistant.ui.theme.AppShapes.small,
+                        shape = MaterialTheme.shapes.small,
                         colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primary,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimary,

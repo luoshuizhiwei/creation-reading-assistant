@@ -47,6 +47,7 @@ import com.creationreadingassistant.ui.screen.profile.StorageSubPage
 import com.creationreadingassistant.ui.screen.profile.SyncSubPage
 import com.creationreadingassistant.ui.screen.profile.WebDavSubPage
 import com.creationreadingassistant.ui.screen.profile.subPageTitle
+import com.creationreadingassistant.ui.theme.lab.settingsLayout
 
 /**
  * 「我的」页——薄壳渲染层。
@@ -153,7 +154,9 @@ internal fun ProfileScreen(
         // 否则首页走 Compact 组件族、子页走 SettingRow 族，两层会长得不一样。
         // 页头仍按是否首页分档：顶级页保留 26sp 展示衬线，二级子页走 18sp 无衬线。
         CompositionLocalProvider(
-            LocalLayoutTokens provides CompactSettingsLayoutTokens,
+            // P2：方向激活时「我的」整树用方向设置密度；legacy 回退紧凑令牌。
+            LocalLayoutTokens provides (com.creationreadingassistant.ui.theme.lab.LocalThemeLabDirection.current?.settingsLayout
+                ?: CompactSettingsLayoutTokens),
             LocalFlatCards provides true,
             LocalSettingsDensity provides SettingsDensity.COMPACT,
         ) {

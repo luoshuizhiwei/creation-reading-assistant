@@ -38,6 +38,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.ui.theme.lab.LocalThemeLabDirection
+import com.creationreadingassistant.ui.theme.lab.componentSpec
 import com.creationreadingassistant.feature.reader.pager.CustomTipPlaceholder
 
 /**
@@ -67,7 +69,6 @@ fun CustomTipDialog(
 
     AppAlertDialog(
         onDismissRequest = onDismissRequest,
-        shape = RoundedCornerShape(20.dp),
         title = {
             Text(
                 text = title,
@@ -106,7 +107,7 @@ fun CustomTipDialog(
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(LocalThemeLabDirection.current?.componentSpec?.listItemRadius ?: 12.dp),
                 )
 
                 val previewText by remember(template.text) {
@@ -117,7 +118,7 @@ fun CustomTipDialog(
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(LocalThemeLabDirection.current?.componentSpec?.pedestalRadius ?: 8.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerHighest,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -170,7 +171,7 @@ fun CustomTipDialog(
                             onClick = {
                                 template = template.insertAtCursor(ph.token)
                             },
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(LocalThemeLabDirection.current?.componentSpec?.pedestalRadius ?: 8.dp),
                             colors = AssistChipDefaults.assistChipColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 labelColor = MaterialTheme.colorScheme.onSurface,
@@ -238,7 +239,7 @@ fun HeaderFooterPicker(
             color = MaterialTheme.colorScheme.onSurface,
         )
         Surface(
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(LocalThemeLabDirection.current?.componentSpec?.pedestalRadius ?: 8.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             contentColor = MaterialTheme.colorScheme.onSurface,
         ) {

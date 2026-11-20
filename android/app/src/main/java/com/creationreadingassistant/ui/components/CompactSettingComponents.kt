@@ -46,6 +46,8 @@ import com.creationreadingassistant.ui.theme.AppShapes
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.bounceable
+import com.creationreadingassistant.ui.theme.lab.LocalThemeLabDirection
+import com.creationreadingassistant.ui.theme.lab.componentSpec
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
@@ -63,10 +65,14 @@ fun CompactSettingsGroup(
     tint: Color = MaterialTheme.colorScheme.primary,
     description: String? = null,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
-    cornerRadius: Dp = 16.dp,
+    cornerRadius: Dp? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
+    // P2 全局铺开：方向激活时用方向卡片圆角；legacy 回退 16dp。
+    val direction = LocalThemeLabDirection.current
+    val radius = cornerRadius ?: (direction?.componentSpec?.cardRadius ?: 16.dp)
+    val iconRadius = direction?.componentSpec?.pedestalRadius ?: 6.dp
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -82,7 +88,7 @@ fun CompactSettingsGroup(
                     Box(
                         modifier = Modifier
                             .size(24.dp)
-                            .clip(RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(iconRadius))
                             .background(tint.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -116,7 +122,7 @@ fun CompactSettingsGroup(
         }
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(cornerRadius),
+            shape = RoundedCornerShape(radius),
             colors = CardDefaults.cardColors(containerColor = containerColor),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         ) {
@@ -162,7 +168,7 @@ fun <T> CompactOptionPillRow(
                     Box(
                         modifier = Modifier
                             .size(24.dp)
-                            .clip(RoundedCornerShape(6.dp))
+                            .clip(RoundedCornerShape(LocalThemeLabDirection.current?.componentSpec?.pedestalRadius ?: 6.dp))
                             .background(tint.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -186,7 +192,7 @@ fun <T> CompactOptionPillRow(
         }
 
         Surface(
-            shape = AppShapes.small,
+            shape = MaterialTheme.shapes.small,
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -204,7 +210,7 @@ fun <T> CompactOptionPillRow(
                             haptic(HapticFeedbackType.TextHandleMove)
                             onSelect(value)
                         },
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(LocalThemeLabDirection.current?.componentSpec?.pedestalRadius ?: 8.dp),
                         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
                         modifier = Modifier
                             .weight(1f)

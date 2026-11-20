@@ -44,12 +44,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.local.entity.BookEntity
@@ -63,6 +65,11 @@ import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.bounceable
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.theme.lab.LocalThemeLabDirection
+import com.creationreadingassistant.ui.theme.lab.ThemeLabDirection
+import com.creationreadingassistant.ui.theme.lab.labSealColor
+import com.creationreadingassistant.ui.theme.lab.progressAccent
+import com.creationreadingassistant.ui.theme.rememberCategoryTintDark
 
 /**
  * 书架网格封面微书脊立体阴影画笔（顶级常量，零 GC 分配）。
@@ -181,6 +188,8 @@ internal fun StatusRail(
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        // 阴刻印章方向：选中分组 = 实心墨块反白（方章）；其余方向用主色容器浅底。
+        val inkBlock = LocalThemeLabDirection.current == ThemeLabDirection.YIN_SEAL
         ShelfStatusGroupOptions.forEach { value ->
             val active = statusFilter == value
             val count = counts[value]
@@ -189,7 +198,14 @@ internal fun StatusRail(
             } else {
                 statusLabel(value)
             }
-            SelectablePill(text = label, selected = active, onClick = { onSelect(value) })
+            SelectablePill(
+                text = label,
+                selected = active,
+                onClick = { onSelect(value) },
+                tonalSelectedColor = if (inkBlock) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                tonalSelectedContent = if (inkBlock) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
+                selectedBorderTint = MaterialTheme.colorScheme.primary,
+            )
         }
     }
 }
@@ -303,16 +319,37 @@ internal fun BookTile(
     val isSelected = selectionMode && selected
     val primaryColor = MaterialTheme.colorScheme.primary
     val outlineVariantColor = MaterialTheme.colorScheme.outlineVariant
-    val gridBorder = remember(isSelected, primaryColor, outlineVariantColor) {
+    val outlineColor = MaterialTheme.colorScheme.outline
+    // Theme Lab v2：方向决定封面形状 / 边框语言 / 进度线 / 印章色；旧配色（null）保持原值。
+    val labDirection = LocalThemeLabDirection.current
+    val labSpec = LocalComponentSpec.current
+    val coverShape = if (labDirection != null) labSpec.listItemShape else RoundedCornerShape(8.dp)
+    val sealColor = labSealColor()
+    val progressHeight = when (labDirection) {
+        ThemeLabDirection.XUAN_GRAY -> 2.dp
+        ThemeLabDirection.YIN_SEAL -> 4.dp
+        ThemeLabDirection.QING_CI -> 2.dp
+        else -> 3.dp
+    }
+    val progressShape = if (labDirection == ThemeLabDirection.YIN_SEAL) {
+        RoundedCornerShape(0.dp)
+    } else {
+        RoundedCornerShape(1.5.dp)
+    }
+    val gridBorder = remember(isSelected, primaryColor, outlineVariantColor, outlineColor, labDirection) {
         if (isSelected) {
             BorderStroke(2.dp, primaryColor)
+        } else if (labDirection == ThemeLabDirection.YIN_SEAL) {
+            BorderStroke(1.dp, outlineColor.copy(alpha = 0.6f))
         } else {
             BorderStroke(0.6.dp, outlineVariantColor.copy(alpha = 0.40f))
         }
     }
-    val listBorder = remember(isSelected, primaryColor, outlineVariantColor) {
+    val listBorder = remember(isSelected, primaryColor, outlineVariantColor, outlineColor, labDirection) {
         if (isSelected) {
             BorderStroke(1.5.dp, primaryColor)
+        } else if (labDirection == ThemeLabDirection.YIN_SEAL) {
+            BorderStroke(1.dp, outlineColor.copy(alpha = 0.6f))
         } else {
             BorderStroke(0.6.dp, outlineVariantColor.copy(alpha = 0.40f))
         }
@@ -323,12 +360,12 @@ internal fun BookTile(
             modifier = tileModifier,
             verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
         ) {
-            // 书籍封面微岛：8dp 圆角、微边框、微书脊立体阴影、多选态流体边框
+            // 书籍封面微岛：方向形状 / 发丝或实边、微书脊立体阴影、多选态流体边框
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = coverShape,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                 border = gridBorder,
-                shadowElevation = 1.dp,
+                shadowElevation = if (labDirection != null) 0.dp else 1.dp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(0.72f),
@@ -339,6 +376,7 @@ internal fun BookTile(
                         percent = if (displayFinished) percent else null,
                         modifier = Modifier.fillMaxSize(),
                         sealSize = 30.dp,
+                        sealColor = sealColor,
                         fallback = { ShelfCoverFallback(book, isCompact = false) },
                     )
 
@@ -468,7 +506,7 @@ internal fun BookTile(
                 ) {
                     // 百分比与章节微胶囊标签
                     Surface(
-                        shape = RoundedCornerShape(4.dp),
+                        shape = RoundedCornerShape(if (labDirection == ThemeLabDirection.YIN_SEAL) 2.dp else 4.dp),
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
                         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)),
                     ) {
@@ -488,7 +526,7 @@ internal fun BookTile(
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                         )
                     }
-                    ProgressLine(percent = percent, modifier = Modifier.weight(1f))
+                    ProgressLine(percent = percent, modifier = Modifier.weight(1f), height = progressHeight, shape = progressShape)
                 }
             } else {
                 val tone = toneColor(readiness.tone)
@@ -516,12 +554,12 @@ internal fun BookTile(
                     .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // 1. 左侧小封面（48dp x 66dp，圆角 8dp，微书脊立体阴影）
+                // 1. 左侧小封面（48dp x 66dp，方向形状、微书脊立体阴影）
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = coverShape,
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
                     border = listBorder,
-                    shadowElevation = 1.dp,
+                    shadowElevation = if (labDirection != null) 0.dp else 1.dp,
                     modifier = Modifier.size(width = 48.dp, height = 66.dp),
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
@@ -529,7 +567,8 @@ internal fun BookTile(
                             book = book,
                             percent = if (displayFinished) percent else null,
                             modifier = Modifier.fillMaxSize(),
-                            shape = RoundedCornerShape(8.dp),
+                            shape = coverShape,
+                            sealColor = sealColor,
                             fallback = { ShelfCoverFallback(book, isCompact = true) },
                         )
                         // 微书脊阴影
@@ -685,21 +724,26 @@ internal fun ShelfCoverFallback(
 internal fun ProgressLine(
     percent: Float,
     modifier: Modifier = Modifier,
+    height: Dp = 3.dp,
+    shape: Shape = RoundedCornerShape(1.5.dp),
 ) {
     val p = percent.coerceIn(0f, 100f)
+    // P2：进度填充用方向非文本强调色（花园=采样按钮绿 #759271，≥3.0）；legacy 回退 primary。
+    val fill = LocalThemeLabDirection.current?.progressAccent(rememberCategoryTintDark())
+        ?: MaterialTheme.colorScheme.primary
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(3.dp)
-            .clip(RoundedCornerShape(1.5.dp))
+            .height(height)
+            .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.50f)),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(p / 100f)
                 .fillMaxHeight()
-                .clip(RoundedCornerShape(1.5.dp))
-                .background(MaterialTheme.colorScheme.primary),
+                .clip(shape)
+                .background(fill),
         )
     }
 }

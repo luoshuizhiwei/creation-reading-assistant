@@ -78,11 +78,15 @@ fun VisualStyleProvider(
         // 其它视觉样式（APPLE/WEB 已收敛回退）维持 null，行为不变。
         LocalGlassPalette provides if (style == VisualStyle.DEFAULT) dynamicGlassPalette else null,
     ) {
-        MaterialTheme(
-            colorScheme = params.colorScheme ?: MaterialTheme.colorScheme,
-            typography = params.typography ?: MaterialTheme.typography,
-            shapes = params.shapes ?: MaterialTheme.shapes,
-            content = content,
-        )
+        // P2 全局铺开：方向作用域提升到全 App（不再只包三屏）。direction=null 时原样透传（legacy 零回归）；
+        // direction!=null 时组件规格/字阶/形状/密度/无玻璃 广播到所有屏幕与组件。
+        com.creationreadingassistant.ui.theme.lab.ThemeLabScreenScope {
+            MaterialTheme(
+                colorScheme = params.colorScheme ?: MaterialTheme.colorScheme,
+                typography = params.typography ?: MaterialTheme.typography,
+                shapes = params.shapes ?: MaterialTheme.shapes,
+                content = content,
+            )
+        }
     }
 }

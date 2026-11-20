@@ -18,6 +18,8 @@ import androidx.compose.ui.window.DialogProperties
 import com.creationreadingassistant.ui.theme.DialogShape
 import com.creationreadingassistant.ui.theme.LocalGlassPalette
 import com.creationreadingassistant.ui.theme.glassWindowBlur
+import com.creationreadingassistant.ui.theme.lab.LocalThemeLabDirection
+import com.creationreadingassistant.ui.theme.lab.componentSpec
 import com.creationreadingassistant.ui.window.LocalDialogSystemBarsEffect
 
 /**
@@ -35,13 +37,17 @@ fun AppAlertDialog(
     icon: @Composable (() -> Unit)? = null,
     title: @Composable (() -> Unit)? = null,
     text: @Composable (() -> Unit)? = null,
-    shape: androidx.compose.ui.graphics.Shape = DialogShape,
+    shape: androidx.compose.ui.graphics.Shape? = null,
     containerColor: Color = AlertDialogDefaults.containerColor,
     titleContentColor: Color = AlertDialogDefaults.titleContentColor,
     textContentColor: Color = AlertDialogDefaults.textContentColor,
     tonalElevation: Dp = AlertDialogDefaults.TonalElevation,
     properties: DialogProperties = DialogProperties(),
 ) {
+    // P2 全局铺开：方向激活时对话框用方向卡片圆角（阴刻方章/花园圆角）；legacy 回退 DialogShape。
+    val resolvedShape = shape ?: (LocalThemeLabDirection.current?.componentSpec?.let {
+        androidx.compose.foundation.shape.RoundedCornerShape(it.cardRadius)
+    } ?: DialogShape)
     AlertDialog(
         onDismissRequest = onDismissRequest,
         // M-BUG-11：对话框是**独立 Window**，不继承 Activity 窗口的系统栏策略——沉浸阅读时
@@ -58,7 +64,7 @@ fun AppAlertDialog(
         icon = icon,
         title = title,
         text = text,
-        shape = shape,
+        shape = resolvedShape,
         containerColor = containerColor,
         titleContentColor = titleContentColor,
         textContentColor = textContentColor,
@@ -81,7 +87,7 @@ fun GlassModalBottomSheet(
     modifier: Modifier = Modifier,
     sheetState: SheetState = androidx.compose.material3.rememberModalBottomSheetState(),
     sheetMaxWidth: Dp = Dp.Unspecified,
-    shape: androidx.compose.ui.graphics.Shape = BottomSheetDefaults.ExpandedShape,
+    shape: androidx.compose.ui.graphics.Shape? = null,
     containerColor: Color = BottomSheetDefaults.ContainerColor,
     contentColor: Color = contentColorFor(containerColor),
     tonalElevation: Dp = BottomSheetDefaults.Elevation,
@@ -91,12 +97,15 @@ fun GlassModalBottomSheet(
     properties: androidx.compose.material3.ModalBottomSheetProperties = ModalBottomSheetDefaults.properties,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    // P2 全局铺开：方向激活时弹层用方向 sheet 形状；legacy 回退 ExpandedShape。
+    val resolvedShape = shape ?: (LocalThemeLabDirection.current?.componentSpec?.sheetShape
+        ?: BottomSheetDefaults.ExpandedShape)
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         modifier = modifier.glassWindowBlur(LocalGlassPalette.current != null),
         sheetState = sheetState,
         sheetMaxWidth = sheetMaxWidth,
-        shape = shape,
+        shape = resolvedShape,
         containerColor = containerColor,
         contentColor = contentColor,
         tonalElevation = tonalElevation,
@@ -124,7 +133,7 @@ fun GlassAlertDialog(
     icon: @Composable (() -> Unit)? = null,
     title: @Composable (() -> Unit)? = null,
     text: @Composable (() -> Unit)? = null,
-    shape: androidx.compose.ui.graphics.Shape = DialogShape,
+    shape: androidx.compose.ui.graphics.Shape? = null,
     containerColor: Color = AlertDialogDefaults.containerColor,
     titleContentColor: Color = AlertDialogDefaults.titleContentColor,
     textContentColor: Color = AlertDialogDefaults.textContentColor,

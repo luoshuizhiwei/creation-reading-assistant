@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -49,7 +50,10 @@ fun SealMark(
     size: Dp = 34.dp,
     rotationDegrees: Float = -2f,
     animateStamp: Boolean = false,
+    /** 印泥色。null = 随当前方向（legacy 回退朱砂 AppCinnabar）；仍只用于完成态标记。 */
+    sealColor: Color? = null,
 ) {
+    val ink = sealColor ?: com.creationreadingassistant.ui.theme.lab.labSealColor()
     val reducedMotion = rememberReducedMotion()
     val stamped = animateStamp && !reducedMotion
     val alpha = remember { Animatable(if (stamped) 0f else 0.88f) }
@@ -75,15 +79,15 @@ fun SealMark(
             .rotate(rotationDegrees)
             .alpha(alpha.value)
             .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
-            .border(width = 1.2.dp, color = AppCinnabar, shape = RoundedCornerShape(2.dp))
+            .border(width = 1.2.dp, color = ink, shape = RoundedCornerShape(2.dp))
             .padding(1.8.dp)
-            .border(width = 0.6.dp, color = AppCinnabar.copy(alpha = 0.75f), shape = RoundedCornerShape(1.dp))
+            .border(width = 0.6.dp, color = ink.copy(alpha = 0.75f), shape = RoundedCornerShape(1.dp))
             .semantics { contentDescription = "已读完" },
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
-            color = AppCinnabar,
+            color = ink,
             // 品牌白名单例外：藏书印是装饰性状态标记，允许使用 Serif（非正文/标题，不受「大标题四档」约束）
             fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.Bold,

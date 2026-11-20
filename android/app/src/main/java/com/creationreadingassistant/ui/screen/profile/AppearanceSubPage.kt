@@ -57,6 +57,7 @@ import com.creationreadingassistant.data.settings.DurationUnit
 import com.creationreadingassistant.ui.util.LocalDurationUnit
 import com.creationreadingassistant.ui.util.LocalDurationUnitToggle
 import com.creationreadingassistant.ui.theme.AppPalette
+import com.creationreadingassistant.ui.theme.lab.labDirection
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.bounceable
 import com.creationreadingassistant.ui.theme.rememberHaptic
@@ -412,7 +413,7 @@ private fun PaletteGrid(
                 val left = palettes[i]
                 PaletteCapsuleCard(
                     palette = left,
-                    subtitle = subtitleMap[left] ?: "",
+                    subtitle = subtitleMap[left] ?: left.labDirection?.tagline ?: "",
                     isSelected = currentPalette == left,
                     isDark = isDark,
                     disabled = disabled,
@@ -423,7 +424,7 @@ private fun PaletteGrid(
                     val right = palettes[i + 1]
                     PaletteCapsuleCard(
                         palette = right,
-                        subtitle = subtitleMap[right] ?: "",
+                        subtitle = subtitleMap[right] ?: right.labDirection?.tagline ?: "",
                         isSelected = currentPalette == right,
                         isDark = isDark,
                         disabled = disabled,

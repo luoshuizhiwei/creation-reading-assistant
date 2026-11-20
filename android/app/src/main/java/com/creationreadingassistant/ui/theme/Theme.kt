@@ -16,6 +16,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
+import com.creationreadingassistant.ui.theme.lab.colorScheme
+import com.creationreadingassistant.ui.theme.lab.labDirection
 
 /**
  * 「纸墨」配色：暖纸承载内容，墨绿只负责可操作与选中状态。
@@ -617,6 +619,11 @@ internal fun paletteScheme(palette: AppPalette, darkTheme: Boolean): ColorScheme
     AppPalette.WARM_APRICOT -> if (darkTheme) WarmApricotDarkColorScheme else WarmApricotLightColorScheme
     AppPalette.DUSK_PLUM -> if (darkTheme) DuskPlumDarkColorScheme else DuskPlumLightColorScheme
     AppPalette.PINE_MIST -> if (darkTheme) PineMistDarkColorScheme else PineMistLightColorScheme
+    AppPalette.LAB_XUAN_GRAY -> com.creationreadingassistant.ui.theme.lab.ThemeLabDirection.XUAN_GRAY.colorScheme(darkTheme)
+    AppPalette.LAB_YIN_SEAL -> com.creationreadingassistant.ui.theme.lab.ThemeLabDirection.YIN_SEAL.colorScheme(darkTheme)
+    AppPalette.LAB_CHEN_GUANG -> com.creationreadingassistant.ui.theme.lab.ThemeLabDirection.CHEN_GUANG.colorScheme(darkTheme)
+    AppPalette.LAB_QING_CI -> com.creationreadingassistant.ui.theme.lab.ThemeLabDirection.QING_CI.colorScheme(darkTheme)
+    AppPalette.LAB_GARDEN -> com.creationreadingassistant.ui.theme.lab.ThemeLabDirection.GARDEN.colorScheme(darkTheme)
 }
 
 @Composable
@@ -738,13 +745,19 @@ fun AppTheme(
         target = targetColorScheme,
         enabled = !reducedMotion,
     )
-    MaterialTheme(
-        colorScheme = animatedColorScheme,
-        // 暗色下字重降一档（光渗效应补偿，见 Typography.appTypography）
-        typography = remember(darkTheme) { appTypography(darkTheme) },
-        shapes = AppShapes,
-        content = content,
-    )
+    // Theme Lab v2：候选方向随所选配色广播；动态壁纸取色时方向失效（取色优先）。
+    val labDirection = if (useDynamicColor) null else palette.labDirection
+    androidx.compose.runtime.CompositionLocalProvider(
+        com.creationreadingassistant.ui.theme.lab.LocalThemeLabDirection provides labDirection,
+    ) {
+        MaterialTheme(
+            colorScheme = animatedColorScheme,
+            // 暗色下字重降一档（光渗效应补偿，见 Typography.appTypography）
+            typography = remember(darkTheme) { appTypography(darkTheme) },
+            shapes = AppShapes,
+            content = content,
+        )
+    }
 }
 
 private fun buildColorScheme(
