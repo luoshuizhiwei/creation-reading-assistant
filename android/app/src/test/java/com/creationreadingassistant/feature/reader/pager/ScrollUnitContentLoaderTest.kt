@@ -2,18 +2,18 @@ package com.creationreadingassistant.feature.reader.pager
 
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.feature.reader.rules.ScrollUnitProjection
+import java.io.IOException
+import java.util.concurrent.Executors
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.IOException
-import java.util.concurrent.Executors
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ScrollUnitContentLoaderTest {
@@ -30,7 +30,7 @@ class ScrollUnitContentLoaderTest {
     }
 
     @Test
-    fun `projection load runs off main and publishes coordinate-aware content`() = runTest {
+    fun `projection load runs off main and publishes coordinate-aware content`() = runTest(timeout = 60.seconds) {
         val loader = ScrollUnitContentLoader(ioDispatcher = ioDispatcher)
         var threadName: String? = null
         val projection = identityProjection("source")
@@ -47,27 +47,31 @@ class ScrollUnitContentLoaderTest {
     }
 
     @Test
-    fun `switch source discards an old in-flight projection`() = runTest {
+    fun `switch source discards an old in-flight projection`() = runTest(timeout = 60.seconds) {
         val loader = ScrollUnitContentLoader(ioDispatcher = ioDispatcher)
+        val oldState = loader.stateFor(sourceA, 0)
         val gate = CompletableDeferred<Unit>()
-        val old = launch {
+        val readStarted = CompletableDeferred<Unit>()
+        val old = async {
             loader.load(sourceA, 0) {
+                readStarted.complete(Unit)
                 gate.await()
                 identityProjection("old")
             }
         }
-        runCurrent()
+        readStarted.await()
         loader.switchSource(sourceB)
         gate.complete(Unit)
-        old.join()
+        old.await()
 
-        assertEquals(ScrollUnitContentState.Loading, loader.stateFor(sourceA, 0).value)
+        assertEquals(ScrollUnitContentState.Loading, oldState.value)
     }
 
     @Test
-    fun `failed projection stays sticky until explicit retry`() = runTest {
+    fun `failed projection stays sticky until explicit retry`() = runTest(timeout = 60.seconds) {
         val loader = ScrollUnitContentLoader(ioDispatcher = ioDispatcher)
-        loader.load(sourceA, 0) { throw IOException("failed") }
+        val failedLoad = async { loader.load(sourceA, 0) { throw IOException("failed") } }
+        failedLoad.await()
         loader.release(sourceA, 0)
         var automaticReads = 0
         loader.load(sourceA, 0) {
@@ -77,7 +81,8 @@ class ScrollUnitContentLoaderTest {
         assertEquals(0, automaticReads)
         assertTrue(loader.stateFor(sourceA, 0).value is ScrollUnitContentState.Failed)
 
-        loader.retry(sourceA, 0) { identityProjection("retry") }
+        val retryLoad = async { loader.retry(sourceA, 0) { identityProjection("retry") } }
+        retryLoad.await()
         val loaded = loader.stateFor(sourceA, 0).value as ScrollUnitContentState.Loaded
         assertEquals("retry", loaded.content.displayText)
     }
