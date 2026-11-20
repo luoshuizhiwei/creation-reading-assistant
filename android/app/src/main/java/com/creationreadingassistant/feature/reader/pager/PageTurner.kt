@@ -106,7 +106,8 @@ fun <Frame : Any> PageTurner(
     onPageTurned: () -> Unit = {},
     /**
      * 翻页动画基础时长（ms），取自 [PageTurnAnimConfig.speed]。单页满位移时的时长；
-     * 实际 settle 时长 = speed × 剩余位移比例。值越小翻页越快。由外层从设置注入；未注入时用默认值。
+     * 实际 settle 时长 = speed × 剩余位移比例。值越小翻页越快，0 = 无动画（直接切帧）。
+     * 由外层从设置注入；未注入时用默认值。
      */
     speed: Float = PageTurnAnimConfig().speed,
     pendingTurnCapacity: Int = PENDING_TURN_CAPACITY,
@@ -294,7 +295,9 @@ fun <Frame : Any> PageTurner(
                     return
                 }
                 turning = true
-                val animatedSlide = animate && isSlideOrCover
+                // speed <= 0 是显式的「无动画」档：slide / cover 直接提交目标帧，
+                // 不进入 dx 动画，也不留 1 帧过渡位图。
+                val animatedSlide = animate && isSlideOrCover && speed > 0f
                 try {
                     if (animatedSlide) {
                         // 冻结动画现场：此后整个动画期间的渲染只读这份快照。
@@ -484,17 +487,22 @@ fun <Frame : Any> PageTurner(
             }
 
             if (normalizedEffect == "fade") {
-                Crossfade(
-                    targetState = currentFrame,
-                    animationSpec = tween(180),
-                    label = "pageFade",
-                    modifier = Modifier.fillMaxSize().then(dragModifier),
-                ) { frame ->
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .clipToBounds(),
-                    ) { content(frame, frame == currentFrame) }
+                if (speed <= 0f) {
+                    // 0 = 无动画：直接切帧，不创建 Crossfade 过渡。
+                    Box(Modifier.fillMaxSize().then(dragModifier)) { content(currentFrame, true) }
+                } else {
+                    Crossfade(
+                        targetState = currentFrame,
+                        animationSpec = tween(speed.toInt().coerceIn(1, 800)),
+                        label = "pageFade",
+                        modifier = Modifier.fillMaxSize().then(dragModifier),
+                    ) { frame ->
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .clipToBounds(),
+                        ) { content(frame, frame == currentFrame) }
+                    }
                 }
             } else if (isSlideOrCover) {
                 Box(Modifier.fillMaxSize().clipToBounds().then(dragModifier)) {

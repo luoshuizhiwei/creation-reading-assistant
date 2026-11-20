@@ -47,6 +47,7 @@ import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPanelSurface
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.theme.lab.readerChromeStyle
 
 /**
  * 正文覆盖层所需的只读展示数据。从 [ReaderScreen] 主函数局部状态中提取，
@@ -307,7 +308,8 @@ internal fun BoxScope.ReaderInteractionLayer(
                 // 系统导航栏已隐藏：只避开底部手势区（恒定，不随 transient swipe 跳动，
                 // 三键导航下为 0，不产生空白系统栏）。
                 .windowInsetsPadding(WindowInsets.mandatorySystemGestures),
-            shape = LocalComponentSpec.current.floatingBarShape,
+            shape = com.creationreadingassistant.ui.theme.lab.LocalThemeLabDirection.current?.readerChromeStyle?.floatingBarShape
+                ?: LocalComponentSpec.current.floatingBarShape,
         ) {
             when (readerBottomChromeMode(state.showTts, state.autoPagingActive)) {
                 ReaderBottomChromeMode.TTS -> TtsBar(

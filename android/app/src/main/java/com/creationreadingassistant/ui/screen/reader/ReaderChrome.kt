@@ -79,9 +79,13 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.CraSlider
 import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.ComponentSpec
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPanelSurface
+import com.creationreadingassistant.ui.theme.lab.LocalThemeLabDirection
+import com.creationreadingassistant.ui.theme.lab.componentSpec
+import com.creationreadingassistant.ui.theme.lab.readerChromeStyle
 import kotlinx.coroutines.delay
 
 internal sealed interface ReaderChromeAction {
@@ -266,7 +270,10 @@ internal fun ReaderBottomActions(
     onProgressInteractionStarted: () -> Unit = {},
 ) {
     val layout = LocalLayoutTokens.current
-    val spec = LocalComponentSpec.current
+    val direction = LocalThemeLabDirection.current
+    val spec = direction?.componentSpec ?: LocalComponentSpec.current
+    val chrome = direction?.readerChromeStyle
+    val pedestalShape = RoundedCornerShape(chrome?.pedestalRadius ?: spec.pedestalRadius)
     val accentColor = paper?.accent ?: MaterialTheme.colorScheme.primary
     var sliderValue by remember { mutableFloatStateOf(bookProgress) }
     var isDragging by remember { mutableStateOf(false) }
@@ -319,6 +326,9 @@ internal fun ReaderBottomActions(
         }
     }
 
+    val prevBtn = chromeButtonColors(paper, accentColor, enabled = !isFirstChapter, spec = spec)
+    val nextBtn = chromeButtonColors(paper, accentColor, enabled = !isLastChapter, spec = spec)
+    androidx.compose.runtime.CompositionLocalProvider(LocalComponentSpec provides spec) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -365,19 +375,17 @@ internal fun ReaderBottomActions(
                 enabled = !isFirstChapter,
                 modifier = Modifier
                     .semantics { contentDescription = "上一章" }
-                    .clip(RoundedCornerShape(spec.pedestalRadius))
-                    .border(
-                        spec.hairlineBorderWidth,
-                        if (!isFirstChapter) accentColor.copy(alpha = spec.hairlineAlpha) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                        RoundedCornerShape(spec.pedestalRadius)
+                    .clip(pedestalShape)
+                    .then(
+                        if (prevBtn.border != null) Modifier.border(prevBtn.border, pedestalShape) else Modifier
                     ),
                 colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
-                    containerColor = if (!isFirstChapter) accentColor.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    containerColor = prevBtn.container
                 ),
             ) {
                 Icon(
                     imageVector = Icons.Outlined.SkipPrevious,
-                    tint = if (!isFirstChapter) accentColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                    tint = prevBtn.icon,
                     modifier = Modifier.size(20.dp),
                     contentDescription = null,
                 )
@@ -421,19 +429,17 @@ internal fun ReaderBottomActions(
                 enabled = !isLastChapter,
                 modifier = Modifier
                     .semantics { contentDescription = "下一章" }
-                    .clip(RoundedCornerShape(spec.pedestalRadius))
-                    .border(
-                        spec.hairlineBorderWidth,
-                        if (!isLastChapter) accentColor.copy(alpha = spec.hairlineAlpha) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                        RoundedCornerShape(spec.pedestalRadius)
+                    .clip(pedestalShape)
+                    .then(
+                        if (nextBtn.border != null) Modifier.border(nextBtn.border, pedestalShape) else Modifier
                     ),
                 colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
-                    containerColor = if (!isLastChapter) accentColor.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    containerColor = nextBtn.container
                 ),
             ) {
                 Icon(
                     imageVector = Icons.Outlined.SkipNext,
-                    tint = if (!isLastChapter) accentColor else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+                    tint = nextBtn.icon,
                     modifier = Modifier.size(20.dp),
                     contentDescription = null,
                 )
@@ -506,22 +512,23 @@ internal fun ReaderBottomActions(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ReaderFooterAction(Icons.Outlined.Menu, "目录", accentColor) {
+            ReaderFooterAction(Icons.Outlined.Menu, "目录", accentColor, paper) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.TOC))
             }
-            ReaderFooterAction(Icons.Outlined.Headphones, "听书", accentColor) {
+            ReaderFooterAction(Icons.Outlined.Headphones, "听书", accentColor, paper) {
                 onAction(ReaderChromeAction.ToggleTts)
             }
-            ReaderFooterAction(Icons.Outlined.Lightbulb, "灵感", accentColor) {
+            ReaderFooterAction(Icons.Outlined.Lightbulb, "灵感", accentColor, paper) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.INSPIRATION))
             }
-            ReaderFooterAction(Icons.Outlined.Palette, "外观", accentColor) {
+            ReaderFooterAction(Icons.Outlined.Palette, "外观", accentColor, paper) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.THEME))
             }
-            ReaderFooterAction(Icons.Outlined.Settings, "设置", accentColor) {
+            ReaderFooterAction(Icons.Outlined.Settings, "设置", accentColor, paper) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.SETTINGS))
             }
         }
+    }
     }
 }
 
@@ -530,12 +537,17 @@ private fun ReaderFooterAction(
     icon: ImageVector,
     label: String,
     accent: Color,
+    paper: ReaderPaperPalette?,
     onClick: () -> Unit,
 ) {
+    val direction = LocalThemeLabDirection.current
+    val chrome = direction?.readerChromeStyle
+    val inkBlock = chrome?.inkBlockButtons == true && paper != null
+    val pedestalShape = RoundedCornerShape(chrome?.pedestalRadius ?: LocalComponentSpec.current.hintRadius)
     Surface(
         onClick = onClick,
         // 微岛收敛：底部操作栏点击区圆角统一走 hintRadius 令牌（原手写 12dp，取值不变）。
-        shape = RoundedCornerShape(LocalComponentSpec.current.hintRadius),
+        shape = pedestalShape,
         color = Color.Transparent,
         modifier = Modifier.padding(horizontal = 2.dp),
     ) {
@@ -544,19 +556,37 @@ private fun ReaderFooterAction(
             verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
         ) {
-            // 微岛收敛：图标底座统一走 IconPedestal（pedestalRadius + hairline 令牌）。
-            IconPedestal(
-                icon = icon,
-                tint = accent,
-                size = 34.dp,
-                iconSize = 20.dp,
-                contentDescription = label,
-            )
+            if (inkBlock) {
+                // 阴刻方向：墨块底座 + 纸色图标（白文反刻），颜色恒从 paper 取。
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(chrome?.pedestalRadius ?: 2.dp))
+                        .background(paper!!.fg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        tint = paper.bg,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            } else {
+                // 微岛收敛：图标底座统一走 IconPedestal（pedestalRadius + hairline 令牌）。
+                IconPedestal(
+                    icon = icon,
+                    tint = accent,
+                    size = 34.dp,
+                    iconSize = 20.dp,
+                    contentDescription = label,
+                )
+            }
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Medium,
-                color = accent,
+                color = if (inkBlock) paper!!.fg else accent,
             )
         }
     }
@@ -565,6 +595,8 @@ private fun ReaderFooterAction(
 /**
  * 阅读器顶层控制栏。采用现代纸墨微岛（Material 3）设计语言：随纸 panel 纸面 + 发丝边框、
  * **零阴影**（顶栏覆盖在翻页动画层之上，阴影会侵蚀帧预算），触控均衡，书名与章节信息层次分明。
+ *
+ * Theme Lab v2：方向只改形状 / 密度 / 墨块反白（阴刻），颜色恒从 [paper] 取，App 主题不渗入。
  */
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -583,7 +615,15 @@ internal fun ReaderTopChrome(
     /** 临时查阅协调器是否存在可返回目标。 */
     hasReturnableTarget: Boolean = false,
 ) {
-    val spec = LocalComponentSpec.current
+    val baseSpec = LocalComponentSpec.current
+    val direction = LocalThemeLabDirection.current
+    val chrome = direction?.readerChromeStyle
+    val spec = direction?.componentSpec ?: baseSpec
+    val pedestalShape = RoundedCornerShape(chrome?.pedestalRadius ?: spec.pedestalRadius)
+    val backBtn = chromeButtonColors(paper, paper.fg, enabled = true, spec = spec)
+    val moreBtn = chromeButtonColors(paper, paper.fg, enabled = true, spec = spec)
+    val tempBtn = chromeButtonColors(paper, paper.accent, enabled = true, spec = spec)
+    androidx.compose.runtime.CompositionLocalProvider(LocalComponentSpec provides spec) {
     // 微岛收敛：顶栏是覆盖在阅读页之上的 reader 专属面板，统一走 ReaderPanelSurface
     //（随纸 panel 纸面 + 发丝边 + panelElevation 0dp）。原手写 surfaceContainerHigh@0.94 与
     // 3dp 阴影已移除——阴影在翻页动画期额外触发重绘；圆角改取 dockRadius 令牌（同为 18dp）。
@@ -592,7 +632,7 @@ internal fun ReaderTopChrome(
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 6.dp)
             .windowInsetsPadding(WindowInsets.statusBars),
-        shape = RoundedCornerShape(spec.dockRadius),
+        shape = RoundedCornerShape(chrome?.panelRadius ?: spec.dockRadius),
     ) {
         Row(
             modifier = Modifier
@@ -606,15 +646,17 @@ internal fun ReaderTopChrome(
                 modifier = Modifier
                     .testTag("reader-back-btn")
                     .semantics { contentDescription = "返回书架" }
-                    .clip(RoundedCornerShape(spec.pedestalRadius))
-                    .border(spec.hairlineBorderWidth, paper.fg.copy(alpha = spec.hairlineAlpha), RoundedCornerShape(spec.pedestalRadius)),
+                    .clip(pedestalShape)
+                    .then(
+                        if (backBtn.border != null) Modifier.border(backBtn.border, pedestalShape) else Modifier
+                    ),
                 colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
-                    containerColor = paper.fg.copy(alpha = 0.14f)
+                    containerColor = backBtn.container
                 ),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    tint = paper.fg,
+                    tint = backBtn.icon,
                     modifier = Modifier.size(20.dp),
                     contentDescription = null,
                 )
@@ -651,16 +693,19 @@ internal fun ReaderTopChrome(
                 IconButton(
                     onClick = { onAction(ReaderChromeAction.ReturnToReading) },
                     modifier = Modifier
+                        .testTag("reader-temporary-return-btn")
                         .semantics { contentDescription = "返回阅读处" }
-                        .clip(RoundedCornerShape(spec.pedestalRadius))
-                        .border(spec.hairlineBorderWidth, paper.accent.copy(alpha = spec.hairlineAlpha), RoundedCornerShape(spec.pedestalRadius)),
+                        .clip(pedestalShape)
+                        .then(
+                            if (tempBtn.border != null) Modifier.border(tempBtn.border, pedestalShape) else Modifier
+                        ),
                     colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
-                        containerColor = paper.accent.copy(alpha = 0.14f)
+                        containerColor = tempBtn.container
                     ),
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.SubdirectoryArrowLeft,
-                        tint = paper.accent,
+                        tint = tempBtn.icon,
                         modifier = Modifier.size(20.dp),
                         contentDescription = null,
                     )
@@ -672,16 +717,19 @@ internal fun ReaderTopChrome(
                 IconButton(
                     onClick = { onOverflowExpandedChange(true) },
                     modifier = Modifier
+                        .testTag("reader-more-btn")
                         .semantics { contentDescription = "更多操作" }
-                        .clip(RoundedCornerShape(spec.pedestalRadius))
-                        .border(spec.hairlineBorderWidth, paper.fg.copy(alpha = spec.hairlineAlpha), RoundedCornerShape(spec.pedestalRadius)),
+                        .clip(pedestalShape)
+                        .then(
+                            if (moreBtn.border != null) Modifier.border(moreBtn.border, pedestalShape) else Modifier
+                        ),
                     colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
-                        containerColor = paper.fg.copy(alpha = 0.14f)
+                        containerColor = moreBtn.container
                     ),
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.MoreVert,
-                        tint = paper.fg,
+                        tint = moreBtn.icon,
                         modifier = Modifier.size(20.dp),
                         contentDescription = null,
                     )
@@ -745,5 +793,44 @@ internal fun ReaderTopChrome(
                 }
             }
         }
+    }
+    }
+}
+
+/** chrome 按钮配色（容器 / 图标 / 边框）。颜色恒从 paper 或 Material 中性槽取，不读 App 主色。 */
+private data class ChromeButtonColors(
+    val container: Color,
+    val icon: Color,
+    val border: BorderStroke?,
+)
+
+/**
+ * 方向按钮配色：阴刻方向 = 墨块反白（paper.fg 底 + paper.bg 图标，无边框）；
+ * 其余方向沿用 base 色 @0.14 底 + 发丝边；禁用态走中性弱化。legacy（direction=null）逐位等价旧值。
+ */
+@Composable
+private fun chromeButtonColors(
+    paper: ReaderPaperPalette?,
+    base: Color,
+    enabled: Boolean,
+    spec: ComponentSpec,
+): ChromeButtonColors {
+    val inkBlock = LocalThemeLabDirection.current?.readerChromeStyle?.inkBlockButtons == true
+    return when {
+        inkBlock && paper != null -> ChromeButtonColors(
+            container = if (enabled) paper.fg else paper.fg.copy(alpha = 0.30f),
+            icon = if (enabled) paper.bg else paper.bg.copy(alpha = 0.60f),
+            border = null,
+        )
+        !enabled -> ChromeButtonColors(
+            container = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            icon = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f),
+            border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
+        )
+        else -> ChromeButtonColors(
+            container = base.copy(alpha = 0.14f),
+            icon = base,
+            border = BorderStroke(spec.hairlineBorderWidth, base.copy(alpha = spec.hairlineAlpha)),
+        )
     }
 }

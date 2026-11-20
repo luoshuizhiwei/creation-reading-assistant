@@ -31,6 +31,7 @@ data class LibraryBrowserUiState(
     val directories: List<LibraryEntry> = emptyList(),
     val files: List<LibraryFileRow> = emptyList(),
     val selection: Set<String> = emptySet(),
+    val selectedCart: List<LibraryEntry> = emptyList(),
     val query: String = "",
     val sortMode: LibrarySortMode = LibrarySortMode.NAME,
     val isLoading: Boolean = false,

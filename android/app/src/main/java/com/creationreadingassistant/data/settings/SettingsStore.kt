@@ -88,7 +88,10 @@ private val KEY_READER_MODE = stringPreferencesKey("reader_mode")              /
 private val KEY_PAGER_ENGINE = stringPreferencesKey("pager_engine_mode")       // off | auto | on
 // KEY_EPUB_PAGER_ENGINE 定义在 ReaderDefaultsMigration.kt（迁移与读写共用同一 key 实例）
 private val KEY_PAGE_TURN_EFFECT = stringPreferencesKey("reader_page_turn_effect")
-private val KEY_PAGE_TURN_SPEED = floatPreferencesKey("reader_page_turn_speed")
+internal val KEY_PAGE_TURN_SPEED = floatPreferencesKey("reader_page_turn_speed")
+/** 旧默认 400ms → 新默认 200ms 的一次性迁移标记（迁移后用户再选 400ms 属自定义，不再改）。 */
+internal val KEY_PAGE_TURN_SPEED_DEFAULT_200_MIGRATED =
+    booleanPreferencesKey("reader_page_turn_speed_default_200_migrated")
 private val KEY_TAP_ZONE_MODE = stringPreferencesKey("reader_tap_zone_mode")
 private val KEY_TAP_ACTION_PRESET = stringPreferencesKey("reader_tap_action_preset")
 private val KEY_SCREEN_ORIENTATION = stringPreferencesKey("reader_screen_orientation")
@@ -183,7 +186,7 @@ private fun migrateReaderBg(v: String?): String = when (v) {
 
 data class AppearanceSettings(
     val themeMode: String = "system",   // system | light | dark
-    val colorPalette: String = "clear_blue",
+    val colorPalette: String = "lab_garden",
     /** 纸张噪点纹理开关（阅读器 PaperNoise 层）；默认开 = 纸墨视觉基线。 */
     val paperTexture: Boolean = true,
     /** Android 12+ 壁纸动态取色；低于 12 时即使开启也静默回退到配置的 palette。 */
@@ -207,11 +210,11 @@ data class ReaderSettings(
     val pageTurnEffect: String = "none",       // none | fade | slide | cover | reveal（默认 none：60Hz 设备上独立复验 slide 每帧需 GPU 合成 3 张全屏位图、帧时 25-34ms 超预算有顿挫，none 约 13ms 顺滑；产品决策改以 none 为出货默认，修复后的 slide 仍为可选项）
     /**
      * 翻页动画基础时长系数（ms）：单页满位移时的基础时长，实际时长 = speed × 剩余位移比例，
-     * 值越小翻页越快。默认对齐 PageTurnAnimConfig().speed（400f）。
-     * 由 PagedReaderPageSurface 透传给 PageTurner(speed = ...)，不触及 PageTurner 内部逻辑。
-     * 可调区间 150..800ms（设置面板滑块同区间）。
+     * 值越小翻页越快；0 = 无动画（直接切页，不插播过渡帧）。
+     * 由 PagedReaderPageSurface 透传给 PageTurner(speed = ...)，对所有翻页效果生效。
+     * 可调区间 0..800ms（设置面板滑块同区间）。
      */
-    val pageTurnSpeed: Float = 400f,
+    val pageTurnSpeed: Float = 200f,
     val tapZoneMode: String = "three-zone",      // three-zone | five-zone
     val tapActionPreset: String = "standard",   // standard | left_hand | both_next
     /** 屏幕方向锁定：system 跟随系统 | portrait 竖屏 | landscape 横屏（仅阅读器内生效）。 */
@@ -456,6 +459,7 @@ class SettingsStore @Inject constructor(
     init {
         // 一次性旧默认迁移（marker 幂等，DataStore 单事务原子）；异步执行不阻塞启动。
         scope.launch { migrateLegacyReaderDefaultsOnce() }
+        scope.launch { migratePageTurnSpeedDefault200Once() }
     }
 
     /** AI API Key 加密存储，与 SyncConfigStore 同机制（EncryptedSharedPreferences + AES256）。 */
@@ -507,7 +511,7 @@ class SettingsStore @Inject constructor(
     val appearance: StateFlow<AppearanceSettings> = ds.data.map { prefs ->
         AppearanceSettings(
             themeMode = prefs[KEY_THEME] ?: "system",
-            colorPalette = prefs[KEY_COLOR_PALETTE] ?: "clear_blue",
+            colorPalette = prefs[KEY_COLOR_PALETTE] ?: "lab_garden",
             paperTexture = prefs[KEY_PAPER_TEXTURE] ?: true,
             useDynamicColor = prefs[KEY_USE_DYNAMIC_COLOR] ?: false,
             amoledPureBlack = prefs[KEY_AMOLED_PURE_BLACK] ?: false,
@@ -526,7 +530,7 @@ class SettingsStore @Inject constructor(
                 "curl" -> "cover"
                 else -> effect
             },
-            pageTurnSpeed = (prefs[KEY_PAGE_TURN_SPEED] ?: 400f).coerceIn(150f, 800f),
+            pageTurnSpeed = (prefs[KEY_PAGE_TURN_SPEED] ?: 200f).coerceIn(0f, 800f),
             tapZoneMode = prefs[KEY_TAP_ZONE_MODE] ?: "three-zone",
             tapActionPreset = prefs[KEY_TAP_ACTION_PRESET] ?: "standard",
             screenOrientation = prefs[KEY_SCREEN_ORIENTATION] ?: "system",
@@ -678,7 +682,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_PAGER_ENGINE] = next.pagerEngineMode
             prefs[KEY_EPUB_PAGER_ENGINE] = next.epubPagerEngineMode
             prefs[KEY_PAGE_TURN_EFFECT] = next.pageTurnEffect
-            prefs[KEY_PAGE_TURN_SPEED] = next.pageTurnSpeed.coerceIn(150f, 800f)
+            prefs[KEY_PAGE_TURN_SPEED] = next.pageTurnSpeed.coerceIn(0f, 800f)
             prefs[KEY_TAP_ZONE_MODE] = next.tapZoneMode
             prefs[KEY_TAP_ACTION_PRESET] = next.tapActionPreset
             prefs[KEY_SCREEN_ORIENTATION] = next.screenOrientation
@@ -746,6 +750,23 @@ class SettingsStore @Inject constructor(
         ds.edit { prefs ->
             migrateLegacyReaderDefaults(prefs)
             migrateEpubEngineReenable(prefs)
+        }
+    }
+
+    /**
+     * 翻页速度默认 400ms → 200ms 的一次性迁移。
+     *
+     * 只改「恰好等于旧默认 400f」的存量值；其他值一律视为用户自定义并保留。
+     * marker 写入后不再执行，因此迁移完成后用户再选 400ms 不会被二次覆盖。
+     * 判断与写入在同一 DataStore 事务内完成，幂等且并发原子。
+     */
+    internal suspend fun migratePageTurnSpeedDefault200Once() {
+        ds.edit { prefs ->
+            if (prefs[KEY_PAGE_TURN_SPEED_DEFAULT_200_MIGRATED] == true) return@edit
+            if (prefs[KEY_PAGE_TURN_SPEED] == 400f) {
+                prefs[KEY_PAGE_TURN_SPEED] = 200f
+            }
+            prefs[KEY_PAGE_TURN_SPEED_DEFAULT_200_MIGRATED] = true
         }
     }
 

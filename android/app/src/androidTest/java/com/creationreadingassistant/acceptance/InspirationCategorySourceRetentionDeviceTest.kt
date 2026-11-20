@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.isDisplayed
@@ -537,10 +538,15 @@ class InspirationCategorySourceRetentionDeviceTest {
             composeRule.onNodeWithText("查阅原文位置").performClick()
             composeRule.waitForIdle()
             assertTrue(
-                "精确回源必须真实进入阅读器（出现「返回阅读处」）",
+                "精确回源必须真实进入阅读器（顶栏返回可见且正文就绪）",
                 waitFor("t94v2_80_source_jump", UI_TIMEOUT_MS, "临时查阅") {
-                    composeRule.onAllNodesWithContentDescription("返回阅读处").fetchSemanticsNodes().isNotEmpty()
+                    composeRule.onAllNodesWithTag("reader-back-btn").fetchSemanticsNodes().isNotEmpty() &&
+                        readerReady()
                 },
+            )
+            assertTrue(
+                "按契约外部临时查阅顶栏不得出现「返回阅读处」",
+                composeRule.onAllNodesWithContentDescription("返回阅读处").fetchSemanticsNodes().isEmpty(),
             )
             assertTrue(
                 "回源后的阅读器正文必须就绪",
@@ -552,7 +558,7 @@ class InspirationCategorySourceRetentionDeviceTest {
                     textVisible(capturedSelection.take(12))
                 },
             )
-            composeRule.onNode(hasContentDescription("返回阅读处")).performClick()
+            composeRule.onNodeWithTag("reader-back-btn").performClick()
             composeRule.waitForIdle()
             writeEvidence("t94v2_80_source_jump", true, mapOf("excerptPrefix" to capturedSelection.take(12)))
 
@@ -560,7 +566,7 @@ class InspirationCategorySourceRetentionDeviceTest {
             markPhase("t94v2_90_export")
             assertTrue("导出前必须仍在阅读器", waitFor("t94v2_90_export", UI_TIMEOUT_MS, "阅读器") { readerReady() })
             ReaderExportReceipts.clear()
-            composeRule.onNode(hasContentDescription("更多")).performClick()
+            composeRule.onNodeWithTag("reader-more-btn").performClick()
             composeRule.waitForIdle()
             assertTrue("更多菜单必须出现「笔记与标注」", waitFor("t94v2_90_export", UI_TIMEOUT_MS, "笔记与标注") {
                 textVisible("笔记与标注")

@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Refresh
@@ -27,8 +27,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,11 +40,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import com.creationreadingassistant.ui.components.AppSnackbarHost
 import com.creationreadingassistant.ui.components.AppScreenScaffold
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.LineArtBook
@@ -78,9 +82,23 @@ internal fun LibraryBrowserRoute(
     var mode by remember { mutableStateOf(LibraryMode.BROWSER) }
     var filter by remember { mutableStateOf(RecognitionFilter.RECOMMENDED) }
     var confirmClearRoot by remember { mutableStateOf(false) }
-    // 搜索与排序都收到顶栏：搜索按需展开（低频、占位大），排序走溢出菜单。
+    // 搜索与排序都收到顶栏：搜索图标在顶栏、按需进入搜索态；搜索态下输入框是内容区
+    // 第一行（参与布局、不遮挡结果），列表只显示筛选结果；排序走溢出菜单。
     var searchVisible by remember { mutableStateOf(false) }
     var sortMenuOpen by remember { mutableStateOf(false) }
+    var showSelectedCartDialog by remember { mutableStateOf(false) }
+    val searchFocusRequester = remember { FocusRequester() }
+    // 浏览态与搜索态各自持有滚动位置：搜索时浏览列表不参与组合，关闭后原样恢复，
+    // 不会被搜索结果的筛选/清空改写滚动位置。
+    val browseListState = rememberLazyListState()
+    val searchListState = rememberLazyListState()
+
+    LaunchedEffect(searchVisible) {
+        if (searchVisible) {
+            searchFocusRequester.requestFocus()
+            searchListState.scrollToItem(0)
+        }
+    }
 
     val rootPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         uri?.let(viewModel::saveRoot)
@@ -106,9 +124,12 @@ internal fun LibraryBrowserRoute(
     }
 
     /**
-     * 系统返回键分层（对齐参考页的 `handleBack`）：
-     * 展开的搜索 → 收起；多选中 → 清选择；在子目录 → 上一级；否则退出页面。
-     * 不分层会让用户在子目录里按返回直接退出整个页面，丢失浏览位置。
+     * 系统返回键分层（多选状态机）：
+     * 1. 展开的搜索 → 收起搜索并清空词；
+     * 2. 多选中且在子目录 → 返回上一级（跨目录保留购物车已有选择）；
+     * 3. 多选中且在根目录 → 清空多选；
+     * 4. 普通浏览且在子目录 → 返回上一级；
+     * 5. 否则退出页面。
      */
     BackHandler(enabled = searchVisible || state.inSelectionMode || state.crumbs.size > 1) {
         when {
@@ -116,6 +137,7 @@ internal fun LibraryBrowserRoute(
                 searchVisible = false
                 viewModel.setQuery("")
             }
+            state.inSelectionMode && state.crumbs.size > 1 -> viewModel.goUp()
             state.inSelectionMode -> viewModel.clearSelection()
             else -> viewModel.goUp()
         }
@@ -167,207 +189,250 @@ internal fun LibraryBrowserRoute(
                 }
             }
         },
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { AppSnackbarHost(snackbar) },
         topBarSupportingContent = if (state.hasRoot) {
             {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = LocalLayoutTokens.current.pageHorizontal, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    SelectablePill(
-                        text = "当前目录",
-                        selected = mode == LibraryMode.BROWSER,
-                        onClick = { mode = LibraryMode.BROWSER },
-                    )
-                    SelectablePill(
-                        text = "智能识别",
-                        selected = mode == LibraryMode.RECOGNIZE,
-                        onClick = {
-                            mode = LibraryMode.RECOGNIZE
-                            if (!recognition.isRunning && !recognition.finished) viewModel.startRecognition()
-                        },
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        SelectablePill(
+                            text = "当前目录",
+                            selected = mode == LibraryMode.BROWSER,
+                            onClick = { mode = LibraryMode.BROWSER },
+                        )
+                        SelectablePill(
+                            text = "智能识别",
+                            selected = mode == LibraryMode.RECOGNIZE,
+                            onClick = {
+                                mode = LibraryMode.RECOGNIZE
+                                if (!recognition.isRunning && !recognition.finished) viewModel.startRecognition()
+                            },
+                        )
+                    }
                 }
             }
         } else null,
     ) { viewport ->
         BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(viewport)) {
             val adaptive = adaptivePageMetrics(maxWidth, LocalLayoutTokens.current)
+            val searchActive = mode == LibraryMode.BROWSER && searchVisible
             // 底部浮层占位：仅多选操作栏需要（路径栏已回到列表顶部，不再占底部空间）。
             val reservedBottom = if (mode == LibraryMode.BROWSER && state.inSelectionMode) 168.dp else 0.dp
 
-            LazyColumn(
+            Column(
                 modifier = Modifier
-                    .fillMaxHeight()
+                    .fillMaxSize()
                     .widthIn(max = adaptive.contentWidth)
                     .fillMaxWidth()
                     .align(Alignment.TopCenter),
-                contentPadding = PaddingValues(
-                    start = adaptive.horizontalPadding,
-                    end = adaptive.horizontalPadding,
-                    top = LocalLayoutTokens.current.pageVertical,
-                    bottom = LocalLayoutTokens.current.pageVertical + 24.dp + reservedBottom,
-                ),
-                verticalArrangement = Arrangement.spacedBy(LocalLayoutTokens.current.contentGap),
             ) {
-                if (!state.hasRoot) {
-                    item(key = "library_setup", contentType = "library_setup_card") {
-                        LibraryRootSetupCard(
-                            unreadable = false,
-                            onPickRoot = { rootPicker.launch(null) },
-                            onDismiss = { navController.popBackStack() },
-                        )
-                    }
-                    return@LazyColumn
-                }
-
-                if (state.unreadable) {
-                    item(key = "library_unreadable", contentType = "library_setup_card") {
-                        LibraryRootSetupCard(
-                            unreadable = true,
-                            onPickRoot = { rootPicker.launch(null) },
-                            onDismiss = { navController.popBackStack() },
-                        )
-                    }
-                }
-
-                item(key = "library_root", contentType = "library_root_summary") {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        LibraryRootSummaryCard(
-                            rootName = state.rootName,
-                            onReload = viewModel::reload,
-                            onChangeRoot = { rootPicker.launch(null) },
-                            onClearRoot = { confirmClearRoot = true },
-                        )
-                        // 路径导航放回**列表顶部**：真机验证后用户反馈「底部路径不符合操作习惯」，
-                        // 且原设计（方案 6.2）本就明确不照搬参考项目的底部路径栏 —— 本轮一度改到底部
-                        // 是照搬 MD3 参考样本，已按用户反馈撤回。顶部在拇指热区外，但与「我在哪个
-                        // 目录」的阅读动线一致（先看位置、再看内容），且不需要底部浮层占位。
-                        LibraryPathBar(
-                            crumbs = state.crumbs,
-                            canGoUp = state.crumbs.size > 1,
-                            onCrumbClick = viewModel::navigateToCrumb,
-                            onGoUp = viewModel::goUp,
-                        )
-                    }
-                }
-
-                if (mode == LibraryMode.BROWSER) {
-                    if (searchVisible) {
-                        item(key = "library_search", contentType = "library_search_bar") {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(
-                                    value = state.query,
-                                    onValueChange = viewModel::setQuery,
-                                    placeholder = { Text("搜索文件名…") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
+                if (searchActive) {
+                    // 搜索态独立一行：不透明底色、参与布局高度。结果列表从输入框下方开始，
+                    // 任意结果行都不会被输入框遮挡；浏览态的目录摘要卡/路径栏/truncated 提示
+                    // 在搜索态隐藏，进入搜索即「只看筛选结果」。
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        OutlinedTextField(
+                            value = state.query,
+                            onValueChange = viewModel::setQuery,
+                            placeholder = { Text("搜索当前目录的文件名…") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    start = adaptive.horizontalPadding,
+                                    end = adaptive.horizontalPadding,
+                                    top = LocalLayoutTokens.current.pageVertical,
+                                    bottom = 10.dp,
                                 )
-                                if (state.truncated) {
-                                    LibraryInfoBanner("目录较大，仅显示前 1000 项；可缩小目录范围后重试。")
-                                }
-                            }
-                        }
-                    } else if (state.truncated) {
-                        item(key = "library_truncated", contentType = "library_search_bar") {
-                            LibraryInfoBanner("目录较大，仅显示前 1000 项；可缩小目录范围后重试。")
-                        }
-                    }
-
-                    if (state.isLoading) {
-                        item(key = "library_loading", contentType = "library_loading") {
-                            SectionCard(modifier = Modifier.fillMaxWidth()) {
-                                Text(
-                                    text = "正在读取目录…",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-
-                    if (state.isEmpty && !state.isLoading && !state.unreadable) {
-                        item(key = "library_empty", contentType = "library_empty") {
-                            // 搜索无结果与「目录本身为空」是两回事：前者要提示改关键词，
-                            // 后者才是引导换目录，混用文案会让用户以为目录真的空了。
-                            if (state.query.isNotBlank()) {
-                                SearchNoResultCard(query = state.query.trim())
-                            } else {
-                                EmptyLibraryCard()
-                            }
-                        }
-                    }
-
-                    items(state.directories, key = { "dir-${it.documentId}" }, contentType = { "library_directory_row" }) { entry ->
-                        LibraryDirectoryRow(entry = entry) {
-                            viewModel.openDirectory(entry.documentId, entry.displayName)
-                        }
-                    }
-
-                    items(state.files, key = { "file-${it.entry.documentId}" }, contentType = { "library_file_row" }) { row ->
-                        LibraryFileItem(
-                            row = row,
-                            selected = row.entry.documentId in state.selection,
-                            inSelectionMode = state.inSelectionMode,
-                            onToggle = { viewModel.toggleFile(row.entry.documentId) },
-                            onLongPress = { viewModel.toggleFile(row.entry.documentId) },
-                            onOpen = {
-                                row.openableBookId?.let { bookId ->
-                                    navController.navigate("reader/$bookId")
+                                .focusRequester(searchFocusRequester),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            ),
+                            trailingIcon = {
+                                if (state.query.isNotEmpty()) {
+                                    IconButton(onClick = { viewModel.setQuery("") }) {
+                                        Icon(Icons.Outlined.Close, contentDescription = "清空输入")
+                                    }
                                 }
                             },
                         )
                     }
-                } else {
-                    item(key = "library_recognition_panel", contentType = "library_recognition_panel") {
-                        LibraryRecognitionPanel(
-                            state = recognition,
-                            filter = filter,
-                            onFilterChange = { filter = it },
-                            onStart = viewModel::startRecognition,
-                            onStop = viewModel::stopRecognition,
-                            onToggleCandidate = viewModel::toggleRecognitionCandidate,
-                            onSelectRecommended = viewModel::selectRecommended,
-                            onImport = {
-                                val uris = viewModel.selectedRecognitionUris()
-                                if (uris.isEmpty()) {
-                                    viewModel.reportEmptySelection()
+                }
+
+                LazyColumn(
+                    state = if (searchActive) searchListState else browseListState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(
+                        start = adaptive.horizontalPadding,
+                        end = adaptive.horizontalPadding,
+                        top = if (searchActive) 10.dp else LocalLayoutTokens.current.pageVertical,
+                        bottom = LocalLayoutTokens.current.pageVertical + 24.dp + reservedBottom,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(LocalLayoutTokens.current.contentGap),
+                ) {
+                    if (!state.hasRoot) {
+                        item(key = "library_setup", contentType = "library_setup_card") {
+                            LibraryRootSetupCard(
+                                unreadable = false,
+                                onPickRoot = { rootPicker.launch(null) },
+                                onDismiss = { navController.popBackStack() },
+                            )
+                        }
+                        return@LazyColumn
+                    }
+
+                    if (state.unreadable) {
+                        item(key = "library_unreadable", contentType = "library_setup_card") {
+                            LibraryRootSetupCard(
+                                unreadable = true,
+                                onPickRoot = { rootPicker.launch(null) },
+                                onDismiss = { navController.popBackStack() },
+                            )
+                        }
+                    }
+
+                    // 搜索态不显示浏览态辅助行：目录摘要卡与路径栏让位给结果列表。
+                    if (!searchActive) {
+                        item(key = "library_root", contentType = "library_root_summary") {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                LibraryRootSummaryCard(
+                                    rootName = state.rootName,
+                                    onReload = viewModel::reload,
+                                    onChangeRoot = { rootPicker.launch(null) },
+                                    onClearRoot = { confirmClearRoot = true },
+                                )
+                                // 路径导航放回**列表顶部**：真机验证后用户反馈「底部路径不符合操作习惯」，
+                                // 且原设计（方案 6.2）本就明确不照搬参考项目的底部路径栏 —— 本轮一度改到底部
+                                // 是照搬 MD3 参考样本，已按用户反馈撤回。顶部在拇指热区外，但与「我在哪个
+                                // 目录」的阅读动线一致（先看位置、再看内容），且不需要底部浮层占位。
+                                LibraryPathBar(
+                                    crumbs = state.crumbs,
+                                    canGoUp = state.crumbs.size > 1,
+                                    onCrumbClick = viewModel::navigateToCrumb,
+                                    onGoUp = viewModel::goUp,
+                                )
+                            }
+                        }
+                    }
+
+                    if (mode == LibraryMode.BROWSER) {
+                        if (state.truncated) {
+                            item(key = "library_truncated", contentType = "library_search_bar") {
+                                // 搜索态同样要提示：筛选只在已加载的前 1000 项里进行，
+                                // 藏掉这一行会让「搜不到」被误读成「没有这本书」。
+                                LibraryInfoBanner(
+                                    if (searchActive) "目录较大，仅检索前 1000 项；缩小目录范围可搜全。"
+                                    else "目录较大，仅显示前 1000 项；可缩小目录范围后重试。"
+                                )
+                            }
+                        }
+
+                        if (state.isLoading) {
+                            item(key = "library_loading", contentType = "library_loading") {
+                                SectionCard(modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        text = "正在读取目录…",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+
+                        if (state.isEmpty && !state.isLoading && !state.unreadable) {
+                            item(key = "library_empty", contentType = "library_empty") {
+                                // 搜索无结果与「目录本身为空」是两回事：前者要提示改关键词，
+                                // 后者才是引导换目录，混用文案会让用户以为目录真的空了。
+                                if (state.query.isNotBlank()) {
+                                    SearchNoResultCard(query = state.query.trim())
                                 } else {
-                                    viewModel.reportImportStarted()
-                                    onImport(uris, "智能识别")
-                                    navController.popBackStack()
+                                    EmptyLibraryCard()
                                 }
-                            },
-                        )
-                    }
-
-                    val rows = recognition.rows.filter {
-                        LibraryBrowserPolicy.matchesFilter(it.candidate.decision, it.shelfMatch, filter)
-                    }
-                    if (recognition.finished && rows.isEmpty()) {
-                        item(key = "library_recognition_empty", contentType = "library_recognition_empty") {
-                            SectionCard(modifier = Modifier.fillMaxWidth()) {
-                                Text(
-                                    text = when (filter) {
-                                        RecognitionFilter.RECOMMENDED -> "没有新的推荐文件，可切换到「全部」查看识别结果。"
-                                        RecognitionFilter.IN_SHELF -> "没有已入架或疑似入架的文件。"
-                                        RecognitionFilter.REJECTED -> "没有未识别的文件。"
-                                        RecognitionFilter.ALL -> "本次扫描没有发现候选文件。"
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
                             }
                         }
-                    }
-                    items(rows, key = { "rec-${it.key}" }, contentType = { "library_recognition_row" }) { row ->
-                        LibraryRecognitionItem(
-                            row = row,
-                            selected = row.key in recognition.selected,
-                            onToggle = { viewModel.toggleRecognitionCandidate(row.key) },
-                        )
+
+                        items(state.directories, key = { "dir-${it.documentId}" }, contentType = { "library_directory_row" }) { entry ->
+                            LibraryDirectoryRow(entry = entry) {
+                                viewModel.openDirectory(entry.documentId, entry.displayName)
+                            }
+                        }
+
+                        items(state.files, key = { "file-${it.entry.documentId}" }, contentType = { "library_file_row" }) { row ->
+                            LibraryFileItem(
+                                row = row,
+                                selected = row.entry.documentId in state.selection,
+                                inSelectionMode = state.inSelectionMode,
+                                onToggle = { viewModel.toggleFile(row.entry.documentId) },
+                                onLongPress = { viewModel.toggleFile(row.entry.documentId) },
+                                onOpen = {
+                                    row.openableBookId?.let { bookId ->
+                                        navController.navigate("reader/$bookId")
+                                    }
+                                },
+                            )
+                        }
+                    } else {
+                        item(key = "library_recognition_panel", contentType = "library_recognition_panel") {
+                            LibraryRecognitionPanel(
+                                state = recognition,
+                                filter = filter,
+                                onFilterChange = { filter = it },
+                                onStart = viewModel::startRecognition,
+                                onStop = viewModel::stopRecognition,
+                                onToggleCandidate = viewModel::toggleRecognitionCandidate,
+                                onSelectRecommended = viewModel::selectRecommended,
+                                onImport = {
+                                    val uris = viewModel.selectedRecognitionUris()
+                                    if (uris.isEmpty()) {
+                                        viewModel.reportEmptySelection()
+                                    } else {
+                                        viewModel.reportImportStarted()
+                                        onImport(uris, "智能识别")
+                                        navController.popBackStack()
+                                    }
+                                },
+                            )
+                        }
+
+                        val rows = recognition.rows.filter {
+                            LibraryBrowserPolicy.matchesFilter(it.candidate.decision, it.shelfMatch, filter)
+                        }
+                        if (recognition.finished && rows.isEmpty()) {
+                            item(key = "library_recognition_empty", contentType = "library_recognition_empty") {
+                                SectionCard(modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        text = when (filter) {
+                                            RecognitionFilter.RECOMMENDED -> "没有新的推荐文件，可切换到「全部」查看识别结果。"
+                                            RecognitionFilter.IN_SHELF -> "没有已入架或疑似入架的文件。"
+                                            RecognitionFilter.REJECTED -> "没有未识别的文件。"
+                                            RecognitionFilter.ALL -> "本次扫描没有发现候选文件。"
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                        items(rows, key = { "rec-${it.key}" }, contentType = { "library_recognition_row" }) { row ->
+                            LibraryRecognitionItem(
+                                row = row,
+                                selected = row.key in recognition.selected,
+                                onToggle = { viewModel.toggleRecognitionCandidate(row.key) },
+                            )
+                        }
                     }
                 }
             }
@@ -382,10 +447,20 @@ internal fun LibraryBrowserRoute(
                     onInvert = viewModel::invertSelection,
                     onCancel = viewModel::clearSelection,
                     onImport = { submitBrowserSelection() },
+                    onViewSelected = { showSelectedCartDialog = true },
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
             }
         }
+    }
+
+    if (showSelectedCartDialog) {
+        LibrarySelectedCartDialog(
+            selectedEntries = state.selectedCart,
+            onRemoveItem = viewModel::removeFromSelection,
+            onClearAll = viewModel::clearSelection,
+            onDismiss = { showSelectedCartDialog = false },
+        )
     }
 
     if (confirmClearRoot) {

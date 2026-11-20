@@ -211,6 +211,37 @@ class PagedReaderController(
     private var firstPageReadyTraceActive = false
     private var firstPageReadyStartNs = 0L
 
+    // ── 翻页延迟测量（问题2）：t0 由 UI 层在「请求翻页」入口登记；状态就绪
+    // （同章提交 / 跨章缓存命中 / 跨章现算发布）与「新页组合生效」各打一点。
+    // 全部走 AppLog.debug（仅 debug 构建进 logcat），与既有 TxtPerfTrace 同通道。 ──
+    @Volatile internal var turnTraceT0Ns: Long = 0L
+    @Volatile internal var turnTraceDir: Int = 0
+    @Volatile internal var turnTraceSrc: String = ""
+    @Volatile internal var turnTraceKind: String = ""
+    @Volatile internal var turnTracePending: Boolean = false
+
+    internal fun markTurnRequested(direction: Int, src: String) {
+        turnTraceT0Ns = SystemClock.elapsedRealtimeNanos()
+        turnTraceDir = direction
+        turnTraceSrc = src
+        turnTraceKind = ""
+        turnTracePending = true
+    }
+
+    private fun logTurnReady(kind: String) {
+        if (!turnTracePending) return
+        turnTraceKind = kind
+        val dtMs = (SystemClock.elapsedRealtimeNanos() - turnTraceT0Ns) / 1_000_000
+        AppLog.debug("TxtPerfTrace", "CRA_TURN_READY src=$turnTraceSrc dir=$turnTraceDir kind=$kind dtMs=$dtMs")
+    }
+
+    internal fun logTurnDrawn() {
+        if (!turnTracePending) return
+        turnTracePending = false
+        val dtMs = (SystemClock.elapsedRealtimeNanos() - turnTraceT0Ns) / 1_000_000
+        AppLog.debug("TxtPerfTrace", "CRA_TURN_DRAWN src=$turnTraceSrc dir=$turnTraceDir kind=$turnTraceKind dtMs=$dtMs")
+    }
+
     /** 相邻页快照；章内直接取，跨章仅在预排版完成后提供。 */
     fun frameAt(delta: Int): ReaderPageFrame? {
         if (delta == 0) {
@@ -234,6 +265,7 @@ class PagedReaderController(
     fun open(absOffset: Int) {
         turnSession++
         pendingPageTurns.clear()
+        turnTracePending = false
         // ── TxtFirstPageReady: 结束旧的异步 trace（竞态保护） ──
         if (firstPageReadyTraceActive) {
             endAsyncTrace("TxtFirstPageReady", firstPageReadyCookie)
@@ -265,6 +297,7 @@ class PagedReaderController(
         prefetchRead?.result?.cancel()
         prefetchRead = null
         pendingPageTurns.clear()
+        turnTracePending = false
         if (firstPageReadyTraceActive) {
             endAsyncTrace("TxtFirstPageReady", firstPageReadyCookie)
             firstPageReadyTraceActive = false
@@ -281,6 +314,9 @@ class PagedReaderController(
     }
 
     private fun requestTurn(direction: Int) {
+        // 非 UI 入口（硬件键 / TTS / 自动翻页 / 手势直调）没有专门的请求登记，这里兜底登记 t0；
+        // UI 点按路径已在 markTurnRequested 登记过，不覆盖（保留真实点按时刻）。
+        if (!turnTracePending) markTurnRequested(direction, "controller-direct")
         pendingPageTurns.enqueue(direction)
         replayPendingPageTurns()
     }
@@ -293,6 +329,13 @@ class PagedReaderController(
             if (nextPage in 0 until pageCount) {
                 pendingPageTurns.poll()
                 pageIndex = nextPage
+                // 逼近章边界（2页内）时主动唤醒/保障相邻章预排，避免跨章时 frameAt 目标帧缺失
+                if (direction > 0 && nextPage >= pageCount - 2) {
+                    ensureNeighborPrefetched(chapterIndex + 1)
+                } else if (direction < 0 && nextPage <= 1) {
+                    ensureNeighborPrefetched(chapterIndex - 1)
+                }
+                logTurnReady("same-chapter")
                 continue
             }
             val nextChapter = chapterIndex + direction
@@ -310,7 +353,7 @@ class PagedReaderController(
             if (cached == null) {
                 loadChapter(nextChapter, atEnd = atEnd)
             } else {
-                applyChapter(nextChapter, cached, if (atEnd) cached.layout.pages.lastIndex else 0)
+                applyChapter(nextChapter, cached, if (atEnd) cached.layout.pages.lastIndex else 0, turnKind = "cross-chapter-cache-hit")
             }
         }
     }
@@ -333,10 +376,11 @@ class PagedReaderController(
             val readyEndNs = SystemClock.elapsedRealtimeNanos()
             AppLog.debug("TxtPerfTrace", "TxtFirstPageReady: ${(readyEndNs - firstPageReadyStartNs) / 1_000_000} ms")
         }
+        logTurnReady("cross-chapter-relayout-interim")
         replayPendingPageTurns()
     }
 
-    private fun applyChapter(chIdx: Int, cached: CachedChapter, targetPage: Int) {
+    private fun applyChapter(chIdx: Int, cached: CachedChapter, targetPage: Int, turnKind: String? = null) {
         chapterText = cached.text
         currentProjection = cached.projection
         chapterIndex = chIdx
@@ -354,6 +398,7 @@ class PagedReaderController(
             val readyEndNs = SystemClock.elapsedRealtimeNanos()
             AppLog.debug("TxtPerfTrace", "TxtFirstPageReady: ${(readyEndNs - firstPageReadyStartNs) / 1_000_000} ms")
         }
+        turnKind?.let { logTurnReady(it) }
 
         trimChapterCache(chIdx)
         prefetchNeighbors(chIdx)
@@ -410,7 +455,7 @@ class PagedReaderController(
 
                 val cached = chapterCache[chIdx]?.also { restoreMetrics() } ?: run {
                     val loaded = reusableRead?.result?.await()?.getOrNull()
-                        ?: withContext(Dispatchers.IO) { readChapter(chIdx, trace = isOpen) }
+                        ?: withContext(Dispatchers.IO) { readChapter(chIdx, trace = isOpen || turnTracePending) }
                     // 查询与读取并行，但发布首批页面前保留原有的进度校准顺序。
                     restoreMetrics()
                     layoutMutex.withLock {
@@ -428,9 +473,10 @@ class PagedReaderController(
                                     }
                                 }
                             }
+                        val traceLayout = isOpen || turnTracePending
                         val chapterLayout = withContext(Dispatchers.Default) {
-                            val startedNs = if (isOpen) SystemClock.elapsedRealtimeNanos() else 0L
-                            if (isOpen) Trace.beginSection("TxtFirstPageLayout")
+                            val startedNs = if (traceLayout) SystemClock.elapsedRealtimeNanos() else 0L
+                            if (traceLayout) Trace.beginSection("TxtFirstPageLayout")
                             try {
                                 ChapterPaginator.paginateProgressive(
                                     loaded.content.blocks,
@@ -448,7 +494,7 @@ class PagedReaderController(
                                     onInitialPages = publishPages,
                                 )
                             } finally {
-                                if (isOpen) {
+                                if (traceLayout) {
                                     Trace.endSection()
                                     val elapsedMs = (SystemClock.elapsedRealtimeNanos() - startedNs) / 1_000_000
                                     AppLog.debug("TxtPerfTrace", "TxtFirstPageLayout: $elapsedMs ms")
@@ -471,7 +517,7 @@ class PagedReaderController(
                 if (actualCharCounts.put(chIdx, charCount) != charCount) {
                     progressEstimate = null
                 }
-                applyChapter(chIdx, cached, targetPage)
+                applyChapter(chIdx, cached, targetPage, turnKind = "cross-chapter-relayout-final")
 
                 // 写通缓存：pageStarts 落库（失败无所谓，见 PageIndexStore 的纪律）
                 val s = store
@@ -528,6 +574,18 @@ class PagedReaderController(
                 val elapsedMs = (SystemClock.elapsedRealtimeNanos() - startedNs) / 1_000_000
                 AppLog.debug("TxtPerfTrace", "TxtChapterRead: $elapsedMs ms")
             }
+        }
+    }
+
+    /**
+     * 当章内翻页逼近章边界（剩 2 页内）时，若目标相邻章尚未缓存，
+     * 提前确保预排目标包含该章，使后续跨章 frameAt 命中率达到 100%。
+     */
+    private fun ensureNeighborPrefetched(targetChapter: Int) {
+        if (targetChapter !in 0 until source.chapterCount || chapterCache.containsKey(targetChapter)) return
+        val currentJob = prefetchJob
+        if (currentJob == null || !currentJob.isActive) {
+            prefetchNeighbors(center = chapterIndex)
         }
     }
 

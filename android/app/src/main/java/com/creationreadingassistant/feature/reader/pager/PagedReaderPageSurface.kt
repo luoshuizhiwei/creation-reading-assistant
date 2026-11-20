@@ -1,5 +1,6 @@
 package com.creationreadingassistant.feature.reader.pager
 
+import android.os.SystemClock
 import android.text.TextPaint
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -40,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
 import com.creationreadingassistant.feature.reader.layout.LayoutConfig
 import com.creationreadingassistant.feature.reader.layout.PageHitTest
@@ -231,11 +233,18 @@ internal fun PagedReaderPageSurface(
             val (start, end) = controller.currentChapterSourceRangeToLocalDisplay(r.first, r.second)
             PageSelection.rectsForRange(page, cfg, start, end)
         }
-        val underlays: List<Pair<Color, List<PageHitTest.Rect>>> = hlUnderlays + listOf(
-            searchHighlightColor to searchRects,
-            ttsHighlightColor to ttsRects,
-            selectionColor to selRects,
-        )
+        val underlays: List<Pair<Color, List<PageHitTest.Rect>>> = remember(
+            hlUnderlays,
+            searchHighlightColor, searchRects,
+            ttsHighlightColor, ttsRects,
+            selectionColor, selRects,
+        ) {
+            hlUnderlays + listOf(
+                searchHighlightColor to searchRects,
+                ttsHighlightColor to ttsRects,
+                selectionColor to selRects,
+            )
+        }
         // 手势协程只随 controller 重启，闭包捕获的组合期快照会冻结在首次触摸前
         // （对抗性复核反编译 compose-ui 1.7 证实：key 不变时 update 不重启协程）。
         // 因此分区模式经 rememberUpdatedState 透传，页面/章起点在闭包内现读 controller。
@@ -250,14 +259,23 @@ internal fun PagedReaderPageSurface(
         @Suppress("UNUSED_VARIABLE")
         val cacheRevision = controller.cacheRevision
         val frame = controller.frameAt(0) ?: return
+        // 问题2 测量：新页组合生效即记录 DRAWN（口径=组合生效时刻，距 t0 总耗时；≤1 帧绘制误差）。
+        LaunchedEffect(controller.chapterIndex, controller.pageIndex) {
+            if (controller.turnTracePending) controller.logTurnDrawn()
+        }
         key(controller, controller.turnSession, pageTurnRenderer, textColor, pageSurface, LocalReaderPaperPalette.current) {
             val manualRevealProgress = remember { Animatable(0f) }
+            val revealTrace = remember { RevealTraceHolder() }
             var manualRevealTarget by remember { mutableStateOf<PagedReaderController.ReaderPageFrame?>(null) }
             var manualRevealDirection by remember { mutableStateOf(1) }
             val manualRevealScope = rememberCoroutineScope()
 
             fun requestManualReveal(direction: Int) {
                 if (direction == 0 || manualRevealTarget != null) return
+                // 问题2 测量：reveal 请求时刻（含未命中回退）登记 t0。
+                controller.markTurnRequested(direction, "reveal")
+                revealTrace.t0Ns = controller.turnTraceT0Ns
+                revealTrace.lastFrameNs = 0L
                 val target = controller.frameAt(direction)
                 if (target == null) {
                     // 跨章相邻页尚未预排时沿用既有直接加载路径；不能以静默降级替代 reveal。
@@ -269,10 +287,16 @@ internal fun PagedReaderPageSurface(
                 manualRevealDirection = direction
                 manualRevealScope.launch {
                     manualRevealProgress.snapTo(0f)
-                    manualRevealProgress.animateTo(
-                        1f,
-                        tween(durationMillis = pageTurnSpeed.toInt().coerceIn(150, 800)),
-                    )
+                    val revealDurationMs = pageTurnSpeed.toInt().coerceIn(0, 800)
+                    if (revealDurationMs <= 0) {
+                        // 0 = 无动画：直接提交目标帧，不留下 1 帧位图过渡。
+                        manualRevealProgress.snapTo(1f)
+                    } else {
+                        manualRevealProgress.animateTo(
+                            1f,
+                            tween(durationMillis = revealDurationMs),
+                        )
+                    }
                     selRange.value = null
                     if (direction < 0) controller.prevPage() else controller.nextPage()
                     onGesturePageTurn()
@@ -432,6 +456,8 @@ internal fun PagedReaderPageSurface(
                                     when (turnPlan) {
                                         is ReaderTapTurnPlan.RequestTurn -> {
                                             stopAutoPaging()
+                                            // 问题2 测量：点按时刻登记 t0（提交/绘制打点都以此为起点）。
+                                            controller.markTurnRequested(turnPlan.direction, "tap")
                                             turnRequest.intValue = turnPlan.direction
                                         }
                                         is ReaderTapTurnPlan.ManualReveal -> {
@@ -530,11 +556,26 @@ internal fun PagedReaderPageSurface(
                                 .fillMaxSize()
                                 .clipToBounds()
                                 .drawWithContent {
+                                    val frameStartNs = SystemClock.elapsedRealtimeNanos()
                                     val revealHeight = size.height * manualRevealProgress.value
                                     if (manualRevealDirection > 0) {
                                         clipRect(bottom = revealHeight) { this@drawWithContent.drawContent() }
                                     } else {
                                         clipRect(top = size.height - revealHeight) { this@drawWithContent.drawContent() }
+                                    }
+                                    // 问题2 测量：目标层首绘时刻与逐帧间隔（判定 reveal 每帧是否现算卡顿）。
+                                    val nowNs = SystemClock.elapsedRealtimeNanos()
+                                    if (revealTrace.t0Ns > 0L) {
+                                        if (revealTrace.lastFrameNs == 0L) {
+                                            AppLog.debug("TxtPerfTrace", "CRA_REVEAL_FIRST dir=$manualRevealDirection dtMs=${(nowNs - revealTrace.t0Ns) / 1_000_000}")
+                                        } else {
+                                            val intervalMs = (nowNs - revealTrace.lastFrameNs) / 1_000_000.0
+                                            val drawMs = (nowNs - frameStartNs) / 1_000_000.0
+                                            if (intervalMs > 24.0) {
+                                                AppLog.debug("TxtPerfTrace", "CRA_REVEAL_FRAME intervalMs=$intervalMs drawMs=$drawMs dir=$manualRevealDirection")
+                                            }
+                                        }
+                                        revealTrace.lastFrameNs = nowNs
                                     }
                                 },
                         ) {
@@ -581,3 +622,9 @@ internal fun PagedReaderPageSurface(
 }
 
 private fun handleDist(a: Offset, b: Offset): Float = hypot(a.x - b.x, a.y - b.y)
+
+/** 问题2 测量：reveal 目标层首绘与逐帧间隔的打点状态（仅 debug 构建输出到 logcat）。 */
+private class RevealTraceHolder {
+    var t0Ns: Long = 0L
+    var lastFrameNs: Long = 0L
+}

@@ -1,5 +1,11 @@
 package com.creationreadingassistant.ui.screen.shelf
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material3.IconButton
+import com.creationreadingassistant.ui.components.GlassAlertDialog
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -501,6 +507,7 @@ internal fun LibrarySelectionBar(
     onInvert: () -> Unit,
     onCancel: () -> Unit,
     onImport: () -> Unit,
+    onViewSelected: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
@@ -515,12 +522,26 @@ internal fun LibrarySelectionBar(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "已选择 $selectedCount 项",
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-            )
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .then(if (onViewSelected != null) Modifier.clickable(onClick = onViewSelected) else Modifier),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = "已选择 $selectedCount 项",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (onViewSelected != null) {
+                    Text(
+                        text = "（点击查看）",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
             TextButton(onClick = {
                 haptic(HapticFeedbackType.TextHandleMove)
                 onCancel()
@@ -860,3 +881,91 @@ private fun Modifier.combinedClickableCompat(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ): Modifier = this.combinedClickable(enabled = enabled, onClick = onClick)
+
+/**
+ * 跨目录已选文件清单弹窗（购物车详情）。
+ */
+@Composable
+internal fun LibrarySelectedCartDialog(
+    selectedEntries: List<LibraryEntry>,
+    onRemoveItem: (String) -> Unit,
+    onClearAll: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    GlassAlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("已选书籍清单（${selectedEntries.size} 本）")
+        },
+        text = {
+            if (selectedEntries.isEmpty()) {
+                Text(
+                    text = "暂无已选书籍",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(280.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(selectedEntries, key = { it.documentId }) { entry ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = entry.displayName,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                                Text(
+                                    text = entry.documentId,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            IconButton(
+                                onClick = { onRemoveItem(entry.documentId) },
+                                modifier = Modifier.size(28.dp),
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Close,
+                                    contentDescription = "移除",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("完成")
+            }
+        },
+        dismissButton = {
+            if (selectedEntries.isNotEmpty()) {
+                TextButton(onClick = {
+                    onClearAll()
+                    onDismiss()
+                }) {
+                    Text("清空选择", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+    )
+}

@@ -1659,17 +1659,21 @@ class MaterialGatheringJourneyTest {
             waitFor("mat_60_return", UI_TIMEOUT_MS, "临时查阅正文") {
                 readerReady() && textVisible(renderedPageProbe)
             })
-        if (composeRule.onAllNodesWithContentDescription("返回阅读处").fetchSemanticsNodes().isEmpty()) {
+        if (composeRule.onAllNodesWithTag("reader-back-btn").fetchSemanticsNodes().isEmpty()) {
             composeRule.onRoot().performClick()
             composeRule.waitForIdle()
         }
-        assertTrue("临时查阅必须提供「返回阅读处」", waitFor("mat_60_return", UI_TIMEOUT_MS, "返回阅读处可见") {
-            composeRule.onAllNodesWithContentDescription("返回阅读处").fetchSemanticsNodes().isNotEmpty()
+        assertTrue("临时查阅必须提供顶栏返回入口", waitFor("mat_60_return", UI_TIMEOUT_MS, "顶栏返回可见") {
+            composeRule.onAllNodesWithTag("reader-back-btn").fetchSemanticsNodes().isNotEmpty()
         })
-        composeRule.onNodeWithContentDescription("返回阅读处").performClick()
+        assertTrue(
+            "按契约外部临时查阅顶栏不得出现「返回阅读处」",
+            composeRule.onAllNodesWithContentDescription("返回阅读处").fetchSemanticsNodes().isEmpty(),
+        )
+        composeRule.onNodeWithTag("reader-back-btn").performClick()
         composeRule.waitForIdle()
-        assertTrue("返回阅读处必须真实离开临时查阅", waitFor("mat_60_return", UI_TIMEOUT_MS, "临时查阅已退出") {
-            composeRule.onAllNodesWithContentDescription("返回阅读处").fetchSemanticsNodes().isEmpty()
+        assertTrue("返回阅读处必须真实离开临时查阅回到灵感详情页", waitFor("mat_60_return", UI_TIMEOUT_MS, "临时查阅已退出回到来源页") {
+            textVisible("查阅原文位置") && !readerReady()
         })
         val progressAfter = J1RealReaderFixtures.captureProgressRow(db, bookId)
         assertTrue("返回后普通进度行必须仍存在", progressAfter != null)
@@ -1695,7 +1699,7 @@ class MaterialGatheringJourneyTest {
         // MediaStore 差集仅作辅助核对，不作为 URI/授权来源。
         val idsBefore = queryDownloadedMarkdownIds(exportPrefix)
         ReaderExportReceipts.clear()
-        composeRule.onNodeWithContentDescription("更多").performClick()
+        composeRule.onNodeWithTag("reader-more-btn").performClick()
         composeRule.waitForIdle()
         assertTrue("更多菜单必须出现「笔记与标注」", waitFor("mat_70_export", UI_TIMEOUT_MS, "笔记与标注可见") {
             textVisible("笔记与标注")

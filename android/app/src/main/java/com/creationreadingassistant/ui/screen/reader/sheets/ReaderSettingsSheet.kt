@@ -337,16 +337,20 @@ private fun SettingsRoot(
                 MicroSectionDivider()
                 // 翻页速度：绑定 ReaderSettings.pageTurnSpeed，经 PagedReaderPageSurface 透传给
                 // PageTurner(speed = ...)。它是单页满位移的基础时长（实际时长 = speed × 剩余
-                // 位移比例），值越小翻页越快，故左侧标「最快」、右侧标「最慢」。
+                // 位移比例），值越小翻页越快；0 为「无动画」，左侧标「无动画」、右侧标「最慢」。
                 MicroTrackSliderRow(
                     icon = Icons.Outlined.Speed,
                     title = "翻页速度",
                     value = settings.pageTurnSpeed,
-                    valueLabel = "${settings.pageTurnSpeed.toInt()} ms",
+                    valueLabel = if (settings.pageTurnSpeed <= 0f) {
+                        "无动画"
+                    } else {
+                        "${settings.pageTurnSpeed.toInt()} ms"
+                    },
                     onValueChange = { onSettingsChange(settings.copy(pageTurnSpeed = it)) },
-                    valueRange = 150f..800f,
-                    steps = 12,
-                    minLabel = "最快",
+                    valueRange = 0f..800f,
+                    steps = 15,
+                    minLabel = "无动画",
                     maxLabel = "最慢",
                     tint = Color(0xFF059669),
                     modifier = Modifier.testTag("reader-page-turn-speed"),

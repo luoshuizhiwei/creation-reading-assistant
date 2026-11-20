@@ -116,6 +116,32 @@ class LibraryBrowserSelectionTest {
         )
     }
 
+    @Test
+    fun `cross folder navigation preserves cart selections and submits all`() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val viewModel = buildViewModel()
+        backgroundScope.launch { viewModel.uiState.collect { } }
+        advanceUntilIdle()
+
+        viewModel.toggleFile("primary:Books/match-one.txt")
+        assertEquals(setOf("primary:Books/match-one.txt"), viewModel.uiState.value.selection)
+
+        viewModel.openDirectory("primary:Books/SubFolder", "SubFolder")
+        advanceUntilIdle()
+
+        assertEquals("跨目录进入子文件夹必须保留购物车选择", setOf("primary:Books/match-one.txt"), viewModel.uiState.value.selection)
+
+        viewModel.goUp()
+        advanceUntilIdle()
+
+        assertEquals("返回上一级目录必须保留购物车选择", setOf("primary:Books/match-one.txt"), viewModel.uiState.value.selection)
+        assertEquals(
+            "最终提交时必须能够交出跨目录选中的全部 URI",
+            listOf("content://books.example/document/match-one.txt"),
+            viewModel.selectedUris().map { it.toString() },
+        )
+    }
+
     private fun buildViewModel(): LibraryBrowserViewModel {
         val treeUri = fakeUri("content://books.example/tree/primary%3ABooks")
         val configuredRoot = LibraryRoot(

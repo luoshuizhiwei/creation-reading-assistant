@@ -56,16 +56,20 @@ internal fun PagingSettings(
                 )
             }
             MicroSectionDivider()
-            // 翻页速度滑块（与快捷排版微岛同一设置项）：150..800ms，50ms 一档。
+            // 翻页速度滑块（与快捷排版微岛同一设置项）：0..800ms，50ms 一档；0 = 无动画。
             MicroTrackSliderRow(
                 icon = Icons.Outlined.Speed,
                 title = "翻页速度",
                 value = settings.pageTurnSpeed,
-                valueLabel = "${settings.pageTurnSpeed.toInt()} ms",
+                valueLabel = if (settings.pageTurnSpeed <= 0f) {
+                    "无动画"
+                } else {
+                    "${settings.pageTurnSpeed.toInt()} ms"
+                },
                 onValueChange = { onChange(settings.copy(pageTurnSpeed = it)) },
-                valueRange = 150f..800f,
-                steps = 12,
-                minLabel = "最快",
+                valueRange = 0f..800f,
+                steps = 15,
+                minLabel = "无动画",
                 maxLabel = "最慢",
                 tint = Color(0xFF2563EB),
                 modifier = Modifier.testTag("reader-page-turn-speed-paging"),

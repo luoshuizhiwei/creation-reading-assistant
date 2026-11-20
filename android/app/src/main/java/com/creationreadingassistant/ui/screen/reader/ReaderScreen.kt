@@ -209,7 +209,8 @@ fun ReaderScreen(
     }
     val reducedMotion = rememberReducedMotion()
     // 阅读器纸张调色板与外壳浅/深解耦；正文与 chrome 共同跟随 paper 的 light/dark。
-    val targetPaper = paperPalette(readerSettings.background, appDark)
+    // Theme Lab v2：候选方向仅 remap「跟随外观」纸；显式纸档与旧配色走 legacy paperPalette。
+    val targetPaper = com.creationreadingassistant.ui.theme.lab.rememberLabPaperPalette(readerSettings.background, appDark)
     val paper by animateReaderPaperPaletteAsState(target = targetPaper, enabled = !reducedMotion)
     val paperBg = paper.bg
     val scope = rememberCoroutineScope()

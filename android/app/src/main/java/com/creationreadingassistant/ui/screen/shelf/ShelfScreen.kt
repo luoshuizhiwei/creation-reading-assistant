@@ -64,6 +64,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -89,6 +92,8 @@ import com.creationreadingassistant.ui.theme.ListSkeleton
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.theme.lab.LocalThemeLabDirection
+import com.creationreadingassistant.ui.theme.lab.ThemeLabDirection
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -124,6 +129,7 @@ internal fun ShelfScreen(
     onFocusHandled: (reached: Boolean) -> Unit = {},
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
+    val labDirection = LocalThemeLabDirection.current
     // 网格状态提升到 Screen：导入完成的「查看」定位需要主动 scrollToItem，
     // 而 LazyVerticalGrid 的 state 原本在 ShelfContent 内部创建，外部够不到。
     val gridState = rememberLazyGridState()
@@ -178,7 +184,22 @@ internal fun ShelfScreen(
                     .padding(top = 6.dp, end = 8.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("书架", style = MaterialTheme.typography.headlineLarge, maxLines = 1)
+                // 阴刻印章方向：标题落在实心墨块上（阳刻反白），其余方向沿用展示衬线标题。
+                val inkBlock = labDirection == ThemeLabDirection.YIN_SEAL
+                Text(
+                    "书架",
+                    style = MaterialTheme.typography.headlineLarge,
+                    maxLines = 1,
+                    color = if (inkBlock) MaterialTheme.colorScheme.onPrimary else Color.Unspecified,
+                    modifier = if (inkBlock) {
+                        Modifier
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                            .padding(horizontal = 10.dp, vertical = 2.dp)
+                    } else {
+                        Modifier
+                    },
+                )
                 Icon(
                     imageVector = Icons.Outlined.ArrowDropDown,
                     contentDescription = "打开书架整理",
@@ -309,7 +330,7 @@ internal fun ShelfScreen(
         snackbarHost = {
             val local = LocalShelfSnackbar.current
             if (local != null) {
-                androidx.compose.material3.SnackbarHost(hostState = local)
+                com.creationreadingassistant.ui.components.AppSnackbarHost(hostState = local)
             }
         },
     ) { viewportPadding ->

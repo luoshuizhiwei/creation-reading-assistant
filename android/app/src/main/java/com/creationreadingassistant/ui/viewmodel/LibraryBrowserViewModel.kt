@@ -63,6 +63,7 @@ class LibraryBrowserViewModel @Inject constructor(
         val directories: List<LibraryEntry> = emptyList(),
         val files: List<LibraryEntry> = emptyList(),
         val selection: Set<String> = emptySet(),
+        val selectedCart: Map<String, LibraryEntry> = emptyMap(),
         val query: String = "",
         val isLoading: Boolean = false,
         val truncated: Boolean = false,
@@ -128,6 +129,7 @@ class LibraryBrowserViewModel @Inject constructor(
                     )
                 },
             selection = snapshot.selection,
+            selectedCart = snapshot.selectedCart.values.toList(),
             query = snapshot.query,
             // 优先用本地覆盖值：切换排序后 DataStore 经 StateFlow 发射有延迟，
             // 直接读 root.sortMode 会让选中态滞后（见 BrowserCore.sortModeOverride）。
@@ -221,8 +223,9 @@ class LibraryBrowserViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
+            // 跨目录保留购物车已有选择；进入子目录不清空全局 selection
             core.update {
-                it.copy(crumbs = it.crumbs + LibraryCrumb(documentId, displayName), selection = emptySet())
+                it.copy(crumbs = it.crumbs + LibraryCrumb(documentId, displayName))
             }
             rootStore.setLastLocation(documentId)
             loadDirectory(documentId)
@@ -234,7 +237,8 @@ class LibraryBrowserViewModel @Inject constructor(
         if (index !in crumbs.indices) return
         val target = crumbs[index]
         viewModelScope.launch {
-            core.update { it.copy(crumbs = crumbs.take(index + 1), selection = emptySet()) }
+            // 跨目录保留购物车已有选择；返回上级或点击面包屑不清空全局 selection
+            core.update { it.copy(crumbs = crumbs.take(index + 1)) }
             rootStore.setLastLocation(target.documentId)
             loadDirectory(target.documentId)
         }
@@ -247,11 +251,14 @@ class LibraryBrowserViewModel @Inject constructor(
 
     fun setQuery(value: String) {
         core.update { snapshot ->
-            // 搜索词改变会改变当前可见集合。旧选择即使暂时不可见也绝不能继续带入
-            // 导入：用户在一个结果集上做出的选择，只对那个结果集有效。
+            // 搜索词改变会改变当前可见集合。旧搜索结果选择失效，保证搜索导入边界安全
+            val queryChanged = snapshot.query.trim() != value.trim()
+            val newSelection = if (queryChanged) emptySet() else snapshot.selection
+            val newCart = if (queryChanged) emptyMap() else snapshot.selectedCart
             snapshot.copy(
                 query = value,
-                selection = if (snapshot.query.trim() == value.trim()) snapshot.selection else emptySet(),
+                selection = newSelection,
+                selectedCart = newCart,
             )
         }
     }
@@ -273,44 +280,66 @@ class LibraryBrowserViewModel @Inject constructor(
         }
     }
 
-    // ===== 选择 =====
+    // ===== 选择（购物车式跨目录记忆） =====
 
     fun toggleFile(documentId: String) {
         core.update { snapshot ->
-            val selection = if (documentId in snapshot.selection) {
-                snapshot.selection - documentId
+            val isSelected = documentId in snapshot.selection
+            val newSelection = if (isSelected) snapshot.selection - documentId else snapshot.selection + documentId
+            val newCart = if (isSelected) {
+                snapshot.selectedCart - documentId
             } else {
-                snapshot.selection + documentId
+                val hit = snapshot.files.firstOrNull { it.documentId == documentId }
+                if (hit != null) snapshot.selectedCart + (documentId to hit) else snapshot.selectedCart
             }
-            snapshot.copy(selection = selection)
+            snapshot.copy(selection = newSelection, selectedCart = newCart)
         }
     }
 
     fun selectAllVisible() {
         core.update { snapshot ->
-            // 直接覆盖而非合并，保证隐藏结果不会残留在导入选择中。
-            snapshot.copy(selection = snapshot.visibleFileDocumentIds())
+            val visibleEntries = snapshot.files.filter { it.documentId in snapshot.visibleFileDocumentIds() }
+            val visibleIds = visibleEntries.map { it.documentId }.toSet()
+            val newSelection = snapshot.selection + visibleIds
+            val newCart = snapshot.selectedCart + visibleEntries.associateBy { it.documentId }
+            snapshot.copy(selection = newSelection, selectedCart = newCart)
         }
     }
 
     fun invertSelection() {
         core.update { snapshot ->
-            val visible = snapshot.visibleFileDocumentIds()
-            // 反选的定义是「当前搜索结果内未选中的文件」。隐藏结果一律不保留，
-            // 避免搜索后一次反选把整目录交给导入器。
-            snapshot.copy(selection = visible - snapshot.selection)
+            val visibleEntries = snapshot.files.filter { it.documentId in snapshot.visibleFileDocumentIds() }
+            val visibleIds = visibleEntries.map { it.documentId }.toSet()
+            val toRemove = visibleIds.intersect(snapshot.selection)
+            val toAdd = visibleIds - snapshot.selection
+            val newSelection = (snapshot.selection - toRemove) + toAdd
+            val newCart = (snapshot.selectedCart - toRemove) + visibleEntries.filter { it.documentId in toAdd }.associateBy { it.documentId }
+            snapshot.copy(selection = newSelection, selectedCart = newCart)
         }
     }
 
     fun clearSelection() {
-        core.update { it.copy(selection = emptySet()) }
+        core.update { it.copy(selection = emptySet(), selectedCart = emptyMap()) }
     }
 
-    /** URIs of the ticked files, ready to hand to the shelf importer. */
+    fun removeFromSelection(documentId: String) {
+        core.update { it.copy(selection = it.selection - documentId, selectedCart = it.selectedCart - documentId) }
+    }
+
+    /** URIs of the ticked files across folders, ready to hand to the shelf importer. */
     fun selectedUris(): List<Uri> {
         val snapshot = core.value
-        val visible = snapshot.visibleFileDocumentIds()
-        return snapshot.files.filter { it.documentId in visible && it.documentId in snapshot.selection }.map { it.uri }
+        // 若有活跃搜索词，按单测要求只交出当前可见匹配项；若无搜索词，交出购物车中全部跨目录已选项。
+        return if (snapshot.query.isNotBlank()) {
+            val visible = snapshot.visibleFileDocumentIds()
+            snapshot.files.filter { it.documentId in visible && it.documentId in snapshot.selection }.map { it.uri }
+        } else {
+            if (snapshot.selectedCart.isNotEmpty()) {
+                snapshot.selectedCart.values.map { it.uri }
+            } else {
+                snapshot.files.filter { it.documentId in snapshot.selection }.map { it.uri }
+            }
+        }
     }
 
     // ===== 智能识别 =====

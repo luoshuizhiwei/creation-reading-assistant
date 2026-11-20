@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -161,7 +162,10 @@ private fun TipRow(
     modifier: Modifier = Modifier,
 ) {
     val slotArgs = TipSlotArgs(source, absOffset, pageInfo, currentTime, batteryLevel, bookName, color, batteryTipStyle)
-    Row(modifier.fillMaxWidth()) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         TipSlot(template = leftTemplate, alignment = Alignment.CenterStart, args = slotArgs, modifier = Modifier.weight(1f))
         TipSlot(template = centerTemplate, alignment = Alignment.Center, args = slotArgs, modifier = Modifier.weight(1f))
         TipSlot(template = rightTemplate, alignment = Alignment.CenterEnd, args = slotArgs, modifier = Modifier.weight(1f))
@@ -187,12 +191,23 @@ private fun TipSlot(
     args: TipSlotArgs,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier.fillMaxHeight(), contentAlignment = alignment) {
+    val horizontalArrangement = when (alignment) {
+        Alignment.CenterStart -> Arrangement.spacedBy(3.dp, Alignment.Start)
+        Alignment.Center -> Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally)
+        Alignment.CenterEnd -> Arrangement.spacedBy(3.dp, Alignment.End)
+        else -> Arrangement.spacedBy(3.dp, Alignment.Start)
+    }
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .clipToBounds(),
+        contentAlignment = alignment,
+    ) {
         if (template.isBlank()) return@Box
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-            modifier = Modifier.wrapContentWidth(),
+            horizontalArrangement = horizontalArrangement,
+            modifier = Modifier.fillMaxWidth(),
         ) {
             splitOnBattery(template, args).forEach { segment ->
                 when (segment) {
@@ -203,6 +218,7 @@ private fun TipSlot(
                             color = args.color,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
                     }
                     is TipSegment.Battery -> BatteryTip(level = segment.level, style = args.batteryTipStyle, color = args.color)

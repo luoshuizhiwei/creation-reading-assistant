@@ -43,7 +43,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import com.creationreadingassistant.ui.components.AppSnackbarHost
 import androidx.compose.material3.SnackbarHost
+import com.creationreadingassistant.ui.components.AppSnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -155,7 +157,7 @@ internal fun ShelfSearchRoute(
                 }
             }
         },
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { AppSnackbarHost(snackbar) },
         topBarSupportingContent = {
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val adaptive = adaptivePageMetrics(maxWidth, LocalLayoutTokens.current)

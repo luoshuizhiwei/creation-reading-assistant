@@ -206,10 +206,10 @@ class ReaderTemporaryNavigationProductionTest {
     /** 更多 → 笔记与标注 → NotesSheet，两条种子条目标题都已渲染。 */
     private fun openReaderNotesSheet() {
         composeRule.waitUntil(timeoutMillis = 15_000) {
-            composeRule.onAllNodesWithContentDescription("更多")
+            composeRule.onAllNodesWithTag("reader-more-btn")
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithContentDescription("更多").assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag("reader-more-btn").assertIsDisplayed().performClick()
         composeRule.waitForIdle()
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule.onAllNodesWithText("笔记与标注").fetchSemanticsNodes().isNotEmpty()
