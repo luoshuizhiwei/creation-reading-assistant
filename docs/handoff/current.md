@@ -1,13 +1,44 @@
 # 当前交接入口
 
+## 2026-11-21 深夜：Snackbar 主题化补齐 8 处（ZCode 执行，DSH 复核）→ 问题 5 真正闭环
+
+- **起因**：上一条真机复验发现「我的 → 存储管理」弹出的提示仍是深色 RGB(40,43,41)——2026-11-18 那轮只接入了 5 个文件，其余页面仍用 Material3 默认 `SnackbarHost`（`inverseSurface`）。我最初数成 6 处，实际 **8 处**（多出首页两处）。
+- **改动**：8 个文件把默认 `SnackbarHost(...)` 换成 `AppSnackbarHost(hostState = ...)`（复用既有组件、组件本身零改动）：`ProfileScreen.kt:149`（我的树全部子页）、`SearchScreen.kt:231`、`MyReadingRoute.kt:92`、`ReaderScaffold.kt:428`、`InspirationScreen.kt:187`、`HomeCompletedScreen.kt:140`、`HomeScreen.kt:94`、`HomeContinueSheet.kt:175`。有 `modifier` 的照传；未改文案/testTag/`showSnackbar` 调用/CompositionLocal 结构。
+- **我复核**：`git diff` 只有 import 增删 + 调用替换（抽两处逐行看过）；`grep -rn "SnackbarHost(" | grep -v AppSnackbar` 为空；单测 390 XML / **3805 / 0 / 0 / 0**；`compileDebugKotlin`/`compileDebugAndroidTestKotlin`/`assembleDebug` rc=0；新包 **`56ac7ae8…` / 54,354,469 B**（磁盘实算一致）。
+- **我独立取色复核**（自己从截图扫底部最暗横带，不采信它的数字）：浅色存储管理 (140,160,137) 和 **437**、书架 (162,174,162) **498**、灵感 (174,183,174) **531**（全部 >300）；深色 (22,26,20) 和 68。截图目视：浅色主题下提示条为浅绿灰纸张色、深字可读，**与 11-21 真机那个深色条形成对照，问题 5 已闭环**。
+- **未验证**：`SearchScreen` 的 Snackbar 实机未触发（前提"索引命中但定位失败"在 v3 不可构造，改由编译+静态核对覆盖）；`ReaderScaffold` 未单独截图（同一替换模式）。
+- **报告**：`E:/AgentWork/CRA/mate70-startup-diagnostics-v1/snackbar-unify-1/REPORT.md`；截图 `screens/`。
+- **工作树**：8 个 kt 改动 + 本交接文件未提交；根目录有个上一任务遗留的未跟踪文件 `subtree-counts.txt`（8 字节，内容 `32 47`）待清理。
+
+## 2026-11-21 晚：真机复验 7 项改动（ZCode 执行，DSH 复核）→ 6 项 PASS、1 项未达标
+
+- **设备与包**：真机 `c49ac6cf`，装 v3 debug（`d86b8c04…`，`-r -d` 降级保数据，HyperOS 未弹确认框直接 Success）→ 验完装回 v4（versionCode=4、`lastUpdate=2026-11-21 20:30:15`）。**还原核对（我复算 `db-restore.sqlite3`）：books 43 / progress 6 / inspirations 2 / open sessions 0 / `integrity_check=ok` / 3,063,808 B；盘上 reads 131 文件零改动。**
+- **PASS**：V1 页眉页脚（长章节名截断，页脚章节名 x[65,397] 与进度 x[1079,1155] 不重叠）；V2 翻页预取（50 次 tap：同章 median 36ms / 跨章 cache-hit median 40ms，无尖峰、READY→DRAWN 全配对）；V3 搜索态独立（**我独立复测**：输入框 `[48,1131][1172,1306]`、首行 top 1582，不遮挡；关闭后首行 Y 1371 = 打开前，差 0）；V4 跨目录购物车（起点 2 + 加料 2 →「已选择 4 项」，未导入）；V6 翻页时长（默认 200ms、最左「无动画」，200 档 median 248.5ms / 0 档 34.5ms）；V8 **一次点击翻 1 页、READY:DRAWN=1:1，无「一次翻两页」缺陷**（悬置多日的疑点关闭）。
+- **未达标（V5 Snackbar 主题色）**：真机截图取色 **RGB (40,43,41)**，浅色主题下仍是深色条。根因：主题化 `AppSnackbarHost` 只接入了 `LibraryBrowserRoute/ShelfImportRoute/ShelfScreen/ShelfSearchRoute/AppNavigation`；**`ProfileScreen`（含存储管理）、`SearchScreen`、`MyReadingRoute`、`ReaderScaffold`、`InspirationScreen`、`HomeCompletedScreen` 仍用 M3 默认 `SnackbarHost`（inverseSurface＝深色）** → 用户当初抱怨的"纯黑弹窗"在这 6 个页面依旧。ZCode 按合同"≈(0,0,0) 才 FAIL"判 PASS，属**判定线过宽**（我写的验收标准问题）。**待办：把其余 6 处换成 `AppSnackbarHost`。**
+- **V7 truncated**：环境不可构造 → NOT_RUN；代码核对 `LibraryBrowserRoute.kt:331-337` 分支存在且文案按 `searchActive` 区分。
+- **V3 观察项（未能复现）**：ZCode 报「关闭搜索后筛选词残留」，我在真机复测（打开搜索→关闭→重开）重开时输入框为占位符、列表为全量；且代码两条关闭路径都 `viewModel.setQuery("")`（`LibraryBrowserRoute.kt:138/155`），`setQuery` 同步无防抖。判定：**低风险观察项**，疑为输入法回填或测量误差，不再单独开单。
+- **报告**：`E:/AgentWork/CRA/mate70-startup-diagnostics-v1/real-device-ux-verify-1/REPORT.md`；我的复测脚本与证据在 `E:/AgentWork/CRA/mate70-startup-diagnostics-v1/v3-retest-1/`。
+
 ## 2026-11-21 午间：一次性后台 VACUUM 回收库体积（Kimi 执行，DSH 复核）
 
-- **背景**：v17 迁移只 `DELETE` 三张索引表，注释写明"真正回收磁盘由后续一次性 VACUUM 完成"，该 VACUUM 一直未实现；真机库仍约 5.17 GB（原 `search_terms` 4.9 GB 已清行未回收）。
+- **背景（已更正）**：v17 迁移只 `DELETE` 三张索引表，注释写明"真正回收磁盘由后续一次性 VACUUM 完成"，该 VACUUM 一直未实现。~~真机库仍约 5.17 GB~~ → **该前提已失效**：5.17 GB 是 2026-11-17 重装前的实测值；11-18 21:30 真机全新安装 v4 后库为全新的 0.59 MB（见下条真机复核），旧索引残留已随重装消失。
 - **实现（6 文件，3 改 3 新增）**：`DatabaseCompaction.kt`（策略集中：freelist < 200 MiB → 置标记跳过；需可用空间 = 预计压缩后大小 × 1.5；**仅成功或 below-threshold 才写完成标记**，空间不足/失败不写；`PRAGMA wal_checkpoint(TRUNCATE)` → `execSQL("VACUUM")`，不在事务内）+ `DatabaseMaintenanceWorker.kt`（唯一 Work、60s 初始延迟、5min 指数退避；前台/阅读会话未结束/空间不足/失败 → retry）+ `App.kt`（仅在既有 `cra-startup` 后台线程末尾 `runCatching` 登记，不在启动关键路径）+ `SettingsStore.kt`（一次性标记 `db_vacuum_after_index_removal_done`）+ `StorageSubPage.kt`（数据库占用卡 + 「立即回收空间」按钮，二次确认/进度/前后体积弹窗）+ `DatabaseCompactionTest.kt`（5 例）。
 - **我复核**：schema 仍 **17**、迁移与产品表结构未改；标记写入条件正确；空间取 DB 实际目录、合计含 `-wal/-shm`；前台无法判定时按前台处理（宁可不跑）；`App.kt` 只登记不 await。
 - **门禁（我复核结果目录）**：390 XML / **3805 / 0 / 0 / 0**（新增 5 例）；`compileDebugKotlin`、`compileDebugAndroidTestKotlin`、`assembleDebug` 均 rc=0；新包 **`d86b8c04…` / 53,244,710 B**（磁盘实算与装机回读一致）。
 - **MuMu 实测（合成夹具）**：合计 **924,471,296 B → 1,068,016 B**（−923,403,280 B），耗时 **29 ms**，`integrity_check=ok`；回归 books 3 / reading_progress 1 / inspirations 0；冷启动基线均值 1304.7 ms vs 新包 1241.7 ms（−63 ms，未变差）；收尾恢复主包/密度 280/Download 222/夹具删除/MuMu 关机。
-- **未验（重要）**：①**自动后台路径没有在设备上跑通**，只验了手动按钮路径 + 调度登记；②真实 5 GB 库的 VACUUM 时长未测（夹具 live 仅约 1 MB，29 ms 不具代表性，真机预计分钟级）。真机上"它会不会自己跑"是这两个缺口里更要紧的那个。
+- **未验（重要）**：①~~自动后台路径没有在设备上跑通~~（2026-11-21 下午 MuMu 已验，见下条）；②真实 5 GB 库的 VACUUM 时长未测（夹具 live 仅约 1 MB，29 ms 不具代表性，真机预计分钟级）。
+- **2026-11-21 下午补验（ZCode 执行，DSH 复核）**：MuMu 造 4.905 GB freelist 合成库（未降级），**自动后台路径 PASS**——force-stop 重启后 Home 回桌面 65 s 自执行，主库 4,908,134,400 B → **2,920,448 B**（与预计 2,924,544 B 偏差 0.14%），标记写入、4 分钟 16 轮不重复执行、`integrity_check=ok`、行数不变；手动路径同库型 136 ms（应用段）/≈2.4 s（外部链路）；冷启动 685 ms（基线 1304.7 ms，无退化）。**首次安装后两个后台窗口（≥296 s）未执行**，`dumpsys jobscheduler` 显示 worker 已 retry、诊断页无 DatabaseMaintenance 行 → 推断 `DEFERRED_FOREGROUND`（`isAppForeground()` 在 MuMu 后台态误判，无法行级定因）。报告 `E:/AgentWork/CRA/mate70-startup-diagnostics-v1/db-vacuum-autoverify-1/REPORT.md`。
+- **架构事实（影响真机预期）**：正文**不入库**——`ShelfImporter` 只写 `reader_preview = text.take(20_000)`，`local_uri` 指向 SAF 原文件。40 本合成书导入后库仅 2.83 MB，故"真机清索引后剩约 270 MB"的构成**未知**（可能含 WAL 或其他表），真机 VACUUM 后体积与耗时仍需真机确认，MuMu 的 136 ms 不可外推。
+- **2026-11-21 16:1x 真机复核（ZCode 执行，DSH 复核）→ 停止：前提不成立**。真机 `c49ac6cf` 实读（v4 为 DEBUGGABLE，`run-as` 可读私有目录）：主库 **618,496 B**（0.59 MB）+ shm 32,768 B + wal 0；`firstInstall=lastUpdate=2026-11-18 21:30:48`；书架 **2 本**、进度 **0 条**、灵感 **1 条**、会话 **0 条**；`/sdcard/luoshuizhiwei/reads` 有 **153 文件 / 51 个 .txt** 但从未导入。freelist 必然远低于 200 MiB → 自动路径只会 `BELOW_THRESHOLD`、手动按钮禁用，**无可验证的回收行为**；继续执行＝对日常包做 v4→v3 降级覆盖而收益为零，故停止。**全程零写操作：未装 v3、未改数据、日常包与数据零变动**（`db-vacuum-real-device-1/REPORT.md`）。
+- **真机书库导回（2026-11-21 17:0x–17:4x，ZCode 执行，DSH 复核）**：盘上 `reads/` 共 153 文件（epub **93** / txt **51** / dt 4 / md 3 / png 1 / mobi 1）。本轮按合同**只导 .txt**：41 本真实书全部入库、10 个测试夹具（`t-txt-*`/`test-*`）判定为非用户书未导；**书架 2 → 43 本**（我独立解析 `db-after.sqlite3` 复核：books 43 / progress 6 / inspirations 2 / sessions 2 / open sessions 0 / `integrity_check=ok`，库 618,496 → 3,063,808 B）；抽查 5 本可开可翻、搜索「TXT」命中 41 本、冷启动 685 ms、盘上 153 文件零改动。报告 `E:/AgentWork/CRA/mate70-startup-diagnostics-v1/real-device-import-1/REPORT.md`。
+- **待决**：**93 个 EPUB 未导**（合同只写 .txt，属指令范围问题）。用户实际书库以 EPUB 为主（`86-不存在的战区`/`从零开始的异世界生活`/`回复术士的重来人生` 等子目录），需决定是否一并导入。
+- **2026-11-21 18:4x EPUB 导入（只授权 `刺猬猫和少年梦` 子树）→ 无可新增，books 43 未变**：该子树 11 个 epub 构成 = **8 个测试夹具**（`cra-s07-test/`、`cra-s04-stageA-test/`、`cra-s04-retest/`，含故意损坏样本 `test-epub-corrupt.epub`、`invalid-test.epub`）+ **2 本已在架**（辉夜大小姐、我真不是邪神走狗）+ **1 本真书解析失败**（`欧陆调制模式 (初邪乐尔) (Z-Library)-1.epub`）。零写操作、零换包。报告 `E:/AgentWork/CRA/mate70-startup-diagnostics-v1/real-device-import-epub-1/REPORT.md`。
+- **坏书定因（DSH 本地复核）**：该 epub 是 txt2epub 转换产物，正文里 `<img` 起始被截断成字面量 `< src=…>`，导致 **7 个文件非法**（`toc.ncx` 第 186 行 27 列、`catalog.xhtml`、`chap_4/65/134/219/294.xhtml`）；与 App 报错 `name expected (START_TAG <null>@186:28)` 完全对应 → **文件本身损坏，非解析器缺陷**。
+- **书库被测试污染 → 已清理（2026-11-21 19:3x，用户明确授权，DSH 执行）**：删除 `刺猬猫和少年梦` 下 4 个测试批次目录共 **22 文件 / 21 MB**（`cra-s04-retest/` 4、`cra-s07-test/` 8、`cra-s04-isolated-test/b_focus/` 6、`cra-s04-stageA-test/` 4，含 `test-epub-corrupt.epub`、`invalid-test.epub` 故意损坏样本）。删前已 `adb pull` 全量备份到 `E:/AgentWork/CRA/mate70-startup-diagnostics-v1/library-cleanup-1/backup/`（22 文件、逐文件 SHA 在 `evidence/backup-sha256.txt`），并静态核对 43 条 `books.title` 无一引用这些文件。删后：全库 153 → **131**、子树 47 → **25**、书架 **43 本不变**、冷启动 805 ms、无本应用崩溃。**教训：设备测试夹具不得写进用户正式书库目录（`/sdcard/luoshuizhiwei/reads`）**，后续测试一律用独立测试目录（如 `/sdcard/cra-ux_verify`）。
+- **真机交互事实（复用）**：v4 目录页单击行＝直接开书，**长按＝进入选择模式**；选择模式下 LazyList 有滚动冻结窗口（全选 22 项时滚不动，退出重进可恢复）；「智能识别」是 153 文件全量扫描器（推荐 117/可能 23/未识别 7/跳过 6），其「加入书架(102)」**含 epub**，不能当"只导 txt"用。
+- **拉库方式（真机）**：adbd 不可 root，`exec-out cat /data/data/...` 会 Permission denied；必须 `adb exec-out run-as com.creationreadingassistant cat databases/<db>`（v4 为 DEBUGGABLE 才可行）。
+- **结论**：VACUUM 功能保留（阈值门控；自动与手动两条路径 MuMu 已验），但当前真机没有可回收对象，真机验证不再需要；将来库再涨到 GB 级会自动生效。
+- **新坑（复用）**：`adb shell cat` 拉 DB 会被 PTY 的 CRLF 转换破坏 → `integrity_check` 假阳性；必须 `adb exec-out cat` 或 `adb pull`。MSYS 下 `adb push` 目标路径会被路径转换，需 `MSYS_NO_PATHCONV=1`。
 - **报告**：`E:/AgentWork/CRA/mate70-startup-diagnostics-v1/db-vacuum-1/REPORT.md`（含数据表、sqlite3 夹具记录、恢复证据）。工作树 6 文件未提交；未 push。
 
 ## 2026-11-21 凌晨：两项 flaky 单测按机制硬化（Kimi 执行，DSH 复核）
