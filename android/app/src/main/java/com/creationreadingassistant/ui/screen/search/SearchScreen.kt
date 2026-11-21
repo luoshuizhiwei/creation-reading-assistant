@@ -43,7 +43,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -84,6 +83,7 @@ import com.creationreadingassistant.feature.search.SearchCoverageState
 import com.creationreadingassistant.feature.search.SearchHit
 import com.creationreadingassistant.feature.search.SearchTextBasis
 import com.creationreadingassistant.ui.components.AppScreenScaffold
+import com.creationreadingassistant.ui.components.AppSnackbarHost
 import com.creationreadingassistant.ui.navigation.readerTemporaryRouteForSource
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.IconPedestal
@@ -228,7 +228,7 @@ fun SearchScreen(
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { AppSnackbarHost(hostState = snackbarHostState) },
     ) { padding ->
         Column(Modifier.padding(padding).imePadding().fillMaxSize()) {
             // 顶部优雅搜索框

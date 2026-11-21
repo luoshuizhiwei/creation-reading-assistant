@@ -21,7 +21,6 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -41,6 +40,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.creationreadingassistant.data.local.entity.HighlightEntity
+import com.creationreadingassistant.ui.components.AppSnackbarHost
 import com.creationreadingassistant.data.settings.PerBookOverrides
 import com.creationreadingassistant.data.settings.ReaderDayNightToggle
 import com.creationreadingassistant.data.settings.ReaderSettings
@@ -425,7 +425,7 @@ internal fun ReaderScaffold(
                 },
                 onGestureActiveChange = { brightnessHudVisible = it },
             ),
-        snackbarHost = { SnackbarHost(snackbarHost) },
+        snackbarHost = { AppSnackbarHost(hostState = snackbarHost) },
     ) {
         // Scaffold padding intentionally ignored: reader is full-screen immersive.
         // Background (paper.bg) must fill behind system bars; content uses

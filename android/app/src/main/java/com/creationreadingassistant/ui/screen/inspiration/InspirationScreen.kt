@@ -29,7 +29,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.ui.components.AppScreenScaffold
+import com.creationreadingassistant.ui.components.AppSnackbarHost
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SectionDivider
@@ -184,7 +184,7 @@ internal fun InspirationScreen(
         actions = toolbar.actions,
         snackbarHost = {
             val local = LocalInspirationSnackbar.current
-            if (local != null) SnackbarHost(hostState = local)
+            if (local != null) AppSnackbarHost(hostState = local)
         },
         topBarSupportingContent = toolbar.topBarSupporting,
     ) { viewportPadding ->

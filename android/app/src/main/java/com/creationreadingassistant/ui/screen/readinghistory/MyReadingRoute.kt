@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +28,7 @@ import com.creationreadingassistant.feature.library.deletion.deletionConfirmActi
 import com.creationreadingassistant.feature.library.deletion.deletionConfirmBody
 import com.creationreadingassistant.feature.library.deletion.deletionConfirmTitle
 import com.creationreadingassistant.feature.library.deletion.deletionFailedMessage
+import com.creationreadingassistant.ui.components.AppSnackbarHost
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.screen.shelf.bookNotReadyLabel
 import com.creationreadingassistant.ui.screen.shelf.BookActionSheet
@@ -89,7 +89,7 @@ fun MyReadingRoute(
             },
         )
 
-        SnackbarHost(
+        AppSnackbarHost(
             hostState = snackbar,
             modifier = Modifier
                 .align(Alignment.BottomCenter)

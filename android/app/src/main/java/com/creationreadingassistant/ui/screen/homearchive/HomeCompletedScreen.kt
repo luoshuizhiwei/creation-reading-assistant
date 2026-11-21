@@ -30,7 +30,6 @@ import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,6 +61,7 @@ import com.creationreadingassistant.feature.library.deletion.deletionConfirmActi
 import com.creationreadingassistant.feature.library.deletion.deletionConfirmBody
 import com.creationreadingassistant.feature.library.deletion.deletionConfirmTitle
 import com.creationreadingassistant.ui.components.AppScreenScaffold
+import com.creationreadingassistant.ui.components.AppSnackbarHost
 import com.creationreadingassistant.ui.util.DurationText
 import com.creationreadingassistant.ui.util.LocalDurationUnit
 import com.creationreadingassistant.ui.util.formatDuration
@@ -137,7 +137,7 @@ fun HomeCompletedRoute(
             onManage = { managedBook = it },
         )
 
-        SnackbarHost(
+        AppSnackbarHost(
             hostState = snackbar,
             modifier = Modifier
                 .align(Alignment.BottomCenter)

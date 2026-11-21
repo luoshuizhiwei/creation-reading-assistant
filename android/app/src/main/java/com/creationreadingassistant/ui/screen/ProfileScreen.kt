@@ -10,7 +10,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -21,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.creationreadingassistant.ui.components.AppScreenScaffold
+import com.creationreadingassistant.ui.components.AppSnackbarHost
 import com.creationreadingassistant.ui.components.LocalFlatCards
 import com.creationreadingassistant.ui.components.LocalSettingsDensity
 import com.creationreadingassistant.ui.components.SettingsDensity
@@ -146,7 +146,7 @@ internal fun ProfileScreen(
             {}
         },
         snackbarHost = {
-            LocalProfileSnackbar.current?.let { SnackbarHost(it) }
+            LocalProfileSnackbar.current?.let { AppSnackbarHost(hostState = it) }
         },
         compactTopBar = !isHome,
     ) { scaffoldPadding ->

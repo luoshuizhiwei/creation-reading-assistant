@@ -18,7 +18,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,6 +47,7 @@ import com.creationreadingassistant.feature.library.deletion.deletionConfirmActi
 import com.creationreadingassistant.feature.library.deletion.deletionConfirmBody
 import com.creationreadingassistant.feature.library.deletion.deletionConfirmTitle
 import com.creationreadingassistant.feature.library.deletion.deletionUndoMessage
+import com.creationreadingassistant.ui.components.AppSnackbarHost
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SheetHandle
@@ -172,7 +172,7 @@ fun HomeContinueSheet(
                 onDismissMenu = { menuView = MenuView.NONE },
             )
         }
-        SnackbarHost(snackbarHostState)
+        AppSnackbarHost(hostState = snackbarHostState)
         // ModalBottomSheet 在独立 Dialog 窗口中渲染；全局宿主位于其下方，
         // 因此这里复用同一个凭证源提供可见的撤销入口，关掉面板后由全局宿主接管。
         DeletionUndoBar(

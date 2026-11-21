@@ -91,7 +91,7 @@ fun HomeScreen(
         snackbarHost = {
             val hostState = com.creationreadingassistant.ui.screen.home.LocalHomeSnackbarHolder.current
             if (hostState != null) {
-                androidx.compose.material3.SnackbarHost(hostState = hostState)
+                com.creationreadingassistant.ui.components.AppSnackbarHost(hostState = hostState)
             }
         },
     ) { viewportPadding ->
