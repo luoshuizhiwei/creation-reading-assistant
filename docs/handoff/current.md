@@ -1,5 +1,15 @@
 # 当前交接入口
 
+## 2026-11-21 午间：一次性后台 VACUUM 回收库体积（Kimi 执行，DSH 复核）
+
+- **背景**：v17 迁移只 `DELETE` 三张索引表，注释写明"真正回收磁盘由后续一次性 VACUUM 完成"，该 VACUUM 一直未实现；真机库仍约 5.17 GB（原 `search_terms` 4.9 GB 已清行未回收）。
+- **实现（6 文件，3 改 3 新增）**：`DatabaseCompaction.kt`（策略集中：freelist < 200 MiB → 置标记跳过；需可用空间 = 预计压缩后大小 × 1.5；**仅成功或 below-threshold 才写完成标记**，空间不足/失败不写；`PRAGMA wal_checkpoint(TRUNCATE)` → `execSQL("VACUUM")`，不在事务内）+ `DatabaseMaintenanceWorker.kt`（唯一 Work、60s 初始延迟、5min 指数退避；前台/阅读会话未结束/空间不足/失败 → retry）+ `App.kt`（仅在既有 `cra-startup` 后台线程末尾 `runCatching` 登记，不在启动关键路径）+ `SettingsStore.kt`（一次性标记 `db_vacuum_after_index_removal_done`）+ `StorageSubPage.kt`（数据库占用卡 + 「立即回收空间」按钮，二次确认/进度/前后体积弹窗）+ `DatabaseCompactionTest.kt`（5 例）。
+- **我复核**：schema 仍 **17**、迁移与产品表结构未改；标记写入条件正确；空间取 DB 实际目录、合计含 `-wal/-shm`；前台无法判定时按前台处理（宁可不跑）；`App.kt` 只登记不 await。
+- **门禁（我复核结果目录）**：390 XML / **3805 / 0 / 0 / 0**（新增 5 例）；`compileDebugKotlin`、`compileDebugAndroidTestKotlin`、`assembleDebug` 均 rc=0；新包 **`d86b8c04…` / 53,244,710 B**（磁盘实算与装机回读一致）。
+- **MuMu 实测（合成夹具）**：合计 **924,471,296 B → 1,068,016 B**（−923,403,280 B），耗时 **29 ms**，`integrity_check=ok`；回归 books 3 / reading_progress 1 / inspirations 0；冷启动基线均值 1304.7 ms vs 新包 1241.7 ms（−63 ms，未变差）；收尾恢复主包/密度 280/Download 222/夹具删除/MuMu 关机。
+- **未验（重要）**：①**自动后台路径没有在设备上跑通**，只验了手动按钮路径 + 调度登记；②真实 5 GB 库的 VACUUM 时长未测（夹具 live 仅约 1 MB，29 ms 不具代表性，真机预计分钟级）。真机上"它会不会自己跑"是这两个缺口里更要紧的那个。
+- **报告**：`E:/AgentWork/CRA/mate70-startup-diagnostics-v1/db-vacuum-1/REPORT.md`（含数据表、sqlite3 夹具记录、恢复证据）。工作树 6 文件未提交；未 push。
+
 ## 2026-11-21 凌晨：两项 flaky 单测按机制硬化（Kimi 执行，DSH 复核）
 
 - **前情**：先派过一轮"先复现再修"，拿不到失败栈（Paged 10/10、Scroll 10/10、全量 2 次全绿），按停止条件**零改动**收尾（STOPPED_NOT_REPRODUCED）。尝试的"同目录并行全量制造负载"两次都死在 AAPT 资源/Kotlin classpath/`binary/output.bin` 锁，未进测试阶段——**同目录并行 Gradle 不能当负载手段**。

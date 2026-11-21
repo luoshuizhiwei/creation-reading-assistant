@@ -83,6 +83,10 @@ private val KEY_USE_DYNAMIC_COLOR = booleanPreferencesKey("appearance_use_dynami
 private val KEY_AMOLED_PURE_BLACK = booleanPreferencesKey("appearance_amoled_pure_black")
 private val KEY_HOLD_TO_DELETE = booleanPreferencesKey("appearance_hold_to_delete")
 
+/** v17 清除全文索引后，一次性后台 VACUUM 的完成标记；空间不足/执行失败不得写入。 */
+internal val KEY_DB_VACUUM_AFTER_INDEX_REMOVAL_DONE =
+    booleanPreferencesKey("db_vacuum_after_index_removal_done")
+
 // ---- Reader ----
 private val KEY_READER_MODE = stringPreferencesKey("reader_mode")              // paged | scroll
 private val KEY_PAGER_ENGINE = stringPreferencesKey("pager_engine_mode")       // off | auto | on
@@ -768,6 +772,13 @@ class SettingsStore @Inject constructor(
             }
             prefs[KEY_PAGE_TURN_SPEED_DEFAULT_200_MIGRATED] = true
         }
+    }
+
+    suspend fun isDatabaseVacuumAfterIndexRemovalDone(): Boolean =
+        ds.data.first()[KEY_DB_VACUUM_AFTER_INDEX_REMOVAL_DONE] == true
+
+    suspend fun markDatabaseVacuumAfterIndexRemovalDone() {
+        ds.edit { it[KEY_DB_VACUUM_AFTER_INDEX_REMOVAL_DONE] = true }
     }
 
     suspend fun updateAi(block: AISettings.() -> AISettings) {

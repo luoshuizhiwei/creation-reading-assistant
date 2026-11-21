@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.os.Trace
 import android.util.Log
+import com.creationreadingassistant.data.local.DatabaseMaintenanceEntryPoint
 import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.EpubSizeRepairTask
 import com.creationreadingassistant.ui.onboarding.ONBOARDING_PREFS
@@ -151,6 +152,12 @@ class App : Application() {
                     .scheduler()
                     .start()
             }.onFailure { Log.w(TAG_BOOT, "阅读目标调度启动失败", it) }
+            // 只登记延迟 WorkManager；VACUUM 不在启动路径，真正执行前还会检查后台与阅读会话。
+            runCatching {
+                EntryPointAccessors.fromApplication(this, DatabaseMaintenanceEntryPoint::class.java)
+                    .databaseMaintenanceScheduler()
+                    .startOnce()
+            }.onFailure { Log.w(TAG_BOOT, "数据库回收调度启动失败", it) }
         }, "cra-startup").start()
         trace("App", "onCreate end")
     }

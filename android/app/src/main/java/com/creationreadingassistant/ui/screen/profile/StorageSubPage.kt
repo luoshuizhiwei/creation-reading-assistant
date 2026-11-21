@@ -41,9 +41,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,7 +58,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.R
+import com.creationreadingassistant.data.local.DatabaseCompactionInspection
+import com.creationreadingassistant.data.local.DatabaseCompactionReason
+import com.creationreadingassistant.data.local.DatabaseCompactionReport
+import com.creationreadingassistant.data.local.DatabaseMaintenanceEntryPoint
 import com.creationreadingassistant.data.repository.OfflineBooksClearReport
 import com.creationreadingassistant.data.repository.OfflineBooksResidueClear
 import com.creationreadingassistant.ui.components.GlassAlertDialog
@@ -67,7 +74,9 @@ import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import dagger.hilt.android.EntryPointAccessors
 import java.io.File
+import kotlinx.coroutines.launch
 
 // ============================== 存储与缓存管理 ==============================
 
@@ -83,6 +92,22 @@ internal fun StorageSubPage(
     val settingsListState = rememberSettingsPageListState()
     val haptic = rememberHaptic(reducedMotion)
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val compaction = remember(context) {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            DatabaseMaintenanceEntryPoint::class.java,
+        ).compaction()
+    }
+    var inspection by remember { mutableStateOf<DatabaseCompactionInspection?>(null) }
+    var showVacuumConfirm by remember { mutableStateOf(false) }
+    var vacuumResult by remember { mutableStateOf<DatabaseCompactionReport?>(null) }
+    val compactionRunning by compaction.running.collectAsStateWithLifecycle()
+    val compactionEvent by compaction.events.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { inspection = compaction.inspect() }
+    LaunchedEffect(compactionEvent) {
+        if (compactionEvent != null) inspection = compaction.inspect()
+    }
 
     val books = state.libraryState.books
     val totalBooks = books.size
@@ -260,6 +285,64 @@ internal fun StorageSubPage(
                         }
                     }
                 }
+            }
+        }
+
+        // 数据库主文件 + WAL + SHM；回收事件与手动执行共用同一状态流自动刷新。
+        item(key = "storage-database-compaction-card") {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        SubPageSectionTitle(
+                            title = "数据库占用",
+                            icon = Icons.Outlined.Storage,
+                            iconTint = Color(0xFF0F766E),
+                        )
+                        Text(
+                            inspection?.let { formatBytes(it.totalBytes) } ?: "统计中…",
+                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            "主库 + WAL + SHM · 可回收约 ${inspection?.let { formatBytes(it.freelistBytes) } ?: "…"}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        inspection?.let {
+                            Text(
+                                "可用 ${formatBytes(it.availableBytes)} · 预计压缩后 ${formatBytes(it.expectedCompactedBytes)}" +
+                                    " · 至少需 ${formatBytes(it.requiredFreeBytes)}",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            if (!it.hasWorthwhileFreelist) {
+                                Text(
+                                    "可回收页不足 200 MiB，无需执行 VACUUM。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        if (compactionRunning) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Text(
+                                "正在回收数据库空间，请等待完成…",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showVacuumConfirm = true },
+                            enabled = inspection?.hasWorthwhileFreelist == true && !compactionRunning,
+                            shape = PillShape,
+                        ) {
+                            Icon(Icons.Outlined.CleaningServices, contentDescription = null, modifier = Modifier.size(17.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("立即回收空间")
+                        }
+                    }
             }
         }
 
@@ -518,6 +601,54 @@ internal fun StorageSubPage(
         }
     }
 
+    if (showVacuumConfirm) {
+        GlassAlertDialog(
+            onDismissRequest = { showVacuumConfirm = false },
+            title = { Text("立即回收数据库空间") },
+            text = {
+                Text(
+                    "将先检查 freelist 与剩余空间，再执行 VACUUM。期间应用可能卡顿数十秒到数分钟，" +
+                        "请保持应用可用并等待完成。不会删除书籍、阅读进度或灵感。确认继续？",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showVacuumConfirm = false
+                        scope.launch {
+                            vacuumResult = compaction.compactOnce(manual = true)
+                            inspection = compaction.inspect()
+                        }
+                    },
+                ) { Text("确认回收") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showVacuumConfirm = false }) { Text("取消") }
+            },
+        )
+    }
+
+    vacuumResult?.let { report ->
+        GlassAlertDialog(
+            onDismissRequest = { vacuumResult = null },
+            title = { Text(if (report.reason == DatabaseCompactionReason.SUCCESS) "空间回收完成" else "回收未执行") },
+            text = {
+                Text(
+                    buildString {
+                        appendLine(report.reason.userText())
+                        appendLine("回收前：${formatBytes(report.beforeBytes)}")
+                        appendLine("回收后：${formatBytes(report.afterBytes)}")
+                        append("耗时：${report.durationMs} ms")
+                        report.errorMessage?.let { append("\n$it") }
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { vacuumResult = null }) { Text("知道了") }
+            },
+        )
+    }
+
     // 危险操作二次确认对话框 (GlassAlertDialog)
     if (showDangerDialog) {
         GlassAlertDialog(
@@ -585,6 +716,17 @@ internal fun StorageSubPage(
 /**
  * 存储指标微岛卡片：包含分色微底座、大数字与说明
  */
+@Composable
+private fun DatabaseCompactionReason.userText(): String = when (this) {
+    DatabaseCompactionReason.SUCCESS -> "回收成功，完成标记已保存。"
+    DatabaseCompactionReason.ALREADY_DONE -> "一次性回收此前已完成，无需重复执行。"
+    DatabaseCompactionReason.BELOW_THRESHOLD -> "可回收页低于 200 MiB，已跳过并记录完成标记。"
+    DatabaseCompactionReason.INSUFFICIENT_SPACE -> "剩余空间不足，未执行且未记录完成标记；释放空间后可重试。"
+    DatabaseCompactionReason.DEFERRED_FOREGROUND -> "应用当前在前台，自动回收已延期。"
+    DatabaseCompactionReason.DEFERRED_READING_SESSION -> "仍有未结束阅读会话，自动回收已延期。"
+    DatabaseCompactionReason.FAILED -> "执行失败，未记录完成标记；数据库保持可用，可稍后重试。"
+}
+
 @Composable
 private fun StorageMetricMicroCard(
     icon: ImageVector,
