@@ -1,6 +1,6 @@
 # 发给 Trae：R1 统一阅读笔记
 
-请直接实施这项任务。工作目录必须为 `D:/develop/Code/Codex/cra-android-trae-r1`，分支 `codex/android-trae-r1`。
+请直接实施这项任务。工作目录必须为 `<Codex 工作区>/cra-android-trae-r1`，分支 `codex/android-trae-r1`。
 先完整阅读仓库AGENTS.md及 `docs/plans/android-parallel-delivery-2026-09-09/{README,COMMON}.md`。
 你不是唯一开发者：Qoder负责删除恢复，Codex负责reader与共享接口。不得修改他们拥有的文件，不stage/commit/push。
 

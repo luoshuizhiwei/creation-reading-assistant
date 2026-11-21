@@ -7,7 +7,7 @@
 ZCode官方Start Plan GLM-5.3唯一E仪器hostbuilddevice；Root D。116仅80真实套用control关闭/73-74全树/81-84边界取证，最小patch5216f09e8264c2ec71652ce7f9cf0c13b42b9fccb88fefae75ee91ecd3fba724/7309B，产品6a零改。MuMu1模拟器。两条构建原日志exit0，未重复构建。
 
 ## 执行与结果、原始证据
-E:/creation-reading-assistant/task116-saved-view-reopen-navigation-v1。
+<证据根>/task116-saved-view-reopen-navigation-v1。
 入场01-baseline night=no、settingsMatchContracttrue、产品缺席；02-protection-initial rc2、consumer_result=null，consumer_exception明确night expected no/actual yes，captured71私有820外部，DB组匹配。保护拒绝安装。summary业务125.1165s/installedByThisRun=[]，仪器未启动/0业务，80/90未执行。本run不是仪器业务FAIL，不存在JUnit结果，不伪造XML。
 “transient”只能表示前后采样不一致、恢复后不持续；来源与原因未知，不关联94旧异常为同根因，不据此改strict合同。原入场FAIL保留，不重算attempt。
 REPORT e9de41798131cdbbc295dee92f89e4aa0fb785bbf89d5797b48a4961977c3739/6500B；ready87ca7af2681580ebef36853cdbf6f7079e6308981fd59b3de01730a42b3b901a/5378B。实物13604986B/test10610999B/其余2993987B；报告差11878B收尾时点，不重跑；build增量未测。

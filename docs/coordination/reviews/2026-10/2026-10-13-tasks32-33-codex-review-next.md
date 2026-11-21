@@ -11,15 +11,15 @@
 
 ## 输入指纹与原始证据
 共同输入1012源，tree410b0768a317678b7e0f0a0fb00fc4b01b9253c4035c139c4a0d4e666e481be3，manifest SHA a1863f36fc1d3488955a51ed7e679153d20c8a716c1fef0b74481def6352548a。
-[Root逐文件/冻结/原XML核查](<E:/creation-reading-assistant/tasks32-33-codex-review-20261013/verification.json>)；[新实际冻结核验日志](<E:/creation-reading-assistant/tasks32-33-codex-review-20261013/freeze-verify.log>)，exit0、PASS；不重建已绑定双APK。
+[Root逐文件/冻结/原XML核查](<<证据根>/tasks32-33-codex-review-20261013/verification.json>)；[新实际冻结核验日志](<<证据根>/tasks32-33-codex-review-20261013/freeze-verify.log>)，exit0、PASS；不重建已绑定双APK。
 32副本1012/1012无差异，验收46与Root相同；33副本1012原件均相同、仅1测试新增，整树1013、tree0c32228f7e97cf993f0221e56017c254ef866cd58f97585a94d46c44f65048f3。
 33原XML5/5、0failure/error/skip，日志BUILD SUCCESSFUL/WRAPPER_EXIT=0成立。本轮是成果证据核查，未重新跑Gradle。
 
 ## 所有权与改动
 1. 32 tools/make_config.py直接沿旧24缺口批，实际27项=7回归/系统UI+20TXT，没有A EPUB、B新真实Room关系/position/read_at合同、C缺正文但preview尚存合同。报告§4列出的J1_NAV/D2_RELINK不等于实际运行清单。应建立要求→类/方法→运行配置→证据断言对应；相关产品修复使旧证据输入不同，不能直接复用旧结论。
 2. 32 scripts/20_baseline.py忽略命令失败、inventory结果与空SHA；数据库直接pull未核原件同组SHA与一致性；APK未硬校SHA相等；首次baseline/backup可覆盖，错误仍return0。当前未执行设备，未发现数据损坏；此脚本不能成为安装/卸载准入依据。
-3. 32 scripts/30_wait_gate.py全文关键词误判：Root实调t33_state得到BLOCKED，而正式状态PASS。也未机器核产品指纹，PowerShell检查失败/解析失败不能当空闲。重现见[状态解析反例](<E:/creation-reading-assistant/tasks32-33-codex-review-20261013/status-parser-reproduction.json>)。
-4. 32报告§3称两项都未满足、表内33已满足；§8仍称33报告缺失。报告需一致。本轮只读宿主进程仍见同一serial的交互shell，不据此认定已释放或恶意阻塞；不杀、不接管。[占用快照](<E:/creation-reading-assistant/tasks32-33-codex-review-20261013/live-adb-occupancy.json>)。
+3. 32 scripts/30_wait_gate.py全文关键词误判：Root实调t33_state得到BLOCKED，而正式状态PASS。也未机器核产品指纹，PowerShell检查失败/解析失败不能当空闲。重现见[状态解析反例](<<证据根>/tasks32-33-codex-review-20261013/status-parser-reproduction.json>)。
+4. 32报告§3称两项都未满足、表内33已满足；§8仍称33报告缺失。报告需一致。本轮只读宿主进程仍见同一serial的交互shell，不据此认定已释放或恶意阻塞；不杀、不接管。[占用快照](<<证据根>/tasks32-33-codex-review-20261013/live-adb-occupancy.json>)。
 5. 33测试wire只断言id/title/body/revision/excerpts/tags，没有adoptions路径及status断言；源码无payloadWithAdoption调用，报告却称覆盖采用通道。编辑实体没有在payload中放不同的旧title/body，因此不能声称已验证冲突时新字段优先。
 6. 33导出输入没有重复来源，两个不同locator的摘录正文也不同，不能证明精确重复去除/相同正文不同位置保留；既有单模块证据可准确引用，跨组件新增合同仅补确缺项。
 7. 33缺书测试只用名字“已删除的书”且bookRepository自始为空，证明的是无书行时快照消费者不查书库；没有删除过程，不宣称真实软删除设备合同。收窄报告即可，无需制造真实设备删除任务。

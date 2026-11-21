@@ -7,7 +7,7 @@
 D HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空。Root-v2原1019源和36-v1APK冻结复用。40实际交付逐项SHA见E hash-review，14条清单仅自身条目不符；41所列9个调查源码逐文件实算一致。原交付只读，所有新候选/原始证据放各自E。
 
 ## 所有权与改动
-40-v2唯一拥有E:/creation-reading-assistant/task40-host-joint-integration-v2的host/runtime/适配/调度/总消费/工具冻结，原40-v1只读；42-v1拥有E:/creation-reading-assistant/task42-saf-run-cleanup-v1自有Android候选中的RealSystemUiAcceptTest.kt、Task35EvidenceFixtures.kt及必要定向测试，不改main、主机工具、公共配置或原候选；43-v1只读活动仓库桌面源码及明确交付路径，只写E:/creation-reading-assistant/task43-desktop-delivery-reuse-v1承接清单。三个无共写，只有42需要定向编译且独占Gradle锁。公共集成、双APK和设备均等Root核后再唯一owner安排。
+40-v2唯一拥有<证据根>/task40-host-joint-integration-v2的host/runtime/适配/调度/总消费/工具冻结，原40-v1只读；42-v1拥有<证据根>/task42-saf-run-cleanup-v1自有Android候选中的RealSystemUiAcceptTest.kt、Task35EvidenceFixtures.kt及必要定向测试，不改main、主机工具、公共配置或原候选；43-v1只读活动仓库桌面源码及明确交付路径，只写<证据根>/task43-desktop-delivery-reuse-v1承接清单。三个无共写，只有42需要定向编译且独占Gradle锁。公共集成、双APK和设备均等Root核后再唯一owner安排。
 
 ## 环境
 Windows/Python3.13。40原15项pytest在自有E临时目录、禁pycache与cacheprovider下实际跑过。最初pytest目录收集和基路径错误属于Root运行环境设置，修正rootdir/confcutdir并创建父目录后15项通过；不将两次启动错误算产品失败。无真实ADB/Gradle/设备，无子代理。
@@ -18,7 +18,7 @@ Root在实际run_full_chain外部边界注入36消费者明确拒绝：最终ok=
 41调查9/9输入SHA成立；当前Android src内releasePersistableUriPermission和DocumentsContract.deleteDocument零调用，markCleanup仅定义1处无调用。清理/恢复生产端缺口成立，调查任务结束不重派。草案不照抄：grantsBefore应在创建/新增授权前保存；删除应在仍持有必要写权限时完成；权限拒绝不能证明对象不存在。源码/API可调用不等于MuMu实际通过，不扩“真机必须”表述。
 
 ## 原始证据
-[40原测试实跑](<E:/creation-reading-assistant/tasks40-41-codex-review-20261014/40-original-tests.log>)；[36拒绝仍回调反例](<E:/creation-reading-assistant/tasks40-41-codex-review-20261014/36-gate-reject-counterexample.json>)；[40指纹](<E:/creation-reading-assistant/tasks40-41-codex-review-20261014/hash-review.json>)；[41源码与草案校正](<E:/creation-reading-assistant/tasks40-41-codex-review-20261014/41-source-review.json>)。
+[40原测试实跑](<<证据根>/tasks40-41-codex-review-20261014/40-original-tests.log>)；[36拒绝仍回调反例](<<证据根>/tasks40-41-codex-review-20261014/36-gate-reject-counterexample.json>)；[40指纹](<<证据根>/tasks40-41-codex-review-20261014/hash-review.json>)；[41源码与草案校正](<<证据根>/tasks40-41-codex-review-20261014/41-source-review.json>)。
 
 ## 未覆盖项
 40非完整runtime/设备通过；41未证明provider运行能力。42新代码核后才进入新共同候选并构建一次所需APK，不沿用旧测试APK身份。43历史桌面交付不冒充当前桌面通过。D/F、X、实体/MIUI、LAN与发布未关闭，全产品分母未知。

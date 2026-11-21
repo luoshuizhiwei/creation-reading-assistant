@@ -3,7 +3,7 @@
 时间：2026-10-24；模型：官方Start Plan GLM-5.3；作用：定位持续night=yes，不开新设备业务批；并行关系：设备只读仍同owner，冻结产品仪器APK不改。
 
 ````text
-接续117-v1只读诊断补充1，沿同目录E:/creation-reading-assistant/task117-saved-view-reopen-entry-v1，保留现REPORT/ready/采样原件，不覆盖旧结果；新增diagnostic/及报告补充即可。Root不把“报告已完成”当来源已定位，不开118业务，不建attempt，不重跑仪器。
+接续117-v1只读诊断补充1，沿同目录<证据根>/task117-saved-view-reopen-entry-v1，保留现REPORT/ready/采样原件，不覆盖旧结果；新增diagnostic/及报告补充即可。Root不把“报告已完成”当来源已定位，不开118业务，不建attempt，不重跑仪器。
 
 当前四次汇总night=yes/ui_night_mode2已表明需要停入场；但00-night-gate-sampling.json只有整理字段，缺原始命令/rc/stdout/stderr与采样对应的current user。报告“无其他owner”只凭无python并不能排除宿主UI/其他ADB客户端/系统自动来源，勿定论；116只能说前后采样不同，不是已确证瞬时故障。报告称host117-binding.patch存在，但Root实际只见REPORT/ready/evidence三个文件，核实真实存在性，不补造历史交付。
 

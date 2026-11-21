@@ -3,12 +3,12 @@
 任务编号/版本：80-v3-E-Root。交付状态：serial绑定与导入修正可复用；本次设备主验收失败，未执行仪器。全产品分母未知。
 
 ## 输入指纹、所有权与改动、环境
-Root负责本报告、current页首及独立核验日志，不改E实现、共享producer、历史输入或APK。检查未发现匹配task80_v3/complete_recovery的活动Python/PowerShell执行者。唯一构建工作区仍为E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android，Gradle home D:/develop/env/gradle；本轮构建0、设备命令0。修后serial模块实际SHA为3c2c6701c4a096a3ff9f24b0d8f8dc99f5a75d929eacef68294d910186f8bb8f。
+Root负责本报告、current页首及独立核验日志，不改E实现、共享producer、历史输入或APK。检查未发现匹配task80_v3/complete_recovery的活动Python/PowerShell执行者。唯一构建工作区仍为<证据根>/task59-common-candidate-v1/candidate/android，Gradle home <开发盘>/env/gradle；本轮构建0、设备命令0。修后serial模块实际SHA为3c2c6701c4a096a3ff9f24b0d8f8dc99f5a75d929eacef68294d910186f8bb8f。
 
 ## 执行与结果、原始证据
 复用E/v3/REPORT.md及offline-result中的14项离线证据、5项mutation反例、11项设备只读设置探测；它们不代表业务旅程通过，不重跑未变的A/B/C或编译。
 原始attempt为20261021-144736-7a1cc4：entry worker导入real_runner失败，安装0、仪器0、导出新建/删除0；唯一attempt已经消耗。修正发生在attempt之后，不追认为原运行通过。
-Root定向核验修后真实entry/recovery/keep三个worker：分别由全新Python进程执行，显式继承已绑定ADB，传入不存在的spec；3/3均越过实际导入到FileNotFoundError，没有ModuleNotFoundError。退出码1是预期的缺spec失败，只证明bootstrap，不证明任何设备动作。日志及结构化结果在E:/creation-reading-assistant/task80-export-content-v1/root-review-80-v3-E/verification.json及三个stderr文件。
+Root定向核验修后真实entry/recovery/keep三个worker：分别由全新Python进程执行，显式继承已绑定ADB，传入不存在的spec；3/3均越过实际导入到FileNotFoundError，没有ModuleNotFoundError。退出码1是预期的缺spec失败，只证明bootstrap，不证明任何设备动作。日志及结构化结果在<证据根>/task80-export-content-v1/root-review-80-v3-E/verification.json及三个stderr文件。
 
 ## 冻结证据审计
 00-input-bytes.json记录的freeze、binding、ready、provenance四份原字节快照4/4 SHA匹配，但其规范路径当前SHA均已改变（4/4）。原attempt快照仍可追溯；不得宣称规范冻结原件保持不变，也不得以事后修正的ready覆盖旧失败结论。下一批必须使用新的独立版本路径，freeze与恢复继续入口一致后再执行；本报告不补造旧模块源字节证据。

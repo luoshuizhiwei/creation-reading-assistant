@@ -6,11 +6,11 @@ Codex-review-N1v5-G1v2-v1，来源用户“都完成了”。本轮只核既定�
 
 ## 输入指纹
 
-恢复HEAD `e39a78da9c62f02614207cffb36969a32492eaea`、暂存区空。N1父v4/候选v5各878非生成文件，4改/874相同，无增删，八父SHA与前轮核查一致；JsonBridge及Profile保持原字节。G1父v1/候选v2各877文件，单仪器类改动/876相同。完整SHA与树差异见[核查JSON](<E:/creation-reading-assistant/n1v5-g1v2-codex-review-20261002/verification.json>)。
+恢复HEAD `e39a78da9c62f02614207cffb36969a32492eaea`、暂存区空。N1父v4/候选v5各878非生成文件，4改/874相同，无增删，八父SHA与前轮核查一致；JsonBridge及Profile保持原字节。G1父v1/候选v2各877文件，单仪器类改动/876相同。完整SHA与树差异见[核查JSON](<<证据根>/n1v5-g1v2-codex-review-20261002/verification.json>)。
 
 ## 所有权与改动
 
-Root只写本报告、现有current/项目页/TODO/skill记录及自有E审查文件；只读reviewer核N1真实路径。编辑前原文保存在[E before](<E:/creation-reading-assistant/n1v5-g1v2-codex-review-20261002/before>)。未改候选、共享产品、原损坏仓库、桌面/HOLD、外部原报告或Claude独立库。未暂存/commit/push/reset/checkout。
+Root只写本报告、现有current/项目页/TODO/skill记录及自有E审查文件；只读reviewer核N1真实路径。编辑前原文保存在[E before](<<证据根>/n1v5-g1v2-codex-review-20261002/before>)。未改候选、共享产品、原损坏仓库、桌面/HOLD、外部原报告或Claude独立库。未暂存/commit/push/reset/checkout。
 
 ## 环境
 
@@ -47,7 +47,7 @@ Windows/Python3.13、SDK34 aapt/apksigner。本轮只执行证据解析、SHA、
 
 ## 原始证据
 
-- [核查脚本](<E:/creation-reading-assistant/n1v5-g1v2-codex-review-20261002/audit.py>)及[JSON](<E:/creation-reading-assistant/n1v5-g1v2-codex-review-20261002/verification.json>)，含完整8SHA、XML、包名/签名输出；N1完整文本日志缺失如实登记，不再开纯报告任务。
+- [核查脚本](<<证据根>/n1v5-g1v2-codex-review-20261002/audit.py>)及[JSON](<<证据根>/n1v5-g1v2-codex-review-20261002/verification.json>)，含完整8SHA、XML、包名/签名输出；N1完整文本日志缺失如实登记，不再开纯报告任务。
 - [N1-v5原报告](../../dispatches/2026-10/2026-10-02-next-n1-repair-v5.md)、[G1-v2原报告](../../dispatches/2026-10/2026-10-02-next-g1-library-build-v2.md)保持原件。
 
 ## 未覆盖项

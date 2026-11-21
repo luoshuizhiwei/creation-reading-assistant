@@ -28,7 +28,7 @@ integration从未调用verify_manifest；recovery仅文件存在时验证。Root
 保护取证与hv.mkdir在try/finally之前；异常可能跳过收尾。finally creation_ledger=None。须核实既有函数对部分暂存失败与异常的行为，在自有范围用外部边界故障反例补必要收尾、持久恢复账与原始/恢复双错误传播；不能在尚未修改目标数据时盲目重装。此项源码可见风险，尚未宣称设备损坏或真实复现。
 
 ## 原始证据
-[23原测试](<E:/creation-reading-assistant/task47-codex-review-20261015/original-tests.log>)；[现存26清单验证](<E:/creation-reading-assistant/task47-codex-review-20261015/existing-manifest-verify.json>)；[报告CLI反例](<E:/creation-reading-assistant/task47-codex-review-20261015/documented-cli-result.json>)；[非注入标记路径反例](<E:/creation-reading-assistant/task47-codex-review-20261015/noninjected-boundary-result.json>)；[缺失manifest准入反例](<E:/creation-reading-assistant/task47-codex-review-20261015/recovery-missing-manifest-result.json>)。整体consumer未执行的其他旅程FAIL不冒充已执行单旅程FAIL，Root只采实际执行旅程的限定结果。
+[23原测试](<<证据根>/task47-codex-review-20261015/original-tests.log>)；[现存26清单验证](<<证据根>/task47-codex-review-20261015/existing-manifest-verify.json>)；[报告CLI反例](<<证据根>/task47-codex-review-20261015/documented-cli-result.json>)；[非注入标记路径反例](<<证据根>/task47-codex-review-20261015/noninjected-boundary-result.json>)；[缺失manifest准入反例](<<证据根>/task47-codex-review-20261015/recovery-missing-manifest-result.json>)。整体consumer未执行的其他旅程FAIL不冒充已执行单旅程FAIL，Root只采实际执行旅程的限定结果。
 
 ## 未覆盖项
 合法生产命令/现场准入/工具门禁未过；设备NOT_RUN。SAF Provider、D/F、X、实体/MIUI/发布等保持旧边界，Android全产品分母未知。报告中的实体设备接续并非授权。

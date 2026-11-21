@@ -4,9 +4,9 @@
 
 ## 开工方式
 
-- 主仓库/Codex集成：`D:/develop/Code/Codex/creation-reading-assistant`。
-- Trae独立工作树：`D:/develop/Code/Codex/cra-android-trae-r1`，分支 `codex/android-trae-r1`。
-- Qoder独立工作树：`D:/develop/Code/Codex/cra-android-qoder-r1`，分支 `codex/android-qoder-r1`。
+- 主仓库/Codex集成：`<旧仓库>`。
+- Trae独立工作树：`<Codex 工作区>/cra-android-trae-r1`，分支 `codex/android-trae-r1`。
+- Qoder独立工作树：`<Codex 工作区>/cra-android-qoder-r1`，分支 `codex/android-qoder-r1`。
 - 两工作树从本执行包提交创建，启动时记录 `git rev-parse HEAD` 和 `git status --short`；如果目录/分支不符先报告，不得在主仓库凑合施工。
 - 用户把 TRAE.md、QODER.md 分别交给对应工具；CODEX.md 在主仓库执行。本文不是已发送消息或已启动外部 agent 的证明。
 - 每人先完整阅读本文件与 COMMON.md，只执行本轮文件。完成后在自己的工作树提交报告（报告文件，不是 Git commit），由 Codex 审核和集成；不自行开启下一轮。

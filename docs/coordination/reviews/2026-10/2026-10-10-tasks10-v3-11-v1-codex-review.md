@@ -23,9 +23,9 @@ Root再次运行11新增离线套件：12测试，11执行通过、1红专用跳
 
 ## 原始证据
 
-- [Root清单核对](<E:/creation-reading-assistant/tasks10v3-11-codex-review-20261010/verification.json>)。
-- [Root Fake-only反例](<E:/creation-reading-assistant/tasks10v3-11-codex-review-20261010/guard-probes.json>)与probe_guard.py，没有真实ADB。
-- [完整Android diff补件](<E:/creation-reading-assistant/tasks10v3-11-codex-review-20261010/android-complete-relative.patch>)：外部patch漏新增测试，Root按清单补齐2改1增，未改候选字节。
+- [Root清单核对](<<证据根>/tasks10v3-11-codex-review-20261010/verification.json>)。
+- [Root Fake-only反例](<<证据根>/tasks10v3-11-codex-review-20261010/guard-probes.json>)与probe_guard.py，没有真实ADB。
+- [完整Android diff补件](<<证据根>/tasks10v3-11-codex-review-20261010/android-complete-relative.patch>)：外部patch漏新增测试，Root按清单补齐2改1增，未改候选字节。
 - 两外部REPORT、红绿日志和定向XML保留；不重复充分验证或扩大构建。
 
 ## 恢复与副作用、未覆盖项

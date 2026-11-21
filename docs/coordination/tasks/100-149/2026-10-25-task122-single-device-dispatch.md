@@ -11,7 +11,7 @@
 
 在122/lane-b生成本次实际香港启动时间T119V1-YYYYMMDD-HHMMSS runId，写evidence/run-id.txt和budget.json，businessCapSeconds=1800含入场、recoveryReserveSeconds=3600、deadlineEpoch对应香港2026-10-25 12:30:00。启动now+5400>12:30则不开批、不延长预算，报告不足。attempt.json若已存在停，禁止删attempt/换runId/另根绕过；host独占创建后入场失败也消耗唯一attempt，不批内修码重跑。外层使用可持续交互后台/短轮询，每工具≤45秒返回模型；后台Windows进程隐藏窗口。模型仍国内DeepSeek，不购买换账号模型。
 
-只允许现有隔离MuMu实例1，当前应运行；若停止或身份不清不得自行启动/重启，停报。ADB固定D:/Application/NetEase/MuMuPlayer/nx_main/adb.exe，先devices核当前真实serial，其后全部-s本轮真实serial；fresh manager实例1/serial/boot_id/user0/owner/前台/night=no核同，历史serial不能代替本轮身份。基线产品应缺席，原test存在且实际完整APK/数据inventory/userstate核同；未知产品/原test不符/保护冲突/活动owner不明/探测失败即停业务，不卸载覆盖未知资产。night不符或未知writer再现即停队列，不写no硬闯。不关闭重启kill VM/共享ADB/其他进程，结束VM保持运行。
+只允许现有隔离MuMu实例1，当前应运行；若停止或身份不清不得自行启动/重启，停报。ADB固定<MuMu adb>/adb.exe，先devices核当前真实serial，其后全部-s本轮真实serial；fresh manager实例1/serial/boot_id/user0/owner/前台/night=no核同，历史serial不能代替本轮身份。基线产品应缺席，原test存在且实际完整APK/数据inventory/userstate核同；未知产品/原test不符/保护冲突/活动owner不明/探测失败即停业务，不卸载覆盖未知资产。night不符或未知writer再现即停队列，不写no硬闯。不关闭重启kill VM/共享ADB/其他进程，结束VM保持运行。
 
 原71私有820外部路径、DB/WAL/SHM保护不放宽，保存新鲜基线和原宿主/test完整代码数据inventory/userstate/外部目录与settings。恢复件直接inputs实际PRESERVED/CONTRACT，原testAPK0d18d788/archivefbdbb692；结束核d6ac3c5f完整inventory与原userstate精确匹配，不能仅安装Success判恢复。产品仅本批两APK；新host在仪器前核精确resultsDir和fixture runDir初始缺席，存在/未知/探针异常拒绝且产品KEPT_BLOCKED，不得“恢复基线”手动追加卸载。原test无活跃writer时独立恢复；仪器异常先依冻结host同身份/本run包归属force-stop并确认writer停止，不能确认则阻断依赖collect/卸载/原test恢复，独立settings/protection/keepalive继续。
 

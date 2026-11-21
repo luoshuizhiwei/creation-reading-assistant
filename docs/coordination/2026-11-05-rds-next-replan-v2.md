@@ -11,7 +11,7 @@ Z1–Z6 的报告及 ready 已全部出现，ZCode 已修改 D 树 `android/app/
 - Z5 已补部分回源、手势导航等证据。JSON 快照导入无报错，不能推出完整 ZIP 备份、笔记/高亮或书籍正文恢复；正文命中共享代码不能替代所有搜索入口/类别验收。
 - Trae 18:32 增量复核仍列出产物绑定、构建日志、同输入红绿、绿色阶段 logcat、恢复及文档冲突等缺口。18:32 后反复记录“无变化”没有形成新的验收进展，后续取消这种循环。
 
-输入只按需读：交付根 `E:/creation-reading-assistant/rds-v1-real-device-smoke/` 下 FINAL-ROOT-PACKAGE、REPAIR-IMPLEMENTATION、REPAIR-DIAGNOSIS、REPAIR-DEVICE-VERIFICATION、COVERAGE-GAP-VERIFICATION、ready 与对应原证；Trae 日志 `E:/creation-reading-assistant/coordination/rds-v1-trae-observation.md` 的“第三轮增量复核”；活动源码实际 diff。旧版本不自动成为当前事实。
+输入只按需读：交付根 `<证据根>/rds-v1-real-device-smoke/` 下 FINAL-ROOT-PACKAGE、REPAIR-IMPLEMENTATION、REPAIR-DIAGNOSIS、REPAIR-DEVICE-VERIFICATION、COVERAGE-GAP-VERIFICATION、ready 与对应原证；Trae 日志 `<证据根>/coordination/rds-v1-trae-observation.md` 的“第三轮增量复核”；活动源码实际 diff。旧版本不自动成为当前事实。
 
 ## 执行分工与共同要求
 

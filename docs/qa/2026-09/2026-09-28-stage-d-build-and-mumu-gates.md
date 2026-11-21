@@ -28,7 +28,7 @@
 
 - `snapshot/git-status.txt`（SHA `7999858a642b8e84ef1143468a69aede62885f11057c64b1cd63ff7e5b1cb366`）：`git status --porcelain` 共 **541 项** = **260 项已修改（` M`）+ 281 项未跟踪（`??`）**，**暂存区为空**（快照内 `^M `/`^A ` 计数为 0，且 `git diff --cached --stat` 无输出）。既有未提交修改全部原样保留。
 - `snapshot/build-inputs-sha256.txt`（SHA `b1ac963918f69c52abbef391872fa1b1018e96c647700081e45ccd906ad57454`）：`android/` 下 **939** 个构建输入逐文件 SHA-256（Gradle 脚本/版本目录/main/test/androidTest/schemas，排除 `build/`、`.gradle/`）。
-- `snapshot/build-env.txt`：Gradle 8.9、Kotlin 1.9.23、Launcher/Daemon JVM 17.0.14（`D:\develop\Java\jdk-17.0.14`）、`GRADLE_USER_HOME=D:/develop/env/gradle`。
+- `snapshot/build-env.txt`：Gradle 8.9、Kotlin 1.9.23、Launcher/Daemon JVM 17.0.14（`D:\develop\Java\jdk-17.0.14`）、`GRADLE_USER_HOME=<开发盘>/env/gradle`。
 
 关键输入哈希（与 C 阶段交叉核对）：
 

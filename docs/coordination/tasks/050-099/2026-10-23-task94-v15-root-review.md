@@ -2,7 +2,7 @@
 
 ## 任务编号/版本、输入指纹
 
-2026-10-23 15:51后核验94-v15。REPORT/仪器/ExportTagLine/仪器patch/产品/候选test/两保全APK/宿主共9项指纹适用大小实核匹配。REPORT6f74d3ef…b8d30、仪器2ae41bb9…158bf、ExportTagLine ab330eea…bf6f7、宿主596c0658…f27ec、产品11023464…ffc30c、候选test d6a3bfc9…7b58d（10537225B）。原fc861运行件和85be均已保全。完整路径见E:/creation-reading-assistant/task94-organizing-export-integration-v1/v15/ready.json。
+2026-10-23 15:51后核验94-v15。REPORT/仪器/ExportTagLine/仪器patch/产品/候选test/两保全APK/宿主共9项指纹适用大小实核匹配。REPORT6f74d3ef…b8d30、仪器2ae41bb9…158bf、ExportTagLine ab330eea…bf6f7、宿主596c0658…f27ec、产品11023464…ffc30c、候选test d6a3bfc9…7b58d（10537225B）。原fc861运行件和85be均已保全。完整路径见<证据根>/task94-organizing-export-integration-v1/v15/ready.json。
 
 ## 所有权与改动、环境
 

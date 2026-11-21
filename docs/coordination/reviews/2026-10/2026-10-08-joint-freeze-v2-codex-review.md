@@ -6,7 +6,7 @@ CRA-TXT-D2-J1-JOINT-FREEZE-v2。口头完成后Root原始证据核验，UI/恢�
 
 ## 输入指纹
 
-Root证据 E:/creation-reading-assistant/joint-freeze-v2-codex-review-20261008/fingerprints.json。
+Root证据 <证据根>/joint-freeze-v2-codex-review-20261008/fingerprints.json。
 源码992/992、验收35/35、根3/3指纹匹配；证据清单实际41/41匹配，报告写40是计数差异，不是缺失。
 源码manifest 9ec78f87760ca48a63916be60d38782e1b3e3223c1778310229e4211babd9ee4；acceptance manifest 7841b68652edf1084e42a6ba1694d961f55d0752553db7259d98e5ff3c908ec5。
 宿主SHA440514acd90de7bf38edb744851eefcf345f2c3b9d4710984358df2c142552ae，测试SHA bd7ff57d46a6a21294102c7b71474aa6757b4e522c2c2c759de6a9063958ebc5；大小、包身份匹配。aapt实际test target/runner与冻结一致，apksigner双APK证书同05249d786e3d3d117bb5bd7b1f83512a0c9b8f1ee4e502112c4b2d9ccbd7b9a1。

@@ -6,7 +6,7 @@ A CRA-D2-DEVICE-ARTIFACTS-REPAIR-v3；B CRA-J1-REAL-READER-ARTIFACTS-REPAIR-v3�
 
 ## 输入指纹
 
-Root核查根 `E:/creation-reading-assistant/abc-v3-codex-review-20261008`，fingerprints.json保存当前指纹。
+Root核查根 `<证据根>/abc-v3-codex-review-20261008`，fingerprints.json保存当前指纹。
 A四代码4/4匹配，manifest d60807322c678e7f4858d01dfc78df5926495d8393fc4493fb884966c69fc2d7。
 B九工件9/9匹配，manifest 0df6c4ef9522733775485a039bea1218e52ea47a688ac386585ca9008c66d3f6，无清单自引用。
 C driver实际SHA 4bfc39fb2534beb456e49a812e121816c7905e145a42a552783ee51760cab95a，有真实改动。REPORT及原20项日志与v2逐字节相同，不能作v3验证。

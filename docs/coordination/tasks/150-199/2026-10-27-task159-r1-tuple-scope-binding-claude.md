@@ -1,6 +1,6 @@
 # 任务159-r1：collector公共tuple接缝所有权最小闭环
 
-同159原Code会话/owner，只新E:/creation-reading-assistant/task159-temporary-entry-collector-offline-v1/recheck-r1/，旧v1源inputs/raw/fake/ready冻结。与A158host/设备独立，candidate/APK/Gradle/device/A输入全部只读，禁止触碰A执行范围。10分钟从实际UI发送起，source64KiB raw+fake16KiB，复制前核free、实际计fake，不删移旧资产。
+同159原Code会话/owner，只新<证据根>/task159-temporary-entry-collector-offline-v1/recheck-r1/，旧v1源inputs/raw/fake/ready冻结。与A158host/设备独立，candidate/APK/Gradle/device/A输入全部只读，禁止触碰A执行范围。10分钟从实际UI发送起，source64KiB raw+fake16KiB，复制前核free、实际计fake，不删移旧资产。
 
 Root已核原159主体14case离线性质通过，完整class+两method唯一成功终态、冻host136实际evaluator、collect签名tuple、expectedrun/scope约束充分复用，不重刷14case。collector159.py9092B SHA407c27e431864481358fac71c21b6db2400f7e0627a725b8cd6d26a2701f9a08，offline_validate13790B4831b7fb1ff1b1edc55c52394029003b4c527d4a855fef701ccc49b295818e1a。
 

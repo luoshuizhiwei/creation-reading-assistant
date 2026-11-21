@@ -21,5 +21,5 @@ run 20261021-183022-d95de0，99-summary.main_error=null；probe_verify/material/
 本轮取材、孤立摘录、来源状态、MD四旅程及导出恢复合同可采纳，停止80保存器重复返修/设备复验。没有实体手机/MIUI或公开发布结论。
 里程碑重排依据现行2026-10-09-workflow-replan（2026-10-15更新）：B线本次相关流程关闭；V0仍需用五项合同确认现有范围和共同候选证据，不能用四旅程替代全部V0。下一批两个独立工作包：81-v1-A仅定位night漂移和固化必要恢复补完接线（独占任务专属脚本差量，不改共享producer/产品）；81-v1-B只读归并V0五合同既有证据，列直接缺口、owner和下一实现，不能全历史审计或重跑已充分验证。A/B不共写文件、不并发设备/构建，Root再集成；B不因A未结束阻塞既有业务证据采纳，A也不改B已引用的冻结。
 设备授权仍覆盖明确批次与确证新建/已保全sizeSHA导出精确收尾，不自动启动新设备批次或恢复自动化。两个自动化PAUSED；无Git/发布/桌面/云/存量清理。
-H自报新增约12.8MiB，必要原文及恢复证据保留，Root未重复整树盘点。唯一构建工作区task59-common-candidate-v1/candidate/android、Gradle home D:/develop/env/gradle不变；下一次构建/设备单owner，身份/owner、输入、预算或恢复不明即停止依赖工作。
+H自报新增约12.8MiB，必要原文及恢复证据保留，Root未重复整树盘点。唯一构建工作区task59-common-candidate-v1/candidate/android、Gradle home <开发盘>/env/gradle不变；下一次构建/设备单owner，身份/owner、输入、预算或恢复不明即停止依赖工作。
 Root本轮只增加本报告并替换current当前段，不复制APK/工程/缓存，不增加监控或重复收据。

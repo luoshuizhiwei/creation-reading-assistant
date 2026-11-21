@@ -7,7 +7,7 @@ Codex-review-J1v2-J2v2-v1，2026-10-01；来源：用户“都完成了”。J1-
 ## 输入指纹
 
 - 恢复仓库 HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，暂存区空。
-- 新活动候选：[J1-v2 android](<E:/creation-reading-assistant/next-round-joint-j1-v2/android>)；[六文件清单](<E:/creation-reading-assistant/next-round-joint-j1-v2/freeze/source-manifest-j1v2.csv>) 全部与本轮实算一致。
+- 新活动候选：[J1-v2 android](<<证据根>/next-round-joint-j1-v2/android>)；[六文件清单](<<证据根>/next-round-joint-j1-v2/freeze/source-manifest-j1v2.csv>) 全部与本轮实算一致。
 - 两候选各875源码文件（排除build/.gradle/.kotlin/.idea及local.properties）；逐文件SHA比较仅两个授权文件变化，无产品源码差异。
 - 宿主 `app-qahost.apk` SHA：`ea68aa16038eba81715c719bca4b9df72887faa5b4c91688419ccfe0a95b67f8`，与旧freeze逐位一致。
 - 新测试 `app-qahost-androidTest.apk` SHA：`83380dd46f8858ccdec62d217c0967dc1371bc80e6812bc74ecf22ce14332fa8`。
@@ -15,7 +15,7 @@ Codex-review-J1v2-J2v2-v1，2026-10-01；来源：用户“都完成了”。J1-
 
 ## 所有权与改动
 
-Codex仅写本报告、交接入口、项目页/TODO和E盘审计工件；未改外部原报告、矩阵、产品、测试源码或freeze。本轮文档回退副本：[before](<E:/creation-reading-assistant/next-j1v2-j2v2-codex-review-20261001/before>)。
+Codex仅写本报告、交接入口、项目页/TODO和E盘审计工件；未改外部原报告、矩阵、产品、测试源码或freeze。本轮文档回退副本：[before](<<证据根>/next-j1v2-j2v2-codex-review-20261001/before>)。
 
 ## 环境
 
@@ -40,9 +40,9 @@ Standards限定实现无阻断发现；Spec报告有上述四组补正。J2-v2�
 
 ## 原始证据
 
-- [本轮875文件/六SHA/双APK核查](<E:/creation-reading-assistant/next-j1v2-j2v2-codex-review-20261001/verification.json>) / [证书核查](<E:/creation-reading-assistant/next-j1v2-j2v2-codex-review-20261001/certificate-verification.json>)。
-- [J1-v2原报告](../../dispatches/2026-10/2026-10-01-next-j1-v2-persistence-fixture-fix.md) / [原构建日志](<E:/creation-reading-assistant/next-round-joint-j1-v2/freeze/evidence/gate-v2-qahost.log>)。
-- [J2-v2原报告（须结合本补正）](../../../qa/2026-10/2026-10-01-next-j2-v2-evidence-correction.md) / [原矩阵](<E:/creation-reading-assistant/next-round-j2-v2-evidence-review/evidence_correction_matrix.json>)。
+- [本轮875文件/六SHA/双APK核查](<<证据根>/next-j1v2-j2v2-codex-review-20261001/verification.json>) / [证书核查](<<证据根>/next-j1v2-j2v2-codex-review-20261001/certificate-verification.json>)。
+- [J1-v2原报告](../../dispatches/2026-10/2026-10-01-next-j1-v2-persistence-fixture-fix.md) / [原构建日志](<<证据根>/next-round-joint-j1-v2/freeze/evidence/gate-v2-qahost.log>)。
+- [J2-v2原报告（须结合本补正）](../../../qa/2026-10/2026-10-01-next-j2-v2-evidence-correction.md) / [原矩阵](<<证据根>/next-round-j2-v2-evidence-review/evidence_correction_matrix.json>)。
 - [上一轮Codex实证审阅](2026-10-01-next-j1-j2-codex-review.md)。
 
 ## 未覆盖项

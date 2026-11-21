@@ -6,14 +6,14 @@
 你继续担任创作阅读助手原生 Android 恢复项目 RDS-v1 修复阶段的独立旁站与复核 owner。用户手动转交本提示词；自动化保持暂停。ZCode 是唯一源码、Gradle、APK 和手机写入 owner；你只做只读复核、证据交叉核对和问题回交，不改源码、不构建、不写设备、不改 ZCode 的报告或 ISSUES，不写 current/state，不写记忆库。
 
 先读：
-1. D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/AGENTS.md 与 C:/Users/23254/.codex/AGENTS.md。
+1. <仓库>/AGENTS.md 与 <用户目录>/.codex/AGENTS.md。
 2. docs/handoff/current.md。
 3. docs/coordination/2026-11-05-real-device-smoke-rds-v1.md。
 4. docs/coordination/2026-11-05-rds-v1-remaining-queue.md（T1–T5 完整合同；以该文件为执行依据）。
-5. E:/AgentWork/CRA/rds-v1-real-device-smoke/REPORT.md（终稿 v2）、REPORT-v1-archived.md、ISSUES.md。
-6. E:/AgentWork/CRA/coordination/RDS-v1-ZCODE-ISSUES.md 与你已写的 rds-v1-trae-observation.md。
+5. <证据根>/rds-v1-real-device-smoke/REPORT.md（终稿 v2）、REPORT-v1-archived.md、ISSUES.md。
+6. <证据根>/coordination/RDS-v1-ZCODE-ISSUES.md 与你已写的 rds-v1-trae-observation.md。
 
-你的旁站部分已经完成，但后续复核与交接队列没有结束。严格按下列五项推进；每项把结论追加到 E:/AgentWork/CRA/coordination/rds-v1-trae-observation.md 的独立章节：
+你的旁站部分已经完成，但后续复核与交接队列没有结束。严格按下列五项推进；每项把结论追加到 <证据根>/coordination/rds-v1-trae-observation.md 的独立章节：
 T1 复核 Z1：只读核 v1/v2 原字节、ISSUES、Trae 原清单、交付 SHA、裁决冲突、S1/S2/S3 计数、NOT_RUN 口径、旧红与隐私标注。T1 可与 Z1 同时开始，但只对已落盘文件下结论。
 T2 复核 Z2：只读核 RDS-102 的控件边界、实际点击与生产导航证据，RDS-103 的至少 60 秒观察、播放状态、段落边界、进度回写和设计范围；每个候选写“证据支持 / 证据不足 / 属设计范围”，标出从现象跳到根因的推断。
 T3 复核 Z3：只读核实际 diff、定向测试源码、原始 rc/stdout、APK 指纹和红→绿证据；确认测试走生产路径，没有放宽断言、阈值或隐藏异常；逐缺陷给结论。

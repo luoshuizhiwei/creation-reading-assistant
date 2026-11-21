@@ -2,7 +2,7 @@
 
 ## 任务编号/版本、输入指纹
 
-2026-10-24，110-v1。唯一run T106A-T110V1-20261024-130644。E输出：E:/creation-reading-assistant/task110-material-selection-bar-fix-v1。REPORT SHA256 db392c66fc86f11b2ee439392da56786fd4d6dfba449e4d7dd25f7e633dd72d1（6991B）；ready 38511db12bcccf00851262e19dc3cd0d0ae9a4f7fae36c3b9cff76551d34650c（5319B）。Root直接核源/保全APK和原始回执，不以执行者结论代验收。
+2026-10-24，110-v1。唯一run T106A-T110V1-20261024-130644。E输出：<证据根>/task110-material-selection-bar-fix-v1。REPORT SHA256 db392c66fc86f11b2ee439392da56786fd4d6dfba449e4d7dd25f7e633dd72d1（6991B）；ready 38511db12bcccf00851262e19dc3cd0d0ae9a4f7fae36c3b9cff76551d34650c（5319B）。Root直接核源/保全APK和原始回执，不以执行者结论代验收。
 
 ## 所有权与改动
 

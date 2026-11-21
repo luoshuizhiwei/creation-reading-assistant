@@ -14,7 +14,7 @@
 
 | # | 检查 | 结果 | 证据 |
 |---|---|---|---|
-| 1 | 工作目录 | 相符 | `git rev-parse --show-toplevel` = `D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919` |
+| 1 | 工作目录 | 相符 | `git rev-parse --show-toplevel` = `<仓库>` |
 | 2 | **内存 Room 隔离前提** | **相符** | 测试源码 L43-46 `Room.inMemoryDatabaseBuilder(...)`，L31 KDoc 明示「绝不读取或写入设备上的用户数据库」；两用例为纯内存库事务语义（文件 mtime 2026-09-23 21:51，早于测试 APK 构建） |
 | 3 | 宿主 APK SHA-256 | 相符 | `a4669f8532055656be6341444F29EAF3A972678533E5CEB351FF34E40021A638`（大小写不敏感比对任务给定值，一致） |
 | 4 | 测试 APK SHA-256 | 相符 | `6d19c24449d75f893c20fef947f165fd005f08733187ad1f3e5c5662c1456ec7` |

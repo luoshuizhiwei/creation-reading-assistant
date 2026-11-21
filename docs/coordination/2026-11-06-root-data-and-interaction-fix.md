@@ -4,7 +4,7 @@
 
 ## 输入与改动范围
 
-- 输入为当前工作文件、R6S 的非空及删除后旧 ZIP、RDS 宿主 `3c3a358a…` 和 UIX 书卡差量。证据根为 `E:/creation-reading-assistant/rds-v1-real-device-smoke/root-checks/data-interaction-v1/`。复用依赖和构建目录，新增空间预算 180 MiB（历史宿主需保全时最多一份、原始日志/XML、输入输出指纹和源码差量）。
+- 输入为当前工作文件、R6S 的非空及删除后旧 ZIP、RDS 宿主 `3c3a358a…` 和 UIX 书卡差量。证据根为 `<证据根>/rds-v1-real-device-smoke/root-checks/data-interaction-v1/`。复用依赖和构建目录，新增空间预算 180 MiB（历史宿主需保全时最多一份、原始日志/XML、输入输出指纹和源码差量）。
 - E 候选的 ZIP 所有者处理 LocalZipBackup、必要的快照解析及定向测试。导出按实际书目与引用收取，导入旧包保全有效内容、排除无主正文，并继续遵守较新记录、恢复中断和共享文件规则。
 - E 候选的灵感所有者处理编辑器到真实写入结果的路径及定向测试。延迟写入期间防止重入，失败保留草稿，成功才离开并提示。书架采用相同按压事件源，减少动态效果时维持交互。
 - 独占构建使用既有 `task59-common-candidate-v1/tools/gradle_locked.py`。定向测试覆盖新问题和受影响的旧恢复规则，保留原始退出码与 XML。已有书架/灵感列表位置尚无设备失败，不预先重写导航或滚动状态。

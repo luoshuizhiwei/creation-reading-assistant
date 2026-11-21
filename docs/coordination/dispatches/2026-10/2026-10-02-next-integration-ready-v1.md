@@ -3,9 +3,9 @@
 ## 任务编号/版本
 integration-ready-v1；2026-10-02。用户连续要求“继续推进”，Root在E副本实施合并、核依赖和定向测试。未获新Git或共享源码应用许可。
 ## 输入指纹
-HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空。J3-v2已验输入与当前D-WIP逐文件三方对照；N1 UI7/7、core7/7和G1原证据仅各自原版本复用，不当作本合并版本设备通过。完整[最终25路径指纹](<E:/creation-reading-assistant/next-round-integration-ready-v1/final-manifest.json>)与[HEAD补丁](<E:/creation-reading-assistant/next-round-integration-ready-v1/final-HEAD.patch>)。
+HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空。J3-v2已验输入与当前D-WIP逐文件三方对照；N1 UI7/7、core7/7和G1原证据仅各自原版本复用，不当作本合并版本设备通过。完整[最终25路径指纹](<<证据根>/next-round-integration-ready-v1/final-manifest.json>)与[HEAD补丁](<<证据根>/next-round-integration-ready-v1/final-HEAD.patch>)。
 ## 所有权与改动
-Root单owner，新[E候选](<E:/creation-reading-assistant/next-round-integration-ready-v1/android>)及final-payload。初始14文件不是最终范围：保留WIP需要10个明确依赖（SyncOptions/SyncPrefsStore/ProfileSyncEngine/ProfileUiState/ProfileUpdateChecker/WebDavSubPage/SyncSubPage/AppLayout/SettingsDensity/LayoutTokens）和1个ViewModel测试构造适配，最终25路径、121个HEAD逻辑hunk。临时qahostn1后缀恢复为永久.qahost，原沙箱驱动和5换行差异脚本不纳入final-payload。Sync/WebDAV人工合并，Profile自动三方合并并核实际编译；新增7个接缝断言在E测试类。
+Root单owner，新[E候选](<<证据根>/next-round-integration-ready-v1/android>)及final-payload。初始14文件不是最终范围：保留WIP需要10个明确依赖（SyncOptions/SyncPrefsStore/ProfileSyncEngine/ProfileUiState/ProfileUpdateChecker/WebDavSubPage/SyncSubPage/AppLayout/SettingsDensity/LayoutTokens）和1个ViewModel测试构造适配，最终25路径、121个HEAD逻辑hunk。临时qahostn1后缀恢复为永久.qahost，原沙箱驱动和5换行差异脚本不纳入final-payload。Sync/WebDAV人工合并，Profile自动三方合并并核实际编译；新增7个接缝断言在E测试类。
 ## 环境
 Windows/JDK17，E独立候选与缓存；离线Gradle。零ADB、零新APK安装、零实体手机/正式书库、零Claude库操作。
 ## 执行与结果
@@ -15,7 +15,7 @@ Spec：R1安全解析/本机事实与payload回填保持；3类别开关、冲�
 
 失败日志全部保留：01缓存复制未完成使wrapper下载超时；02–05为实际依赖缺失（状态/更新checker、WebDAV action签名、布局state/密度和tokens）；06生产编译通过但旧ViewModel测试缺新构造参数；仅给原夹具补SyncPrefsStore flow，07定向门禁成功。没有用删除测试、改产品默认值绕过编译失败。
 ## 原始证据
-[E目录](<E:/creation-reading-assistant/next-round-integration-ready-v1>)：inventory/三方merge输入、完整patch、resolution脚本、build-01至07日志、最终manifest及25文件payload。最终JUnit XML逐文件SHA已记。独立审查通过限定源码控制流，不冒充运行证据。
+[E目录](<<证据根>/next-round-integration-ready-v1>)：inventory/三方merge输入、完整patch、resolution脚本、build-01至07日志、最终manifest及25文件payload。最终JUnit XML逐文件SHA已记。独立审查通过限定源码控制流，不冒充运行证据。
 ## 未覆盖项
 合并后Profile引入已有WIP依赖，尚未新MuMu验证；旧UI/core合同不能外推，下一新UID需要验证受影响同步设置/Profile恢复链。永久.qahost使用isolated runner，与旧UI专用新UID生产Hilt不同，不能直接安装覆盖原qahost。R8/签名/升级/全量功能/实体硬件/F未验；更新checker未联网。原临时驱动仍在E候选仪器源码内作输入历史，但不纳入提交payload，不可直接整包提交candidate。没有自动批准10依赖的全部产品需求，只证明本轮接缝编译/定向行为。
 ## 恢复与副作用

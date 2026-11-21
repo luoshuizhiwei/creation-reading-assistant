@@ -3,7 +3,7 @@
 2026-10-26香港19:32；原Claude global Flash同owner，20分钟，差量256KiB/raw512KiB。Root已读r6生产host、测试关键、REPORT与完整原log，并实核三件sizeSHA。复用提权shell/点文件保真、生产hook成功链修改事实，不重刷旧11项、Android/JVM/构建。当前仍DEVICE_BLOCKED。
 
 ````text
-基线recheck-r6/host/host145_r6.py20218B SHA790bc22c427edc723806f03e882988cd429daaac360ec84387b263b515222663；offline_validate_r6.py20754B SHA8321678b403cba3051a0737693375773cff5eba0a097b0b8729ef6d7ad8cc8a1；inputs-r6.json5325B SHA36b14f090230aebd4558bb80c2953ba1b16bfec76c889e3ec3bd3af4c1fed243。只新E:/creation-reading-assistant/task145-scroll-host-binding-v1/recheck-r7。v1-r6/raw/SYNTHETIC原件冻结不rmtree。
+基线recheck-r6/host/host145_r6.py20218B SHA790bc22c427edc723806f03e882988cd429daaac360ec84387b263b515222663；offline_validate_r6.py20754B SHA8321678b403cba3051a0737693375773cff5eba0a097b0b8729ef6d7ad8cc8a1；inputs-r6.json5325B SHA36b14f090230aebd4558bb80c2953ba1b16bfec76c889e3ec3bd3af4c1fed243。只新<证据根>/task145-scroll-host-binding-v1/recheck-r7。v1-r6/raw/SYNTHETIC原件冻结不rmtree。
 
 确定性缺口1（原log已证，非推测）：r6归档TimeoutError分支保产品且testRestored=true，但summary.primaryError=null/recoveryErrors=[]/businessOk=true/ok=true，父run_attempt返回0。父总裁决只看primary/recovery/stop/cap，不看decisions.threeRootOk。hook必须把任何保全拒绝或异常按原错误结构追加到传入recovery列表，保留异常cause/结构化拒绝原因，继续安全独立恢复，整体summary.ok=false且exit非0。不能只blocked字段/改测试期望/重写summary，不能改父136源码；最小新host hook修复即可。preserve-exception落盘失败当前宽catch pass也丢次错，须和保全原cause分列可观察，不覆盖主因。成功分支不变。
 

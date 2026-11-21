@@ -38,7 +38,7 @@ Windows/PowerShell；仅读本项目规划与关联证据。观察到40输出目
 - [真实产品与工具问题分类](2026-10-13-all-tasks-second-look-codex-review.md)
 - [36实际APK冻结与工具问题](2026-10-14-tasks36-37-review-next.md)
 - [38/39实际联合接口失败](2026-10-14-tasks38v5-39v2-review-integration-next.md)
-- [本轮入口原文快照](<E:/creation-reading-assistant/direction-review-20261014/current.before.md>)
+- [本轮入口原文快照](<<证据根>/direction-review-20261014/current.before.md>)
 
 ## 未覆盖项
 本轮为方向复核，不是40/41交付验收；未复核41全部技术推论，不据其报告直接改Android或放行设备。未审全产品实现、设备或外部账户工时。D/F、X、实体硬件、真实跨端、发布边界保持。

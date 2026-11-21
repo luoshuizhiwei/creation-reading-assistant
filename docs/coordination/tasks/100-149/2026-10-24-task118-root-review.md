@@ -4,7 +4,7 @@
 118-v1，只读搜索回源旅程范围及补充1。2026-10-24。Root接受接线与证据缺口梳理，不是UI验收。
 
 ## 输入指纹
-唯一Android工作区 E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android。
+唯一Android工作区 <证据根>/task59-common-candidate-v1/candidate/android。
 Root实核SearchViewModel.kt 13181B SHA4549c555d8e79c0987b1fc5f937168cc358e6ab2f11970991cb9cf31aec30b96；SearchScreen.kt 43228B SHA72cc0d1a6900c2b8aed423b8a3e2ff05ef22ce185c436df89420f3983625ecba。117冻结产品6a、test83d、仪器a64引用既有交付，不复制重算APK。
 
 ## 所有权与改动
@@ -21,7 +21,7 @@ ZCode官方Start Plan GLM-5.3-Flash只写E任务118四份报告；Root写D协调
 Root额外纠正补充的行号：当前SHA4549源码delay(300)在157，ensureActive在213，lastSearchedQuery在216，buildNotice起226；补充的160/214/222并不准确。SearchScreen正文label实际290；补充292-297为邻近hunk口径，不能当精确行号。补充未列所要求完整SHA，Root在本报告补齐上述两个实际使用源码指纹，不再为行号往返派报告任务。
 
 ## 原始证据
-E:/creation-reading-assistant/task118-search-ui-journey-scope-v1/：
+<证据根>/task118-search-ui-journey-scope-v1/：
 - REPORT.md 10924B SHAab031b2a59976331fafb0706b0c3f6adc56b6278daad407517a60ef89f1c2655。
 - ready.json 6324B SHAfd5df8a243487ac8568e4a4524a7ef54b1f34a9db4521aa9f94b32ced5baa0bc。
 - CORRECTIONS.md 5937B SHA6446b794a5e6ac56247f643856c6260288f7768c4164eaf7bca3b94a9f6a7bc7。

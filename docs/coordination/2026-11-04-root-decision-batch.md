@@ -7,7 +7,7 @@
 ## 输入快照（2026-11-04）
 
 - `docs/handoff/current.md` 收官版：两产品线标准质量门绿，自主执行队列清零。
-- 复审报告：`E:/creation-reading-assistant/task209-navigation-coverage-v1/continuation-20261102/next-v2/zcode-comprehensive-review-20261104/REPORT.md`（B1—B5、C1—C10、D 项与 F 修复优先级）。
+- 复审报告：`<证据根>/task209-navigation-coverage-v1/continuation-20261102/next-v2/zcode-comprehensive-review-20261104/REPORT.md`（B1—B5、C1—C10、D 项与 F 修复优先级）。
 - NB14 桌面 WIP 审计：20 路径功能完整、全门绿（tsc×3、vitest 981/981、契约 54/54、electron-vite build）。
 - git 快照：441 行变更未提交；最后一次提交 `e39a78da9c62f02614207cffb36969a32492eaea`（2026-10-01）。即 Android 恢复源码、全部文档重组与交接记忆均未入库。
 - 会话工件裸露：仓库根 `dump*.xml`（30 份）、`dump_secrets.xml`/`dump_secrets2.xml`、`product.patch`、`window_dump.xml`，及 `.opencode/`、`.scratch-shots/`、`.workbuddy-ai/`、`.zcode/`、`.zcodeignore`。
@@ -76,7 +76,7 @@
 
 锚点核对（全过才提交，任一不符即停并报告）：
 1. 目标测试源 pin `6be3b01b…`/17267B 与树内现状一致。
-2. D 树 `android/` 与唯一 candidate（`E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android`）做文件级 diff 清单；每个差异文件必须归入：已知已接受任务范围（207-r3/r4、209 批次、NB 线已闭合项）/ 有消费者或测试的新文件；无法归类即停。
+2. D 树 `android/` 与唯一 candidate（`<证据根>/task59-common-candidate-v1/candidate/android`）做文件级 diff 清单；每个差异文件必须归入：已知已接受任务范围（207-r3/r4、209 批次、NB 线已闭合项）/ 有消费者或测试的新文件；无法归类即停。
 3. staged 清单零会话工件、零疑似敏感内容（含 `dump_secrets*` 名称模式扫描）。
 
 提交消息：`feat(android): reader recovery candidate integration (accepted scopes 207-r3/r4, 209 batches, NB line)`（正文列锚点核对结果）。性质声明：这是盘点性入库，不扩大任何既有验收范围。
@@ -89,6 +89,6 @@
 
 ## 收尾与未来路线
 
-收尾：更新 state.json `rootDecisions20261104` 各项状态与 `updatedAt`；REPORT 落 `E:/creation-reading-assistant/coordination/root-decision-batch-20261104/REPORT.md`（含每 commit 的 stat、每锚点核对结果、卫生批 diff 摘要）；current.md 不再改动（本批执行前已预写全部计划）。
+收尾：更新 state.json `rootDecisions20261104` 各项状态与 `updatedAt`；REPORT 落 `<证据根>/coordination/root-decision-batch-20261104/REPORT.md`（含每 commit 的 stat、每锚点核对结果、卫生批 diff 摘要）；current.md 不再改动（本批执行前已预写全部计划）。
 
 未来路线（记录，不制造任务）：本批执行完毕后仓库首次与恢复成果同步，此后新工作一律新合同：Android 新特性按 legado backlog 立合同；桌面新特性需用户新方向；真机/模拟器新批次需 fresh 身份链+恢复合同另行授权。205 原红与异步保存失败不确定性继续作为已记录边界保留。`dump_secrets*.xml`/`product.patch` 留存本地，若用户未来批准清理按精确批次确认后处理。

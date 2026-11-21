@@ -11,13 +11,13 @@
 65已合入现有59工作区两个androidTest，无生产/公共runner/构建配置差量；Root只读工件/代码并写task67/v2/root-review及本D报告/current，不改原交付、共享工具、APK/冻结，不启动构建/设备或外部消息。
 
 ## 环境
-复用59工作区及D:/develop/env/gradle。Root按verification-before-completion只核本次新工件与未解决真实接缝，未重复全量JVM/Lint/63链或原9项模拟。日志含本地编码，成功标志从原字节核实，未修改日志。
+复用59工作区及<开发盘>/env/gradle。Root按verification-before-completion只核本次新工件与未解决真实接缝，未重复全量JVM/Lint/63链或原9项模拟。日志含本地编码，成功标志从原字节核实，未修改日志。
 
 ## 执行与结果
 65两份真实日志BUILD SUCCESSFUL，对应编译和assemble，工件实物匹配，采纳；不因下一编号重新构建。printToString静态字段矛盾以真实编译通过收口。
 67确已接到device_protection与run_step_bounded/worker真实函数，解决了前轮仅卸载关机的路线错误，保留新JUnit协议判定、绑定serial包探测、归档失败阻止卸载等必要改进。其测试替换整个设备层/恢复函数只能证明编排或转发，不能独立证明真实worker上下文完整。
 Root真实main离线反例（FakeDevice仅替换设备动作；无真实subprocess/ADB）：把FREEZE_67指向不存在路径，verify_binding仍ok，main仍安装两包、运行并exit0；总预算10/恢复预留1200时main先launch再在baseline前exit6。已有成功路径不是新设备证据。
-原始结果见E:/creation-reading-assistant/task67-recovery-runner-v1/v2/root-review/checks-and-counterexamples.json、fixtures与budget-main-stdout.log。第一次读取UTF8遇到本地编码错误，在任何反例执行前停止，后改按字节核成功标记；不据该读日志错误推断构建失败。
+原始结果见<证据根>/task67-recovery-runner-v1/v2/root-review/checks-and-counterexamples.json、fixtures与budget-main-stdout.log。第一次读取UTF8遇到本地编码错误，在任何反例执行前停止，后改按字节核成功标记；不据该读日志错误推断构建失败。
 
 ## 原始证据
 65/v5 REPORT/ready、logs/01-compileQahostAndroidTestKotlin.log、02-assembleQahostAndroidTest.log、evidence/build-provenance.json、保全旧test及实际新test路径；67/v2 runner、binding、freeze、tests/test_task67_v2.py、原offline-cases与Root新增反例。未复制工程/历史结果。

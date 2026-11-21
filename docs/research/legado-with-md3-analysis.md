@@ -948,55 +948,55 @@ Hilt 侧：`@Singleton class AppUiConfigurationRepository @Inject constructor(da
 <details>
 <summary>相关文件</summary>
 
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppTheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/LegadoTheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppThemeMode.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeEngine.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeResolver.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/CustomColorScheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/BaseColorScheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeColorSpec.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeComponents.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/Typography.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ImageSeedColorExtractor.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeOverride.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeColorSchemeOverride.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/OpaqueColorScheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/UserCustomTheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/HazeStyle.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/hazeStyle/HazeLegado.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppBackground.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppContentColor.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AdaptivePadding.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/LocalAppUiConfiguration.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/colorScheme/GRColorScheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/colorScheme/TransparentColorScheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseComposeActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/ThemeSettings.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/AppUiConfiguration.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/AppShellSettings.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/ThemeExportData.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/AppUiConfigurationRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/themeConfig/ThemeConfigScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/customTheme/CustomThemeScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/info/BookInfoScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookColorTheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/EyeProtection.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/AppScaffold.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/GlassDefaults.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/card/GlassCard.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/menuItem/RoundDropdownMenu.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/modalBottomSheet/AppModalBottomSheet.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/ThemeConfigStore.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/ThemeImportExport.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/lib/theme/ThemeStore.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/res/values/themes.xml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/res/values-night/themes.xml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/res/values/arrays.xml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/res/values/array_values.xml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/AndroidManifest.xml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppTheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/LegadoTheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppThemeMode.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeEngine.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeResolver.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/CustomColorScheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/BaseColorScheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeColorSpec.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeComponents.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/Typography.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ImageSeedColorExtractor.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeOverride.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeColorSchemeOverride.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/OpaqueColorScheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/UserCustomTheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/HazeStyle.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/hazeStyle/HazeLegado.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppBackground.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppContentColor.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AdaptivePadding.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/LocalAppUiConfiguration.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/colorScheme/GRColorScheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/colorScheme/TransparentColorScheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseComposeActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/ThemeSettings.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/AppUiConfiguration.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/AppShellSettings.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/ThemeExportData.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/AppUiConfigurationRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/themeConfig/ThemeConfigScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/customTheme/CustomThemeScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/info/BookInfoScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookColorTheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/EyeProtection.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/AppScaffold.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/GlassDefaults.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/card/GlassCard.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/menuItem/RoundDropdownMenu.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/modalBottomSheet/AppModalBottomSheet.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/ThemeConfigStore.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/ThemeImportExport.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/lib/theme/ThemeStore.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/res/values/themes.xml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/res/values-night/themes.xml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/res/values/arrays.xml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/res/values/array_values.xml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/AndroidManifest.xml`
 
 </details>
 
@@ -1608,44 +1608,44 @@ DI 注册在 `di/appModule.kt:445+`，72 处 `viewModelOf(::XxxViewModel)` / `vi
 <details>
 <summary>相关文件</summary>
 
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/home/HomeContract.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/home/HomeViewModel.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/home/HomeScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/search/SearchContract.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/search/SearchViewModel.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/search/SearchScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/otherConfig/OtherConfigContract.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/otherConfig/OtherConfigViewModel.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/otherConfig/OtherConfigRouteScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/themeConfig/ThemeConfigRouteScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/readConfig/ReadConfigRouteScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/info/BookInfoRouteScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/info/BookInfoActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookContract.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookRouteScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavGraph.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavKey.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavigator.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainContract.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainViewModel.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/homepage/HomepageContract.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseComposeActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseViewModel.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/AppScaffold.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/modalBottomSheet/AppModalBottomSheet.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/list/ListUiState.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/toc/rule/TxtTocRuleContract.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/rss/article/RssSortRouteScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/rss/article/MainRouteRssSort.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/manage/BookshelfManageScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/di/appModule.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-migration/references/project-patterns.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-review/references/review-checklist.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/CLAUDE.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/home/HomeContract.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/home/HomeViewModel.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/home/HomeScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/search/SearchContract.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/search/SearchViewModel.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/search/SearchScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/otherConfig/OtherConfigContract.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/otherConfig/OtherConfigViewModel.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/otherConfig/OtherConfigRouteScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/themeConfig/ThemeConfigRouteScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/readConfig/ReadConfigRouteScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/info/BookInfoRouteScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/info/BookInfoActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookContract.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookRouteScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavGraph.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavKey.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavigator.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainContract.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainViewModel.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/homepage/HomepageContract.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseComposeActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseViewModel.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/AppScaffold.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/modalBottomSheet/AppModalBottomSheet.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/list/ListUiState.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/toc/rule/TxtTocRuleContract.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/rss/article/RssSortRouteScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/rss/article/MainRouteRssSort.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/manage/BookshelfManageScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/di/appModule.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-migration/references/project-patterns.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-review/references/review-checklist.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/CLAUDE.md`
 
 </details>
 
@@ -2534,38 +2534,38 @@ Nav3 相对 Navigation-Compose 的真实增量只有三条，其余（type-safe 
 <details>
 <summary>相关文件</summary>
 
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavKey.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavGraph.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavigator.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainIntent.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainContract.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainDestination.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/BookCoverSharedElement.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/rss/article/MainRouteRssSort.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/rss/read/MainRouteRssRead.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseComposeActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/LauncherIconHelp.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/themeConfig/LauncherIconPickerSheet.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/themeConfig/ThemeConfigRouteScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/AndroidManifest.xml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/build.gradle.kts`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookRouteScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/info/BookInfoActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/search/SearchActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/search/SearchScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/toc/TocActivityResult.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/image/cover/CoilBookCover.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/homepage/modules/CardModule.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/explore/ExploreScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/ConfigNavScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/AppShellSettings.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/utils/ContextExtensions.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-migration/references/project-patterns.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-review/references/review-checklist.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavKey.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavGraph.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavigator.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainIntent.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainContract.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainDestination.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/BookCoverSharedElement.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/rss/article/MainRouteRssSort.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/rss/read/MainRouteRssRead.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseComposeActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/LauncherIconHelp.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/themeConfig/LauncherIconPickerSheet.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/themeConfig/ThemeConfigRouteScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/AndroidManifest.xml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/build.gradle.kts`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookRouteScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/info/BookInfoActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/search/SearchActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/search/SearchScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/toc/TocActivityResult.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/image/cover/CoilBookCover.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/homepage/modules/CardModule.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/explore/ExploreScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/ConfigNavScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/AppShellSettings.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/utils/ContextExtensions.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-migration/references/project-patterns.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-review/references/review-checklist.md`
 
 </details>
 
@@ -3475,62 +3475,62 @@ abstract class ExploreModule {
 <details>
 <summary>相关文件</summary>
 
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/AppDatabase.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/DatabaseMigrations.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/di/appDatabaseModule.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/di/appModule.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/App.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/AppConfigStore.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/SettingsRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/FeatureSettingsRepositories.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/ReadSettingsRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/OtherConfigAuxiliaryRepositories.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/local/preferences/LocalPreferences.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/ReadSettingsGateway.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/ReadStyleGateway.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/ReadStyleMutation.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/LocalBookGateway.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/HomeDashboardGateway.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/WebDavBackupGateway.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/AiTextGateway.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/AiProfileGateway.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/repository/BookDomainRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/BookDomainRepositoryImpl.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/usecase/DeleteBooksUseCase.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/usecase/ResolveBookShelfStateUseCase.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/usecase/WebDavBackupUseCase.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/usecase/GetChapterContentUseCase.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/usecase/ExportBookshelfUseCase.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/CacheableBook.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/ReadSettings.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/HomeDashboardRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/LocalBookRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/WebDavBackupRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/WebDavReadingProgressRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/BackupRestoreRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/DatabaseMaintenanceRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/BookGroupMutationRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/security/CloudTtsCredentialCipher.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/dao/BookDao.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/dao/ReadRecordDao.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/Book.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/BookSourcePart.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/ExactChapterPageCountEntity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/BookKnowledge.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/AiProviderProfile.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/readRecord/ReadRecord.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/readRecord/HomeRecentBookRow.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/storage/Backup.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/storage/Restore.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/storage/BookRestorePlanner.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/storage/RestoreConfigNormalizer.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/AppWebDav.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/test/java/io/legado/app/data/repository/AtomicSettingsTestUtils.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/test/java/io/legado/app/help/config/PendingOverlayCoreTest.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavGraph.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/build.gradle.kts`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/schemas/io.legado.app.data.AppDatabase/98.json`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/AppDatabase.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/DatabaseMigrations.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/di/appDatabaseModule.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/di/appModule.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/App.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/AppConfigStore.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/SettingsRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/FeatureSettingsRepositories.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/ReadSettingsRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/OtherConfigAuxiliaryRepositories.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/local/preferences/LocalPreferences.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/ReadSettingsGateway.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/ReadStyleGateway.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/ReadStyleMutation.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/LocalBookGateway.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/HomeDashboardGateway.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/WebDavBackupGateway.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/AiTextGateway.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/gateway/AiProfileGateway.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/repository/BookDomainRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/BookDomainRepositoryImpl.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/usecase/DeleteBooksUseCase.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/usecase/ResolveBookShelfStateUseCase.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/usecase/WebDavBackupUseCase.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/usecase/GetChapterContentUseCase.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/usecase/ExportBookshelfUseCase.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/CacheableBook.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/ReadSettings.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/HomeDashboardRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/LocalBookRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/WebDavBackupRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/WebDavReadingProgressRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/BackupRestoreRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/DatabaseMaintenanceRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/BookGroupMutationRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/security/CloudTtsCredentialCipher.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/dao/BookDao.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/dao/ReadRecordDao.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/Book.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/BookSourcePart.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/ExactChapterPageCountEntity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/BookKnowledge.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/AiProviderProfile.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/readRecord/ReadRecord.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/readRecord/HomeRecentBookRow.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/storage/Backup.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/storage/Restore.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/storage/BookRestorePlanner.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/storage/RestoreConfigNormalizer.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/AppWebDav.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/test/java/io/legado/app/data/repository/AtomicSettingsTestUtils.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/test/java/io/legado/app/help/config/PendingOverlayCoreTest.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavGraph.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/build.gradle.kts`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/schemas/io.legado.app.data.AppDatabase/98.json`
 
 </details>
 
@@ -4214,62 +4214,62 @@ Legado 原版只有「章内 x/y 页 + 百分比」，这个 fork 加了「全�
 <details>
 <summary>相关文件</summary>
 
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/ReadView.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/PageView.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/ContentTextView.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/AutoPager.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/TextChapter.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/TextPage.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/TextLine.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/TextPos.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/column/BaseColumn.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/column/TextBaseColumn.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/column/TextColumn.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/column/ImageColumn.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/ChapterProvider.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/TextChapterLayout.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/ZhLayout.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/TextMeasure.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/TextPageFactory.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/TitleStyleParser.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/CharStyle.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/PageDelegate.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/HorizontalPageDelegate.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/CoverPageDelegate.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/SlidePageDelegate.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/SimulationPageDelegate.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/ScrollPageDelegate.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/FadePageDelegate.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/NoAnimPageDelegate.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/model/ReadBook.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/model/ReadAloud.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/model/ReadSessionState.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/model/ReadManga.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookRouteScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookViewModel.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookContract.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookMenuBar.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/EyeProtection.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/pageestimate/ChapterPageEstimator.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/pageestimate/HeuristicPageEstimator.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/pageestimate/PageEstimateConfig.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/pageestimate/WholeBookPageCoordinator.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/ReadBookConfig.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/readConfig/ReadConfig.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/constant/PageAnim.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/utils/PaintExtensions.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/utils/canvasrecorder/CanvasRecorderFactory.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/service/BaseReadAloudService.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavGraph.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/manga/ReadMangaActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/manga/recyclerview/WebtoonRecyclerView.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/manga/recyclerview/ScrollTimer.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/manga/config/MangaScrollMode.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/LICENSE`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/CLAUDE.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/ReadView.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/PageView.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/ContentTextView.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/AutoPager.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/TextChapter.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/TextPage.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/TextLine.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/TextPos.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/column/BaseColumn.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/column/TextBaseColumn.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/column/TextColumn.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/entities/column/ImageColumn.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/ChapterProvider.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/TextChapterLayout.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/ZhLayout.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/TextMeasure.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/TextPageFactory.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/TitleStyleParser.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/provider/CharStyle.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/PageDelegate.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/HorizontalPageDelegate.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/CoverPageDelegate.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/SlidePageDelegate.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/SimulationPageDelegate.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/ScrollPageDelegate.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/FadePageDelegate.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/page/delegate/NoAnimPageDelegate.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/model/ReadBook.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/model/ReadAloud.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/model/ReadSessionState.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/model/ReadManga.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookRouteScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookViewModel.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookContract.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookMenuBar.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/EyeProtection.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/pageestimate/ChapterPageEstimator.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/pageestimate/HeuristicPageEstimator.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/pageestimate/PageEstimateConfig.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/pageestimate/WholeBookPageCoordinator.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/ReadBookConfig.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/config/readConfig/ReadConfig.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/constant/PageAnim.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/utils/PaintExtensions.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/utils/canvasrecorder/CanvasRecorderFactory.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/service/BaseReadAloudService.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavGraph.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/manga/ReadMangaActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/manga/recyclerview/WebtoonRecyclerView.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/manga/recyclerview/ScrollTimer.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/manga/config/MangaScrollMode.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/LICENSE`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/CLAUDE.md`
 
 </details>
 
@@ -5319,59 +5319,59 @@ minSdk 26 / targetSdk 37 / compileSdk 37，JDK 21 开发、CI JDK 17。
 <details>
 <summary>相关文件</summary>
 
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/AppScaffold.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/GlassDefaults.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/topbar/GlassMediumFlexibleTopAppBar.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/topbar/GlassTopAppBar.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/topbar/MiuixScrollBehavior.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/topbar/TopBarButton.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/topbar/DynamicTopAppBar.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/text/AppText.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/text/AnimatedText.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/icon/AppIcon.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/icon/AppIcons.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/alert/AppAlertDialog.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/modalBottomSheet/AppModalBottomSheet.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/card/GlassCard.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/card/SettingCard.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/card/TextCard.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/SplicedColumnGroup.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/divider/SettingItemDivider.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/list/ListScaffold.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/lazylist/LazyList.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/FloatingBottomBar.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/navigation/AppNavigationBar.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/reader/ReaderMenuGlass.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/button/series/SeriesIconButton.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/button/series/AnimatedActionButtonCore.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/menuItem/RoundDropdownMenu.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/settingItem/SettingItem.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/image/cover/CoilBookCover.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppTheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/LegadoTheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeComponents.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/Typography.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/HazeStyle.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/hazeStyle/HazeLegado.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AdaptivePadding.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/FadingEdge.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppBackground.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppContentColor.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/OpaqueColorScheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeResolver.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/LocalAppUiConfiguration.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseComposeActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/BookCoverSharedElement.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/bookshelf/BookItem.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/bookshelf/BookshelfScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/ThemeSettings.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/AppShellSettings.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/AppUiConfiguration.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/build.gradle.kts`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/AppScaffold.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/GlassDefaults.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/topbar/GlassMediumFlexibleTopAppBar.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/topbar/GlassTopAppBar.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/topbar/MiuixScrollBehavior.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/topbar/TopBarButton.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/topbar/DynamicTopAppBar.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/text/AppText.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/text/AnimatedText.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/icon/AppIcon.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/icon/AppIcons.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/alert/AppAlertDialog.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/modalBottomSheet/AppModalBottomSheet.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/card/GlassCard.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/card/SettingCard.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/card/TextCard.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/SplicedColumnGroup.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/divider/SettingItemDivider.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/list/ListScaffold.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/lazylist/LazyList.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/FloatingBottomBar.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/navigation/AppNavigationBar.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/reader/ReaderMenuGlass.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/button/series/SeriesIconButton.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/button/series/AnimatedActionButtonCore.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/menuItem/RoundDropdownMenu.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/settingItem/SettingItem.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/image/cover/CoilBookCover.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppTheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/LegadoTheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeComponents.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/Typography.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/HazeStyle.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/hazeStyle/HazeLegado.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AdaptivePadding.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/FadingEdge.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppBackground.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppContentColor.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/OpaqueColorScheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeResolver.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/LocalAppUiConfiguration.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseComposeActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/base/BaseActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/BookCoverSharedElement.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/bookshelf/BookItem.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/bookshelf/BookshelfScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/ThemeSettings.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/AppShellSettings.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/AppUiConfiguration.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/build.gradle.kts`
 
 </details>
 
@@ -5876,35 +5876,35 @@ L) 最后一条方法论：这个仓库的 CLAUDE.md 与实际代码有至少 4 
 <details>
 <summary>相关文件</summary>
 
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/build.gradle.kts`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/settings.gradle`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/gradle.properties`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/gradle/wrapper/gradle-wrapper.properties`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/gradle/gradle-daemon-jvm.properties`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/build.gradle.kts`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/version.properties`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/download.gradle`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/proguard-rules.pro`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/cronet-proguard-rules.pro`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/google-services.json`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/AndroidManifest.xml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/assets/cronet.json`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/appRelease/generated/baselineProfiles/baseline-prof.txt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/appRelease/generated/baselineProfiles/startup-prof.txt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/utils/FirebaseManager.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/lib/cronet/CronetLoader.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/AppDatabase.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/modules/book/build.gradle.kts`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/modules/rhino/build.gradle.kts`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/modules/rhino/consumer-rules.pro`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/baselineProfile/build.gradle.kts`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/baselineProfile/src/main/java/io/legado/baselineprofile/BaselineProfileGenerator.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/baselineProfile/src/main/java/io/legado/baselineprofile/StartupBenchmarks.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.github/workflows/auto-release.yml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.github/workflows/build-apk-for-user.yml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.github/workflows/cronet.yml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.github/workflows/release.yml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/build.gradle.kts`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/settings.gradle`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/gradle.properties`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/gradle/wrapper/gradle-wrapper.properties`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/gradle/gradle-daemon-jvm.properties`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/build.gradle.kts`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/version.properties`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/download.gradle`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/proguard-rules.pro`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/cronet-proguard-rules.pro`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/google-services.json`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/AndroidManifest.xml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/assets/cronet.json`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/appRelease/generated/baselineProfiles/baseline-prof.txt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/appRelease/generated/baselineProfiles/startup-prof.txt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/utils/FirebaseManager.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/lib/cronet/CronetLoader.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/AppDatabase.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/modules/book/build.gradle.kts`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/modules/rhino/build.gradle.kts`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/modules/rhino/consumer-rules.pro`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/baselineProfile/build.gradle.kts`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/baselineProfile/src/main/java/io/legado/baselineprofile/BaselineProfileGenerator.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/baselineProfile/src/main/java/io/legado/baselineprofile/StartupBenchmarks.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.github/workflows/auto-release.yml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.github/workflows/build-apk-for-user.yml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.github/workflows/cronet.yml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.github/workflows/release.yml`
 
 </details>
 
@@ -6280,71 +6280,71 @@ L) 最后一条方法论：这个仓库的 CLAUDE.md 与实际代码有至少 4 
 <details>
 <summary>相关文件</summary>
 
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/CLAUDE.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/README.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/settings.gradle`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-migration/references/project-patterns.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-review/references/review-checklist.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/docs/spec/homepage-modules.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/docs/tts-multi-speaker-design.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/App.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/AppDatabase.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/dao/BookDao.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/dao/ReadRecordDao.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/Book.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/BookGroup.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/BookKnowledge.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/BookContentProcess.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/HighlightRule.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/TagGroupRule.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/HomepageModule.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/ExactChapterPageCountEntity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/readRecord/ReadRecord.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/readRecord/ReadRecordDetail.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/readRecord/ReadRecordSession.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/ReadRecordRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/SettingsRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/TagGroupRuleApplier.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/local/preferences/LocalPreferences.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/PreferencesDsCompat.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/ReadBookConfig.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/book/BookExtensions.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/storage/Backup.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/model/ReadBook.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppTheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppThemeMode.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeEngine.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeResolver.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/LegadoTheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/CustomColorScheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/BaseColorScheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeComponents.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/Typography.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ImageSeedColorExtractor.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/colorScheme/GRColorScheme.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainActivity.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavKey.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavGraph.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/BookCoverSharedElement.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/image/cover/CoilBookCover.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/AppScaffold.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookContract.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookRouteScreen.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/sheet/FloatingBarIconConfigSheet.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/readRecord/ReadRecordViewModel.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/readRecord/ReadRecordOverviewViewModel.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/readRecord/component/ReadRecordHeatmap.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/usecase/readRecord/GetReadRecordOverviewUseCase.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/AiModels.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/BookshelfSettings.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/MangaSettings.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/web/KtorServer.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/di/appModule.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/bookshelf/BookshelfUiState.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/home/HomeContract.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/CLAUDE.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/README.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/gradle/libs.versions.toml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/settings.gradle`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-migration/references/project-patterns.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-review/references/review-checklist.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/docs/spec/homepage-modules.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/docs/tts-multi-speaker-design.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/App.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/AppDatabase.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/dao/BookDao.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/dao/ReadRecordDao.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/Book.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/BookGroup.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/BookKnowledge.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/BookContentProcess.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/HighlightRule.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/TagGroupRule.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/HomepageModule.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/ExactChapterPageCountEntity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/readRecord/ReadRecord.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/readRecord/ReadRecordDetail.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/entities/readRecord/ReadRecordSession.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/ReadRecordRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/SettingsRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/TagGroupRuleApplier.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/local/preferences/LocalPreferences.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/PreferencesDsCompat.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/ReadBookConfig.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/book/BookExtensions.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/storage/Backup.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/model/ReadBook.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppTheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/AppThemeMode.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeEngine.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeResolver.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/LegadoTheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/CustomColorScheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/BaseColorScheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ThemeComponents.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/Typography.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/ImageSeedColorExtractor.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/theme/colorScheme/GRColorScheme.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainActivity.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavKey.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainNavGraph.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/BookCoverSharedElement.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/MainScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/image/cover/CoilBookCover.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/widget/components/AppScaffold.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookContract.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookController.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/ReadBookRouteScreen.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/read/sheet/FloatingBarIconConfigSheet.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/readRecord/ReadRecordViewModel.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/readRecord/ReadRecordOverviewViewModel.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/book/readRecord/component/ReadRecordHeatmap.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/usecase/readRecord/GetReadRecordOverviewUseCase.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/AiModels.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/BookshelfSettings.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/domain/model/settings/MangaSettings.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/web/KtorServer.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/di/appModule.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/bookshelf/BookshelfUiState.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/ui/main/home/HomeContract.kt`
 
 </details>
 
@@ -6704,7 +6704,7 @@ interface:
 - review 输出模板固定成 `[P1] Title / file:line / Impact / Fix`，以及 Codex 专用的 `::code-comment{title=... file=... start=.. end=.. priority=.. confidence=..}` 指令格式。
 - 验证命令分级：Kotlin-only 改动跑 `.\gradlew.bat :app:compileAppDebugKotlin`；碰资源/manifest/XML 删除才跑 `assembleAppDebug`。
 
-`.claude/settings.local.json`（7.1 K）是纯 permission allowlist，全是历史批准过的 gradle/PowerShell 命令，泄露了作者的实际工作机路径 `D:/AndroidPrj/legado-with-MD3`，没有别的信息。
+`.claude/settings.local.json`（7.1 K）是纯 permission allowlist，全是历史批准过的 gradle/PowerShell 命令，泄露了作者的实际工作机路径 `<Android>Prj/legado-with-MD3`，没有别的信息。
 
 `.github/copilot-instructions.md`（2.7 K）**已经完全腐坏**：它说数据结构在 `app/src/main/java/io/legato/kazusa/data/`（把 applicationId 当成了包名，实际是 `io.legado.app`），构建命令写 `./gradlew assembleRelease`（实际 flavor 化后是 `assembleAppRelease`），依赖列表还停留在 hanlp/bga-qrcode 时代。**三套 agent 指令文件不同步，是这个仓库最直接的教训之一。**
 
@@ -6836,53 +6836,53 @@ interface:
 <details>
 <summary>相关文件</summary>
 
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.github/workflows/auto-release.yml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.github/workflows/release.yml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.github/scripts/publish-update-manifest.sh`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/version.properties`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/build.gradle.kts`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/download.gradle`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/gradle.properties`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/settings.gradle`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/baselineProfile/build.gradle.kts`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/baselineProfile/src/main/java/io/legado/baselineprofile/BaselineProfileGenerator.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/baselineProfile/src/main/java/io/legado/baselineprofile/StartupBenchmarks.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/appRelease/generated/baselineProfiles/baseline-prof.txt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/AndroidManifest.xml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/res/xml/network_security_config.xml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/res/xml/about.xml`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/App.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/CrashHandler.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/constant/AppLog.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/utils/LogUtils.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/AppFreezeMonitor.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/DispatchersMonitor.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/utils/FirebaseManager.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/AppLocaleRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/AppConfigStore.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/PreferencesDsCompat.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/SettingsWriter.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/SettingsRepository.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/ThemePackageManager.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/update/AppUpdateGitHub.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/DefaultData.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/web/KtorServer.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/service/WebService.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/api/ReaderProvider.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/ai/AiProtocolHandler.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/ai/AiProviderRegistry.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/lib/cronet/CronetLoader.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/androidTest/java/io/legado/app/MigrationTest.kt`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-migration/references/project-patterns.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-review/references/review-checklist.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/AGENTS.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/.github/copilot-instructions.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/assets/privacyPolicy.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/assets/disclaimer.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/app/src/main/assets/updateLog.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/api.md`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/docs/.vitepress/config.ts`
-- `D:/develop/Code/Codex/创作阅读助手/legado-with-MD3-main/docs/tts-multi-speaker-design.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.github/workflows/auto-release.yml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.github/workflows/release.yml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.github/scripts/publish-update-manifest.sh`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/version.properties`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/build.gradle.kts`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/download.gradle`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/gradle.properties`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/settings.gradle`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/baselineProfile/build.gradle.kts`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/baselineProfile/src/main/java/io/legado/baselineprofile/BaselineProfileGenerator.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/baselineProfile/src/main/java/io/legado/baselineprofile/StartupBenchmarks.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/appRelease/generated/baselineProfiles/baseline-prof.txt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/AndroidManifest.xml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/res/xml/network_security_config.xml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/res/xml/about.xml`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/App.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/CrashHandler.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/constant/AppLog.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/utils/LogUtils.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/AppFreezeMonitor.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/DispatchersMonitor.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/utils/FirebaseManager.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/AppLocaleRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/AppConfigStore.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/PreferencesDsCompat.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/SettingsWriter.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/SettingsRepository.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/config/ThemePackageManager.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/update/AppUpdateGitHub.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/help/DefaultData.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/web/KtorServer.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/service/WebService.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/api/ReaderProvider.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/ai/AiProtocolHandler.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/data/repository/ai/AiProviderRegistry.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/java/io/legado/app/lib/cronet/CronetLoader.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/androidTest/java/io/legado/app/MigrationTest.kt`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-migration/references/project-patterns.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.claude/skills/legado-compose-review/references/review-checklist.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/AGENTS.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/.github/copilot-instructions.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/assets/privacyPolicy.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/assets/disclaimer.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/app/src/main/assets/updateLog.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/api.md`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/docs/.vitepress/config.ts`
+- `<Codex 工作区>/创作阅读助手/legado-with-MD3-main/docs/tts-multi-speaker-design.md`
 
 </details>
 

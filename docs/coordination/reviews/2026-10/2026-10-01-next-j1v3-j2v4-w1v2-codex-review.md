@@ -7,13 +7,13 @@ Codex-review-J1v3-J2v4-W1v2-v1，2026-10-01。来源：用户“都完成了”�
 ## 输入指纹
 
 - 恢复仓库 HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，暂存区空；本轮未执行任何Git写操作。
-- [J1-v3候选](<E:/creation-reading-assistant/next-round-joint-j1-v3/android>)与J1-v2各875源码；仅SyncRepositoryPersistenceTest.kt一处UTC字面量07:46:40Z→08:53:20Z不同，字节替换精确相等。六SHA清单实算6/6一致。
+- [J1-v3候选](<<证据根>/next-round-joint-j1-v3/android>)与J1-v2各875源码；仅SyncRepositoryPersistenceTest.kt一处UTC字面量07:46:40Z→08:53:20Z不同，字节替换精确相等。六SHA清单实算6/6一致。
 - 宿主SHA `ea68aa16038eba81715c719bca4b9df72887faa5b4c91688419ccfe0a95b67f8`；新测试SHA `03b2fa0d6b8ce5674ffab4e81e5d4b91ea0266bebb1e082ab92880fcebbd28a3`；与本轮设备实装原始哈希一致。
-- W1-v2七工件SHA实算7/7一致；服务、ZIP/JSON字节未变，旧27项自检证据按相同输入复用。详见[审计JSON](<E:/creation-reading-assistant/next-j1v3-j2v4-w1v2-codex-review-20261001/verification.json>)。
+- W1-v2七工件SHA实算7/7一致；服务、ZIP/JSON字节未变，旧27项自检证据按相同输入复用。详见[审计JSON](<<证据根>/next-j1v3-j2v4-w1v2-codex-review-20261001/verification.json>)。
 
 ## 所有权与改动
 
-Codex只写本报告、恢复current.md、Codex项目页/TODO/skill使用记录，以及E盘定向审计副本。产品源码、外部报告、冻结工件与原日志保持原件。被修改入口已保存[回退副本](<E:/creation-reading-assistant/next-j1v3-j2v4-w1v2-codex-review-20261001/before>)。其他项目TODO后缀逐字节保留。
+Codex只写本报告、恢复current.md、Codex项目页/TODO/skill使用记录，以及E盘定向审计副本。产品源码、外部报告、冻结工件与原日志保持原件。被修改入口已保存[回退副本](<<证据根>/next-j1v3-j2v4-w1v2-codex-review-20261001/before>)。其他项目TODO后缀逐字节保留。
 
 ## 环境
 
@@ -36,10 +36,10 @@ Windows；Codex本轮零设备操作。设备证据来自外部窗口MuMu运行�
 
 ## 原始证据
 
-- [J1-v3交付](../../dispatches/2026-10/2026-10-01-next-j1-v3-utc-assertion-fix.md)、[READY](<E:/creation-reading-assistant/next-round-joint-j1-v3/READY.json>)、[构建](<E:/creation-reading-assistant/next-round-joint-j1-v3/freeze/evidence/gate-v3-qahost-test.log>)、[六SHA](<E:/creation-reading-assistant/next-round-joint-j1-v3/freeze/six-file-sha256.txt>)。
-- [J2-v4报告](../../../qa/2026-10/2026-10-01-next-j2-v4-room-mumu-acceptance.md)、[仪器原日志](<E:/creation-reading-assistant/next-round-j2-v4-room-acceptance/phase3_test_run/instrumentation_raw.log>)；原日志SHA `7c127717ff469632bcf5c200c5a239880410a0f8f5f3727fcf79a2da6e220a8e`。
-- [前SHA](<E:/creation-reading-assistant/next-round-j2-v4-room-acceptance/phase3_pre_baseline/device_data_sha256.log>)、[后SHA](<E:/creation-reading-assistant/next-round-j2-v4-room-acceptance/phase3_post_recovery/device_restored_data_sha256.log>)、[原APK对](<E:/creation-reading-assistant/next-round-j2-v4-room-acceptance/phase3_pre_baseline/device_installed_apk_sha256.log>)、[恢复APK对](<E:/creation-reading-assistant/next-round-j2-v4-room-acceptance/phase3_post_recovery/device_restored_apk_sha256.log>)。
-- [W1-v2交付](../../dispatches/2026-10/2026-10-01-next-w1-v2-fixture-expectations.md)、[说明](<E:/creation-reading-assistant/next-round-w1-webdav-fixtures-v2/README-operations.md>)、[Codex副本核对日志](<E:/creation-reading-assistant/next-j1v3-j2v4-w1v2-codex-review-20261001/w1-expectations-rerun.log>)。
+- [J1-v3交付](../../dispatches/2026-10/2026-10-01-next-j1-v3-utc-assertion-fix.md)、[READY](<<证据根>/next-round-joint-j1-v3/READY.json>)、[构建](<<证据根>/next-round-joint-j1-v3/freeze/evidence/gate-v3-qahost-test.log>)、[六SHA](<<证据根>/next-round-joint-j1-v3/freeze/six-file-sha256.txt>)。
+- [J2-v4报告](../../../qa/2026-10/2026-10-01-next-j2-v4-room-mumu-acceptance.md)、[仪器原日志](<<证据根>/next-round-j2-v4-room-acceptance/phase3_test_run/instrumentation_raw.log>)；原日志SHA `7c127717ff469632bcf5c200c5a239880410a0f8f5f3727fcf79a2da6e220a8e`。
+- [前SHA](<<证据根>/next-round-j2-v4-room-acceptance/phase3_pre_baseline/device_data_sha256.log>)、[后SHA](<<证据根>/next-round-j2-v4-room-acceptance/phase3_post_recovery/device_restored_data_sha256.log>)、[原APK对](<<证据根>/next-round-j2-v4-room-acceptance/phase3_pre_baseline/device_installed_apk_sha256.log>)、[恢复APK对](<<证据根>/next-round-j2-v4-room-acceptance/phase3_post_recovery/device_restored_apk_sha256.log>)。
+- [W1-v2交付](../../dispatches/2026-10/2026-10-01-next-w1-v2-fixture-expectations.md)、[说明](<<证据根>/next-round-w1-webdav-fixtures-v2/README-operations.md>)、[Codex副本核对日志](<<证据根>/next-j1v3-j2v4-w1v2-codex-review-20261001/w1-expectations-rerun.log>)。
 
 ## 未覆盖项
 

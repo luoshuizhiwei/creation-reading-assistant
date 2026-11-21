@@ -1,7 +1,7 @@
 # 任务117-v1 Root收口与方向自审
 
 ## 任务编号/版本、输入指纹
-117-v1主run T112V1-T117V1-20261024-181753，实际目录E:/creation-reading-assistant/task117-saved-view-reopen-entry-v1/main-run；根REPORT/ready仍是先前STOP，不能混读。仪器a64ca14f5a8d33976c865dfe62c2173ecd70f71ab532ef17ac35bd8fbb6f1e65/42585B、test83d0e8bb2047999605a40a200e61978587a22f04f996098a8a930e996ed8aee5/10610999B、产品6a6c65af30f8f7744e1ac666275ccb2b92a26a818a2b79cf84266cf38ce50ae4/52763781B冻结引用116/110单份。
+117-v1主run T112V1-T117V1-20261024-181753，实际目录<证据根>/task117-saved-view-reopen-entry-v1/main-run；根REPORT/ready仍是先前STOP，不能混读。仪器a64ca14f5a8d33976c865dfe62c2173ecd70f71ab532ef17ac35bd8fbb6f1e65/42585B、test83d0e8bb2047999605a40a200e61978587a22f04f996098a8a930e996ed8aee5/10610999B、产品6a6c65af30f8f7744e1ac666275ccb2b92a26a818a2b79cf84266cf38ce50ae4/52763781B冻结引用116/110单份。
 
 ## 所有权与改动、环境
 原GLM-5.3唯一E hostdevice owner完成设备与恢复，额度耗尽后官方Start Plan GLM-5.3-Flash只读补报告；Root D。原码零改、零构建、零APK复制。hostdf3ab14082a05d824a37c8f64756fc691af07eaf0fe882d000ea0c6eae812b34/19209B，patchb294b139e64a299306245166b0a088026e0f59a578bdc31274559fe0c6d66759/1505B实核。MuMu1模拟器，非实体手机。

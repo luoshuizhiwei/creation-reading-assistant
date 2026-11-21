@@ -10,13 +10,13 @@
 
 ## 2. 本轮实际取证
 
-- 原交付根：`E:/creation-reading-assistant/task209-navigation-coverage-v1/continuation-20261102/`，9份REPORT/ready、3份新测试manifest、对应compile/assemble日志、现存源码和runtime脚本。
+- 原交付根：`<证据根>/task209-navigation-coverage-v1/continuation-20261102/`，9份REPORT/ready、3份新测试manifest、对应compile/assemble日志、现存源码和runtime脚本。
 - 实算当前产品APK仍`c396ebe14b1583180c005dabbc51184826d05a0838933203a21adf5bb72b1d31`/53899310B；当前共同test APK为`0585723c58a1523b30238e85242f28ea722ebcd1505a12d93a0fca98ec28f39b`/10751701B。没有重新构建或设备运行。
 - 以unittest loader运行原AG01/02测试，避免原脚本main覆盖其日志；本轮原日志独立存放，结果17/17、10/10通过。该事实仅支持已写用例，不证明遗漏路径正确。
 - 追加纯离线检查，真实调用交付函数：父恢复None及空dict获True；错误sourceRunId/serial/boot/SHA获OWNERSHIP_OK；错误class/expectedCount=999/targetMethod=None/缺buildLog获manifest有效。未调用真实设备入口。
 - 当前EP/C/I三manifest通过原校验器：EP失败、C失败（都指向可变candidate test APK路径，已变成I包）；I通过。构建日志记录历史成功保留，不据此否认历史曾产出EP/C包；但目前不能称有三个独立冻结待跑包。
 - MD六路径逐字比较：MarkdownDocument、Markdown渲染分支及两测试共4个相同；ReaderProgressActions和ReaderProgressEffects共2个有实质差异。旧Root MD原报告本身明确为独立候选限定验收，不是当前c396共同版本验收。
-- 本轮证据根：`E:/creation-reading-assistant/coordination/antigravity-stage-review-20261102/`，含offline-findings.json和AG01/02复验日志；新增指纹/比对证据及修改前快照同根。
+- 本轮证据根：`<证据根>/coordination/antigravity-stage-review-20261102/`，含offline-findings.json和AG01/02复验日志；新增指纹/比对证据及修改前快照同根。
 
 ## 3. 按卡接受范围
 

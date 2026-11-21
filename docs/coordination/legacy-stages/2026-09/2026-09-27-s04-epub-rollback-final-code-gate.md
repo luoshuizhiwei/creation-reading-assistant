@@ -50,12 +50,12 @@ runCatching {
 ### 4.1 命令与退出码
 
 ```bash
-cd D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/android
-export GRADLE_USER_HOME=D:/develop/env/gradle
+cd <仓库>/android
+export GRADLE_USER_HOME=<开发盘>/env/gradle
 ./gradlew :app:testDebugUnitTest \
   --tests "com.creationreadingassistant.feature.reader.EpubRepositoryReplaceTest" \
-  --init-script E:/creation-reading-assistant/codex-s04-build-20260925/redirect-build-via-junction.gradle \
-  --offline > E:/creation-reading-assistant/codex-s04-build-20260925/test-final-code-gate.log 2>&1
+  --init-script <证据根>/codex-s04-build-20260925/redirect-build-via-junction.gradle \
+  --offline > <证据根>/codex-s04-build-20260925/test-final-code-gate.log 2>&1
 # EXIT=0，BUILD SUCCESSFUL in 1m 27s（一次通过，无失败迭代）
 ```
 

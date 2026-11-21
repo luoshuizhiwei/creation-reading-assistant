@@ -6,7 +6,7 @@
 
 ## 输入指纹、执行与结果、原始证据
 
-E:/creation-reading-assistant/task102-tts-timed-stop-v1原REPORT/ready/logs/evidence已读。实际Controller c005dcf3c61400c62b213943e1d04c61123f332c687834e6ad9ae90121e3955a核同；仪器ca4d097f155b5724618d8a907a1e1a8d8570e145ddb7d514133f52b70fbab1b6(11679B)、patch63d0619a3d1ae2843e8687bbae324c05700b565f7c60612e2201091ead243ef9(2673B)、实际run test d0d2f0ccdcfbd348efd9859db643df476443d32fc2453a73f61aae7cd6839b44(10567324B)单份保全实物核同。产品仍5049b01f(52763781B)。原协调器XML8/8零fail/error/skipped，日志编译/assemble成功。
+<证据根>/task102-tts-timed-stop-v1原REPORT/ready/logs/evidence已读。实际Controller c005dcf3c61400c62b213943e1d04c61123f332c687834e6ad9ae90121e3955a核同；仪器ca4d097f155b5724618d8a907a1e1a8d8570e145ddb7d514133f52b70fbab1b6(11679B)、patch63d0619a3d1ae2843e8687bbae324c05700b565f7c60612e2201091ead243ef9(2673B)、实际run test d0d2f0ccdcfbd348efd9859db643df476443d32fc2453a73f61aae7cd6839b44(10567324B)单份保全实物核同。产品仍5049b01f(52763781B)。原协调器XML8/8零fail/error/skipped，日志编译/assemble成功。
 
 一次主run T102V1-20261024-070800原instrument stdout：1项1 AssertionError，timedStopLifecycleOnRealController第219行预期850..900实际0，失败码-2；系统instrument终码-1不掩盖测试失败，派生XML明确标派生。失败后停批，无产品修改或设备重试。
 

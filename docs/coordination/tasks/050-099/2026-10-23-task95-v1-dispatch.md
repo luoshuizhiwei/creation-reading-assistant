@@ -10,9 +10,9 @@
 
 方向与必要性：94-v17分类/来源/标签导出闭环已通过，不能重开94补可选重试。92-v1 SELF-USE指向旧22f6 APK，尚未承接当前110候选和新归类/标签导出能力，这是版本交付接缝而非新功能或重复说明任务。95一次闭合当前候选交付、复用边界和实际自用入口；不得为没有新复现的未覆盖矩阵继续派设备。
 
-先读有效AGENTS、Codex项目页和D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/handoff/current.md页首；直接读docs/coordination/tasks/050-099/2026-10-23-task94-v17-root-closeout.md、2026-10-22-task91-root-review.md、2026-10-22-task92-root-review.md及92现SELF-USE；需要时只沿94/93/91直接链接补实际变化。先核进程/owner/锁/mtime、95目录是否存在，不覆盖活动工作或旧交付。当前无95预存目录（Root检查时）。
+先读有效AGENTS、Codex项目页和<仓库>/docs/handoff/current.md页首；直接读docs/coordination/tasks/050-099/2026-10-23-task94-v17-root-closeout.md、2026-10-22-task91-root-review.md、2026-10-22-task92-root-review.md及92现SELF-USE；需要时只沿94/93/91直接链接补实际变化。先核进程/owner/锁/mtime、95目录是否存在，不覆盖活动工作或旧交付。当前无95预存目录（Root检查时）。
 
-当前产品APK E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android/app/build/outputs/apk/debug/app-debug.apk：1102346485a9e47b7b12885310f678e56b5c86d36082834fbec8732906ffc30c，52763889B；test57477ef2aa6d91838e1b59a360e475ba9d4e3d5975c3695b15dcade91d6bfc16，10538197B。94-v17输入26/26 Root已核，实际run T94V4-V17-20261023-160954，OK(1 test)/done，导出/清空/取消与分类/AND/回源链有证据。首次protection-final UNKNOWN/DB比较失败，summary仍ok=false/恢复error1；补只读保护ok/reasons[]/71/820/diffs空/DB组一致已独立核同，不能抹原错误，也不能宣称异常原因已确证。原test完整恢复及导出精确清理已核。旧91 V0限定收口/92说明成立于旧输入，不能把22f6等同110或称全部历史测试重跑于110。
+当前产品APK <证据根>/task59-common-candidate-v1/candidate/android/app/build/outputs/apk/debug/app-debug.apk：1102346485a9e47b7b12885310f678e56b5c86d36082834fbec8732906ffc30c，52763889B；test57477ef2aa6d91838e1b59a360e475ba9d4e3d5975c3695b15dcade91d6bfc16，10538197B。94-v17输入26/26 Root已核，实际run T94V4-V17-20261023-160954，OK(1 test)/done，导出/清空/取消与分类/AND/回源链有证据。首次protection-final UNKNOWN/DB比较失败，summary仍ok=false/恢复error1；补只读保护ok/reasons[]/71/820/diffs空/DB组一致已独立核同，不能抹原错误，也不能宣称异常原因已确证。原test完整恢复及导出精确清理已核。旧91 V0限定收口/92说明成立于旧输入，不能把22f6等同110或称全部历史测试重跑于110。
 
 安排真正独立两lane并行（可用独立执行者时明确文件互斥，不为数量再造任务）：
 A只读当前94产品改动与91五合同的直接影响，写E本批CANDIDATE.md：实际产品修改路径/前后输入关系、受影响证据94与未受影响证据复用，明确当前110候选可用范围与真实阻塞。优先引用Root已核结论，别扫描全仓/所有历史、重做69项或泛代码审查。旧91限定边界保留；仅具体新风险才提出必要动作，不以未覆盖排列组合制造阻塞。
@@ -21,7 +21,7 @@ B只读92说明和已验新功能入口，写E本批SELF-USE.md：更新唯一AP
 
 成功标准：当前110候选身份与91/94证据复用/影响关系可追溯，自用入口准确可用，未完成/独立范围和下一实质动作明确。若当前授权内无新已证产品缺口，交付后转实际自用反馈，明确无必要新开发动作，不造96确认或设备矩阵；若发现确证阻塞，先完成同范围必要最小修复/定向验证的可行部分，涉及共同APK/恢复合同重大变化先交Root协调，不擅自启动设备批次或重建。
 
-存储：输出E:/creation-reading-assistant/task95-current-candidate-delivery-v1（存在核归属接续）；新增大目录无，全部文本/必要证据预算1MiB。唯一工作区task59-common-candidate-v1/candidate/android；既有Gradle home D:/develop/env/gradle、JDK D:/develop/Java/jdk-17.0.14、SDK D:/develop/Android/Sdk及锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock保留。本批默认构建0/设备0，无需要则不占锁。APK只原路径+指纹引用，不复制工程/build/.gradle/.kotlin/缓存/历史证据/备份/APK对，不清理或迁移存量。REPORT记实际字节/保留理由。
+存储：输出<证据根>/task95-current-candidate-delivery-v1（存在核归属接续）；新增大目录无，全部文本/必要证据预算1MiB。唯一工作区task59-common-candidate-v1/candidate/android；既有Gradle home <开发盘>/env/gradle、JDK <开发盘>/Java/jdk-17.0.14、SDK <开发盘>/Android/Sdk及锁<证据根>/locks/android-gradle-exclusive.lock保留。本批默认构建0/设备0，无需要则不占锁。APK只原路径+指纹引用，不复制工程/build/.gradle/.kotlin/缓存/历史证据/备份/APK对，不清理或迁移存量。REPORT记实际字节/保留理由。
 
 交付CANDIDATE.md、SELF-USE.md、REPORT.md、ready.json，输入/输出指纹和引用的原始证据；有确证代码改动才最小patch/前后SHA。验收只检查实际变化和证据缺口，不重跑充分验证。当前实际设备授权及严格恢复仍保持，95不因交付说明启动设备；后续确有必要Root另明确批次，不把这句当用户永久禁止设备。无Git暂存/提交/push/PR/发布、D产品回灌、桌面/正式库/HOLD/损坏仓库/私库/云部署/存量资产操作，不切模型购买额度。
 

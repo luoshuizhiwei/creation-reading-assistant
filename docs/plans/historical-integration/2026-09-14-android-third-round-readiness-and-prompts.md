@@ -59,7 +59,7 @@ git diff --check：
 
 ```text
 你是 Android 主线集成者。只处理 A：ReaderCorrection 最小数据层前置；工作目录
-D:/develop/Code/Codex/creation-reading-assistant。先完整阅读：
+<旧仓库>。先完整阅读：
 - docs/handoff/current.md
 - docs/plans/historical-integration/2026-09-14-android-integration-freeze-manifest.md（第 2、3、9、10 节）
 
@@ -86,7 +86,7 @@ CorrectionProjectionTest 归 D，且不在 A 候选中；不得为执行该 JVM 
 
 ```text
 你是 Android 主线集成者。只处理 B：R3 书籍来源索引 v13→v14；工作目录
-D:/develop/Code/Codex/creation-reading-assistant。先阅读 current.md、冻结清单第 2、4、9、10 节，以及
+<旧仓库>。先阅读 current.md、冻结清单第 2、4、9、10 节，以及
 2026-09-13-android-r3-slice1-review.md。确认 A 的候选提交 hash 已存在，且其 schema 已完整到 v13；否则停止。
 
 保留其他 WIP，禁止 reset/checkout/clean/stash/revert，禁止 desktop/Electron。只有在明确得到 stage/commit
@@ -210,7 +210,7 @@ feature/library/deletion 行为、StorageSubPage 清理路径。
 
 ```text
 你是 Android 第三轮质量门禁执行者，不是实现者。工作目录
-D:/develop/Code/Codex/creation-reading-assistant。只在收到 A、B、C、D、E、F 六个已提交候选 hash 和各自定向证据后开始。
+<旧仓库>。只在收到 A、B、C、D、E、F 六个已提交候选 hash 和各自定向证据后开始。
 先读 docs/handoff/current.md、2026-09-14-android-integration-freeze-manifest.md、
 2026-09-14-android-third-round-readiness-and-prompts.md。
 
@@ -237,7 +237,7 @@ APK 绝对路径与 SHA-256。对 A 的父提交到 F tip 的范围运行 git di
 
 ```text
 你是 WorkBuddy，负责 Android 第三轮独立验收，只验不修。工作目录
-D:/develop/Code/Codex/creation-reading-assistant。只在收到第三轮 G 门禁报告、A–F tip hash、APK SHA-256 和
+<旧仓库>。只在收到第三轮 G 门禁报告、A–F tip hash、APK SHA-256 和
 明确的受测 APK 绝对路径后开始。先读 current.md、冻结清单、第三轮前置包，以及 G 报告。
 
 不修改任何产品源码/测试/脚本/文档，不 stage/commit/push/reset/checkout/clean/stash/revert。只使用已连接真实 Android

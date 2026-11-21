@@ -122,7 +122,7 @@
 
 ```bash
 cd android
-GRADLE_USER_HOME=D:/develop/env/gradle JAVA_HOME=D:/develop/Java/jdk-17.0.14 \
+GRADLE_USER_HOME=<开发盘>/env/gradle JAVA_HOME=<开发盘>/Java/jdk-17.0.14 \
   "$JAVA_HOME/bin/java" -Dorg.gradle.appname=gradlew \
   -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain \
   :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug --no-daemon

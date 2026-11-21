@@ -15,9 +15,9 @@ Root已核：7份outputs匹配、161项JVM XML全通过、原test与最终71/820
 
 安全与定位前置闭合后，同owner新绑定96-v2最多一个主run/attempt（含入场失败）：自己的中性TXT真实导入→移除正文保资产→实际重新定位同内容恢复同bookId/原位置标注source并可读→异内容拒绝且记录资产不变→取消不破坏。复用现有旅程集中剩余流程，不把重复导入当重关联，不现场修码再试。同一选择器阻塞无新证据停止设备新尝试，完整取证恢复；不能只改编号循环。EPUB UI仍待覆盖如实保留，不扩大本次成矩阵。
 
-当前唯一工作区E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android；Gradle home D:/develop/env/gradle，JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk，锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock。先低成本核owner/锁/进程，Root有独立只读S1梳理，不碰你文件。只剩本仪器/宿主安全修正和同设备依赖，当前块串行有必要；不假称多lane并行。输出接续task96-library-settings-closure-v1/v2，差量8MiB、必要既有build增量256MiB，唯一候选APK保全约10.6MiB单列。不复制工程/build/.gradle/.kotlin/Gradle home/旧证据/APK对，不删除移动压缩迁移存量。报告最终实际字节及build增量测量条件，不把未测写成达标。
+当前唯一工作区<证据根>/task59-common-candidate-v1/candidate/android；Gradle home <开发盘>/env/gradle，JDK <开发盘>/Java/jdk-17.0.14，SDK <开发盘>/Android/Sdk，锁<证据根>/locks/android-gradle-exclusive.lock。先低成本核owner/锁/进程，Root有独立只读S1梳理，不碰你文件。只剩本仪器/宿主安全修正和同设备依赖，当前块串行有必要；不假称多lane并行。输出接续task96-library-settings-closure-v1/v2，差量8MiB、必要既有build增量256MiB，唯一候选APK保全约10.6MiB单列。不复制工程/build/.gradle/.kotlin/Gradle home/旧证据/APK对，不删除移动压缩迁移存量。报告最终实际字节及build增量测量条件，不把未测写成达标。
 
-设备已有授权：可用/必要启动隔离MuMu1，可关闭授权游戏；不关闭重启杀VM、不操作共享ADB，结束运行。ADB D:/Application/NetEase/MuMuPlayer/nx_main/adb.exe；fresh核serial/boot/owner/前台，所有命令绑serial；完整阶段上限+1200秒恢复预留。原71私有/820外部、DB/WAL/SHM、原宿主及test代码完整数据/用户状态、strict night=no合同不降级。仅本批新建资产可测试移除，不接触正式书库。业务/取证/清理/恢复错误分开保留，必要恢复先完成再交付。
+设备已有授权：可用/必要启动隔离MuMu1，可关闭授权游戏；不关闭重启杀VM、不操作共享ADB，结束运行。ADB <MuMu adb>/adb.exe；fresh核serial/boot/owner/前台，所有命令绑serial；完整阶段上限+1200秒恢复预留。原71私有/820外部、DB/WAL/SHM、原宿主及test代码完整数据/用户状态、strict night=no合同不降级。仅本批新建资产可测试移除，不接触正式书库。业务/取证/清理/恢复错误分开保留，必要恢复先完成再交付。
 
 交付最小patch/改动源码/前后SHA/真实输入输出绑定/针对性红绿原日志/XML/REPORT/ready。旧v1 FAIL与报告不改写；v1报告指向不存在integration/inputs.json的文字在v2说明真实root inputs.json，不需另造勘误包。REPORT区分实现、离线、构建、模拟器、整链、恢复；MuMu不是实体MIUI，全产品分母未知。无Git暂存提交pushPR发布、D产品回灌、桌面/正式库/HOLD/云/私库/存量清理、关闭其他进程。你不建自动化不向其他应用发消息。Root核后继续已授权Android路线，不以本批结束停止项目。
 

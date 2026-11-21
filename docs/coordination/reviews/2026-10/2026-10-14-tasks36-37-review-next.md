@@ -13,7 +13,7 @@ Root实际逐文件1019/63核查、运行13Root强冻结verify返回exit0/PASS�
 Root独立调用实际36消费者：URI=BLOCKED/无实际字节证明、clamp旧run/gate=false/无reader身份、temporary locator与updated_at变更、无返回/续读阶段均误接受；实际Task34 phase名称反而拒绝。实际准入CLI函数所有参数为不存在路径仍exit0称输入齐备（代码无设备调用，Root未执行ADB）。因此冻结通过不等于可执行验收。
 
 ## 原始证据
-[Root指纹/APK/强冻结与反例](<E:/creation-reading-assistant/tasks36-37-codex-review-20261014/verification.json>)；[原强冻结实际verify日志](<E:/creation-reading-assistant/tasks36-37-codex-review-20261014/freeze-verify.log>)；[虚假路径准入实证](<E:/creation-reading-assistant/tasks36-37-codex-review-20261014/admission-fake-paths.json>)；[输入身份](<E:/creation-reading-assistant/tasks36-37-codex-review-20261014/input-identities.json>)；[37发现分类](<E:/creation-reading-assistant/tasks36-37-codex-review-20261014/task37-classification.json>)。
+[Root指纹/APK/强冻结与反例](<<证据根>/tasks36-37-codex-review-20261014/verification.json>)；[原强冻结实际verify日志](<<证据根>/tasks36-37-codex-review-20261014/freeze-verify.log>)；[虚假路径准入实证](<<证据根>/tasks36-37-codex-review-20261014/admission-fake-paths.json>)；[输入身份](<<证据根>/tasks36-37-codex-review-20261014/input-identities.json>)；[37发现分类](<<证据根>/tasks36-37-codex-review-20261014/task37-classification.json>)。
 
 ## 所有权与改动
 Root仅E核查与D全局文档。下一36-v2只运行调度/采集/消费；38-v1只准入/基线/恢复代码。两个自有E候选、只写互斥主机文件，不改任何Kotlin/产品，均不设备/最终APK。36-v1原目录/APK/冻结保留只读，不新建重复构建owner。

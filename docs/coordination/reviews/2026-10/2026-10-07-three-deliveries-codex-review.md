@@ -4,7 +4,7 @@
 CRA-THREE-DELIVERIES-CODEX-REVIEW-v1。用户报告三项完成；Codex按实际源码、原始测试、设备证据核查，不采纳口头完成为验收。
 
 ## 输入指纹
-恢复仓库HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存区空。只读输入为E:/creation-reading-assistant下的txt-persist-merge-mumu-accept-v1、d2-relink-identity-fix-v1、j1-crossbook-temporary-entry-v1。原A981输入未漂移。独立证据根为本报告E目录；原报告和失败run不修改。
+恢复仓库HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存区空。只读输入为<证据根>下的txt-persist-merge-mumu-accept-v1、d2-relink-identity-fix-v1、j1-crossbook-temporary-entry-v1。原A981输入未漂移。独立证据根为本报告E目录；原报告和失败run不修改。
 
 ## 所有权与改动
 Root核TXT冻结与恢复后账，三名独立只读reviewer分别核TXT执行链、D2、J1；无产品修改、无构建、无安装卸载或设置写入。D只维护本报告与current.md。用户要求加快并行的安排保持：产品候选互斥、设备与构建单owner、复用充分证据。

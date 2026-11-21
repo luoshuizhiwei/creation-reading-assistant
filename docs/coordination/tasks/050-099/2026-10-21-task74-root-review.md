@@ -11,7 +11,7 @@ host ceb60dd1a24455efbfcbcac4143a058b2d30e45b6f42659653ec7034925ae79a，test cb7
 Root只读实际交付/归档/有限设备状态，写root-review及本报告/current；未改原候选、产品/仪器或旧报告。无相关task74/59 Python/Java执行者。Root没有重建APK或新跑仪器；必要保持运行恢复只启动1次已关闭实例1、连接ADB、恢复既定night=no，没有关闭/重启。自动化不恢复、不外部派发、不Git。
 
 ## 环境
-复用59工作区与D:/develop/env/gradle。比例核验技能用于实际失败/协议差异，不重跑原充分单测/旧63链。原报告/ready与全部run保留，不选第三个run覆盖前两次。
+复用59工作区与<开发盘>/env/gradle。比例核验技能用于实际失败/协议差异，不重跑原充分单测/旧63链。原报告/ready与全部run保留，不选第三个run覆盖前两次。
 
 ## 执行与结果
 Root实跑当前verify_binding/verify_freeze/audit_import_closure/预算均ok，16工具SHA及两APK核同。预算5100=3240计划+1680恢复+180裕量。这些不证明设备旅程通过。
@@ -31,7 +31,7 @@ Root02:02:51只读manager/adb证实两个实例均关闭、ADB空，故保持运
 Root仅新增小型JSON/原始命令回执，无工程/缓存/APK复制或资产清理迁移；历史71实例归属与72旧test覆盖缺口仍保留。
 
 ## 原始证据
-E:/creation-reading-assistant/task74-keep-running-accept-v1/REPORT、ready、candidate；logs三个run的00-binding/99-summary及第三次10-material日志、恢复结果/清单/归档；Root root-review/checks.json、run-inputs.json、readonly-state-20261021-020251/result.json；keep-running-recovery/launch-receipt.json、online-polls.json、online-final.json、root-restoration-final.json及原始stdout/stderr。
+<证据根>/task74-keep-running-accept-v1/REPORT、ready、candidate；logs三个run的00-binding/99-summary及第三次10-material日志、恢复结果/清单/归档；Root root-review/checks.json、run-inputs.json、readonly-state-20261021-020251/result.json；keep-running-recovery/launch-receipt.json、online-polls.json、online-final.json、root-restoration-final.json及原始stdout/stderr。
 
 ## 交付状态与下一步
 74交付已核，联合验收FAIL，单attempt执行协议不采纳，第三次数据恢复证据采纳，在线运行由Root后补；四旅程通过0/4（material失败，其余未跑），不算全产品比例。

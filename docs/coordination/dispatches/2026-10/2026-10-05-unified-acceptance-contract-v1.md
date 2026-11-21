@@ -15,12 +15,12 @@
 - 机械清单 v2（`2026-10-04-next-joint-integration-manifest-v2.md`，`814ee9b1…`）：980 行分类；其 Profile 方向误判已被 profile-merge-decision-v3 纠正，本合同不沿用其方向结论。
 - 最终验收（[joint-final-v3](../../../qa/2026-10/2026-10-04-next-joint-final-v3.md)，`b5749b78…`）：303/303 JVM；MuMu 10/10 限定行为（EPUB 2 + SE4 3 + MD 滚动 5）；冻结宿主 `2a1473b4…`/测试 `98fc9cf4…`；**未覆盖项 r3：MD 默认左右翻页下 TOC 点击第 2 章 toolbar 显示第 2 章但正文/底栏仍第 1 章，根因未定位**。
 - 分页恢复收尾（[md-paged-restore-close-v2](2026-10-04-next-md-paged-restore-close-v2.md)，`96bdca85…`）：111 JVM = 15 XML 合计 111 tests/0 失败；七设置/原宿主 71 文件/原 APK 对恢复成立；夜间模式 10-01 至 10-04 多次翻转、来源未知、无任务在 restore 中管理它（最近可信读数 yes @2026-10-04 23:48）。
-- 驱动 v4（实读 + 复算 SHA）：[runbook](<E:/creation-reading-assistant/next-round-joint-mumu-driver-v4/runbook.md>) `544eb266…`、config.template.json `c9a7cc08…`、runner.py `a634a344…`（与 v1/n1-runner-hardening-v1 逐字节相同）、joint_driver.py `72c38e5b…`、offline_test.py `4bbf5527…`。
+- 驱动 v4（实读 + 复算 SHA）：[runbook](<<证据根>/next-round-joint-mumu-driver-v4/runbook.md>) `544eb266…`、config.template.json `c9a7cc08…`、runner.py `a634a344…`（与 v1/n1-runner-hardening-v1 逐字节相同）、joint_driver.py `72c38e5b…`、offline_test.py `4bbf5527…`。
 - 分页冻结清单 `next-round-md-paged-chapter-fix-v1/freeze/source-sha256.json`（`b503d75a…`，范围内文件全部 changed:false）。
 - 交接入口 [current](../../../handoff/current.md)（`aa518dd7…`）：2026-10-05 状态 = 三组 v3 语义决策已核 3/3，下一单 owner 保全 D WIP 构建新 E 统一候选与受影响验证，尚未实施合流、回灌 D 或 Git。
 - **未读取** `unified-candidate-integration-v1` 尚未冻结的工作文件，不冒充最终输入。
 
-完整输入指纹表（含全部 SHA-256）见 [execution.json](<E:/creation-reading-assistant/unified-acceptance-contract-v1/execution.json>)。
+完整输入指纹表（含全部 SHA-256）见 [execution.json](<<证据根>/unified-acceptance-contract-v1/execution.json>)。
 
 ## 所有权与改动
 

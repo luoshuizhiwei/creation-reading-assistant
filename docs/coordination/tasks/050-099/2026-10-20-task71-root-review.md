@@ -10,14 +10,14 @@ Root实算host0f20cd22d3730cfd6f83a2de97c74ed514bdc75fafc6d92584868a5bcd9e4dc6�
 相关task71/59 Python/Java活动查询为空；Root/子智能体只读，不据进程空认领设备。Root写task71/root-review小型JSON、归档阶段JSON摘要及本报告/current，无构建/设备/外部消息/Git，不改候选源码或旧证据。A实际补入70-B最终差量采纳；71-B源码/新增测试/patch实算匹配，仅候选未合流。
 
 ## 环境
-59工作区、D:/develop/env/gradle及原锁复用。已有MD判定、分类和回执充分证据沿用，Root未重复全量测试。使用比例验证，检查真实失败和必要恢复。
+59工作区、<开发盘>/env/gradle及原锁复用。已有MD判定、分类和回执充分证据沿用，Root未重复全量测试。使用比例验证，检查真实失败和必要恢复。
 
 ## 执行与结果
 Root实跑冻结/绑定/闭包/预算均ok，4440=阶段2580+恢复1620+240裕量；真实test assemble成功，host产品未改复用。环境准备原始night yes→no、正式保护基线通过，安装成功。
 run20261020-214448-2999d9的MD rc0但JUnit失败，找不到ContentDescription=返回节点，MdReadingResumeAcceptTest.kt:717。导入/打开/真实位移已在卸载前tar保留：mdr_20_displace.json pass=true，持久offset2612/delta2612，UI278→2688/delta2410，阈值1200。Root直接读取tar成员确认并落盘摘要，无需重跑补证。退出/续读未通过；material/orphan未运行。A报告说阶段文件未pull不等于原证据不存在，不拿缺pull取消归档证据采纳。
 
 ## 原始证据
-E:/creation-reading-assistant/task71-parallel-accept-v1/A/REPORT及构建日志；integration/ready/STATUS与candidate；B/REPORT/ready/src/patch；attempts/20261020-214448-2999d9的10-md-instrument.log、99-summary、03-environment-prep、保护清单、恢复归档和host-post-shutdown-poweroff.json；attempts/pre-run-environment.json。Root输出root-review/checks.json、B-checks.json及md-displacement.json，均原路径引用。
+<证据根>/task71-parallel-accept-v1/A/REPORT及构建日志；integration/ready/STATUS与candidate；B/REPORT/ready/src/patch；attempts/20261020-214448-2999d9的10-md-instrument.log、99-summary、03-environment-prep、保护清单、恢复归档和host-post-shutdown-poweroff.json；attempts/pre-run-environment.json。Root输出root-review/checks.json、B-checks.json及md-displacement.json，均原路径引用。
 
 ## 恢复与副作用
 Root比较初末71私有/820外部路径size/SHA一致；两tar实际SHA对卸载回执匹配：host0c686fd0…5c57/test2079bddf…fda2。候选包归档后absent、tmp616无需清理、night按约定no、末态protection ok/diffs空。manager关机假阳性后，本attempt PID44160/端口仍活跃；记录guest reboot -p成功、之后进程/端口/ADB消失，支持本attempt自己启动VM最终关闭；部分进程/端口证据只有汇总，不能说完整原始回执齐全。

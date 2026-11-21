@@ -1,6 +1,6 @@
 # Trae R1 报告：统一阅读笔记（N1）
 
-- 工作树：`D:/develop/Code/Codex/cra-android-trae-r1`，分支 `codex/android-trae-r1`
+- 工作树：`<Codex 工作区>/cra-android-trae-r1`，分支 `codex/android-trae-r1`
 - 基线 SHA：`e31db92d5493b6b705ae447aba82c52dc9d7e65f`（开工时 HEAD，未 stage/commit/push）
 - 状态：**Dev complete（未真机验收，交 WorkBuddy）**
 

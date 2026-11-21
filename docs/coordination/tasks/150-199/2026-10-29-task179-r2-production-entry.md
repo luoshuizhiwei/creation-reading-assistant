@@ -1,8 +1,8 @@
 # 任务179-r2：交付可复用生产接线，收口剩余身份边界
 
-原179 owner同会话，推荐保持GLM-5.3-Flash最高。15分钟从实际发送起评估；只新写 E:/creation-reading-assistant/task179-instance-identity-adapter-offline-v1/recheck-r2/。同owner完成最小实现、定向验证与交付。无第二独立必要任务：下一设备业务仍依赖本接线，不为并行重跑已充分验证。
+原179 owner同会话，推荐保持GLM-5.3-Flash最高。15分钟从实际发送起评估；只新写 <证据根>/task179-instance-identity-adapter-offline-v1/recheck-r2/。同owner完成最小实现、定向验证与交付。无第二独立必要任务：下一设备业务仍依赖本接线，不为并行重跑已充分验证。
 
-仓库 D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919；先读AGENTS与docs/handoff/current.md页首。你不是唯一工作者，不覆盖他人修改。旧179-v1/r1、180、176及Android/candidate/APK全部只读，state/current由Root维护。
+仓库 <仓库>；先读AGENTS与docs/handoff/current.md页首。你不是唯一工作者，不覆盖他人修改。旧179-v1/r1、180、176及Android/candidate/APK全部只读，state/current由Root维护。
 
 ## Root实际验收
 
@@ -24,6 +24,6 @@ Stage B真实main调用新resolver4次、owner门dumpsys未知严格停下、mai
 
 仅离线：验证导出的同一生产入口确实被测试调用，注入只在外部IO层，明确fixture路径仅由测试传入而非生产默认。一次有界真实host main strict回放到instance后owner首未知命令停点即可，沿用r1有证据的内部逻辑；所有mock必须阻断真实subprocess，未知命令抛错，禁止运行真实main或真实ADB。离线输出只落r2（必要换离线输出锚明确记录，不改落盘冻结源、不假称原scope门设备通过）。不要重复8次建scope调summary断言，先读已有summary.primaryError schema再一次验证。加必要负例：查询rc0但stderr非空、绝对路径..越界、描述文件第二次SHA漂移；正常真实形态来源引用180/r1，不重刷无关suite，不运行stage_c。
 
-唯一ready E:/creation-reading-assistant/task179-instance-identity-adapter-offline-v1/recheck-r2/ready.json。REPORT准确区分生产可复用入口已交、离线到达点、原只读probe复用、业务设备NOT_RUN；完整path/bytes/SHA，独立子进程rc原回执；索引禁止自引用SHA，ready不自我hash。source/doc/patch/报告/ready≤128KiB，全部raw/fixture/离线scope≤64KiB，预计无需大文件；复制前核空间，按实际所有新文件互斥计数，超额不删证据。冻结t94v3_device c806ce361c9c3929c4c32e08f6435e5e1f5b8ce088c8e6f0aa487cdee1d5fdbe、host136 9457a4c5989e2c408923048b9c6b3c818b35573e6c9345eeb048632a9c5912b2、host176r3 9ff38f2626f7eac901c5c479fbeb5b6f1e06521cc089259ab8fb7e98da059cb7前后复核，路径引用r1原报告即可。
+唯一ready <证据根>/task179-instance-identity-adapter-offline-v1/recheck-r2/ready.json。REPORT准确区分生产可复用入口已交、离线到达点、原只读probe复用、业务设备NOT_RUN；完整path/bytes/SHA，独立子进程rc原回执；索引禁止自引用SHA，ready不自我hash。source/doc/patch/报告/ready≤128KiB，全部raw/fixture/离线scope≤64KiB，预计无需大文件；复制前核空间，按实际所有新文件互斥计数，超额不删证据。冻结t94v3_device c806ce361c9c3929c4c32e08f6435e5e1f5b8ce088c8e6f0aa487cdee1d5fdbe、host136 9457a4c5989e2c408923048b9c6b3c818b35573e6c9345eeb048632a9c5912b2、host176r3 9ff38f2626f7eac901c5c479fbeb5b6f1e06521cc089259ab8fb7e98da059cb7前后复核，路径引用r1原报告即可。
 
 禁止真实设备探针/main/install/instrument/stop/uninstall/Home/launch/reboot/connect/kill/设置/Gradle，禁止Git暂存提交pushPR发布/云/正式库/私库sessionDB/.codex/memories/自动记忆。遇权限/所有权/证据边界停止并具体报告，不扩大范围。未来实际业务批另由Rootfresh输入/唯一owner/原166恢复合同派发。本轮最终总结末行：这是任务179-r2。

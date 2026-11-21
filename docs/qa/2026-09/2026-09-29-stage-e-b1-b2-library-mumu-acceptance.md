@@ -212,4 +212,4 @@
 - 当前工作目录：`D:\develop\Code\Codex\creation-reading-assistant-recovery-20260919`。
 - HEAD：`513891d6a66a9b78e072ba759d34ed580d377ecf`。
 - 暂存区：`git diff --cached` 零输出（完全干净）。
-- 仓库内唯一变更：创建本报告文件 [`docs/qa/2026-09/2026-09-29-stage-e-b1-b2-library-mumu-acceptance.md`](file:///D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/qa/2026-09/2026-09-29-stage-e-b1-b2-library-mumu-acceptance.md)，未触碰任何源码与配置。
+- 仓库内唯一变更：创建本报告文件 [`docs/qa/2026-09/2026-09-29-stage-e-b1-b2-library-mumu-acceptance.md`](file:///<仓库>/docs/qa/2026-09/2026-09-29-stage-e-b1-b2-library-mumu-acceptance.md)，未触碰任何源码与配置。

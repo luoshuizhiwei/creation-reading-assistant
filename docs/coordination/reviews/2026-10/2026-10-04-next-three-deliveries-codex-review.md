@@ -5,7 +5,7 @@
 - 所有权与改动：Root只读核查代码/证据/32路径WIP；写本报告/current/TODO与E审核工件、九文件快照。没有产品源码、Git或设备写入。
 - 环境：Windows/Python3.13。独立只读审查回滚双实现归属；没有重跑构建或设备批次。
 - 执行与结果：32SHA、树差、217JUnit、20运行SHA、APK与恢复账、三方分类、真实章节划分核对。
-- 原始证据：[Root audit](<E:/creation-reading-assistant/integrationv2-three-deliveries-review-20261004/audit.json>)；[联合v2](../../dispatches/2026-10/2026-10-03-next-integration-build-accept-v2.md)、[覆盖复核](2026-10-03-next-reading-coverage-review-v1.md)、[集成预案](../../decisions/2026-10/2026-10-03-next-integration-scope-precheck-v1.md)。
+- 原始证据：[Root audit](<<证据根>/integrationv2-three-deliveries-review-20261004/audit.json>)；[联合v2](../../dispatches/2026-10/2026-10-03-next-integration-build-accept-v2.md)、[覆盖复核](2026-10-03-next-reading-coverage-review-v1.md)、[集成预案](../../decisions/2026-10/2026-10-03-next-integration-scope-precheck-v1.md)。
 - 未覆盖项：真正Markdown跨阅读器章节设备验收；九路径WIP语义合并；实体手机、发布、独立笔记/跨书产品入口决定不由本轮新增通过。
 - 恢复与副作用：联合原始前后53文件/3APK/8设置相等；本轮仅审核落盘账，没有现场设备再验证。九文件原字节快照与编辑前文档保存在E。
 - 交付状态与下一步：联合源码/JVM/最终APK限定通过，设备合同3/4通过、跨章1项未证；WIP预案分类通过、实施建议部分须纠正。下一三个互斥owner并行。
@@ -36,6 +36,6 @@ WIP预案五类实算一致：无需写10（6 tracked＋4 untracked）；可直�
 2. 同步owner：CRA-SYNC-WIP-RECONCILE-v1，在独立E副本语义合并SyncRepository/WebDavBackup/ProfileRoute/ProfileViewModel/ProfileViewModelTest；相关定向测试。Legado删除/保留争议先查范围内证据，无充分依据保存备选patch与未决边界，不擅自复活或删除功能。
 3. 回滚owner：CRA-ROLLBACK-WIP-RECONCILE-v1，在另一E副本合并ShelfImporter/EpubRepository及其两测试；同时保全既有content_hash/fileOps等WIP与已验回滚保护。
 
-第九冲突ReaderProgressEffects由Root在两分支完成后合流时负责。两实现owner无设备所有权；设备owner不改产品。Root已冻结[九路径WIP快照manifest](<E:/creation-reading-assistant/integrationv2-three-deliveries-review-20261004/wip-snapshot/manifest.json>)；后续任务用快照，不悄悄刷新D输入。合并结果必须新SHA/新测试，不沿用旧32SHA装作未变。D回灌/暂存/提交仍没有本轮授权。
+第九冲突ReaderProgressEffects由Root在两分支完成后合流时负责。两实现owner无设备所有权；设备owner不改产品。Root已冻结[九路径WIP快照manifest](<<证据根>/integrationv2-three-deliveries-review-20261004/wip-snapshot/manifest.json>)；后续任务用快照，不悄悄刷新D输入。合并结果必须新SHA/新测试，不沿用旧32SHA装作未变。D回灌/暂存/提交仍没有本轮授权。
 
 进度：联合源码32/32=100%，JVM217/217=100%，最终双APK一致2/2；设备合同3/4=75%，跨章尚未证。WIP冲突解决0/9（仅预案与快照），不与功能通过相加。全产品统一分母未知。

@@ -6,7 +6,7 @@
 
 ## 输入指纹、执行与结果、原始证据
 
-E:/creation-reading-assistant/task105-tts-chapter-stop-v1原REPORT/ready/patch/log/XML已核。实际Effect363e72eb290b5be38a1d23436e1d83f7de3157d44469b4b35ea5934688cbd5d9(9872B)，测试0741093b2a719f337097682888e2b2ae894abe7db33cb987993152dc2377b294(1852B)，产品bf9720a74f6007dacff3e51b3421567b4578e5a977beaef6dc49269890831330(52763781B)实物核同。
+<证据根>/task105-tts-chapter-stop-v1原REPORT/ready/patch/log/XML已核。实际Effect363e72eb290b5be38a1d23436e1d83f7de3157d44469b4b35ea5934688cbd5d9(9872B)，测试0741093b2a719f337097682888e2b2ae894abe7db33cb987993152dc2377b294(1852B)，产品bf9720a74f6007dacff3e51b3421567b4578e5a977beaef6dc49269890831330(52763781B)实物核同。
 
 原红XML3项1fail0error0skip，-1返回1而预期null为行为红；修后10原XML合计57项，全为0fail/error/skip，含新增3项。01-red/02-green/03-build原日志分别行为失败/成功/assemble成功。范围为生产effect直接调用的判定函数测试，Root核实际回调接线；不是完整Compose effect/真实多章TTS运行，不将函数测试扩大为设备证明。包内超出必要3项的旧测试已跑，本次复用其结果，不要求再跑。
 

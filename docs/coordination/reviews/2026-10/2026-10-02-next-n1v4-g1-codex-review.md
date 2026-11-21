@@ -10,7 +10,7 @@ Codex-review-N1v4-G1build-v1。来源：用户“都完成了”；本轮只核�
 
 ## 所有权与改动
 
-Root只写本报告、现有执行状态文档及自有E审查工件；只读reviewer负责N1语义。编辑前回退副本见[E before](<E:/creation-reading-assistant/n1v4-g1-codex-review-20261002/before>)。共享产品、原损坏仓库、桌面/HOLD与外部原报告均保留，不暂存/提交/push/reset/checkout，不读取Claude独立库。
+Root只写本报告、现有执行状态文档及自有E审查工件；只读reviewer负责N1语义。编辑前回退副本见[E before](<<证据根>/n1v4-g1-codex-review-20261002/before>)。共享产品、原损坏仓库、桌面/HOLD与外部原报告均保留，不暂存/提交/push/reset/checkout，不读取Claude独立库。
 
 ## 环境
 
@@ -44,7 +44,7 @@ Windows、Python3.13、SDK build-tools 34.0.0 aapt/apksigner。Root本轮未运�
 
 ## 原始证据
 
-- [本轮核查JSON](<E:/creation-reading-assistant/n1v4-g1-codex-review-20261002/verification.json>)与[脚本](<E:/creation-reading-assistant/n1v4-g1-codex-review-20261002/audit.py>)，含清单差异、8SHA、XML testcase、APK与manifest输出。
+- [本轮核查JSON](<<证据根>/n1v4-g1-codex-review-20261002/verification.json>)与[脚本](<<证据根>/n1v4-g1-codex-review-20261002/audit.py>)，含清单差异、8SHA、XML testcase、APK与manifest输出。
 - [N1-v4原报告](../../dispatches/2026-10/2026-10-02-next-n1-repair-v4.md)、[G1原报告](../../dispatches/2026-10/2026-10-02-next-g1-library-build-v1.md)，原报告与二进制保留，不覆写其历史结论。
 - N1增量patch SHA `b189c5764631a6e7abb1f1131ade40f3c7818b1cbc2fffa774b40cb01e8c3e13`。
 - G1宿主SHA `4bf670ab4006c6d60a7e18d8d31d0856d55755d6b8ff6994b3f41edc3b272531`，测试SHA `70b04ecf3628caeedc5cb2d14a89628d23ab8927665efcdf3cd30121bcd95c8f`。

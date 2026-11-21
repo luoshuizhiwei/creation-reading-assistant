@@ -2,7 +2,7 @@
 任务142-v1｜2026-10-26香港11:44后｜同Claude桌面WorkBuddy AI/global:deepseek-v4.1-flash 1M｜35分钟
 作用：修复141-A确定性红证据暴露的“应用内退出时已派发进度保存尚未完成即销毁VM”风险；单一reader源码/Gradle/JVM owner闭环。141-B仍独立只在交付目录写scroll补丁，不写candidate或构建，不互相阻塞。Root授权本批精确必要生产修复，不要再问用户，不自动扩展APK/设备。
 
-141-A Root已读实际patch/单case1m17s原log/XML：tests1 failures1 errors0 skipped0，失败在1826 pending保存completed断言，entered与未完成未取消前置通过。候选ReaderViewModelTest83501B SHAd121bdfe2f727474f5a787772c2ca083e5cfa469d9af404da5048808943911a1；原before79447B/ff161e57，红记录永久留E:/creation-reading-assistant/task141-offline-implementation-v1/lane-a，不改写。ReaderViewModel48312B c637402375bbd5c71dff7d50696e212c6f1fcf370c791e5d07dcdb9b722b3dea；ReaderProgressSaveOrder2461B 61b2ca9dd3633d475e7f6bc3d990d7512ff41d160714f05ea49bf5cfe31111ad，现均未改。140-A调用链事实可复用，不重跑全量定位。
+141-A Root已读实际patch/单case1m17s原log/XML：tests1 failures1 errors0 skipped0，失败在1826 pending保存completed断言，entered与未完成未取消前置通过。候选ReaderViewModelTest83501B SHAd121bdfe2f727474f5a787772c2ca083e5cfa469d9af404da5048808943911a1；原before79447B/ff161e57，红记录永久留<证据根>/task141-offline-implementation-v1/lane-a，不改写。ReaderViewModel48312B c637402375bbd5c71dff7d50696e212c6f1fcf370c791e5d07dcdb9b722b3dea；ReaderProgressSaveOrder2461B 61b2ca9dd3633d475e7f6bc3d990d7512ff41d160714f05ea49bf5cfe31111ad，现均未改。140-A调用链事实可复用，不重跑全量定位。
 
 必须先区分语义：141-A直接store.clear()证明在途保存受VMscope取消的真实风险，但“强制清store后最终completed”为真不等于“真实导航退出前已drain”。不靠改变framework强制销毁语义修复，也不把应用scope后台最终完成当作退出前完成。目标是实际应用内reader退出边界先完成已派发进度保存，再允许route退出/VM销毁；进程kill/系统回收不在范围。禁止runBlocking主线程、onCleared里等待、全io转NonCancellable/appScope、超时后仍pop或吞保存异常。
 
@@ -18,6 +18,6 @@
 2. 至少一个保存失败或取消不触导航、且错误可观察的定向用例；一个无pending/临时阅读空保存时正常一次退出、不得误持久化进度。合理复用现有门禁/排序充分测试，不全套重跑。
 3. 只新改相关目标JVM用例必要执行，新增编译/fixture错误同owner修复保留红log；再做一次必要:app:compileDebugAndroidTestKotlin确认main接缝不破原仪器编译（无assemble）。不全VMTest/全JVM/lint。记录具体选中tests数量/实际断言/exit与rawXML。当前产品APK74d106b6和test28173170不含此新main修复，不重建不覆盖，不冒充设备或新产物验收。
 
-唯一工程E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android；JDK D:/develop/Java/jdk-17.0.14 SDK D:/develop/Android/Sdk Gradlehome D:/develop/env/gradle；锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock，活冲突停不kill/stopdaemon。源码有变后准确新sizeSHA，旧141红/137hostfalse/139恢复与138保全永久冻结。
-交付E:/creation-reading-assistant/task142-reader-exit-save-drain-v1/ready.json、REPORT、最小patch、必要改前后源/输入指纹、定向红绿log/XML/compile原始；差量<=1MiB/raw<=2MiB，不复制工程cacheAPK或旧历史原件。实际空间/未完成/未证范围写同REPORT，无新收据体系。Root核真实调用边界和新断言后裁，不因JVM绿宣称设备/所有pending永恒无写。无ADB/VM/安装卸载/force-stop/settings/hostmain/attempt/F1重跑/Git/云/私库自动记忆/正式书库/实体/存量删移kill共享进程，完成停止不自动后批。最终单独一行这是任务142-v1。
+唯一工程<证据根>/task59-common-candidate-v1/candidate/android；JDK <开发盘>/Java/jdk-17.0.14 SDK <开发盘>/Android/Sdk Gradlehome <开发盘>/env/gradle；锁<证据根>/locks/android-gradle-exclusive.lock，活冲突停不kill/stopdaemon。源码有变后准确新sizeSHA，旧141红/137hostfalse/139恢复与138保全永久冻结。
+交付<证据根>/task142-reader-exit-save-drain-v1/ready.json、REPORT、最小patch、必要改前后源/输入指纹、定向红绿log/XML/compile原始；差量<=1MiB/raw<=2MiB，不复制工程cacheAPK或旧历史原件。实际空间/未完成/未证范围写同REPORT，无新收据体系。Root核真实调用边界和新断言后裁，不因JVM绿宣称设备/所有pending永恒无写。无ADB/VM/安装卸载/force-stop/settings/hostmain/attempt/F1重跑/Git/云/私库自动记忆/正式书库/实体/存量删移kill共享进程，完成停止不自动后批。最终单独一行这是任务142-v1。
 ````

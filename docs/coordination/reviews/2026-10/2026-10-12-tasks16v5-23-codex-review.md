@@ -52,9 +52,9 @@ repository默认参数创建较新session还可能提升门槛；当前三个生
 
 ## 原始证据
 
-- [Root逐项核查](<E:/creation-reading-assistant/tasks16v5-23-codex-review-20261012/verification.json>)。
-- [16-v5报告](<E:/creation-reading-assistant/reader-save-order-task16-v5/REPORT.md>)、evidence/source-sha256.final.json、logs/runs/green_v5_v2与两反例原XML/log。
-- [23-v1报告](<E:/creation-reading-assistant/inspiration-source-export-task23-v1/REPORT.md>)、evidence/final-source-sha256.txt、evidence/red与green原XML/log。
+- [Root逐项核查](<<证据根>/tasks16v5-23-codex-review-20261012/verification.json>)。
+- [16-v5报告](<<证据根>/reader-save-order-task16-v5/REPORT.md>)、evidence/source-sha256.final.json、logs/runs/green_v5_v2与两反例原XML/log。
+- [23-v1报告](<<证据根>/inspiration-source-export-task23-v1/REPORT.md>)、evidence/final-source-sha256.txt、evidence/red与green原XML/log。
 
 ## 未覆盖项
 

@@ -7,7 +7,7 @@
 沿用当前已核Root-v2 1019源码及36-v1双APK/强冻结，无本轮产品增量，不重复全源码构建验证。36-v4和38-v3实际新交付SHA记录于本轮verification.json。D HEAD e39a78da9c62f02614207cffb36969a32492eaea、暂存空；原资产保留只读。
 
 ## 所有权与改动
-Root仅自有E核查与全局交接。38-v4输出E:/creation-reading-assistant/task38-device-admission-restore-closure-v4，只准入/库存/首次基线及准入CLI，拥有host/inventory_baseline.py、admission_gate.py、freeze_admission.py、cli_admission.py与所属离线测试。39-v1输出E:/creation-reading-assistant/task39-device-backup-restore-completion-v1，只备份/恢复/安全编排，拥有host/backup_restore.py、device_state.py、recovery_cli.py与所属测试。原admission_restore.py只读，必须抽取现有必要函数到两侧独立职责，不两owner继续整文件改写。文件清单是未来合流所有权，不授权改共同目录。36原交付只读复用。
+Root仅自有E核查与全局交接。38-v4输出<证据根>/task38-device-admission-restore-closure-v4，只准入/库存/首次基线及准入CLI，拥有host/inventory_baseline.py、admission_gate.py、freeze_admission.py、cli_admission.py与所属离线测试。39-v1输出<证据根>/task39-device-backup-restore-completion-v1，只备份/恢复/安全编排，拥有host/backup_restore.py、device_state.py、recovery_cli.py与所属测试。原admission_restore.py只读，必须抽取现有必要函数到两侧独立职责，不两owner继续整文件改写。文件清单是未来合流所有权，不授权改共同目录。36原交付只读复用。
 
 ## 环境
 Windows Python3.13，全部设备argv注入mock，未实际ADB/设备/Gradle；原测试以模块载入并把ROOT/TMP改为Root自有E，不覆盖原测试日志或删除他人资产。模型菜单未实查，不据执行者自述GLM5.2推断已恢复可用。
@@ -23,7 +23,7 @@ Windows Python3.13，全部设备argv注入mock，未实际ADB/设备/Gradle；�
 6. forward --remove-all被mock错误地改成按serial过滤。AOSP当前adb.cpp handle_forward_request的killforward-all直接remove_all_listeners，不能靠-s当范围保护；必须差量逐条操作本run归属映射。reverse的host字段格式也应按真实协议，而非伪serial模拟。
 
 ## 原始证据
-[独立验证及指纹](<E:/creation-reading-assistant/tasks36v4-38v3-codex-review-20261014/verification.json>)；[核查脚本](<E:/creation-reading-assistant/tasks36v4-38v3-codex-review-20261014/verify.py>)；[36重跑](<E:/creation-reading-assistant/tasks36v4-38v3-codex-review-20261014/36-tests.log>)；[38重跑](<E:/creation-reading-assistant/tasks36v4-38v3-codex-review-20261014/38-tests.log>)。
+[独立验证及指纹](<<证据根>/tasks36v4-38v3-codex-review-20261014/verification.json>)；[核查脚本](<<证据根>/tasks36v4-38v3-codex-review-20261014/verify.py>)；[36重跑](<<证据根>/tasks36v4-38v3-codex-review-20261014/36-tests.log>)；[38重跑](<<证据根>/tasks36v4-38v3-codex-review-20261014/38-tests.log>)。
 [AOSP adb当前源码](https://android.googlesource.com/platform/packages/modules/adb/+/HEAD/adb.cpp)；[ADB服务协议](https://android.googlesource.com/platform/packages/modules/adb/+/HEAD/docs/dev/services.md)。线上源码用于核命令语义，不是本机/设备已运行证明。
 
 ## 未覆盖项

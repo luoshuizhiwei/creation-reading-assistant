@@ -10,7 +10,7 @@ B候选MaterialGatheringJourneyTest.kt SHA256 5eb0024dff01228719d778ab76f9d81364
 Root只读B、对应生产调用链、指定依赖AAR和当前交接；仅写task69/root-review-B/checks.json及本报告/current。未改B原交付或共享工作区。相关Python/Java活动任务查询为空，但用户已说明A未完成，不能据进程空推定A已取消或抢占其所有权。
 
 ## 环境
-沿用59工作区与D:/develop/env/gradle；无新工程、构建、设备、外部派发或Git操作。已加载指令与原68恢复证据复用。
+沿用59工作区与<开发盘>/env/gradle；无新工程、构建、设备、外部派发或Git操作。已加载指令与原68恢复证据复用。
 
 ## 执行与结果
 仅采纳B最小源码差量确实存在、基线未变以及分类ID不一致缺陷定位。22项原检查是源码字符串/结构检查，不能替代Kotlin编译或运行；import检查跳过androidx前缀，故“import全部可解析”超出证据。
@@ -22,7 +22,7 @@ Root只读B、对应生产调用链、指定依赖AAR和当前交接；仅写tas
 6. writeFailureEvidence用两层未消费runCatching，取证JSON/截图失败会静默丢失。须保留主异常并附加取证失败，不能吞错。
 
 ## 原始证据
-E:/creation-reading-assistant/task69-md-material-closure-v1/B下REPORT-69-v1-B.md、ready、src、patch、tools/verify_b_source.py、evidence/static-checks.json及integration/STATUS；Root实算及指定依赖类检查见root-review-B/checks.json。未复制APK/历史资料。
+<证据根>/task69-md-material-closure-v1/B下REPORT-69-v1-B.md、ready、src、patch、tools/verify_b_source.py、evidence/static-checks.json及integration/STATUS；Root实算及指定依赖类检查见root-review-B/checks.json。未复制APK/历史资料。
 
 ## 未覆盖项
 A未交付；B尚未真实编译、合流、构建、新冻结绑定或设备验收。本轮没有任何新模拟器PASS。标签/分类与导出源码的存在不等于对应运行断言通过。

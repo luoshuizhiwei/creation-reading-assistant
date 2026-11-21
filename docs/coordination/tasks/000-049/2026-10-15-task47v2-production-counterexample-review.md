@@ -20,7 +20,7 @@ D HEAD e39a78da9c62f02614207cffb36969a32492eaea、暂存空；既有WIP保护。
 5. 测试中的双故障用例没有让恢复失败，最后仍断言restored=True，不能证明两个失败同时保留；47-v3用实际外部命令失败或准确内部故障点补真正反例。
 
 ## 原始证据
-[22原测试](<E:/creation-reading-assistant/task47v2-codex-review-20261015/offline-tests.log>)；[生产正向反例与完整边界命令](<E:/creation-reading-assistant/task47v2-codex-review-20261015/production-positive-counterexample.json>)；[缩减清单](<E:/creation-reading-assistant/task47v2-codex-review-20261015/omitted-dependencies-manifest.json>)；[缩减清单错误通过](<E:/creation-reading-assistant/task47v2-codex-review-20261015/omitted-dependencies-result.json>)；[现存26项验证](<E:/creation-reading-assistant/task47v2-codex-review-20261015/existing-manifest-verify.json>)；[本地失败仍恢复](<E:/creation-reading-assistant/task47v2-codex-review-20261015/premature-restore-result.json>)。
+[22原测试](<<证据根>/task47v2-codex-review-20261015/offline-tests.log>)；[生产正向反例与完整边界命令](<<证据根>/task47v2-codex-review-20261015/production-positive-counterexample.json>)；[缩减清单](<<证据根>/task47v2-codex-review-20261015/omitted-dependencies-manifest.json>)；[缩减清单错误通过](<<证据根>/task47v2-codex-review-20261015/omitted-dependencies-result.json>)；[现存26项验证](<<证据根>/task47v2-codex-review-20261015/existing-manifest-verify.json>)；[本地失败仍恢复](<<证据根>/task47v2-codex-review-20261015/premature-restore-result.json>)。
 
 ## 未覆盖项
 设备NOT_RUN、真实生产正向未交；V0未退出。D/F、SAF Provider/9组仪器、X、实体/MIUI/正式升级发布边界不变，Android全产品分母未知。47报告R1-R4全部CLOSED不采纳。

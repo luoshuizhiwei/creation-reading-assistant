@@ -4,7 +4,7 @@
 
 ## 输入指纹、所有权与改动、环境
 
-E:/creation-reading-assistant/task96-library-settings-closure-v1/v3输出7/7大小SHA匹配。产品110不变，运行54369035原APK已有v2单份保全；下一573e7000候选与e4a12bdc仪器编译后未设备。D协调Root、E共同工作区/构建/设备Claude；97独立worker只交付E97三源码及patch，未写共同工作区。
+<证据根>/task96-library-settings-closure-v1/v3输出7/7大小SHA匹配。产品110不变，运行54369035原APK已有v2单份保全；下一573e7000候选与e4a12bdc仪器编译后未设备。D协调Root、E共同工作区/构建/设备Claude；97独立worker只交付E97三源码及patch，未写共同工作区。
 
 ## 执行与结果、原始证据
 
@@ -18,7 +18,7 @@ summary保留ok=false/primaryError，recoveryErrors=[]；collect成功、单夹�
 
 ## 97-v1独立差量与未覆盖项
 
-E:/creation-reading-assistant/task97-search-error-feedback-v1已交付，7个artifact大小SHA核同、3个workspace输入before SHA仍匹配。minimal.patch仅改SearchViewModel/SearchScreen/对应测试：增加CONTENT_SEARCH_FAILED提示，正文异常保留元数据，取消重抛，区分真实零命中。源码交付已接收，编译/JVM/模拟器均未执行；96127B，不称实现验收完成。原报告integrationDependency写96-v2，应按最新96设备恢复闭合及当前owner为准。
+<证据根>/task97-search-error-feedback-v1已交付，7个artifact大小SHA核同、3个workspace输入before SHA仍匹配。minimal.patch仅改SearchViewModel/SearchScreen/对应测试：增加CONTENT_SEARCH_FAILED提示，正文异常保留元数据，取消重抛，区分真实零命中。源码交付已接收，编译/JVM/模拟器均未执行；96127B，不称实现验收完成。原报告integrationDependency写96-v2，应按最新96设备恢复闭合及当前owner为准。
 
 ## 交付状态与下一步、方向自审
 

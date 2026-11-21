@@ -1,6 +1,6 @@
 # 任务155-r1：修正155隔离差量漏return回归
 
-同B owner立即闭环，只新E:/creation-reading-assistant/task155-reader-exit-thread-fix-v1/recheck-r1/。原155-v1源/patch/REPORT/ready全部冻结，不覆盖，不改candidate/APK/设备/Gradle；A154仍唯一设备恢复owner。10分钟从实际UI发送计，source128KiB/raw16KiB，不复制工程缓存，不删移旧件。
+同B owner立即闭环，只新<证据根>/task155-reader-exit-thread-fix-v1/recheck-r1/。原155-v1源/patch/REPORT/ready全部冻结，不覆盖，不改candidate/APK/设备/Gradle；A154仍唯一设备恢复owner。10分钟从实际UI发送计，source128KiB/raw16KiB，不复制工程缓存，不删移旧件。
 
 Root/Luna实核原candidate ReaderViewModel.kt1043-1049：failure回调后return@launch；你155新source1045-1059在withContext(Main.immediate){onFailure(failure)}后漏return，无条件onDrained/navigated=true/navigate，破坏保存失败不pop及可重试。这是新增回归，原patch可应用不是行为验证；不得改测试断言/失败语义迎合。
 

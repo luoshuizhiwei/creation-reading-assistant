@@ -2,7 +2,7 @@
 
 ## 任务编号/版本、输入指纹
 
-2026-10-23 14:36后，94-v12交付核验。REPORT/patch/当前仪器/产品/test/保全aebc/宿主7项SHA与大小（适用项）实核匹配，见E:/creation-reading-assistant/task94-organizing-export-integration-v1/v12/ready.json。REPORT ac71edad…13ff1、仪器cec7b588…b39d3、宿主6b4f76a9…991c4、产品11023464…ffc30c、test22c6c738…ae380。实际运行42bf原字节未在重建前保全，缺口采纳而不冒充完整复现。
+2026-10-23 14:36后，94-v12交付核验。REPORT/patch/当前仪器/产品/test/保全aebc/宿主7项SHA与大小（适用项）实核匹配，见<证据根>/task94-organizing-export-integration-v1/v12/ready.json。REPORT ac71edad…13ff1、仪器cec7b588…b39d3、宿主6b4f76a9…991c4、产品11023464…ffc30c、test22c6c738…ae380。实际运行42bf原字节未在重建前保全，缺口采纳而不冒充完整复现。
 
 ## 所有权与改动、环境
 

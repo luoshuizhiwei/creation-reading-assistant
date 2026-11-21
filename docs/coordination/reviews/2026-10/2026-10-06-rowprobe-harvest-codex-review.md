@@ -23,7 +23,7 @@ Windows/Python；驱动重跑只使用fake-adb子进程，不调用真实ADB。�
 规范轴0，需求轴行级0（限定范围）、采集1P2。行级成果采纳；驱动同状态时序成果保留，仅身份/必需文件窄返修，不重做整套脚本。
 
 ## 原始证据
-[Root验证](<E:/creation-reading-assistant/rowprobe-harvest-codex-review-20261006/verification.json>)；[独立8场景](<E:/creation-reading-assistant/rowprobe-harvest-codex-review-20261006/offline-driver/offline/out/offline-verify-summary.json>)；[旧步骤反例](<E:/creation-reading-assistant/rowprobe-harvest-codex-review-20261006/stale-only-repro.json>)；[真实行时间线](<E:/creation-reading-assistant/txt-row-lifecycle-probe-v1/runs/timeline-summary.json>)。
+[Root验证](<<证据根>/rowprobe-harvest-codex-review-20261006/verification.json>)；[独立8场景](<<证据根>/rowprobe-harvest-codex-review-20261006/offline-driver/offline/out/offline-verify-summary.json>)；[旧步骤反例](<<证据根>/rowprobe-harvest-codex-review-20261006/stale-only-repro.json>)；[真实行时间线](<<证据根>/txt-row-lifecycle-probe-v1/runs/timeline-summary.json>)。
 
 ## 恢复与副作用
 本次未动设备。外部43文件MD5账Root实算一致，原APK前后SHA有原始文本证据；七设置/wm/ports按原记录复用，night yes为本批继承值，不关闭旧差异。未进行新的运行时设置检查，原设备恢复仅按该批时点成立。

@@ -20,10 +20,10 @@
 
 ## 代码接缝及预算
 执行前检查先于device.info；总时钟在设备查询前建立。launch180、baseline300通过真实run_step_bounded传入entry worker；两安装各180，MD/取材各600，阶段和2040；恢复420/480/120/420/180合计1620，总预算3900。恢复worker实际读取freeze并使用serial/attempt/run/ledger上下文。既有RealCommandRunner已含窄stdin脚本传输，未因本轮worker再退回未经转义的sh -c传输。归档失败停止后续卸载/恢复序列；错误与JUnit失败独立保留。
-Root检查首次结果聚合误把metadata当反例，KeyError后修正聚合并成功落盘；未改产品或工具。原始检查位于E:/creation-reading-assistant/task67-recovery-runner-v1/v3/root-review-20261020-125812/root-checks.json及同目录生产校验输出。
+Root检查首次结果聚合误把metadata当反例，KeyError后修正聚合并成功落盘；未改产品或工具。原始检查位于<证据根>/task67-recovery-runner-v1/v3/root-review-20261020-125812/root-checks.json及同目录生产校验输出。
 
 ## 所有权与改动
-唯一构建工作区E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android、Gradle home D:/develop/env/gradle及原锁不变，本批没有构建owner抢占。E盘Root新增精确逻辑字节14648，均为小型原始校验JSON；未新增工程/缓存/APK对，未删除迁移既有资产。D仅新增本报告及替换current页首；current改前SHA 0bc39e036479433adb11bc5f64d0b13b8108f9d7645712e8a1ff85908b7ea253，改后SHA见E盘root-review的handoff-update.json。
+唯一构建工作区<证据根>/task59-common-candidate-v1/candidate/android、Gradle home <开发盘>/env/gradle及原锁不变，本批没有构建owner抢占。E盘Root新增精确逻辑字节14648，均为小型原始校验JSON；未新增工程/缓存/APK对，未删除迁移既有资产。D仅新增本报告及替换current页首；current改前SHA 0bc39e036479433adb11bc5f64d0b13b8108f9d7645712e8a1ff85908b7ea253，改后SHA见E盘root-review的handoff-update.json。
 automation-2/3现场配置均PAUSED，未更改。夜间外部派发许可不延续；本轮未向Claude等外部应用发消息，未设备/Git/发布。
 
 ## 未覆盖项与交付状态与下一步

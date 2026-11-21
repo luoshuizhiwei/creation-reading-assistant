@@ -7,7 +7,7 @@ Codex-review-16v6-23v2-v1。用户“都完成了”后核源码/原始执行，
 HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空。
 16-v6 manifest9235b3d1adef5adfa86ff6043db0e44e1de36235b47b402e1ebe882a519680f8、tree5fd32aeb7a2a59503d8e339e119524827c7dd56b18d1b794559d8d7ff4537ef0，1005项；23-v2清单239c928079d8f14620be1bb4da91cd3c9518d215c4aceb92f7784dafbbdee6ec、treec1fa641c39840fd2e67d4e231c36c45820b83fb770357b1bbd8f9f2e2138b021，1001项，逐项SHA相符。
 
-新[Root-v2源码](<E:/creation-reading-assistant/next-usable-android-root-v2-20261012/candidate/android>)1005项，manifest e0de15c70487ad2fb03d18bf57660d61abd1f863c204984eeb7d105f4b4a9816、tree8785863cd53bbf58a5c549fe01aa567459d0fed993ae1e5157f0dbce8f1a7d67。[绑定来源](<E:/creation-reading-assistant/next-usable-android-root-v2-20261012/binding.json>)记录对Root-v1的8改/4增/0删。
+新[Root-v2源码](<<证据根>/next-usable-android-root-v2-20261012/candidate/android>)1005项，manifest e0de15c70487ad2fb03d18bf57660d61abd1f863c204984eeb7d105f4b4a9816、tree8785863cd53bbf58a5c549fe01aa567459d0fed993ae1e5157f0dbce8f1a7d67。[绑定来源](<<证据根>/next-usable-android-root-v2-20261012/binding.json>)记录对Root-v1的8改/4增/0删。
 
 ## 所有权与改动
 16对Root-v1的5改/4增与23三改完全互斥；Root按清单合成，不整树覆盖，旧21同步增量保留。原输入复制前后不变，无D回灌。
@@ -25,10 +25,10 @@ HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空。
 Root verify_join.py实际exit0、共同1005逐项一致，验收46及强冻结工具SHA核同。没有在共同树跑Gradle或设备，联合构建/设备未关闭。
 
 ## 原始证据
-- [Root核查](<E:/creation-reading-assistant/tasks16v6-23v2-codex-review-20261012/verification.json>)。
-- [16报告](<E:/creation-reading-assistant/reader-dispatch-order-task16-v6/REPORT.md>)、run_16v6_green原XML/log。
-- [23报告](<E:/creation-reading-assistant/inspiration-source-export-task23-v2/REPORT.md>)、red/green原XML/log。
-- [合流报告](<E:/creation-reading-assistant/next-usable-android-root-v2-20261012/REPORT.md>)。
+- [Root核查](<<证据根>/tasks16v6-23v2-codex-review-20261012/verification.json>)。
+- [16报告](<<证据根>/reader-dispatch-order-task16-v6/REPORT.md>)、run_16v6_green原XML/log。
+- [23报告](<<证据根>/inspiration-source-export-task23-v2/REPORT.md>)、red/green原XML/log。
+- [合流报告](<<证据根>/next-usable-android-root-v2-20261012/REPORT.md>)。
 
 ## 未覆盖项
 D真实重测量、旧UI回调、同版APK/MuMu、SAF/分享未证。V0/全产品未关闭，88/16仅测试分母。X清零、Back归因/队列、初始new save、实体硬件/实际LAN/签名发布旧边界保留。

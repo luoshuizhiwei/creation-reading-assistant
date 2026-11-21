@@ -6,7 +6,7 @@
 
 ## 所有权与改动、环境
 
-检查时无相关task94/95或GradleWrapperMain执行进程，95任务目录未存在；既有Gradle锁保留不抢占。Claude原项目聊天“原书缺失时摘录仍可读”Idle，当前workbuddy/cn:deepseek-v4.1-flash 1M无额度提示，保持不变。Root只写D协调/current，Claude写E:/creation-reading-assistant/task95-current-candidate-delivery-v1交付；现有唯一task59工作区/缓存不变。
+检查时无相关task94/95或GradleWrapperMain执行进程，95任务目录未存在；既有Gradle锁保留不抢占。Claude原项目聊天“原书缺失时摘录仍可读”Idle，当前workbuddy/cn:deepseek-v4.1-flash 1M无额度提示，保持不变。Root只写D协调/current，Claude写<证据根>/task95-current-candidate-delivery-v1交付；现有唯一task59工作区/缓存不变。
 
 ## 执行与结果、原始证据
 

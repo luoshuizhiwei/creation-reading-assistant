@@ -14,4 +14,4 @@ Root实算996源码SHA一致；相对8仅J1两测试与SearchScreen变化，993�
 
 下一3-v8独立E返回链诊断/必要最小修复，唯一设备；9-v1独立E驱动权限安全取证返修，离线无设备/Gradle。9不得削弱pre-uninstall失败拒绝，3不得吸收未核9。最终31继续等待Root核查。8的未变64JVM复用，不重复全量。
 
-Root证据：E:/creation-reading-assistant/task3-v7-codex-review-20261009/verification.json、evidence-verification.json（备份文件加包前缀，3份另行实算均核同）。D产品/Git/发布无授权。X整机中断、Back完成归因/pending排空/初始新save等未覆盖保留。
+Root证据：<证据根>/task3-v7-codex-review-20261009/verification.json、evidence-verification.json（备份文件加包前缀，3份另行实算均核同）。D产品/Git/发布无授权。X整机中断、Back完成归因/pending排空/初始新save等未覆盖保留。

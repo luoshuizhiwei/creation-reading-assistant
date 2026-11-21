@@ -4,14 +4,14 @@
 65-v3夜间续接，2026-10-20香港时间。用户明确授权睡觉后启动夜间自动任务、将后续提示词提交当前Claude对话，模型保持不变。该授权替代本夜旧暂停/外部不派发停止点，仅在既有Android范围内，不扩展产品或Git权限。
 
 ## 输入指纹
-夜间完整提示词E:/creation-reading-assistant/task65-reading-material-flow-v1/v3/PROMPT-night-resume-20261020.txt，SHA256 06754ad39cd9800557ef525f76424ec046ff5e56eb79d61ae092fa3add4dbc5f。
+夜间完整提示词<证据根>/task65-reading-material-flow-v1/v3/PROMPT-night-resume-20261020.txt，SHA256 06754ad39cd9800557ef525f76424ec046ff5e56eb79d61ae092fa3add4dbc5f。
 既有63及64v2/65v2接收结论沿[Root报告](../../reviews/2026-10/2026-10-20-tasks64v2-65v2-root-review.md)复用，不重核整套资产。
 
 ## 所有权与改动
 当前Claude项目creation-reading-assistant会话48，真实UI地址app://localhost/epitaxy/local_6f1ef49a-28ad-48b3-92c3-9b4d8916efaf；唯一公共集成/构建/绑定/设备owner为65-v3执行者，Codex Root核验、派发和维护交接。Root只写提示词、必要D交接与经工具更新automation-3；不改产品或运行中源码。
 
 ## 环境
-沿既有59唯一工作区、D:/develop/env/gradle及android-gradle-exclusive.lock。通过computer-use技能正式node_repl/@oai/sky观察Claude窗口、空白输入框、Idle48后填入并发送，未操作终端UI或模型菜单。
+沿既有59唯一工作区、<开发盘>/env/gradle及android-gradle-exclusive.lock。通过computer-use技能正式node_repl/@oai/sky观察Claude窗口、空白输入框、Idle48后填入并发送，未操作终端UI或模型菜单。
 UI实际模型workbuddy/cn:hy4-preview 1M保持不变，不沿用旧DeepSeek/切换提供商许可。
 
 ## 执行与结果

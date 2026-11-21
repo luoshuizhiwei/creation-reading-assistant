@@ -22,7 +22,7 @@ F新增单测创建两个guard实例并在旧实例disarm/observe，证明类实
 
 ## 原始证据、恢复与副作用
 
-[Rootverification](<E:/creation-reading-assistant/tasks16v3-21-codex-review-20261012/verification.json>)保存SHA/XML/items/harvest/inventory。16-v3前后保护清单71/0逐文件相同、14720字节stdout逐字同，基线/后账DB/WAL/SHM、原APK对、8设置、端口/shell与沙箱absence限定可核。没有独立创建物账本，仍不能由保护71文件/tmp顶层相等推出任意tmp子目录都恢复。
+[Rootverification](<<证据根>/tasks16v3-21-codex-review-20261012/verification.json>)保存SHA/XML/items/harvest/inventory。16-v3前后保护清单71/0逐文件相同、14720字节stdout逐字同，基线/后账DB/WAL/SHM、原APK对、8设置、端口/shell与沙箱absence限定可核。没有独立创建物账本，仍不能由保护71文件/tmp顶层相等推出任意tmp子目录都恢复。
 
 外部后账11:35记录实例关闭；Root12:24复核时实例进程存在且adb在线，MAA12:11启动、MuMu实例12:17启动（均晚于任务后账），不归因为任务遗留，也不声称当前仍关闭。Root未关闭/接管外部会话，未写设备、未构建/重测、未修改候选。仅Root E核查工件及D协调文档写入。
 

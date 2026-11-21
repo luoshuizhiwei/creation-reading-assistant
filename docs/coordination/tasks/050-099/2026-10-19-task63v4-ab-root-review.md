@@ -12,7 +12,7 @@
 
 ## 所有权与改动
 
-未见相关活动Python/Gradle执行者。Root只读A/B报告、源码及直接证据，不修改其交付；在 `E:/creation-reading-assistant/task63-common-device-entry-v1/root-review/v4-r1` 交回读错误边界最小差量、薄入口、注入回归、107绑定和小型核验记录，并更新本报告/current。未复制工程、缓存、旧证据或APK。
+未见相关活动Python/Gradle执行者。Root只读A/B报告、源码及直接证据，不修改其交付；在 `<证据根>/task63-common-device-entry-v1/root-review/v4-r1` 交回读错误边界最小差量、薄入口、注入回归、107绑定和小型核验记录，并更新本报告/current。未复制工程、缓存、旧证据或APK。
 
 ## 环境
 

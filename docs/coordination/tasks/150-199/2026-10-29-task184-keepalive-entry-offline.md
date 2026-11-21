@@ -1,6 +1,6 @@
 # 任务184-v1：保活判定接入严格身份链，离线闭环
 
-2026-10-29；原182/179 owner同会话接续，推荐保持ZCode当前模型；20分钟自实际全文发送起评估。你负责新生产接缝实现、必要定向离线验证和交付，不修改冻结源。Root负责state/current。唯一新目录 E:/creation-reading-assistant/task184-strict-keepalive-entry-offline-v1/，唯一ready.json。B183-r1已集成编译交付，不普通继续、不重构建；当前没有第二个必要独立任务，不为并行造任务。后续业务批依赖本生产判定接缝。
+2026-10-29；原182/179 owner同会话接续，推荐保持ZCode当前模型；20分钟自实际全文发送起评估。你负责新生产接缝实现、必要定向离线验证和交付，不修改冻结源。Root负责state/current。唯一新目录 <证据根>/task184-strict-keepalive-entry-offline-v1/，唯一ready.json。B183-r1已集成编译交付，不普通继续、不重构建；当前没有第二个必要独立任务，不为并行造任务。后续业务批依赖本生产判定接缝。
 
 ## 基线和Root裁决
 
@@ -10,11 +10,11 @@
 
 ## 已确认生产缺陷
 
-E:/creation-reading-assistant/task94-organizing-export-integration-v1/v3/scripts/t94v3_device.py:323 cmd_keepalive仍以 inst.serial_attached && inst.instance.is_process_started 判ok。181真实08原false，原manager flags仍false；179r3严格resolver已通过实际VM进程/配置磁盘/监听/ADB/boot完整链确认在线，不能改manager旗标伪绿，也不应把这条旧旗标当完整在线判定。host136.py:686真实恢复尾调用b.cmd_keepalive(None)。只替换这个生产接缝，其他身份/业务/恢复门完全保持。
+<证据根>/task94-organizing-export-integration-v1/v3/scripts/t94v3_device.py:323 cmd_keepalive仍以 inst.serial_attached && inst.instance.is_process_started 判ok。181真实08原false，原manager flags仍false；179r3严格resolver已通过实际VM进程/配置磁盘/监听/ADB/boot完整链确认在线，不能改manager旗标伪绿，也不应把这条旧旗标当完整在线判定。host136.py:686真实恢复尾调用b.cmd_keepalive(None)。只替换这个生产接缝，其他身份/业务/恢复门完全保持。
 
-冻结 t94v3 16583B SHAc806ce361c9c3929c4c32e08f6435e5e1f5b8ce088c8e6f0aa487cdee1d5fdbe；host136 E:/creation-reading-assistant/task136-f1-global-offset-repair-v1/lane-b/scripts/host136.py 52645B SHA9457a4c5989e2c408923048b9c6b3c818b35573e6c9345eeb048632a9c5912b2；host176_r3 E:/creation-reading-assistant/task176-contract-b-host-binding-offline-v1/recheck-r3/host/host176_r3.py 21289B SHA9ff38f2626f7eac901c5c479fbeb5b6f1e06521cc089259ab8fb7e98da059cb7。
+冻结 t94v3 16583B SHAc806ce361c9c3929c4c32e08f6435e5e1f5b8ce088c8e6f0aa487cdee1d5fdbe；host136 <证据根>/task136-f1-global-offset-repair-v1/lane-b/scripts/host136.py 52645B SHA9457a4c5989e2c408923048b9c6b3c818b35573e6c9345eeb048632a9c5912b2；host176_r3 <证据根>/task176-contract-b-host-binding-offline-v1/recheck-r3/host/host176_r3.py 21289B SHA9ff38f2626f7eac901c5c479fbeb5b6f1e06521cc089259ab8fb7e98da059cb7。
 
-现有生产入口 E:/creation-reading-assistant/task179-instance-identity-adapter-offline-v1/recheck-r3/entry_wiring_r3.py 2047B SHAc300fce8d5e88934347294d53b2f68009b81b656ba95fd7ee10d3c454b640f7c；identity_adapter_r3.py16872B SHAa0c12c4da7743fa5493e37471797bc668a5f5fec73404c7cf561fc3d3da93cbc；依赖r2/r1沿原pin只读。不动任何冻结文件、candidate/APK、183或182产物。
+现有生产入口 <证据根>/task179-instance-identity-adapter-offline-v1/recheck-r3/entry_wiring_r3.py 2047B SHAc300fce8d5e88934347294d53b2f68009b81b656ba95fd7ee10d3c454b640f7c；identity_adapter_r3.py16872B SHAa0c12c4da7743fa5493e37471797bc668a5f5fec73404c7cf561fc3d3da93cbc；依赖r2/r1沿原pin只读。不动任何冻结文件、candidate/APK、183或182产物。
 
 ## 最小实现
 

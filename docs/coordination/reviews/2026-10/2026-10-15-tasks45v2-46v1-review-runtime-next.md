@@ -18,7 +18,7 @@ Python3.13，定向pytest禁字节码与cache，临时文件写自有E；不Grad
 46-v1原始日志SHA b934aca93fee00d1dd8bc577ab27d9e2e4980d737e992685b7e230592a84d4a2实算一致。09:25当时adb devices为空，MuMu实例0/1均未启动；限定只读不许启动，因此BLOCKED停点正确，不是产品失败。设备身份/包/数据能力均NOT_RUN，非最终基线。forward --list实为空exit0，reverse无设备报错，报告合写不准确；锁文件存在性不能证明锁未占用，进程/目录观察亦不能证明无其他owner。未来现场须重新核，不沿用这些否定断言。
 
 ## 原始证据
-[Root23原测试](<E:/creation-reading-assistant/tasks45v2-46v1-codex-review-20261015/original-tests.log>)；[45-v2实际代码](<E:/creation-reading-assistant/task45-android-joint-candidate-freeze-v2/host/integration_chain.py>)；[恢复入口](<E:/creation-reading-assistant/task45-android-joint-candidate-freeze-v2/host/recovery_cli.py>)；[46原始观察](<E:/creation-reading-assistant/task46-mumu-readonly-preflight-v1/logs/readonly-commands.log>)；[上轮强冻结实核](../../tasks/000-049/2026-10-15-task45-review-runtime-preflight-next.md)。
+[Root23原测试](<<证据根>/tasks45v2-46v1-codex-review-20261015/original-tests.log>)；[45-v2实际代码](<<证据根>/task45-android-joint-candidate-freeze-v2/host/integration_chain.py>)；[恢复入口](<<证据根>/task45-android-joint-candidate-freeze-v2/host/recovery_cli.py>)；[46原始观察](<<证据根>/task46-mumu-readonly-preflight-v1/logs/readonly-commands.log>)；[上轮强冻结实核](../../tasks/000-049/2026-10-15-task45-review-runtime-preflight-next.md)。
 
 ## 未覆盖项
 共同APK已核限定，主机默认/拒绝路径已核，合法real链未交付；MuMu验收NOT_RUN。D/F、SAF Provider与清理仪器9组、X整机中断、实体/MIUI、正式升级/R8/发布边界保持。Android全产品分母未知。

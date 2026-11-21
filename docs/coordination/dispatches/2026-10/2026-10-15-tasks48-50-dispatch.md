@@ -4,12 +4,12 @@
 任务48-v1、49-v1、50-v1；2026-10-15 20:11 +08:00。提示词已准备，待用户转交，未向外部应用自动发送。
 
 ## 输入指纹
-共同基线为[Root v9报告](2026-10-15-root-stage-runtime-reader-v9.md)，工作根 E:/creation-reading-assistant/root-runtime-device-20261015。freeze-v9/attempt1/freeze.json SHA b7583c782fbf4c3b86bf0f5fadf066ab51d008e14892f26030486482c90ba8b3；source manifest SHA 505c35235e2ecafc8cc248870753e2ca3c0b06e9adffc02e74debb658ab18dc5。各执行者重核相关文件SHA，不改冻结基线。
+共同基线为[Root v9报告](2026-10-15-root-stage-runtime-reader-v9.md)，工作根 <证据根>/root-runtime-device-20261015。freeze-v9/attempt1/freeze.json SHA b7583c782fbf4c3b86bf0f5fadf066ab51d008e14892f26030486482c90ba8b3；source manifest SHA 505c35235e2ecafc8cc248870753e2ca3c0b06e9adffc02e74debb658ab18dc5。各执行者重核相关文件SHA，不改冻结基线。
 
 ## 所有权与改动
-- 48：E:/creation-reading-assistant/task48-temporary-return-freeze-v1；独立Android候选main业务路径和相应JVM测试。修A2两时间列变化，不改androidTest或严格消费者。
-- 49：E:/creation-reading-assistant/task49-inner-restore-cleanup-v1；独立host/runtime恢复链及Python测试。修新增sync/webdav配置残留并保全预存文件，不改Android或验收比较合同。
-- 50：E:/creation-reading-assistant/task50-remeasure-probe-repair-v1；仅ReaderClampRealViewportRemeasureProbeTest.kt及本任务新增专属测试。修异步恢复读回与可判定实验条件；main只读，发现产品问题交Root处理。
+- 48：<证据根>/task48-temporary-return-freeze-v1；独立Android候选main业务路径和相应JVM测试。修A2两时间列变化，不改androidTest或严格消费者。
+- 49：<证据根>/task49-inner-restore-cleanup-v1；独立host/runtime恢复链及Python测试。修新增sync/webdav配置残留并保全预存文件，不改Android或验收比较合同。
+- 50：<证据根>/task50-remeasure-probe-repair-v1；仅ReaderClampRealViewportRemeasureProbeTest.kt及本任务新增专属测试。修异步恢复读回与可判定实验条件；main只读，发现产品问题交Root处理。
 - 三线立即并行，公共文档、合流、最终构建、设备由Root唯一负责。推荐48/50用DeepSeek，49用GLM5.3Flash；Gemini3.8仅作用户侧确有入口时的替换选项，未核其供应商能力和价格。
 
 ## 环境

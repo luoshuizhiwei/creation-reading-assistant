@@ -1,7 +1,7 @@
 # 回滚 WIP 保全合并 v2：fresh-source 与复制路径逐字节核对
 
 - 任务编号/版本：`CRA-ROLLBACK-WIP-RECONCILE-v2`，2026-10-04 指定，实际执行 2026-10-04T13:30–17:10+08:00，应用 ZCode / GLM（model: new-provider/glm-5.2）。
-- 输入指纹：HEAD `e39a78da9c62f02614207cffb36969a32492eaea`（开工=收工，未变更）；暂存区前后均 0 条。续接候选 `E:\creation-reading-assistant\next-round-rollback-wip-reconcile-v2\android`，由 v1 创建并复制冻结的 `EpubParser.kt`/`EpubRepositoryReplaceTest.kt`，尚未修改 `EpubRepository.kt`。三方输入 SHA 与 v1 [source-sha256.txt](<E:/creation-reading-assistant/next-round-rollback-wip-reconcile-v1/freeze/source-sha256.txt>) 一致；本轮再核 D 现场三路径与快照零漂移。
+- 输入指纹：HEAD `e39a78da9c62f02614207cffb36969a32492eaea`（开工=收工，未变更）；暂存区前后均 0 条。续接候选 `E:\creation-reading-assistant\next-round-rollback-wip-reconcile-v2\android`，由 v1 创建并复制冻结的 `EpubParser.kt`/`EpubRepositoryReplaceTest.kt`，尚未修改 `EpubRepository.kt`。三方输入 SHA 与 v1 [source-sha256.txt](<<证据根>/next-round-rollback-wip-reconcile-v1/freeze/source-sha256.txt>) 一致；本轮再核 D 现场三路径与快照零漂移。
 - 所有权与改动：只读 D 源码/快照/基线/文档；写入仅新目录 `E:\creation-reading-assistant\next-round-rollback-wip-reconcile-v2`（android 候选、before、freeze、logs、payload、execution.json）与唯一报告 `docs/coordination/dispatches/2026-10/2026-10-04-next-rollback-wip-reconcile-v2.md`。改动恰为三路径（见 payload），未触碰 EpubParser.kt / FileOps.kt / ShelfImporter.kt / ShelfImporterTest.kt（SHA 与 before 一致）；未操作设备；未执行任何 Git 写操作；未回灌 D。
 
 ## 红阶段（真实失败集 = 4 项，非 1 项）
@@ -41,12 +41,12 @@
 
 | 测试类 | tests | fail | err | skip | XML |
 |---|---|---|---|---|---|
-| EpubRepositoryReplaceTest | 26 | 0 | 0 | 0 | [green-TEST-…EpubRepositoryReplaceTest.xml](<E:/creation-reading-assistant/next-round-rollback-wip-reconcile-v2/freeze/evidence/green-TEST-com.creationreadingassistant.feature.reader.EpubRepositoryReplaceTest.xml>) |
-| EpubRepositoryReplaceRollbackTest | 11 | 0 | 0 | 0 | [green-TEST-…EpubRepositoryReplaceRollbackTest.xml](<E:/creation-reading-assistant/next-round-rollback-wip-reconcile-v2/freeze/evidence/green-TEST-com.creationreadingassistant.feature.reader.EpubRepositoryReplaceRollbackTest.xml>) |
-| ShelfImporterTest | 63 | 0 | 0 | 0 | [green-TEST-…ShelfImporterTest.xml](<E:/creation-reading-assistant/next-round-rollback-wip-reconcile-v2/freeze/evidence/green-TEST-com.creationreadingassistant.ui.viewmodel.ShelfImporterTest.xml>) |
-| EpubParserTextTest | 28 | 0 | 0 | 0 | [green-TEST-…EpubParserTextTest.xml](<E:/creation-reading-assistant/next-round-rollback-wip-reconcile-v2/freeze/evidence/green-TEST-com.creationreadingassistant.feature.reader.EpubParserTextTest.xml>) |
-| EpubParserMalformedCorpusTest | 11 | 0 | 0 | 0 | [green-TEST-…EpubParserMalformedCorpusTest.xml](<E:/creation-reading-assistant/next-round-rollback-wip-reconcile-v2/freeze/evidence/green-TEST-com.creationreadingassistant.feature.reader.EpubParserMalformedCorpusTest.xml>) |
-| EpubRepositoryMetadataTest | 3 | 0 | 0 | 0 | [green-TEST-…EpubRepositoryMetadataTest.xml](<E:/creation-reading-assistant/next-round-rollback-wip-reconcile-v2/freeze/evidence/green-TEST-com.creationreadingassistant.feature.reader.EpubRepositoryMetadataTest.xml>) |
+| EpubRepositoryReplaceTest | 26 | 0 | 0 | 0 | [green-TEST-…EpubRepositoryReplaceTest.xml](<<证据根>/next-round-rollback-wip-reconcile-v2/freeze/evidence/green-TEST-com.creationreadingassistant.feature.reader.EpubRepositoryReplaceTest.xml>) |
+| EpubRepositoryReplaceRollbackTest | 11 | 0 | 0 | 0 | [green-TEST-…EpubRepositoryReplaceRollbackTest.xml](<<证据根>/next-round-rollback-wip-reconcile-v2/freeze/evidence/green-TEST-com.creationreadingassistant.feature.reader.EpubRepositoryReplaceRollbackTest.xml>) |
+| ShelfImporterTest | 63 | 0 | 0 | 0 | [green-TEST-…ShelfImporterTest.xml](<<证据根>/next-round-rollback-wip-reconcile-v2/freeze/evidence/green-TEST-com.creationreadingassistant.ui.viewmodel.ShelfImporterTest.xml>) |
+| EpubParserTextTest | 28 | 0 | 0 | 0 | [green-TEST-…EpubParserTextTest.xml](<<证据根>/next-round-rollback-wip-reconcile-v2/freeze/evidence/green-TEST-com.creationreadingassistant.feature.reader.EpubParserTextTest.xml>) |
+| EpubParserMalformedCorpusTest | 11 | 0 | 0 | 0 | [green-TEST-…EpubParserMalformedCorpusTest.xml](<<证据根>/next-round-rollback-wip-reconcile-v2/freeze/evidence/green-TEST-com.creationreadingassistant.feature.reader.EpubParserMalformedCorpusTest.xml>) |
+| EpubRepositoryMetadataTest | 3 | 0 | 0 | 0 | [green-TEST-…EpubRepositoryMetadataTest.xml](<<证据根>/next-round-rollback-wip-reconcile-v2/freeze/evidence/green-TEST-com.creationreadingassistant.feature.reader.EpubRepositoryMetadataTest.xml>) |
 | **合计** | **142** | **0** | **0** | **0** | |
 
 - v1 的 74 项（`EpubRepositoryReplaceRollbackTest` 11 + `ShelfImporterTest` 63）全部保留通过。

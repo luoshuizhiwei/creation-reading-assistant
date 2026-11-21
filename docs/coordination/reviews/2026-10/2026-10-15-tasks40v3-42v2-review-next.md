@@ -7,7 +7,7 @@
 D HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空。42-v2输出1020清单逐文件全部实核匹配；vsRoot-v2原1019为2改/1017不变、加1仪器文件，main/配置不变。原APK冻结和未改生产证据复用，不复构建。40原代码/日志保留只读，Root只拷host/tests及顶层evidence文件至自有E核验。
 
 ## 所有权与改动
-Root只核查/全局交接；40-v4唯一写E:/creation-reading-assistant/task40-host-joint-integration-v4的host/runtime/定向测试/冻结，42-v3唯一写E:/creation-reading-assistant/task42-saf-run-cleanup-v3自有仪器候选/定向验证/编译证据。无共写，设备/最终APK等核后唯一owner合流；桌面/HOLD退出当前队列，44撤销不恢复。
+Root只核查/全局交接；40-v4唯一写<证据根>/task40-host-joint-integration-v4的host/runtime/定向测试/冻结，42-v3唯一写<证据根>/task42-saf-run-cleanup-v3自有仪器候选/定向验证/编译证据。无共写，设备/最终APK等核后唯一owner合流；桌面/HOLD退出当前队列，44撤销不恢复。
 
 ## 环境
 Python3.13，40原17项在E只读副本实际运行17/17 exit0、76.17s，禁pycache和pytest输入缓存。42不重复Gradle，检查原始编译日志与真实源码/清单；无设备/ADB/新APK，无子代理/外部消息。
@@ -19,7 +19,7 @@ Python3.13，40原17项在E只读副本实际运行17/17 exit0、76.17s，禁pyc
 42原编译日志第43行BUILD SUCCESSFUL in40s，但最后244行为BUILD FAILED in41s、245 command exit1，失败因任务本地.gradle/buildOutputCleanup缓存锁释放。日志SHA300536c7f8de8ba43a7bd028b99f2613340b5a8f813f9f8eb87f33456434dcd8。报告exit0/35s与最终日志不符，不能采纳最终编译成功；源码编译任务UP-TO-DATE阶段证据保留，不据环境释放锁失败断言Kotlin源码错误。下一隔离新项目缓存，保留旧现场，不删锁、不杀共享进程，取得最终exit0的单次清晰日志。
 
 ## 原始证据
-[40原17测试](<E:/creation-reading-assistant/tasks40v3-42v2-codex-review-20261015/40-original-tests.log>)；[consumer失败仍通过反例](<E:/creation-reading-assistant/tasks40v3-42v2-codex-review-20261015/40-consume-reject-counterexample.json>)；[空基线SAF/未知scope反例](<E:/creation-reading-assistant/tasks40v3-42v2-codex-review-20261015/40-capability-counterexample.json>)；[夹具复制与单方法捷径](<E:/creation-reading-assistant/tasks40v3-42v2-codex-review-20261015/40-evidence-shortcuts.json>)；[42源差量与最终构建状态](<E:/creation-reading-assistant/tasks40v3-42v2-codex-review-20261015/42-source-and-build-review.json>)；[42输出清单](<E:/creation-reading-assistant/tasks40v3-42v2-codex-review-20261015/42-output-manifest-review.json>)；[删除前弱门禁](<E:/creation-reading-assistant/tasks40v3-42v2-codex-review-20261015/42-deletion-gate.json>)。
+[40原17测试](<<证据根>/tasks40v3-42v2-codex-review-20261015/40-original-tests.log>)；[consumer失败仍通过反例](<<证据根>/tasks40v3-42v2-codex-review-20261015/40-consume-reject-counterexample.json>)；[空基线SAF/未知scope反例](<<证据根>/tasks40v3-42v2-codex-review-20261015/40-capability-counterexample.json>)；[夹具复制与单方法捷径](<<证据根>/tasks40v3-42v2-codex-review-20261015/40-evidence-shortcuts.json>)；[42源差量与最终构建状态](<<证据根>/tasks40v3-42v2-codex-review-20261015/42-source-and-build-review.json>)；[42输出清单](<<证据根>/tasks40v3-42v2-codex-review-20261015/42-output-manifest-review.json>)；[删除前弱门禁](<<证据根>/tasks40v3-42v2-codex-review-20261015/42-deletion-gate.json>)。
 
 ## 未覆盖项
 交付2/2不等验收通过。40的模拟逻辑/原17项成立，不关闭完整链/实际SAF；42新清理仪器8项NOT_RUN、provider NOT_PROVEN、最终构建exit1。MuMu全NOT_RUN，D/F及X/实体/MIUI边界不扩，Android完整分母未知。报告“NOT_PROVEN清零/100%闭环”不采纳。

@@ -19,7 +19,7 @@ Root实际强freeze verify exit0/PASS；30item均exit0、原raw均OK(1 test)。�
 
 ## 原始证据、恢复与副作用
 
-[Rootverification](<E:/creation-reading-assistant/tasks16-6v8-17-18-codex-review-20261012/verification.json>)及原REPORT/XML/30raw/harvest/强冻结记录保留。16恢复final-ledger SHA5292fc8d15837938116301959572897788ec594b67ff28da711a5fe69f166fd3，汇总71一致/DB/APK/8设置/361创建物缺席成立；当前实例1关闭adb空已Root只读核。inventory stdout仅保留3000字符，缺独立完整71后清单，16-v2下一设备收尾保存完整raw与机器清单并独立比较；不把后补清单伪装成原时点。Root无设备写入/Gradle/产品修改。
+[Rootverification](<<证据根>/tasks16-6v8-17-18-codex-review-20261012/verification.json>)及原REPORT/XML/30raw/harvest/强冻结记录保留。16恢复final-ledger SHA5292fc8d15837938116301959572897788ec594b67ff28da711a5fe69f166fd3，汇总71一致/DB/APK/8设置/361创建物缺席成立；当前实例1关闭adb空已Root只读核。inventory stdout仅保留3000字符，缺独立完整71后清单，16-v2下一设备收尾保存完整raw与机器清单并独立比较；不把后补清单伪装成原时点。Root无设备写入/Gradle/产品修改。
 
 ## 未覆盖项、复盘与退出条件
 

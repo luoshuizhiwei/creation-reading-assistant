@@ -2,7 +2,7 @@
 
 ## 任务编号/版本、输入指纹
 
-2026-10-23，94-v2接收核验，后续94-v3。输入为`E:/creation-reading-assistant/task94-organizing-export-integration-v1/v2/ready.json`、REPORT及直接证据；[实施报告](2026-10-23-task94-v2-review.md)。Root重算REPORT SHA `3809fc72f542551b65441f84bcc18cf227bc5e9fe7146aaab19b3ff66d7fba91`、patch `8a1f72a9b8ea531e9d29cac088354556e99217c88ff447e16f982e78cf5c3f4c`、仪器源码 `0bc2ac2143ca6741b333a3525aa551cebe6ee87a7e23c405840938e862b61eb1`均匹配。
+2026-10-23，94-v2接收核验，后续94-v3。输入为`<证据根>/task94-organizing-export-integration-v1/v2/ready.json`、REPORT及直接证据；[实施报告](2026-10-23-task94-v2-review.md)。Root重算REPORT SHA `3809fc72f542551b65441f84bcc18cf227bc5e9fe7146aaab19b3ff66d7fba91`、patch `8a1f72a9b8ea531e9d29cac088354556e99217c88ff447e16f982e78cf5c3f4c`、仪器源码 `0bc2ac2143ca6741b333a3525aa551cebe6ee87a7e23c405840938e862b61eb1`均匹配。
 
 ## 所有权与改动、环境
 

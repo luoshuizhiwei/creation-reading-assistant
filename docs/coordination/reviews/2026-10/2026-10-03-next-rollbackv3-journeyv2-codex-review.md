@@ -5,7 +5,7 @@
 - 所有权与改动：Root 只读代码/证据，维护本报告/current/TODO，并在 E 准备29路径源码 payload；没有产品回灌、Git写入、构建或设备操作。
 - 环境：Windows/Python 3.13。code-review 两轴核查；独立只读审查者定位 MD 回源链，不改源码。
 - 执行与结果：树 SHA、XML、运行日志 SHA、安装记录、定位 JSON、截图与恢复前后账核对，见下。
-- 原始证据：[Root audit](<E:/creation-reading-assistant/rollbackv3-journeyv2-review-20261003/audit.json>)；[回滚 v3 报告](../../dispatches/2026-10/2026-10-03-next-reselect-rollback-fix-v3.md)；[阅读 v2 报告](../../../qa/2026-10/2026-10-03-next-read-note-journey-accept-v2.md)。
+- 原始证据：[Root audit](<<证据根>/rollbackv3-journeyv2-review-20261003/audit.json>)；[回滚 v3 报告](../../dispatches/2026-10/2026-10-03-next-reselect-rollback-fix-v3.md)；[阅读 v2 报告](../../../qa/2026-10/2026-10-03-next-read-note-journey-accept-v2.md)。
 - 未覆盖项：MD 回源尚失败；旧 v1 最终测试 APK 对应仍不确定；独立 notes 行、跨书、临时查阅、实体手机、KeyStore绝对零副作用没有新增证明。
 - 恢复与副作用：本轮未操作设备；阅读批次落盘前后53文件/3原APK/8设置一致，夜间 no 是本批基线，不覆盖 v1 yes 历史。编辑前文档快照位于 E 本轮 before。
 - 交付状态与下一步：回滚限定源码/JVM通过；阅读 TXT/EPUB非起点与高亮个人批注通过，MD静默无位移单列修复。
@@ -28,7 +28,7 @@
 
 ## 合流准备与退出条件
 
-Root已准备[29路径精确源码payload及manifest](<E:/creation-reading-assistant/rollbackv3-journeyv2-review-20261003/payload29-preparation/manifest.json>)：既有25＋回滚四路径互不重叠，29/29拷贝后SHA一致。该目录只是源码交付包，未构建、未设备验收、未应用D；不包含本批临时后缀/仪器驱动。MD修复后再更新最终范围，避免先建一个马上过期的联合APK。
+Root已准备[29路径精确源码payload及manifest](<<证据根>/rollbackv3-journeyv2-review-20261003/payload29-preparation/manifest.json>)：既有25＋回滚四路径互不重叠，29/29拷贝后SHA一致。该目录只是源码交付包，未构建、未设备验收、未应用D；不包含本批临时后缀/仪器驱动。MD修复后再更新最终范围，避免先建一个马上过期的联合APK。
 
 下一仅修MD回源并定向验收。保留阅读优先、安全优先及既定有限功能，不新开大重构、不重跑旧 N1/G1、不扩展F发布。关键修复成功后Root集成、单owner构建及MuMu受影响验收；D回灌与Git仍需当次精确授权。
 

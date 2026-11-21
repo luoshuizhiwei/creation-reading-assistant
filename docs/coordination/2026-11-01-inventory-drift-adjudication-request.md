@@ -21,11 +21,11 @@
 
 ## 上下文文件
 
-- 接任协调者state：`E:/creation-reading-assistant/coordination/android-zcode-luna-state.json`（a.inventoryDriftBlocker）
-- 209设备批REPORT：`E:/creation-reading-assistant/task209-navigation-coverage-v1/device-batch/REPORT.md`
+- 接任协调者state：`<证据根>/coordination/android-zcode-luna-state.json`（a.inventoryDriftBlocker）
+- 209设备批REPORT：`<证据根>/task209-navigation-coverage-v1/device-batch/REPORT.md`
 - 209+210合同：`docs/coordination/2026-10-31-task209-device-batch-a-b.md` + `2026-10-31-task210-external-entry-device.md`
 - V0矩阵：`docs/coordination/2026-10-31-v0-five-contract-matrix.md`
-- 208 REPORT：`E:/creation-reading-assistant/task208-ordinary-reopen-fresh-device-v1/REPORT.md`
+- 208 REPORT：`<证据根>/task208-ordinary-reopen-fresh-device-v1/REPORT.md`
 
 ## 附带裁决
 

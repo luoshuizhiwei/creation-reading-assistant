@@ -12,8 +12,8 @@ Root实际核32-v2原1012全部字节相同，0增/删/改；验收46相同。33
 32-v2部分采纳、返修：7项报告证据SHA实算相符，真实androidTest编译日志exit0；结构化状态替代全文关键词、多个失败准入比v1改善。但方法存在/编译不等于覆盖指定语义，现有22离线反例的暂存依赖被fake替换，未覆盖下列真实接缝。
 
 ## 原始证据
-[Root指纹/XML/独立反例](<E:/creation-reading-assistant/tasks32v2-33v2-codex-review-20261013/verification.json>)；[子集实际入口检查](<E:/creation-reading-assistant/tasks32v2-33v2-codex-review-20261013/subset-entry-check.json>)返回[]。子集形状成立，不宣称最终APK/身份/设备可运行。
-原交付：[32-v2](<E:/creation-reading-assistant/task32-fixed-joint-freeze-mumu-accept-v2/REPORT.md>)、[33-v2](<E:/creation-reading-assistant/task33-material-joined-data-chain-jvm-v2/REPORT.md>)。
+[Root指纹/XML/独立反例](<<证据根>/tasks32v2-33v2-codex-review-20261013/verification.json>)；[子集实际入口检查](<<证据根>/tasks32v2-33v2-codex-review-20261013/subset-entry-check.json>)返回[]。子集形状成立，不宣称最终APK/身份/设备可运行。
+原交付：[32-v2](<<证据根>/task32-fixed-joint-freeze-mumu-accept-v2/REPORT.md>)、[33-v2](<<证据根>/task33-material-joined-data-chain-jvm-v2/REPORT.md>)。
 
 ## 所有权与改动
 Root本轮仅写E审计与全局交接，不改外部原件/产品。

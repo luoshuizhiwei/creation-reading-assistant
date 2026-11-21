@@ -18,11 +18,11 @@
 
 只写106-A直接新增仪器/必要本批runner最小hunk/fixture和交付，不改产品I1/I2实现（如准入前确证可达缺陷，报告具体证据Root定下一最小修复；设备失败必须恢复停批）。不得为test参数改公共配置/Manifest/生产行为或新增依赖框架。你为唯一test编译/绑定/device owner；仅必要test APK构建，产品bf保持，精确配套身份绑定，不自动assemble产品/全库。并行worker106-B只读workspace在E/lane-b准备L1真实DataStore离线测试差量；你不复制或集成B到冻结输入，A恢复结束后Root核再安排共同构建，避免中途输入变化。
 
-新106-A-v1 runId/源码/product/test/fixture输入登记，一批一次主run含入场失败，禁止同批失败修码重试/静默retry/重算attempt。业务总上限1800秒+至少1200秒恢复预留，准入前确认整个上限及能力；不足停依赖业务。fresh adb devices/serial/boot/owner/前台/预算，命令全-s；ADB D:/Application/NetEase/MuMuPlayer/nx_main/adb.exe。只授权MuMu1必要启动/可关闭已授权游戏，未知前台不强停；不关闭重启杀VM/共享ADB，结束运行。若复用104单方法host，必须将am selector与expected状态base class分开，先用现有104原stdout作一个离线接线核验即可，不扩解析矩阵/另开工具任务/设备确认run，不改104原FAIL。
+新106-A-v1 runId/源码/product/test/fixture输入登记，一批一次主run含入场失败，禁止同批失败修码重试/静默retry/重算attempt。业务总上限1800秒+至少1200秒恢复预留，准入前确认整个上限及能力；不足停依赖业务。fresh adb devices/serial/boot/owner/前台/预算，命令全-s；ADB <MuMu adb>/adb.exe。只授权MuMu1必要启动/可关闭已授权游戏，未知前台不强停；不关闭重启杀VM/共享ADB，结束运行。若复用104单方法host，必须将am selector与expected状态base class分开，先用现有104原stdout作一个离线接线核验即可，不扩解析矩阵/另开工具任务/设备确认run，不改104原FAIL。
 
 保护恢复合同严格保持原71私有/820外部/DB-WAL-SHM/原宿主与test APK完整字节数据/inventory/userstate/设置strict night=no；前基线后核恢复，不以summary空错误代替原证据。仅本批新建中性fixture/摘录/书ID，清理走本批归属且不得影响保护正式资产；精确文件清理须初始缺席/runURI/E原字节sizeSHA归属及当前设备同字节单资产，之后复核缺席，不递归未知兄弟后代，探测失败非不存在。collect失败/唯一证据未保全/归属不明保留依赖资产BLOCKED，独立安全恢复继续，业务/取证/清理/恢复错误分开不吞错。无需要外部文件则不造，APK/DB恢复必须完整。
 
-唯一workspace E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android；Gradle home D:/develop/env/gradle，JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk，锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock，你唯一build owner。输出E:/creation-reading-assistant/task106-material-adoption-v1/lane-a，差量4MiB、必要设备原始8MiB、必要test build预计256MiB；bf必要单份52763781B保护另列。B目录lane-b归worker，勿覆盖。复制前估可用空间，不复制工程/build/.gradle/.kotlin/Gradle home/node_modules/缓存/历史证据/APK对，不硬链可写cache，不删除移动压缩迁移存量。没有充分新证据不做额外批次。
+唯一workspace <证据根>/task59-common-candidate-v1/candidate/android；Gradle home <开发盘>/env/gradle，JDK <开发盘>/Java/jdk-17.0.14，SDK <开发盘>/Android/Sdk，锁<证据根>/locks/android-gradle-exclusive.lock，你唯一build owner。输出<证据根>/task106-material-adoption-v1/lane-a，差量4MiB、必要设备原始8MiB、必要test build预计256MiB；bf必要单份52763781B保护另列。B目录lane-b归worker，勿覆盖。复制前估可用空间，不复制工程/build/.gradle/.kotlin/Gradle home/node_modules/缓存/历史证据/APK对，不硬链可写cache，不删除移动压缩迁移存量。没有充分新证据不做额外批次。
 
 交最小patch/改动测试源码/前后SHA/输入产物/原日志退出码XML/REPORT/ready/恢复，实际字节分类保留依据/build增量是否测量写同REPORT。严格区分夹具创建层级/真实UI/持久化/模拟器/全产品与未验，不把离线或seed当阅读全过程通过。所有权/输入/预算/恢复冲突停依赖业务，必要恢复优先。无Git暂存提交pushPR发布、D产品回灌、正式库/HOLD/云部署/实体手机/关闭其他进程/私库。Root核后继续既有目标，不把单批完成当项目停止。最终最末单独写：这是任务106-A-v1。
 ````

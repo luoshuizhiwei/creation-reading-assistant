@@ -6,7 +6,7 @@ CRA-SECOND-LOOK-FIXES-DISPATCH-v1，2026-10-13。用户在补查后明确要求�
 
 ## 输入指纹
 
-活动D仓库HEAD实核`e39a78da9c62f02614207cffb36969a32492eaea`、暂存空。只读主输入为`E:/creation-reading-assistant/v0-joint-mumu-task24-v1/candidate/android`；1009源码清单`freeze-t24v2/source-sha256.final.json`实核SHA`08e09f3965a1540e0c85d6cfdbcfc46b4afaec3ec229f8b22cc79d0bd6d798b5`。Android生产与Root-v2同源，不重开旧任务1–24。验收输入为同目录`candidate/acceptance`及`tools`，旧证据只读。
+活动D仓库HEAD实核`e39a78da9c62f02614207cffb36969a32492eaea`、暂存空。只读主输入为`<证据根>/v0-joint-mumu-task24-v1/candidate/android`；1009源码清单`freeze-t24v2/source-sha256.final.json`实核SHA`08e09f3965a1540e0c85d6cfdbcfc46b4afaec3ec229f8b22cc79d0bd6d798b5`。Android生产与Root-v2同源，不重开旧任务1–24。验收输入为同目录`candidate/acceptance`及`tools`，旧证据只读。
 
 ## 执行与结果
 
@@ -14,13 +14,13 @@ CRA-SECOND-LOOK-FIXES-DISPATCH-v1，2026-10-13。用户在补查后明确要求�
 
 | 编号 | 技术ID | 发现 | 文件所有权（仅各自E副本） | 唯一输出目录 |
 |---|---|---|---|---|
-| 25 | CRA-EPUB-TEMPORARY-PROGRESS-FIX-v1 | R1 | reader/ReaderProgressActions、ReaderActions、ReaderScreen及必要ReaderSessionEffects/ReaderScreenArgs/ReaderProgressEffects；相关章导航定向测试 | E:/creation-reading-assistant/task25-epub-temporary-progress-fix-v1 |
-| 26 | CRA-BACKUP-RELATION-PRESERVATION-FIX-v1 | R3 | feature/sync/JsonBridge、JsonBridgeTest；必要TaxonomyDao/ChapterReadDao最小查询，无schema修改 | E:/creation-reading-assistant/task26-backup-relation-preservation-fix-v1 |
-| 27 | CRA-SEARCH-REBUILD-CANCEL-EPOCH-FIX-v1 | R2 | data/repository/SearchIndexRepository、取消/重建并发测试 | E:/creation-reading-assistant/task27-search-rebuild-cancel-epoch-fix-v1 |
-| 28 | CRA-TXT-OPEN-FAILURE-PREVIEW-FIX-v1 | R6 | ui/viewmodel/ReaderDocumentLoader及其定向测试 | E:/creation-reading-assistant/task28-txt-open-failure-preview-fix-v1 |
-| 29 | CRA-MATERIAL-NESTED-MERGE-SOURCE-FIX-v1 | R4 | ui/viewmodel/InspirationMaterialOps、InspirationMaterialOpsTest | E:/creation-reading-assistant/task29-material-nested-merge-source-fix-v1 |
-| 30 | CRA-INSPIRATION-SYNC-WIRE-FIX-v1 | R5 | data/repository/SyncRepository及自有新增InspirationSyncWire测试 | E:/creation-reading-assistant/task30-inspiration-sync-wire-fix-v1 |
-| 31 | CRA-ACCEPTANCE-FREEZE-BACKUP-GUARDS-FIX-v1 | S1/S2/R7/R8 | 自有tools/final_ledger、db_backup_staging、make_config；自有acceptance/config/validate_joint_config、driver/joint_driver/joint_run/joint_run_task16与离线测试。强freeze/9Root驱动原件只读复用 | E:/creation-reading-assistant/task31-acceptance-freeze-backup-guards-fix-v1 |
+| 25 | CRA-EPUB-TEMPORARY-PROGRESS-FIX-v1 | R1 | reader/ReaderProgressActions、ReaderActions、ReaderScreen及必要ReaderSessionEffects/ReaderScreenArgs/ReaderProgressEffects；相关章导航定向测试 | <证据根>/task25-epub-temporary-progress-fix-v1 |
+| 26 | CRA-BACKUP-RELATION-PRESERVATION-FIX-v1 | R3 | feature/sync/JsonBridge、JsonBridgeTest；必要TaxonomyDao/ChapterReadDao最小查询，无schema修改 | <证据根>/task26-backup-relation-preservation-fix-v1 |
+| 27 | CRA-SEARCH-REBUILD-CANCEL-EPOCH-FIX-v1 | R2 | data/repository/SearchIndexRepository、取消/重建并发测试 | <证据根>/task27-search-rebuild-cancel-epoch-fix-v1 |
+| 28 | CRA-TXT-OPEN-FAILURE-PREVIEW-FIX-v1 | R6 | ui/viewmodel/ReaderDocumentLoader及其定向测试 | <证据根>/task28-txt-open-failure-preview-fix-v1 |
+| 29 | CRA-MATERIAL-NESTED-MERGE-SOURCE-FIX-v1 | R4 | ui/viewmodel/InspirationMaterialOps、InspirationMaterialOpsTest | <证据根>/task29-material-nested-merge-source-fix-v1 |
+| 30 | CRA-INSPIRATION-SYNC-WIRE-FIX-v1 | R5 | data/repository/SyncRepository及自有新增InspirationSyncWire测试 | <证据根>/task30-inspiration-sync-wire-fix-v1 |
+| 31 | CRA-ACCEPTANCE-FREEZE-BACKUP-GUARDS-FIX-v1 | S1/S2/R7/R8 | 自有tools/final_ledger、db_backup_staging、make_config；自有acceptance/config/validate_joint_config、driver/joint_driver/joint_run/joint_run_task16与离线测试。强freeze/9Root驱动原件只读复用 | <证据根>/task31-acceptance-freeze-backup-guards-fix-v1 |
 
 Android文件路径均相对`app/src/main/java/com/creationreadingassistant`。状态全为“待派发”，不以提示词给出推断已开工。执行者开工自行查任务目录/STATUS与活动进程；同ID已有owner不另建并行执行，不要求用户补目录/跑命令。
 
@@ -49,7 +49,7 @@ Android文件路径均相对`app/src/main/java/com/creationreadingassistant`。�
 
 ## 环境
 
-Windows/PowerShell；已有SDK/JDK/Gradle缓存优先复用，build与证据在E。Gradle包装器只读使用`E:/creation-reading-assistant/v0-joint-mumu-task24-v1/tools/with_gradle_lock.py`，锁为`E:/creation-reading-assistant/locks/android-gradle-exclusive.lock`，覆盖命令子进程全周期；锁忙自行有界排队不杀他人进程。31只做纯离线模拟/本地临时夹具。
+Windows/PowerShell；已有SDK/JDK/Gradle缓存优先复用，build与证据在E。Gradle包装器只读使用`<证据根>/v0-joint-mumu-task24-v1/tools/with_gradle_lock.py`，锁为`<证据根>/locks/android-gradle-exclusive.lock`，覆盖命令子进程全周期；锁忙自行有界排队不杀他人进程。31只做纯离线模拟/本地临时夹具。
 
 ## 恢复与副作用
 
@@ -57,7 +57,7 @@ Windows/PowerShell；已有SDK/JDK/Gradle缓存优先复用，build与证据在E
 
 ## 原始证据
 
-[完整补查](<E:/creation-reading-assistant/all-tasks-second-look-codex-20261013/REPORT.md>)及其中reader/data/acceptance报告与反例；[24既有缺口](../../tasks/000-049/2026-10-13-task24-gap-codex-review.md)。开工只核本轮输入/目标文件，不重查已充分且未变化的历史日志。
+[完整补查](<<证据根>/all-tasks-second-look-codex-20261013/REPORT.md>)及其中reader/data/acceptance报告与反例；[24既有缺口](../../tasks/000-049/2026-10-13-task24-gap-codex-review.md)。开工只核本轮输入/目标文件，不重查已充分且未变化的历史日志。
 
 ## 未覆盖项
 

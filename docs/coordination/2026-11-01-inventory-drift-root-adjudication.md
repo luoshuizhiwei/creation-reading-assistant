@@ -21,7 +21,7 @@
 
 ### 2.1 inventory门真实保护的内容
 
-冻结parent：`E:/creation-reading-assistant/task136-f1-global-offset-repair-v1/lane-b/scripts/host136.py`。
+冻结parent：`<证据根>/task136-f1-global-offset-repair-v1/lane-b/scripts/host136.py`。
 
 - `original_test_probe`（约466–477行）先核原test APK，再执行preserved脚本采inventory，读取完整User 0行。
 - `verify_original_test`（约480–487行）原APK、inventory SHA、userState全部符合才接受；inventory不符抛出 `test data changed since preservation; do not replace`。这是保护门，不是要取消的障碍。
@@ -30,7 +30,7 @@
 
 ### 2.2 原件本轮实算
 
-preserved根：`E:/creation-reading-assistant/task94-organizing-export-integration-v1/v5/preserved/`，本轮只读核验：
+preserved根：`<证据根>/task94-organizing-export-integration-v1/v5/preserved/`，本轮只读核验：
 
 | 原件 | bytes | SHA256 |
 |---|---|---|
@@ -47,7 +47,7 @@ tar成员本轮核出：CE/DE两个test包根及其cache/code_cache共**6目录+
 
 state报8b2 SHA：`8b2e33179b9b5606e767ec3a0c40f6db48b1b3a8c9cda2303f6a7723640c9ac2`。`task209-navigation-coverage-v1/recover-A/recover-log.json`在2026-11-01 08:04的P1记录同SHA，但该脚本只存hash，产品已缺席即 `ALREADY_ABSENT_NO_OP`；这个结论只说明产品缺席，**不能说明原test/保护基线恢复成功**。
 
-08:28批次scope：`E:/creation-reading-assistant/task192-reader-internal-lifo-host-offline-v1/attempt-T165V1-20261101-082841/`。其原 `summary.json` 确认：
+08:28批次scope：`<证据根>/task192-reader-internal-lifo-host-offline-v1/attempt-T165V1-20261101-082841/`。其原 `summary.json` 确认：
 
 - primaryError为上述inventory拒绝，`installedByThisRun=[]`，无本轮instrument业务结果；不是新业务FAIL。
 - `recoveryDecisions.productAction=NOT_INSTALLED`，仅描述本attempt安装归属，不证明所有原数据未变。
@@ -94,7 +94,7 @@ inventory修好后仍需独立完整保护结果通过；只看原test包SHA或�
 
 ### 4.1 Owner、位置与权限
 
-由现有设备owner或完成显式交接后的唯一owner实施。建议报告根 `E:/creation-reading-assistant/task209-navigation-coverage-v1/inventory-repair-r1/`，不预占新业务编号。允许新增最小采集/离线比对/修复计划driver和REPORT；candidate、原preserved、冻结host136/158/166/192、collector、consumer、resolver和既有报告只读。
+由现有设备owner或完成显式交接后的唯一owner实施。建议报告根 `<证据根>/task209-navigation-coverage-v1/inventory-repair-r1/`，不预占新业务编号。允许新增最小采集/离线比对/修复计划driver和REPORT；candidate、原preserved、冻结host136/158/166/192、collector、consumer、resolver和既有报告只读。
 
 本裁决批准D路线的调查与满足下列条件的**原test包原件定点恢复方案**；不批准新业务运行、整包清空、未知新增资产删移或任意改基线。本轮Root不执行设备写操作；ZCode实施时记录其实际有效设备/恢复授权和唯一owner。原授权有效且范围覆盖的动作不重复向原Root请示；超出范围才按精确动作清单问用户。
 
@@ -177,6 +177,6 @@ P5一次场景预计实现/编译20–30分钟、设备业务约20分钟+恢复�
 
 ## 8. 原证、可复核结果与范围
 
-本轮只读证据索引及before快照：`E:/creation-reading-assistant/coordination/inventory-drift-root-adjudication-20261101/evidence.json`，含preserved实算SHA/tar成员、各关键scope结果原文件SHA及08:28保护diff；`before-current.md`、`before-state.json`、`before-request.md`保留读取时原字节。
+本轮只读证据索引及before快照：`<证据根>/coordination/inventory-drift-root-adjudication-20261101/evidence.json`，含preserved实算SHA/tar成员、各关键scope结果原文件SHA及08:28保护diff；`before-current.md`、`before-state.json`、`before-request.md`保留读取时原字节。
 
 本文件没有声称当前设备已修复、漂移根因已证实、所有209恢复都失败或所有自然竞态通过；没有ADB/VM/电脑操控、源码/Git/资产删移/基线替换或新业务执行。ZCode接续时只写本裁决允许的任务差量与现态，保护原红和全部历史原件。

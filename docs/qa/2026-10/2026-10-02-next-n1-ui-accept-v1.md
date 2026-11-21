@@ -4,7 +4,7 @@
 N1-ui-accept-v1；2026-10-02。用户“这个任务你自己去完成”授权 Root 实施上轮 A/B 两项；当前未授权 Git 暂存/提交。UI 批与设备均由 Root 独占。
 
 ## 输入指纹
-恢复 HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空。输入为已验 J3-v2 E 候选，未重跑核心98 JVM或21方法。生产 LocalZipBackup SHA f141941a628de19660d71875bb34faa5b4833f05f6db7d0025aba774165b298e 不变。完整源码对账见 [verification.json](<E:/creation-reading-assistant/next-round-n1-ui-accept-v1/verification.json>)：878文件不变，只改后缀一处及新增一个仪器类。
+恢复 HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空。输入为已验 J3-v2 E 候选，未重跑核心98 JVM或21方法。生产 LocalZipBackup SHA f141941a628de19660d71875bb34faa5b4833f05f6db7d0025aba774165b298e 不变。完整源码对账见 [verification.json](<<证据根>/next-round-n1-ui-accept-v1/verification.json>)：878文件不变，只改后缀一处及新增一个仪器类。
 
 ## 所有权与改动
 仅新 E 候选 `app/build.gradle.kts` 的 `.qahostn1`→`.qahostn1ui` 和新增 LocalZipRestoreUiAcceptanceTest.kt。测试 SHA fec6acad9057ea6f6155f56fad70f6b16e43498c90929b6d54a147ae649db4e4。不替换实际应用 Context、不调用 import/export方法造 UI 通过；真实 Hilt 单例文件复制 seam 只阻塞等待外部真实强停。夹具只种新包实际 Room 行及中性测试 TXT。
@@ -23,7 +23,7 @@ MuMu 127.0.0.1:16416，已保存初始设备信息；1080×1920、临时 density
 7. 原APK/持久文件/设置恢复与新增包清理全部成立。
 
 ## 原始证据
-[E任务目录](<E:/creation-reading-assistant/next-round-n1-ui-accept-v1>)；logs中的构建、instrument raw/JSON、真实SAF XML与PNG、actual-ui-export.zip，device-evidence含当前signal与三次ack、session_finished及cold_read；device-baseline/device-after各有raw与live-readback.json。图像已实际检查，为1080×1920竖屏。B协议及43离线门禁见[脚本报告](../../coordination/dispatches/2026-10/2026-10-02-next-n1-runner-hardening-v1.md)。
+[E任务目录](<<证据根>/next-round-n1-ui-accept-v1>)；logs中的构建、instrument raw/JSON、真实SAF XML与PNG、actual-ui-export.zip，device-evidence含当前signal与三次ack、session_finished及cold_read；device-baseline/device-after各有raw与live-readback.json。图像已实际检查，为1080×1920竖屏。B协议及43离线门禁见[脚本报告](../../coordination/dispatches/2026-10/2026-10-02-next-n1-runner-hardening-v1.md)。
 
 机械执行失败保留：首次用了未声明AndroidJUnitRunner，真实INSTRUMENTATION_FAILED被门禁拒绝，按pm list instrumentation改为实际runner后通过；文本“确认”与说明正文子串重合，改helper优先精确匹配；export编辑输入多了aaa前缀，实际保存/核对的是中性aaan1-ui-20261002-export.zip；finish读ack_4路径不正确（该动作写session_finished），客户端报错不影响实际OK及session_finished；一次冷启动点击早于页面切换，未作为证据，随后等真实home再点击并保存cold-profile-final。未覆盖或吞掉失败。
 

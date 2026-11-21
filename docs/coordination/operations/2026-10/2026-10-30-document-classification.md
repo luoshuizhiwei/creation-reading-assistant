@@ -19,12 +19,12 @@
 现有JSON/log/ps1附件与历史机器脚本没有移动或执行，避免破坏外部机器引用。E盘任务原报告、原日志、恢复tar、APK、数据库、缓存均未动。
 
 迁移前受影响文档原件按原路径保存于：
-`E:/creation-reading-assistant/coordination/docs-classification-20261030/before/`
+`<证据根>/coordination/docs-classification-20261030/before/`
 
 初次迁移和链接更新涉及941份文件，保全原字节合计10206611B。逐份确认备份SHA与迁移前相同、新目标存在且旧路径已移除；没有覆盖同名目标。后续索引变更另有index-before与最终清单，不把目录整理冒充原报告重新验收。
 
 旧current的原始412405B快照另保留于：
-`E:/creation-reading-assistant/coordination/docs-maintenance-20261030/before/docs/handoff/current.md`
+`<证据根>/coordination/docs-maintenance-20261030/before/docs/handoff/current.md`
 仓库中的历史导航副本仅更新链接、压缩冗余空行，目前约328KB/710行；不再宣称其与原始快照字节相同，原始内容可从E盘对照。
 
 ## 校验与边界

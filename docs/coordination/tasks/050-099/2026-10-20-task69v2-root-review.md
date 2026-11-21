@@ -11,7 +11,7 @@ Root实算7份合流源码（MD、策略、取材及4产品/单测文件）与re
 相关task69/59 Python/Java执行进程查询为空。Root仅写E任务目录root-review-v2/checks.json、生产校验输出及本报告/current。没有修改产品、工件、旧报告或冻结。A原件保留，B合流时仅补swipe import，已有真实编译证据支持此集成修正。
 
 ## 环境
-复用59唯一工作区、D:/develop/env/gradle和既有依赖。Root没有构建、设备、Git或外部应用动作，不重跑充分的定向单测或原19项runner回归。
+复用59唯一工作区、<开发盘>/env/gradle和既有依赖。Root没有构建、设备、Git或外部应用动作，不重跑充分的定向单测或原19项runner回归。
 
 ## 执行与结果
 采纳A严格delta判定和分页横向手势修复：原14项离线判定日志compile/run rc0、all_ok，合流策略SHA一致；实际设备动作仍待验证。采纳B分类ID同源产品差量、严格分类关联/无悬空断言、删除file://组件替身和target.delete、取证错误addSuppressed保留。74项ReaderViewModelTest原XML tests74 failures0 errors0 skipped0，真实编译/assemble日志BUILD SUCCESSFUL。
@@ -23,7 +23,7 @@ Root实际运行候选verify_binding、verify_freeze、audit_import_closure和�
 3. MaterialGatheringJourneyTest.kt:774起仅等待DocumentsUI，出现后发送back取消；pickerOpened=false也不失败；mat_70_export仍写true，exportFileWritten=false/PENDING_DEVICE_SAF。无实际文档、URI、权限、内容读回或总入口拒绝依据。诚实标待设备值得保留，但该仪器和runner不能作为完整取材验收入口。需完成实际保存与应用URI读回，结果严格消费；文件未写/选择器未出现/取消/权限失效必须阻塞，不用旧SAF证据替代。
 
 ## 原始证据
-E:/creation-reading-assistant/task69-md-material-closure-v1/A下REPORT/ready、src、verify/policy-check.json及log；B/v2下REPORT/ready、src/patch、evidence/junit/TEST-com.creationreadingassistant.ui.viewmodel.ReaderViewModelTest.xml；integration下logs/02与04/05/06真实日志、ready、evidence/build-provenance.json、candidate工具/冻结/绑定；Root实算与生产校验输出位于root-review-v2。均原路径引用。
+<证据根>/task69-md-material-closure-v1/A下REPORT/ready、src、verify/policy-check.json及log；B/v2下REPORT/ready、src/patch、evidence/junit/TEST-com.creationreadingassistant.ui.viewmodel.ReaderViewModelTest.xml；integration下logs/02与04/05/06真实日志、ready、evidence/build-provenance.json、candidate工具/冻结/绑定；Root实算与生产校验输出位于root-review-v2。均原路径引用。
 
 ## 恢复与副作用
 本轮无设备动作，无新增恢复义务；68旧FAIL及已核71/820恢复结论不变。E仅新增小型Root JSON，没有工程/缓存/APK复制及既有资产删除迁移。automation-2/3未改，保持暂停决定。

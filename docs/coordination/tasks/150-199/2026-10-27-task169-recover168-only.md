@@ -1,7 +1,7 @@
 # 任务169-v1：168业务失败保留产品的独立恢复收尾
-编号169-v1；2026-10-27；推荐保持用户当前Claude桌面WorkBuddy Flash配置，不改provider帐号。只有168原owner实际Idle/无继续写和device命令后Root派发。唯一deviceowner，与170测试一文件/Gradle独立。20分钟从真实新消息起，安全恢复不中断。只新E:/creation-reading-assistant/task169-recover168-only-v1/内最小driver/REPORT/raw/ready，禁止仪器/main/run_attempt/业务/Gradle/新APK安装/launch/reboot/其他VM/系统设置。
+编号169-v1；2026-10-27；推荐保持用户当前Claude桌面WorkBuddy Flash配置，不改provider帐号。只有168原owner实际Idle/无继续写和device命令后Root派发。唯一deviceowner，与170测试一文件/Gradle独立。20分钟从真实新消息起，安全恢复不中断。只新<证据根>/task169-recover168-only-v1/内最小driver/REPORT/raw/ready，禁止仪器/main/run_attempt/业务/Gradle/新APK安装/launch/reboot/其他VM/系统设置。
 
-基线 E:/creation-reading-assistant/task168-two-entry-integration-device-v1/ready.json：两method正文probe167行超时原红冻结；166保全策略已经pre→单stop→post POST_OK，但父collectOk=false门KEEP/uninstall0，不把有保全当卸载成功。原test/settings/protection/keepalive本轮已恢复记录需fresh核；product仍安装。只复用已验166 host E:/creation-reading-assistant/task166-quiet-writer-recovery-v1/host/host166.py11530B SHA3b7bdee142541354c0cd89c2c088c1e4e82c19d7e5cf526b33ae173f9c9af944及实际冻结runner/父恢复依赖，不重跑5case/旧suite或修改恢复策略。
+基线 <证据根>/task168-two-entry-integration-device-v1/ready.json：两method正文probe167行超时原红冻结；166保全策略已经pre→单stop→post POST_OK，但父collectOk=false门KEEP/uninstall0，不把有保全当卸载成功。原test/settings/protection/keepalive本轮已恢复记录需fresh核；product仍安装。只复用已验166 host <证据根>/task166-quiet-writer-recovery-v1/host/host166.py11530B SHA3b7bdee142541354c0cd89c2c088c1e4e82c19d7e5cf526b33ae173f9c9af944及实际冻结runner/父恢复依赖，不重跑5case/旧suite或修改恢复策略。
 
 本批是RECOVER_ONLY而不是把失败业务改绿。使用真实host166.run_recovery/parentrecover体，collectOk/downloadState无业务时保持null/明确NOT_RUN，不手改168summary/installed列表伪造结果；若父局部withheld结果NOT_INSTALLED须外层明确actualKEEP/卸载回执一致，不把局部输出当事实。
 

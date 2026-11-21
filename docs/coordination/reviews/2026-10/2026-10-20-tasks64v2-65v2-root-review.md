@@ -5,13 +5,13 @@
 
 ## 输入指纹
 65新增ReadingMaterialRetrievalTest.kt交付副本与工作区副本SHA均为daf38b481b65b39d90b3f781dd04105400de2a9124c8ce495ceed6d420ce7dee。Root只核实际改动和必要原始证据，不重复63冻结/120工具/全量构建。64比较v13基线清单与当前有关源码，Root定向复核见checks。
-checks：E:/creation-reading-assistant/task65-reading-material-flow-v1/v2/root-review-receive/checks.json，保存v11/v13/当前有关文件SHA、七份XML对照及F原始回执身份。
+checks：<证据根>/task65-reading-material-flow-v1/v2/root-review-receive/checks.json，保存v11/v13/当前有关文件SHA、七份XML对照及F原始回执身份。
 
 ## 所有权与改动
 64只交文档；65向既有59工作区新增一个src/test文件，无报告的生产差量或新APK。Root只读核验并写checks、接收报告和current；不删除原草稿、报告或旧资产。当前首次进程检查未见匹配项目Python/Gradle活动，非设备占用结论。
 
 ## 环境
-复用E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android与D:/develop/env/gradle。Root未调用Gradle/ADB或MuMu管理命令，原设备状态仅沿63历史已核结论，不冒充当前实时状态。
+复用<证据根>/task59-common-candidate-v1/candidate/android与<开发盘>/env/gradle。Root未调用Gradle/ADB或MuMu管理命令，原设备状态仅沿63历史已核结论，不冒充当前实时状态。
 
 ## 执行与结果
 65两份原Gradle日志均BUILD SUCCESSFUL；七份交付JUnit XML与工作区对应XML逐字节相同，57项/零失败错误，其中新增3项，既有54项。工作区当前全量366份XML共3674项、失败/错误/跳过均0，支持交付记录；这是已有运行结果核验，Root未重新执行测试。全量运行已经发生，接收但后续不因单个单测文件变化默认再全量重跑。

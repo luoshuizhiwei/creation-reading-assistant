@@ -157,7 +157,7 @@ GRADLE_USER_HOME=<自有缓存> ./gradlew.bat :app:testDebugUnitTest \
 
 **审查报告 5 Spec / 2 Standards 的逐项落实**见 §8。
 
-**执行期一处工具问题（非产品问题，如实登记）**：首次 `n1_02` arm 未收到强停——执行器轮询用 `adb shell cat <path>` 时，Git Bash 的 MSYS 路径转换把 `/sdcard/...` 改写成 `D:/develop/Git/Git/sdcard/...`，`cat` 报 No such file，轮询 90 s 未命中。**驱动行为正确**：等待窗口 120 s 超时后写「未终止标记」并主动 FAIL，未冒充通过。执行器改用 `MSYS_NO_PATHCONV=1` 后重跑成功。该次失败日志（`20261002-205120-arm-s1.txt`）与标记文件原样保留。
+**执行期一处工具问题（非产品问题，如实登记）**：首次 `n1_02` arm 未收到强停——执行器轮询用 `adb shell cat <path>` 时，Git Bash 的 MSYS 路径转换把 `/sdcard/...` 改写成 `<开发盘>/Git/Git/sdcard/...`，`cat` 报 No such file，轮询 90 s 未命中。**驱动行为正确**：等待窗口 120 s 超时后写「未终止标记」并主动 FAIL，未冒充通过。执行器改用 `MSYS_NO_PATHCONV=1` 后重跑成功。该次失败日志（`20261002-205120-arm-s1.txt`）与标记文件原样保留。
 
 ## 8. 逐项回答审查报告
 

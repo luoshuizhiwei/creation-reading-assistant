@@ -8,8 +8,8 @@ CRA-TXT-PERSIST-DELIVERY-HANDOFF-CODEX-REVIEW-v1；2026-10-06，Codex总指挥�
 
 活动恢复仓库HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，本轮暂存区空。D WIP/桌面/HOLD保留。
 
-- [产品原报告](../../dispatches/2026-10/2026-10-06-txt-reentry-persist-fix-v1.md)：候选 `E:/creation-reading-assistant/txt-reentry-persist-fix-v1/android`，比较基线 `E:/creation-reading-assistant/txt-reentry-fix-v4/android`。
-- [验收准备原报告](../../dispatches/2026-10/2026-10-06-txt-persist-final-accept-prep-v1.md)：工件 `E:/creation-reading-assistant/txt-persist-final-accept-prep-v1`。
+- [产品原报告](../../dispatches/2026-10/2026-10-06-txt-reentry-persist-fix-v1.md)：候选 `<证据根>/txt-reentry-persist-fix-v1/android`，比较基线 `<证据根>/txt-reentry-fix-v4/android`。
+- [验收准备原报告](../../dispatches/2026-10/2026-10-06-txt-persist-final-accept-prep-v1.md)：工件 `<证据根>/txt-persist-final-accept-prep-v1`。
 - [既有冷启/保存冻结与采集核查](2026-10-06-cold-control-harvest-v2-codex-review.md)：5054/updated_at冻结、UI发生移动是已核原始事实；pending取值与调度根因没有当时设备直接观测。
 
 ## Standards
@@ -38,7 +38,7 @@ CRA-TXT-PERSIST-DELIVERY-HANDOFF-CODEX-REVIEW-v1；2026-10-06，Codex总指挥�
 
 ### 恢复与副作用
 
-只新写本报告与E交接备份，更新current/TODO/项目页日期/skill使用日志；写前SHA与副本位于 `E:/creation-reading-assistant/session-handoff-20261006/before`。产品源码、原报告、设备、Git未修改。未读取Claude/DSH私有记忆库；未改自动生成memory索引。
+只新写本报告与E交接备份，更新current/TODO/项目页日期/skill使用日志；写前SHA与副本位于 `<证据根>/session-handoff-20261006/before`。产品源码、原报告、设备、Git未修改。未读取Claude/DSH私有记忆库；未改自动生成memory索引。
 
 ## 交付状态与下一步
 

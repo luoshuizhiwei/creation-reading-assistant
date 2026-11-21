@@ -15,9 +15,9 @@
 
 新103-v1设备批只有在修复已落地且输入指纹/编译明确、新证据和102恢复闭合、充足预算下执行。新编号/runId绑定修后产品/测试/源码，最多一次主run含入场失败。业务阶段总上限1800秒+至少1200秒恢复预留，入场前确认足够；失败停业务、完整取证恢复，不批内修码再试/静默retry/重算attempt。沿用102/98现有runner和保护恢复，不重构工具、不扩解析矩阵。此为真实Controller+mock外部TTS/Audio，模拟器缺真实引擎，结论不冒充真实UI/声音/系统焦点/15分钟到期/实体手机MIUI。
 
-唯一MuMu1必要可启动，fresh adb devices/serial/boot/owner/前台/预算，命令全-s；ADB D:/Application/NetEase/MuMuPlayer/nx_main/adb.exe。不能关闭重启杀VM/共享ADB，结束运行；未知前台不强停，仅已授权游戏可关闭。原71私有/820外部/DB-WAL-SHM/原宿主test完整数据APK/inventory/userstate/settings strict night=no全部先基线后恢复核同。无测试书需要不创建；若必要只本批中性fixture，精确清理须初始缺席/run URI归属/E原字节sizeSHA及当前设备字节核同单资产，删后核缺席；不递归未知兄弟/后代，探测失败非缺席。collect失败/唯一原证据不保全/归属不明保留依赖资产BLOCKED，独立安全恢复继续，业务/取证/清理/恢复错误分别记录。原102FAIL/ready/raw保持。
+唯一MuMu1必要可启动，fresh adb devices/serial/boot/owner/前台/预算，命令全-s；ADB <MuMu adb>/adb.exe。不能关闭重启杀VM/共享ADB，结束运行；未知前台不强停，仅已授权游戏可关闭。原71私有/820外部/DB-WAL-SHM/原宿主test完整数据APK/inventory/userstate/settings strict night=no全部先基线后恢复核同。无测试书需要不创建；若必要只本批中性fixture，精确清理须初始缺席/run URI归属/E原字节sizeSHA及当前设备字节核同单资产，删后核缺席；不递归未知兄弟/后代，探测失败非缺席。collect失败/唯一原证据不保全/归属不明保留依赖资产BLOCKED，独立安全恢复继续，业务/取证/清理/恢复错误分别记录。原102FAIL/ready/raw保持。
 
-唯一workspace E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android，Gradle home D:/develop/env/gradle，JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk，锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock。输出E:/creation-reading-assistant/task103-tts-countdown-fix-v1；最小源码/patch/日志XML4MiB，必要设备原始8MiB，build预计256MiB，缺原产品单份52763781B保护另列。复制前估空间，不复制工程/build/.gradle/.kotlin/Gradle home/node_modules/依赖缓存/历史证据/APK对，不硬链可写cache，不删移动压缩迁移存量。所有权冲突/恢复或预算不明停依赖操作，必要恢复优先完成。
+唯一workspace <证据根>/task59-common-candidate-v1/candidate/android，Gradle home <开发盘>/env/gradle，JDK <开发盘>/Java/jdk-17.0.14，SDK <开发盘>/Android/Sdk，锁<证据根>/locks/android-gradle-exclusive.lock。输出<证据根>/task103-tts-countdown-fix-v1；最小源码/patch/日志XML4MiB，必要设备原始8MiB，build预计256MiB，缺原产品单份52763781B保护另列。复制前估空间，不复制工程/build/.gradle/.kotlin/Gradle home/node_modules/依赖缓存/历史证据/APK对，不硬链可写cache，不删移动压缩迁移存量。所有权冲突/恢复或预算不明停依赖操作，必要恢复优先完成。
 
 交最小patch、前后SHA、实际执行源码/APK绑定、原始退出码/log/XML/REPORT/ready/恢复；同REPORT实际字节分类保留依据/build增量是否测量。区分实现/离线/受控模拟器/真实声音未验。无Git暂存提交pushPR发布、D产品回灌、桌面/正式库/HOLD/云部署/实体手机/关闭其他进程/私库读写。Root核103后继续现行实际未闭合目标，不把单批完成当项目停止。最终最末单独写：这是任务103-v1。
 ````

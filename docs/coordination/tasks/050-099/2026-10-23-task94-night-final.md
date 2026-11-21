@@ -2,7 +2,7 @@
 
 ## 任务编号/版本、输入指纹、环境
 
-2026-10-23香港时间03:37，夜间自动接续10-23收尾。实际交付在`E:/creation-reading-assistant/task94-organizing-export-integration-v1/v4`、`v5`、`v6`，各有REPORT/ready及必要原始证据；[v4](2026-10-23-task94-v4-night-review.md)、[v5](2026-10-23-task94-v5-night-review.md)。唯一task59工作区、既有Gradle/JDK/SDK/锁不变。
+2026-10-23香港时间03:37，夜间自动接续10-23收尾。实际交付在`<证据根>/task94-organizing-export-integration-v1/v4`、`v5`、`v6`，各有REPORT/ready及必要原始证据；[v4](2026-10-23-task94-v4-night-review.md)、[v5](2026-10-23-task94-v5-night-review.md)。唯一task59工作区、既有Gradle/JDK/SDK/锁不变。
 
 产品候选fac29f55…f1e4705未变，既有test APK d80d6213…eebf7c6仍保留。当前仪器源码53ff2d8ae947d703ef849eee2c65b84fd099b6616870f2e4c329f2a5c436b509（67,828B），patch8b2b0403…bc816bdb，仅完成Kotlin测试编译，尚未打包进新test APK。
 

@@ -1,6 +1,6 @@
 # 任务161-r1：按真实仪器产物/fixture合同闭合默认host（离线）
 
-同B161执行owner，只新E:/creation-reading-assistant/task161-temporary-entry-host-offline-v1/recheck-r1/。A160-r1唯一设备恢复owner；candidate/APK/Gradle/设备/A输入只读，不改旧host/collector/inputs/raw/ready。20分钟从实际UI发，source256KiB raw+fake256KiB，先free/估算，实际计fake不删移旧件。
+同B161执行owner，只新<证据根>/task161-temporary-entry-host-offline-v1/recheck-r1/。A160-r1唯一设备恢复owner；candidate/APK/Gradle/设备/A输入只读，不改旧host/collector/inputs/raw/ready。20分钟从实际UI发，source256KiB raw+fake256KiB，先free/估算，实际计fake不删移旧件。
 
 161v1结构/18role盘上pins与7strictfake方向有证：host13098B3065bd2bd82a5d846aec2711bb06ea1e6585c9326f343c0acf4fda3e77653ff2，inputs7841B938b987ac34430ab203c6e24a2beb641abfa9d2bde05d40250da6ec259619eb5。真默认main/loadparent/bind/run_attempt/guardedrecover接线接受有限事实，不重刷157构建/JVM/159旧14+7。问题不是不许生产适配器绑定新inputs loader（新schema/逐role安全门必须真实绑定），而是不许测试内override/静默缩窄实际安全合同。
 

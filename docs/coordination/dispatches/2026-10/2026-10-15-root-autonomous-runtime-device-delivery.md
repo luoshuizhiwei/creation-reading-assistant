@@ -9,13 +9,13 @@ CRA-ROOT-RUNTIME-DEVICE-20261015，部分完成，设备已安全恢复。用户
 - D HEAD：e39a78da9c62f02614207cffb36969a32492eaea，暂存区空；既有 WIP 保留。
 - 起点：45-v1 的1020源码、63验收工件与原双APK；不回灌 D 产品代码。
 - 当前 Native v4-r2：1020源码，tree fbc2022773cc1bc4328d052b5f28a2cbdadcc3d8efee2d6ed410ebac32e4d0ec。
-- [强冻结](<E:/creation-reading-assistant/root-runtime-device-20261015/freeze-v4-r2/freeze.json>) SHA 62d5ecdcf66f74446f3038e54368ffbd71bc8cdd642d151e9b3591b7dd9c3461。
+- [强冻结](<<证据根>/root-runtime-device-20261015/freeze-v4-r2/freeze.json>) SHA 62d5ecdcf66f74446f3038e54368ffbd71bc8cdd642d151e9b3591b7dd9c3461。
 - 宿主复用 SHA 7ab63a0b430b36d461329275d2d6824e5df7bd1a73ada8556a68f11b9777c91b；测试APK SHA 51aa71cd4987deb4a52e92f38188d160845c20aba23e125c35dfa9174aa4f263。
-- 每次实际运行使用独立工具清单；[v4实际运行清单](<E:/creation-reading-assistant/root-runtime-device-20261015/evidence/tool-freeze-v4-actual-run.json>)含29项，入口实际核验通过。
+- 每次实际运行使用独立工具清单；[v4实际运行清单](<<证据根>/root-runtime-device-20261015/evidence/tool-freeze-v4-actual-run.json>)含29项，入口实际核验通过。
 
 ## 所有权与改动
 
-Root 独占设备与集成。实现、构建和原始证据均在 [E盘工作根](<E:/creation-reading-assistant/root-runtime-device-20261015>)。Native 到 v4 只改 androidTest，宿主与 main/config 未改；主要修复 SAF 测试归属凭证、受限存储下 dump 路径、Provider 删除后授权自动撤销的严格清理观察及 shell 命令闭合。主机修复实际生产链接线、完整清单门禁、shell 脚本传输、暂存副本权限、Windows 短备份路径、保留时区与纳秒的修改时间恢复、真实窗口组件提取。
+Root 独占设备与集成。实现、构建和原始证据均在 [E盘工作根](<<证据根>/root-runtime-device-20261015>)。Native 到 v4 只改 androidTest，宿主与 main/config 未改；主要修复 SAF 测试归属凭证、受限存储下 dump 路径、Provider 删除后授权自动撤销的严格清理观察及 shell 命令闭合。主机修复实际生产链接线、完整清单门禁、shell 脚本传输、暂存副本权限、Windows 短备份路径、保留时区与纳秒的修改时间恢复、真实窗口组件提取。
 
 ## 环境
 
@@ -36,8 +36,8 @@ MuMu 实例1，现场 serial 127.0.0.1:16416，SDK32；原先关闭，实例0保
 
 ## 原始证据
 
-- [SAF v4](<E:/creation-reading-assistant/root-runtime-device-20261015/device/saf-final-v4/results.json>)、[分享 v4](<E:/creation-reading-assistant/root-runtime-device-20261015/device/share-final-v4/results.json>)、[12项仪器](<E:/creation-reading-assistant/root-runtime-device-20261015/device/saf-cleanup-v4-units.txt>)。
-- [实际ABC v4日志](<E:/creation-reading-assistant/root-runtime-device-20261015/logs/abc-v4.log>)，逐方法原始 instrumentation、设备文件映射及消费结论在 device/abc-v4/harvest。
+- [SAF v4](<<证据根>/root-runtime-device-20261015/device/saf-final-v4/results.json>)、[分享 v4](<<证据根>/root-runtime-device-20261015/device/share-final-v4/results.json>)、[12项仪器](<<证据根>/root-runtime-device-20261015/device/saf-cleanup-v4-units.txt>)。
+- [实际ABC v4日志](<<证据根>/root-runtime-device-20261015/logs/abc-v4.log>)，逐方法原始 instrumentation、设备文件映射及消费结论在 device/abc-v4/harvest。
 - 原失败运行与各版源码、构建日志保留；不以最终绿覆盖原反例。
 
 ## 未覆盖项
@@ -54,7 +54,7 @@ MuMu 实例1，现场 serial 127.0.0.1:16416，SDK32；原先关闭，实例0保
 - 本设备`pm path`对不存在包返回rc1；工具原helper将其unknown，未把失败误作absence。另用rc0的`pm list packages --user 0`精确无包项及私有目录不存在，独立证明恢复初始absent；记录保留unknown原回执及补证。
 - 8项约定设置、shell身份、映射和Home组件已核；MuMu实例1已通过Manager关闭，实例0原样关闭。ADB残留offline条目不代表模拟器还运行。
 
-证据：[完整保护与限定清理后账](<E:/creation-reading-assistant/root-runtime-device-20261015/device/final-protection-result-closed-files.json>)、[逐包卸载前证据](<E:/creation-reading-assistant/root-runtime-device-20261015/device/final-uninstall-forensics/result.json>)、[关闭状态](<E:/creation-reading-assistant/root-runtime-device-20261015/device/host-final-state.json>)。原1.18GB备份与失败内层stage已在E保留。
+证据：[完整保护与限定清理后账](<<证据根>/root-runtime-device-20261015/device/final-protection-result-closed-files.json>)、[逐包卸载前证据](<<证据根>/root-runtime-device-20261015/device/final-uninstall-forensics/result.json>)、[关闭状态](<<证据根>/root-runtime-device-20261015/device/host-final-state.json>)。原1.18GB备份与失败内层stage已在E保留。
 
 ## 交付状态与下一步
 
@@ -66,4 +66,4 @@ MuMu 实例1，现场 serial 127.0.0.1:16416，SDK32；原先关闭，实例0保
 2. 合流三文件Task34夹具补丁和经审核的短末项live握手到唯一新v5源码；单owner构建、冻结并更新固定APK/工具身份。v4冻结保持只读，不在验收中改源码。
 3. 重新核登记实例/执行占用与输入指纹后启用实例1；复用充分且输入未变的原保护证据，只补所需现场基线，运行受影响ABC/短末项并完成恢复。D/F另保留最小可达性核验，不能用人工旧callback或一次无事件采样放行。
 
-独立补丁目录：`E:/creation-reading-assistant/root-runtime-pid-fix-20261015`、Root工作根下`task34-fixture-fix-v1`、`E:/creation-reading-assistant/root-clamp-live-seam-20261015`。无D产品回灌、暂存、提交、push、PR或发布许可。
+独立补丁目录：`<证据根>/root-runtime-pid-fix-20261015`、Root工作根下`task34-fixture-fix-v1`、`<证据根>/root-clamp-live-seam-20261015`。无D产品回灌、暂存、提交、push、PR或发布许可。

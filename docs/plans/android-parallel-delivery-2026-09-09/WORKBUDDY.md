@@ -1,6 +1,6 @@
 # 发给 WorkBuddy：R1 独立验收（只验不修）
 
-工作目录 `D:/develop/Code/Codex/creation-reading-assistant`。先完整读本目录README/COMMON和三方reports。
+工作目录 `<旧仓库>`。先完整读本目录README/COMMON和三方reports。
 只在Codex明确交付冻结集成快照后启动完整验收；三方仍在开发或缺报告时说明依赖，不能验旧APK后宣布新功能PASS。
 不修改产品源码/测试/脚本，不stage/commit/push/reset/clean/stash。报告写 `docs/plans/android-parallel-delivery-2026-09-09/reports/workbuddy-r1.md`。
 

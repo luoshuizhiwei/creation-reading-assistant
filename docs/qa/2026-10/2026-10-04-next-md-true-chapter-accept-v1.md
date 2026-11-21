@@ -7,9 +7,9 @@
 ## 输入指纹
 
 - 恢复仓库 HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，暂存区空；本轮不改 D 产品源码、不暂存/提交/push。
-- 固定产品输入 [原任务 android](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/android>) 已恢复原字节；Root 修复独立保存于 [六路径候选](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/root-md-render-carrier-fix/android>)。
-- [精确六路径 before/after SHA](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/root-evidence/source-manifest.json>) 文件 SHA `77bb49b17c5ddead10c75f35585398c68209662723d76c47b301d35eae6149b0`；六路径与实际编译的 device/android 对应源码逐字一致。
-- 最终宿主 `b43f441788cc735f42e915bfb992a308cee869caf483628adc675da4ee8a7670`；测试 `21489a7c1c6ea97db0c27c92dc305ce5b2842896c765f056bd8e50c7b7768a94`。冻结见 [最终 APK 对](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/root-evidence/final5-freeze>)，安装读回逐项等 SHA。
+- 固定产品输入 [原任务 android](<<证据根>/next-round-md-true-chapter-accept-v1/android>) 已恢复原字节；Root 修复独立保存于 [六路径候选](<<证据根>/next-round-md-true-chapter-accept-v1/root-md-render-carrier-fix/android>)。
+- [精确六路径 before/after SHA](<<证据根>/next-round-md-true-chapter-accept-v1/root-evidence/source-manifest.json>) 文件 SHA `77bb49b17c5ddead10c75f35585398c68209662723d76c47b301d35eae6149b0`；六路径与实际编译的 device/android 对应源码逐字一致。
+- 最终宿主 `b43f441788cc735f42e915bfb992a308cee869caf483628adc675da4ee8a7670`；测试 `21489a7c1c6ea97db0c27c92dc305ce5b2842896c765f056bd8e50c7b7768a94`。冻结见 [最终 APK 对](<<证据根>/next-round-md-true-chapter-accept-v1/root-evidence/final5-freeze>)，安装读回逐项等 SHA。
 
 ## 所有权与改动
 
@@ -32,7 +32,7 @@ MuMu，显式 serial `127.0.0.1:16416`；`emulator-5556`为同一VM别名。1080
 
 ## 执行与结果
 
-- 原输入真实 TOC 第2章：FAIL，`StringIndexOutOfBoundsException length=353 index=382`，ReaderMarkdownRender.kt:44。原始 crash buffer保留 [日志](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/root-evidence/crash-log.txt>)。设备时钟与宿主不同，不把buffer日期当宿主发生时间。
+- 原输入真实 TOC 第2章：FAIL，`StringIndexOutOfBoundsException length=353 index=382`，ReaderMarkdownRender.kt:44。原始 crash buffer保留 [日志](<<证据根>/next-round-md-true-chapter-accept-v1/root-evidence/crash-log.txt>)。设备时钟与宿主不同，不把buffer日期当宿主发生时间。
 - 中间版本：界面回到第2章但落盘offset0；真实失败原日志仍在 device-runs。选色确认之前的早断言失败属于操作顺序错误，单记，不当已保存断言。
 - 最终构建成功，定向 JVM **90/90**（0失败/错误），含 Markdown文档/展平/渲染/持久高亮/可见位置、source合同与Legado相关回归。不是全量门禁。
 - 最终 instrumentation **7/7**：00夹具、01生产章节表、10真实保存、11强停冷读、20离章、30回源落盘、90终态。行为验收分母为**5/5**（01/10/11/20/30），不把夹具/终态算额外功能。
@@ -42,10 +42,10 @@ MuMu，显式 serial `127.0.0.1:16416`；`emulator-5556`为同一VM别名。1080
 
 ## 原始证据
 
-- [最终构建原日志](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/logs/root-final-build.log>)；[固定JVM XML](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/root-evidence/final-jvm-xml>)。
-- [最终JSON/截图](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/device-evidence>)；[原instrumentation日志](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/device-runs>)。
-- [真实UI回源截图](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/screens/root-final5-return.png>)；同名XML在ui-runs；[冷启动回读](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/screens/root-final5-cold-reopen.png>)。
-- [独立机械核验结果](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/root-evidence/verification.json>)；root_verify.py可复查。
+- [最终构建原日志](<<证据根>/next-round-md-true-chapter-accept-v1/logs/root-final-build.log>)；[固定JVM XML](<<证据根>/next-round-md-true-chapter-accept-v1/root-evidence/final-jvm-xml>)。
+- [最终JSON/截图](<<证据根>/next-round-md-true-chapter-accept-v1/device-evidence>)；[原instrumentation日志](<<证据根>/next-round-md-true-chapter-accept-v1/device-runs>)。
+- [真实UI回源截图](<<证据根>/next-round-md-true-chapter-accept-v1/screens/root-final5-return.png>)；同名XML在ui-runs；[冷启动回读](<<证据根>/next-round-md-true-chapter-accept-v1/screens/root-final5-cold-reopen.png>)。
+- [独立机械核验结果](<<证据根>/next-round-md-true-chapter-accept-v1/root-evidence/verification.json>)；root_verify.py可复查。
 
 ## 未覆盖项
 
@@ -53,7 +53,7 @@ MuMu，显式 serial `127.0.0.1:16416`；`emulator-5556`为同一VM别名。1080
 
 ## 恢复与副作用
 
-Root接手前后：[before](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/root-evidence/before.json>) / [after](<E:/creation-reading-assistant/next-round-md-true-chapter-accept-v1/root-evidence/after.json>)。原qahost **53/53文件SHA相同**，原宿主/测试 **2/2 APK SHA与路径相同**，八系统项与forward/reverse相同。density280无override，夜间no；本轮不凭旧批次夜间yes恢复。
+Root接手前后：[before](<<证据根>/next-round-md-true-chapter-accept-v1/root-evidence/before.json>) / [after](<<证据根>/next-round-md-true-chapter-accept-v1/root-evidence/after.json>)。原qahost **53/53文件SHA相同**，原宿主/测试 **2/2 APK SHA与路径相同**，八系统项与forward/reverse相同。density280无override，夜间no；本轮不凭旧批次夜间yes恢复。
 
 最终安装读回与APK冻结SHA一致；任务host/test均卸载Success，任务external目录及两条public XML不存在，见cleanup.json。未修改原宿主/测试APK、正式书库、真实手机；没有直接验证AndroidKeyStore零残留，不能如此声明。
 

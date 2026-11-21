@@ -11,7 +11,7 @@
 32结构化33-v2身份及证据绑定等改进保留，但安全工具仍需返修。34真实EPUB夹具、3个真实Room保护测试、错误UI准备采纳，原qahost编译日志exit0；EPUB旅程/全行/证据落盘不完整。35按schema12列、run专属证据及内容核验准备采纳；原debug编译exit0，Root实际重跑离线15反例被拒。URI明确BLOCKED，未冒称通过。任何编译/离线结果均非设备证据。
 
 ## 原始证据
-[逐文件/原编译/真实shell反例](<E:/creation-reading-assistant/tasks32v3-34v1-35v1-codex-review-20261013/verification.json>)；[Root实际35离线输出](<E:/creation-reading-assistant/tasks32v3-34v1-35v1-codex-review-20261013/task35-offline.log>)。35原日志与meta的elapsed/BUILD时间不一致，机器exit0及BUILD SUCCESSFUL本身成立，摘要不混用时间。
+[逐文件/原编译/真实shell反例](<<证据根>/tasks32v3-34v1-35v1-codex-review-20261013/verification.json>)；[Root实际35离线输出](<<证据根>/tasks32v3-34v1-35v1-codex-review-20261013/task35-offline.log>)。35原日志与meta的elapsed/BUILD时间不一致，机器exit0及BUILD SUCCESSFUL本身成立，摘要不混用时间。
 
 ## 所有权与改动
 Root只写E审计/全局文档，无产品/设备操作。下一精确拆分：

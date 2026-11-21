@@ -12,7 +12,7 @@ N1候选从J1-v3取源，四改两增仅六授权路径。Root排除build/.gradl
 
 ## 所有权与改动
 
-Root仅写本报告、现有current/项目页/TODO/规划有关段落/skill日志及自有E审查结果。独立审查者只读，无产品写入、构建或设备操作。Root只读ADB，不安装、不启宿主、不改设置。旧报告、工件及源码保留。五文档编辑前保全[回退副本](<E:/creation-reading-assistant/w2v3-n1-codex-review-20261002/before>)并核编辑前字节一致；不操作原仓库、Claude独立库或Git index。
+Root仅写本报告、现有current/项目页/TODO/规划有关段落/skill日志及自有E审查结果。独立审查者只读，无产品写入、构建或设备操作。Root只读ADB，不安装、不启宿主、不改设置。旧报告、工件及源码保留。五文档编辑前保全[回退副本](<<证据根>/w2v3-n1-codex-review-20261002/before>)并核编辑前字节一致；不操作原仓库、Claude独立库或Git index。
 
 ## 环境
 
@@ -48,10 +48,10 @@ UI扫描列表、实际导入确认和请求对应；七PNG尺寸1080×1920。�
 
 ## 原始证据
 
-- [Root核查JSON与实际XML/指纹](<E:/creation-reading-assistant/w2v3-n1-codex-review-20261002/verification.json>)、[核查脚本](<E:/creation-reading-assistant/w2v3-n1-codex-review-20261002/audit.py>)。
-- [当前设备后账](<E:/creation-reading-assistant/w2v3-n1-codex-review-20261002/device-verification.json>)及[逐命令stdout/stderr](<E:/creation-reading-assistant/w2v3-n1-codex-review-20261002/device-readback>)。
-- [W2原报告](../../../qa/2026-10/2026-10-01-next-w2-v3-webdav-zip-app-get.md)、[W2会话](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance-v3/logs/sessions>)、[W2 UI](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance-v3/evidence>)。
-- [N1原报告](../../dispatches/2026-10/2026-10-01-next-n1-repair-v1.md)、[N1原XML](<E:/creation-reading-assistant/next-round-n1-repair-v1/results>)、[N1日志](<E:/creation-reading-assistant/next-round-n1-repair-v1/logs>)、[N1候选](<E:/creation-reading-assistant/next-round-n1-repair-v1/android>)。
+- [Root核查JSON与实际XML/指纹](<<证据根>/w2v3-n1-codex-review-20261002/verification.json>)、[核查脚本](<<证据根>/w2v3-n1-codex-review-20261002/audit.py>)。
+- [当前设备后账](<<证据根>/w2v3-n1-codex-review-20261002/device-verification.json>)及[逐命令stdout/stderr](<<证据根>/w2v3-n1-codex-review-20261002/device-readback>)。
+- [W2原报告](../../../qa/2026-10/2026-10-01-next-w2-v3-webdav-zip-app-get.md)、[W2会话](<<证据根>/next-round-w2-webdav-ui-acceptance-v3/logs/sessions>)、[W2 UI](<<证据根>/next-round-w2-webdav-ui-acceptance-v3/evidence>)。
+- [N1原报告](../../dispatches/2026-10/2026-10-01-next-n1-repair-v1.md)、[N1原XML](<<证据根>/next-round-n1-repair-v1/results>)、[N1日志](<<证据根>/next-round-n1-repair-v1/logs>)、[N1候选](<<证据根>/next-round-n1-repair-v1/android>)。
 - [前轮采纳边界](2026-10-01-next-w2v2-d1-codex-review.md)、[总规划](../../../plans/2026-10-01-product-roadmap-realignment.md)、[当前交接](../../../handoff/current.md)。
 
 ## 未覆盖项

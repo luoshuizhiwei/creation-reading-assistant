@@ -10,7 +10,7 @@ CRA-TXT-V3-PREP-V2-CODEX-REVIEW-v1；2026-10-05。比较基线为 unified-candid
 本次只维护本报告、交接入口与 Codex TODO/技能使用记录；产品候选与外部原证据只读。未安装 APK，未执行 ADB，未提交。
 
 ## 环境
-Windows、Python 3.13；证据放 E:/creation-reading-assistant/txt-v3-prep-v2-codex-review-20261005。设备未运行，历史 serial 不作为本次在线事实。
+Windows、Python 3.13；证据放 <证据根>/txt-v3-prep-v2-codex-review-20261005。设备未运行，历史 serial 不作为本次在线事实。
 
 ## 执行与结果
 ### Standards
@@ -25,14 +25,14 @@ Windows、Python 3.13；证据放 E:/creation-reading-assistant/txt-v3-prep-v2-c
 TXT 原始7份 JVM XML：36 tests，0 failures/errors/skipped；输入匹配，复用而未重跑 Gradle。prep-v2 编译原始日志 BUILD SUCCESSFUL，与清单SHA相符，只证明 Kotlin测试源编译，不证明设备行为。Root独立执行 j1_offline_tests.py 的26正反例与 j1_seam_tests.main 的7执行接缝全部符合期望，原外部结果未被覆盖。缺原始runner、缺恢复账、账失败、run_id不符等现在拒绝整批。prep-v2 接受为 READY_FOR_BINDING；真实恢复等待阶段仍明确 NOT_RUN。
 
 ## 原始证据
-- [Root验证](<E:/creation-reading-assistant/txt-v3-prep-v2-codex-review-20261005/verification.json>)
-- [26例结果](<E:/creation-reading-assistant/txt-v3-prep-v2-codex-review-20261005/offline-results/SUMMARY.json>)
-- [7接缝结果](<E:/creation-reading-assistant/txt-v3-prep-v2-codex-review-20261005/seam-results/SUMMARY.json>)
-- [TXT候选](<E:/creation-reading-assistant/txt-reentry-fix-v3/android>)
-- [prep-v2工件](<E:/creation-reading-assistant/txt-final-acceptance-prep-v2>)
+- [Root验证](<<证据根>/txt-v3-prep-v2-codex-review-20261005/verification.json>)
+- [26例结果](<<证据根>/txt-v3-prep-v2-codex-review-20261005/offline-results/SUMMARY.json>)
+- [7接缝结果](<<证据根>/txt-v3-prep-v2-codex-review-20261005/seam-results/SUMMARY.json>)
+- [TXT候选](<<证据根>/txt-reentry-fix-v3/android>)
+- [prep-v2工件](<<证据根>/txt-final-acceptance-prep-v2>)
 
 ## 恢复与副作用
-设备未动；仅新建 Root E 证据与文档更新。编辑前文档副本见 [before](<E:/creation-reading-assistant/txt-v3-prep-v2-codex-review-20261005/before>)。无新设备恢复结论。
+设备未动；仅新建 Root E 证据与文档更新。编辑前文档副本见 [before](<<证据根>/txt-v3-prep-v2-codex-review-20261005/before>)。无新设备恢复结论。
 
 ## 未覆盖项
 当前 TXT 真 UI 恢复、短末单元 clamp、最终同 APK 联合验收尚未关闭。历史 J2–J5 跨候选证据 4/5=80% 仅复用已有核查，不是本次新跑或全产品完成率。完整产品分母未核定。

@@ -3,7 +3,7 @@
 2026-10-26香港14:34；原142 owner，同Claude global Flash，不重派原142/r1。
 
 ````text
-Root已读r1实际patch前200行、REPORT、retry测试完整关键段、run4原log/XML，六候选文件sizeSHA核同。原r1 BLOCKED_PARTIAL/1test1failure原件冻结，不改写。唯一工程仍E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android。
+Root已读r1实际patch前200行、REPORT、retry测试完整关键段、run4原log/XML，六候选文件sizeSHA核同。原r1 BLOCKED_PARTIAL/1test1failure原件冻结，不改写。唯一工程仍<证据根>/task59-common-candidate-v1/candidate/android。
 
 当前retry红真实存在，但“需新增failure generation + wakeup”只是执行者猜测，尚无证据，不授权先加框架/信号或改SaveOrder。
 
@@ -13,7 +13,7 @@ Root已读r1实际patch前200行、REPORT、retry测试完整关键段、run4原
 
 本批同owner负责实施/必要fixture编译/目标验证/REPORT，不把当前5PASS从旧source直接拼成最终6绿。只跑原r1六个目标case的必要单case定位和最终六case定向结果，原所有红原件保留；仅若生产/AndroidTest接线实际变化才新增一次必要compileDebugAndroidTestKotlin，否则复用r1已有compile原log。无整VMTest/全JVM/lint/assemble/APK/设备。若仅测试调度修复，REPORT明确“旧红由测试未驱动background任务导致”，不得声称生产发生不存在的新修复。若仍红准确阻塞，不放宽断言。
 
-先核r1 ready.changedFiles当前六文件SHA（VM48bcefab/Screenc1727db4/Platform6de3b254/Session19c5ddc5/VMTest397c1396/AndroidTestca28dab9），冲突停。原142-v1/r1与141红冻结，只新E:/creation-reading-assistant/task142-reader-exit-save-drain-v1/recheck-r2/ready.json及patch相对r1/REPORT/前后SHA/必要原logXML；不复制工程/cache/APK/旧历史。差量256KiB/raw1MiB，15分钟。
+先核r1 ready.changedFiles当前六文件SHA（VM48bcefab/Screenc1727db4/Platform6de3b254/Session19c5ddc5/VMTest397c1396/AndroidTestca28dab9），冲突停。原142-v1/r1与141红冻结，只新<证据根>/task142-reader-exit-save-drain-v1/recheck-r2/ready.json及patch相对r1/REPORT/前后SHA/必要原logXML；不复制工程/cache/APK/旧历史。差量256KiB/raw1MiB，15分钟。
 
 原owner仍独占reader/Gradle，不Search/B草稿/host/inputs/公共配置/依赖/SaveOrder，不Git/云/正式库/私库自动记忆，任何ADB/VM/安装设置/hostmain/attempt/F1皆禁。Root不旁路build/设备。产品74d106b6/test28173170冻结不含修复。完成等Root实际核再决定B集成，不自动接后批。最终总结末行：这是任务142-r2。
 ````

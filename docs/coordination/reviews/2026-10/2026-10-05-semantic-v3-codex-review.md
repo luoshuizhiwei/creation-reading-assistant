@@ -26,7 +26,7 @@ Windows/Python只读SHA/Git只读；未构建、运行测试或操作设备。�
 合计：9文件采用候选、1文件保持D、2文件精确组合；其直接依赖与新增文件按机械清单核绑定，不能只应用12路径。
 
 ## 原始证据
-- [Profile三文件](../../decisions/2026-10/2026-10-05-profile-merge-decision-v3.md)及`E:/creation-reading-assistant/profile-merge-decision-v3/execution.json`。
+- [Profile三文件](../../decisions/2026-10/2026-10-05-profile-merge-decision-v3.md)及`<证据根>/profile-merge-decision-v3/execution.json`。
 - [阅读进度两文件](../../decisions/2026-10/2026-10-05-reader-progress-merge-decision-v3.md)及其E目录execution/hunk-classification/提议patch。
 - [其余七文件](2026-10-05-remaining-semantic-merge-review-v3.md)及其E目录execution/hunk-verdicts/diffs。
 - [上轮机械与恢复核查](2026-10-05-restore-manifest-v2-codex-review.md)。原三报告、v2误判文本与失败批保留追溯。

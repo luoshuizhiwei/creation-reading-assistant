@@ -13,8 +13,8 @@
 - 体积：52,812,949 字节（≈50.37 MiB）
 - 构建时间：2026-11-08 18:35:01
 - SHA-256：d9c5adcf364244365549eecb8b8df6f8be50b480e16599dfb97de6eaad352545
-- 联合补丁：E:/AgentWork/CRA/uix-v1/uix-v1-r4-joint.patch（实际物理磁盘 98,237 字节，已核清为 91,742 字符落盘编码换算，完全同源绑定）
-- 完整验收报告基线：E:/AgentWork/CRA/uix-v1/closure-v1/REPORT.md
+- 联合补丁：<证据根>/uix-v1/uix-v1-r4-joint.patch（实际物理磁盘 98,237 字节，已核清为 91,742 字符落盘编码换算，完全同源绑定）
+- 完整验收报告基线：<证据根>/uix-v1/closure-v1/REPORT.md
 
 二、第七轮改动核对（解决第六轮 clearAndSetSemantics 动作误清除）
 
@@ -42,8 +42,8 @@
    - 【抽查 3】顶栏与上一章/下一章：确认持续保持 PASS。
 4. 恢复设备基线（动画 1.0、reduce_motion null、haptic=1、4 服务串一致、卸载应用、全清临时文件）。
 5. 结果交付：
-   - 将真机实测 XML 与截图写入 E:/AgentWork/CRA/uix-v1/closure-v1/；
-   - 若上述重点项通过，在 E:/AgentWork/CRA/uix-v1/closure-v1/REPORT.md 中记录通过证据，宣布 UIX-CLOSE-v1 完结，不再做下一轮！
+   - 将真机实测 XML 与截图写入 <证据根>/uix-v1/closure-v1/；
+   - 若上述重点项通过，在 <证据根>/uix-v1/closure-v1/REPORT.md 中记录通过证据，宣布 UIX-CLOSE-v1 完结，不再做下一轮！
    - 若仍有失败，如实记录具体失败节点的系统属性，进入第二轮。
 
 最终总结末单独一行写：

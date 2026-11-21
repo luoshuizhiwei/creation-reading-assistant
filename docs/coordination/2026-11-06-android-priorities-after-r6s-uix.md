@@ -32,10 +32,10 @@
 ZCode 用同一修复版、同一测试书库导出两次。第一次保留测试 TXT 和测试 MD，随后通过产品入口删除 TXT，第二次导出。保留原始 ZIP，记录 APK SHA-256、两次导出的路径与 SHA-256。Root 用下面的只读命令复验，两个参数按时间顺序替换为实际路径。
 
 ```powershell
-python -B "E:/creation-reading-assistant/rds-v1-real-device-smoke/root-checks/verify_r4_export_pair.py" "<删除前.zip>" "<删除后.zip>"
+python -B "<证据根>/rds-v1-real-device-smoke/root-checks/verify_r4_export_pair.py" "<删除前.zip>" "<删除后.zip>"
 ```
 
-- **实物基线**：在 `E:/creation-reading-assistant/rds-v1-real-device-smoke/evidence/R6S/` 的 `cra-backup-nonempty.zip` 和 `cra-backup-missing-state.zip` 上得到 `rc=1, extra=1, missing=0`。多出的成员就是已删除的测试 TXT 正文。
+- **实物基线**：在 `<证据根>/rds-v1-real-device-smoke/evidence/R6S/` 的 `cra-backup-nonempty.zip` 和 `cra-backup-missing-state.zip` 上得到 `rc=1, extra=1, missing=0`。多出的成员就是已删除的测试 TXT 正文。
 - **检查器校准**：内存对照中，只移除已删正文的样本通过；漏掉保留的 MD、同长度改动一个字节、更换保留书 ID、把删除前包当作删除后包，四种情况均被拒绝。
 - **判定范围**：新实物对通过才可关闭该两书样本的导出成员及正文字节检查。共用文件、笔记与灵感关系、缺正文时的导入和旧 ZIP 兼容性分别按 R4/R5 合同取证。当前等待修复版实物对。
 

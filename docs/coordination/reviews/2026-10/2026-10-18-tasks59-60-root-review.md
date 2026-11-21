@@ -2,7 +2,7 @@
 
 ## 任务编号/版本
 
-59-v1、60-v1；Root修正版root-r1，2026-10-18香港时间。[完整核验报告](<E:/creation-reading-assistant/tasks59-60-root-review-20261018/REPORT.md>)、[ready](<E:/creation-reading-assistant/tasks59-60-root-review-20261018/ready.json>)。
+59-v1、60-v1；Root修正版root-r1，2026-10-18香港时间。[完整核验报告](<<证据根>/tasks59-60-root-review-20261018/REPORT.md>)、[ready](<<证据根>/tasks59-60-root-review-20261018/ready.json>)。
 
 ## 输入指纹
 

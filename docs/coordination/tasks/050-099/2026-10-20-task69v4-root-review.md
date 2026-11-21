@@ -11,14 +11,14 @@ host2180e4a8cf606e24e8901cc098b461a0bc1aee8386762400fabb037eb0651ef5（52031858�
 相关task69/59 Python/Java任务查询为空。Root/子智能体只读工具、工件及限定Android路径，不读桌面/私有库。Root只写root-review-v4小型校验JSON和本D报告/current，没有改源码/工件、设备或构建。A已结束；原B承担下一A线集成，独立B线只写互斥候选新文件。
 
 ## 环境
-59唯一工作区、D:/develop/env/gradle及原锁保持，输入未变的MD14项/分类74项复用。没有为并行复制工程或缓存。
+59唯一工作区、<开发盘>/env/gradle及原锁保持，输入未变的MD14项/分类74项复用。没有为并行复制工程或缓存。
 
 ## 执行与结果
 Root实际调用verify_binding、verify_freeze、audit_import_closure、check_budget_plan均ok；实算APK身份匹配，ReaderExportReceiptsTest原XML3/3零失败，host assemble和最终androidTest compile/assemble日志均BUILD SUCCESSFUL。四项原定返修的实际调用链采纳：Accessibility保存按钮不再公共tmp写删；CreateDocument生产onExportCompleted→ReaderExportReceipts→仪器真实URI；先登记资产再读取；读回异常保留cause，取证错误suppressed。
 仍有有限接缝：保存按钮点击前未导航/确认约定提供者和隔离位置，可沿用DocumentsUI上次目录；下一同批修好后再验收，不将后续所有工作串行等待。生产写入失败仅Toast、回执超时，原错误未进入结构化结果，下一A线按必要最小接缝补诊断，失败不能写成功。
 
 ## 原始证据
-E:/creation-reading-assistant/task69-md-material-closure-v1/B/v4下REPORT/ready/src/evidence/junit；integration/v4下ready/STATUS、logs/01与06、candidate及来源；Root输出root-review-v4/checks.json及00-*。并行只读定位的关键源：ReaderNotesSheet.kt:99-113、ReaderSheetHost回执接线、MaterialGatheringJourneyTest真实调用链；HighlightInspirationPersistenceAcceptTest、InspirationDetail及InspirationRoute缺书处理。
+<证据根>/task69-md-material-closure-v1/B/v4下REPORT/ready/src/evidence/junit；integration/v4下ready/STATUS、logs/01与06、candidate及来源；Root输出root-review-v4/checks.json及00-*。并行只读定位的关键源：ReaderNotesSheet.kt:99-113、ReaderSheetHost回执接线、MaterialGatheringJourneyTest真实调用链；HighlightInspirationPersistenceAcceptTest、InspirationDetail及InspirationRoute缺书处理。
 
 ## 未覆盖项
 新模拟器验收未执行。原书缺失时摘录仍可读已有生产逻辑，但现有持久化仪器成功路径都seedBook，仅Room关闭重开证据，未覆盖缺书详情。适合新增独立仪器候选，不先改生产。Room reopen不称进程冷启动；实际OS重启验收另按证据。全产品分母未知。

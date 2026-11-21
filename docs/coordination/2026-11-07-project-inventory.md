@@ -9,7 +9,7 @@
 | 当前产品线 | 原生 Android 阅读与轻量取材 |
 | 保留的其他产品线 | Electron 桌面代码与冻结 Capacitor 历史资产，均不在当前交付排期 |
 | Gradle 模块 | 2 个，app、benchmark |
-| 唯一构建候选 | E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android |
+| 唯一构建候选 | <证据根>/task59-common-candidate-v1/candidate/android |
 | 正式 Kotlin 源文件 | app/src/main 下 523 份 |
 | JVM 测试 Kotlin 文件 | app/src/test 下 384 份，文本计数为 3,828 个 @Test 注解 |
 | Android 测试 Kotlin 文件 | app/src/androidTest 下 103 份，文本计数为 422 个 @Test 注解 |

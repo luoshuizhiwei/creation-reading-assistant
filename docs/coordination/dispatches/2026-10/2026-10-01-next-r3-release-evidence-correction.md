@@ -1,7 +1,7 @@
 # 原生 Android Release 构建证据补正与结论收窄报告 (R3)
 
 > **任务标识**：下一轮任务 R3 — 补正 N2 Release 报告，实现每项结论与实际产物、原始日志及 DEX 证据精确对齐  
-> **响应回读**：[`docs/coordination/reviews/2026-10/2026-10-01-next-n1-n3-codex-review.md`](file:///D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/coordination/reviews/2026-10/2026-10-01-next-n1-n3-codex-review.md) §N2  
+> **响应回读**：[`docs/coordination/reviews/2026-10/2026-10-01-next-n1-n3-codex-review.md`](file:///<仓库>/docs/coordination/reviews/2026-10/2026-10-01-next-n1-n3-codex-review.md) §N2  
 > **基线提交**：`e39a78da9c62f02614207cffb36969a32492eaea`  
 > **独占目录**：`E:\creation-reading-assistant\next-round-n2\android`  
 > **证据归档目录**：`E:\creation-reading-assistant\next-round-n2\evidence-archive\`  

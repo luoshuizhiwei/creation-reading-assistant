@@ -1,6 +1,6 @@
 # 65-v3夜间安全阻塞，02:57香港时间
 
-Root在02:55巡检发现新device_journey.py，SHA256 AC685C6747BB1DE6AC2CE9EA358D40671F855ADC5054F2057AABB97D208F01E2。实际源文件位于E:/creation-reading-assistant/task65-reading-material-flow-v1/v3/scripts/。本次只读审核，不修改外部owner源码。
+Root在02:55巡检发现新device_journey.py，SHA256 AC685C6747BB1DE6AC2CE9EA358D40671F855ADC5054F2057AABB97D208F01E2。实际源文件位于<证据根>/task65-reading-material-flow-v1/v3/scripts/。本次只读审核，不修改外部owner源码。
 
 ## 已证进展
 01:50 compileQahostAndroidTestKotlin原始日志BUILD SUCCESSFUL / EXIT_CODE=0，7.4秒；01:51 assembleQahostAndroidTest同样成功，23.3秒。仅证明编译及test APK构建，不代表冻结、Hilt运行、六项66修复或设备合同通过。无正式REPORT-65-v3.md/ready-65-v3.json。

@@ -25,14 +25,14 @@ TXT-v4：上轮两项关闭，当前源码范围0项。plainRestoreSettled新增
 规范轴0；需求轴TXT0、清单2P2。TXT接受为SOURCE_JVM_ACCEPTED；集成清单只采纳机械事实，决策/归属层需增量v2，不阻挡已冻结E候选的设备验收。
 
 ## 原始证据
-- [Root验证](<E:/creation-reading-assistant/txt-v4-integration-prep-codex-review-20261005/verification.json>)
-- [v4冻结](<E:/creation-reading-assistant/txt-reentry-fix-v4/freeze>)与[XML](<E:/creation-reading-assistant/txt-reentry-fix-v4/freeze/evidence>)
-- [清单](<E:/creation-reading-assistant/exact-integration-prep-v1/integration-manifest.json>)
+- [Root验证](<<证据根>/txt-v4-integration-prep-codex-review-20261005/verification.json>)
+- [v4冻结](<<证据根>/txt-reentry-fix-v4/freeze>)与[XML](<<证据根>/txt-reentry-fix-v4/freeze/evidence>)
+- [清单](<<证据根>/exact-integration-prep-v1/integration-manifest.json>)
 - [既有语义决策](2026-10-05-semantic-v3-codex-review.md)、[已实施统一候选](2026-10-05-unified-v1-codex-review.md)
 - [prep-v2核查](2026-10-05-txt-v3-prep-v2-codex-review.md)
 
 ## 恢复与副作用
-未接触设备；未新增设备恢复结论。文档编辑前副本见[before](<E:/creation-reading-assistant/txt-v4-integration-prep-codex-review-20261005/before>)；对写入核读取SHA，保留外部原证据。
+未接触设备；未新增设备恢复结论。文档编辑前副本见[before](<<证据根>/txt-v4-integration-prep-codex-review-20261005/before>)；对写入核读取SHA，保留外部原证据。
 
 ## 未覆盖项
 TXT真实UI重进、末项clamp、切书实际effect取消和新移动持久化未验。prep-v2真实恢复等待阶段保持NOT_RUN，不用首页等待冒充。跨候选五旅程保持已有4/5=80%，不是最终同APK通过。全产品分母未核；无实体手机/MIUI证据。

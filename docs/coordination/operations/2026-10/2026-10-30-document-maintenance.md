@@ -10,7 +10,7 @@
 
 盘点检查路径、字节/SHA、标题、行数、空文件、字节重复与显式本地Markdown链接；对启动规则、当前交接、活动索引、现行规划、架构入口和本轮相关历史引用做语义更新。**没有重新验证上千份历史报告的每个技术事实、API或设备结论**。分类清单不是“全部内容已验收”的声明。
 
-完整清单与前后指纹：`E:/creation-reading-assistant/coordination/docs-maintenance-20261030/`中的`inventory.json`、`audit.json`、`changes.json`及`before/`。扫描器只解析非围栏/非行内代码中的显式本地链接，不含网络可达性、全部隐式路径或全部锚点验证。
+完整清单与前后指纹：`<证据根>/coordination/docs-maintenance-20261030/`中的`inventory.json`、`audit.json`、`changes.json`及`before/`。扫描器只解析非围栏/非行内代码中的显式本地链接，不含网络可达性、全部隐式路径或全部锚点验证。
 
 ## 已完成的整理
 

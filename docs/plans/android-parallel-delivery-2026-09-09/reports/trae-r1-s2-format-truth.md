@@ -1,6 +1,6 @@
 # Trae R1-S2 报告：导入 / 同步格式真源
 
-- 工作树：`D:/develop/Code/Codex/creation-reading-assistant`
+- 工作树：`<旧仓库>`
 - 状态：**Dev complete（定向 JVM 测试通过，未真机/WorkBuddy 验收，交 WorkBuddy，真机验收留待两个并行修补冻结后统一安排）**
 - 变更性质：新增纯 JVM 分类器 + 局部修改 ShelfImporter / SyncRepository + 对应测试；**未触碰** reader/pager、ReaderReplacementCapability、ReaderRulesSheet、ReaderPagerEngineState、Room schema / 历史书籍迁移删除、desktop、`docs/handoff/current.md`、他人的未提交文件与诊断工件；未 reset/checkout/format/commit/push/stage。
 

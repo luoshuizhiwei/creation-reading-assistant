@@ -115,7 +115,7 @@ runner=`CraIsolatedTestRunner`（裸 `CraIsolatedTestApplication`，无 Hilt/无
 - 重装原 APK（`adb install -r -t`，0.5.1(3) 对候选 0.5.0(2) 为升级）后再次全量重哈希：`data-sha-after-restore.txt` 与冷备**完全一致**（同一 SHA `05c4ee3f…`）。
 - 恢复后设备侧包 SHA：主 `e82904cc…4ef8a`、测试 `fdbd0190…27038d`——**与测试前留档完全一致**（`installed-apks-after-restore.txt`）。
 - 恢复后 `databases/` 仅剩主库三件；`cache/` 无任何 migration 残留。
-- 操作事故记录：第一次恢复推送中 workdb-shm/-wal 的 `adb push` 被 MSYS 路径改写吞掉（目标被改写为 `D:/develop/Git/Git/...`，COPY 实际失败但链上后续 chown 仍回显成功）——最终对账暴露后以 `MSYS_NO_PATHCONV=1` + push 到 `/data/local/tmp` + shell `cp` 重做，复验通过。**恢复以最终哈希对账为准，不以命令回显为准。**
+- 操作事故记录：第一次恢复推送中 workdb-shm/-wal 的 `adb push` 被 MSYS 路径改写吞掉（目标被改写为 `<开发盘>/Git/Git/...`，COPY 实际失败但链上后续 chown 仍回显成功）——最终对账暴露后以 `MSYS_NO_PATHCONV=1` + push 到 `/data/local/tmp` + shell `cp` 重做，复验通过。**恢复以最终哈希对账为准，不以命令回显为准。**
 
 ### 5.3 设备其他状态
 

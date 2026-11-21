@@ -7,8 +7,8 @@ CRA-J1-REAL-READER-ARTIFACTS-REPAIR-v6。用户完成后Root实读工件、源�
 ## 输入指纹
 
 v6 manifest SHA 482c52ec4376535f634c2706c0a7ec5755ea26c142663de17dacd6a0245b7ae8；10/10 SHA与大小一致。交付src与candidate_build/android三源3/3一致；相对Root v5副本，app/src只改变两J1文件。原编译BUILD SUCCESSFUL、compile-exit.txt=0。
-Root证据：E:/creation-reading-assistant/j1-v6-codex-review-20261008/fingerprints.json。
-最终采用Root副本 E:/creation-reading-assistant/j1-v6-codex-finalization-20261008/android，并使用同根src及J1-methods.json。
+Root证据：<证据根>/j1-v6-codex-review-20261008/fingerprints.json。
+最终采用Root副本 <证据根>/j1-v6-codex-finalization-20261008/android，并使用同根src及J1-methods.json。
 最终两源SHA：Fixtures b54bf358e1550dfdd357cc8012f534509d097a772173e448931dd97a14f051b6；Journey c498648d29ec164aca0e69dca8d1ca988e378a4e585da942d36f045a4646098c。辅助probe SHA 6bc0d8a9fc891f7febfd134fb30330c3be2d682d4dc073f2af7a0e03eb3734de不变。Root methods SHA 511f58b1270b372b26f3bfd834e30770c552adb8aa5409b3734d18e22801f1ba。
 D HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存区空。
 
@@ -29,7 +29,7 @@ Root methods codexScopeOverride与summary为当前范围；合流者须改写矩
 
 ## 环境
 
-Windows/JDK17/SDK D:/develop/Android/Sdk；独立E源码与既有Gradle缓存。无设备、无最终APK构建。
+Windows/JDK17/SDK <开发盘>/Android/Sdk；独立E源码与既有Gradle缓存。无设备、无最终APK构建。
 
 ## 执行与结果
 

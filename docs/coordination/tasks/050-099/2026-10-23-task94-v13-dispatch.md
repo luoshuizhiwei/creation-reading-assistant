@@ -7,7 +7,7 @@
 ````text
 继续创作阅读助手原生Android，任务94-v13。用户已授权Root自动交接，保持当前模型，限额保全进度后报告，不自行切提供商。先核owner/进程/锁，若有人在执行不重复启动。
 
-读取有效AGENTS、Codex项目页和D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/handoff/current.md页首；直接读取E:/creation-reading-assistant/task94-organizing-export-integration-v1/v12/REPORT.md、ready.json及恢复合同，不扫历史。Root核同REPORT/patch/当前仪器/产品/test/保全aebc/宿主7项指纹；原test APK/完整数据inventory SHA/用户状态、保护71/820/DB组、产品缺席及保活原始证据核同。v12 summary仍有export-cleanup错误，不能称无错误恢复。实际运行42bf APK原字节缺失如实保留，不重建冒充。
+读取有效AGENTS、Codex项目页和<仓库>/docs/handoff/current.md页首；直接读取<证据根>/task94-organizing-export-integration-v1/v12/REPORT.md、ready.json及恢复合同，不扫历史。Root核同REPORT/patch/当前仪器/产品/test/保全aebc/宿主7项指纹；原test APK/完整数据inventory SHA/用户状态、保护71/820/DB组、产品缺席及保活原始证据核同。v12 summary仍有export-cleanup错误，不能称无错误恢复。实际运行42bf APK原字节缺失如实保留，不重建冒充。
 
 当前产品1102346485a9e47b7b12885310f678e56b5c86d36082834fbec8732906ffc30c，test22c6c738750d5a6c233744751457e8cb0cd5ed0952c3cbaa95bad561894ae380（10526983B），仪器cec7b588c47f796c5221b2051d9158e0b832ed0d62fc1c91fdf243700c5b39d3，宿主6b4f76a9f57a76bd51d50de9c1e3aaa385c777447b62e89d0a4149fdea3991c4。这些离线修正未上设备，不直接旧inputs重跑。
 
@@ -19,9 +19,9 @@ Root已查官方API确证另一处确定缺陷：executeShellCommandRw返回fds[
 
 核对整个剩余链：真实导出UI/provider根与StorageVolume不同字段域、canonical目录、真实默认文件名、保存前缺席、返回URI、失败前及时保全原字节/receipt、内容断言、精确清理、清空持久化、取消不写入。只改确定仪器/宿主缺口，不猜产品缺陷、不加sleep/重试或通用框架。通过分类/搜索/AND/回源及69项复用，输入未变产品不重建；仪器确改才必要test构建。冻结真实动态依赖后新绑定。
 
-你唯一拥有本批E差量/仪器/宿主/构建/设备和交付，Root拥有D协调记录/current，交付通知Root更新D，避免抢写。唯一工作区E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android；Gradle home D:/develop/env/gradle，JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk，锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock。输出E:/creation-reading-assistant/task94-organizing-export-integration-v1/v13，存在先核归属不覆盖旧交付。证据差量8MiB、既有build增量预计256MiB；覆盖当前唯一22c6测试APK前若无同SHA副本先保全必要单份10526983B，实际运行件也须在任何后续构建前保全。报告实际空间/保留理由，不复制工程缓存历史APK对，不清理迁移存量。
+你唯一拥有本批E差量/仪器/宿主/构建/设备和交付，Root拥有D协调记录/current，交付通知Root更新D，避免抢写。唯一工作区<证据根>/task59-common-candidate-v1/candidate/android；Gradle home <开发盘>/env/gradle，JDK <开发盘>/Java/jdk-17.0.14，SDK <开发盘>/Android/Sdk，锁<证据根>/locks/android-gradle-exclusive.lock。输出<证据根>/task94-organizing-export-integration-v1/v13，存在先核归属不覆盖旧交付。证据差量8MiB、既有build增量预计256MiB；覆盖当前唯一22c6测试APK前若无同SHA副本先保全必要单份10526983B，实际运行件也须在任何后续构建前保全。报告实际空间/保留理由，不复制工程缓存历史APK对，不清理迁移存量。
 
-前置已验证且恢复合同闭合后，执行本批最多一次主run/attempt（包括入场失败），失败停业务并取证恢复，禁止同批修正再试。若前置未闭合，不消耗主run碰运气，交付明确阻塞。允许使用/必要启动项目隔离MuMu1，授权游戏可关闭，全程不关闭/重启/杀VM/操作共享ADB，结束保持运行。ADB D:/Application/NetEase/MuMuPlayer/nx_main/adb.exe，fresh serial/boot/owner/前台/预算，全部命令绑serial；阶段预算加至少1200秒恢复预留。原71私有/820外部、DB/WAL/SHM、原test代码/完整数据/用户状态、原宿主APK/设置、strict night=no均不放宽。
+前置已验证且恢复合同闭合后，执行本批最多一次主run/attempt（包括入场失败），失败停业务并取证恢复，禁止同批修正再试。若前置未闭合，不消耗主run碰运气，交付明确阻塞。允许使用/必要启动项目隔离MuMu1，授权游戏可关闭，全程不关闭/重启/杀VM/操作共享ADB，结束保持运行。ADB <MuMu adb>/adb.exe，fresh serial/boot/owner/前台/预算，全部命令绑serial；阶段预算加至少1200秒恢复预留。原71私有/820外部、DB/WAL/SHM、原test代码/完整数据/用户状态、原宿主APK/设置、strict night=no均不放宽。
 
 验收真实导出返回URI原字节的标签/正文/摘录/来源，明确清空同精确行分类且来源保留，取消同一行payload/更新见证不变。精确清理仅确证本轮新建、初始缺席、URI路径绑定、E原字节sizeSHA及设备当前字节一致的单资产，之后复核不存在；未知不删、不递归、探测错误不算不存在。
 

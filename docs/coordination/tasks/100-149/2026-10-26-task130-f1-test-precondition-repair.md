@@ -8,9 +8,9 @@
 你是任务130-v1唯一测试源码与必要Kotlin编译owner。Root总协调和验原件；你不是工程里唯一协作者，不覆盖其他人的改动。用户已要求继续自动化并改用Claude桌面。不得运行Claude/ZCode CLI或登录，不读写任何Claude/Cowork/DSH/.codex/memories私库或自动记忆。
 
 基线与直接输入：
-- 唯一工程 E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android。
+- 唯一工程 <证据根>/task59-common-candidate-v1/candidate/android。
 - 唯一可改源码 app/src/androidTest/java/com/creationreadingassistant/acceptance/TemporaryReadingRecreationRegressionTest.kt，30527B SHA256 85e77c72fd2111f1e199bf2c551cf8381059adb2287caa7204d720baa28267f0。
-- 129原报告与首次红/二次绿编译日志：E:/creation-reading-assistant/task129-f1-recreation-regression-v1/。历史证据只引用，禁止覆盖。
+- 129原报告与首次红/二次绿编译日志：<证据根>/task129-f1-recreation-regression-v1/。历史证据只引用，禁止覆盖。
 - 只读helper同目录J1RealReaderFixtures.kt SHA256 0aea2c5eed35d7f189df72590013fdea1bdf658045b5ae7373d16617d9265ce9；captureSearchTermRowsByTerm=SELECT * FROM search_terms WHERE term = ?，不排除当前book。
 - 只读原旅程SearchContentHitJourneyDeviceTest.kt SHA256 0557506f1730a669257d4982b806dabc366a3bf0ab1210a4028a4e5758b1d05b；原933-945行已有Home搜索入口真实点击。
 - AppNavigation.kt SHA256 7a6046a50550dad54a1a85f2cbf097b009fafb79d8169b889de1d27fb46f9fd9、TemporaryReadingNavigationViewModel.kt SHA256 e4af886a393f4596bceadcaca80302faab4d09c92f6905fefedaa7ab0e4949b5，只读不改。
@@ -22,15 +22,15 @@ Root定位的具体问题与成功标准：
 4. 静态说明实际控制流如何消除前置矛盾、点击路径如何对应生产入口。已有充分128模拟器旅程与恢复不重跑。
 
 所有权和禁止范围：
-- 只改上述TemporaryReadingRecreationRegressionTest.kt；输出只写 E:/creation-reading-assistant/task130-f1-test-precondition-repair-v1/。
+- 只改上述TemporaryReadingRecreationRegressionTest.kt；输出只写 <证据根>/task130-f1-test-precondition-repair-v1/。
 - 不改production、原仪器/helper、Gradle公共配置、D/current、任何旧报告/ready/日志。
 - 完全离线：不ADB/VM探测/设备操作/安装卸载/仪器运行/host主入口/attempt/assemble。没有设备授权。
 - 无Git暂存提交pushPR发布、云SSH/SFTP、正式书库/HOLD、购买换账号换供应商、删除移动压缩迁移存量资产或杀共享进程。
 
 存储和必要编译：
 - 本轮差量（源码/patch/REPORT/ready）<=1MiB；必要raw日志<=2MiB；无新大目录、无工程/cache/APK复制，旧原件只引用。新输出预计<100KiB。
-- 唯一现有构建workspace如上，JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk，Gradlehome D:/develop/env/gradle。
-- 唯一编译owner就是你；锁 E:/creation-reading-assistant/locks/android-gradle-exclusive.lock 按既有owner协议确认，文件存在不等于活锁；确有其他活owner则停，不杀进程/抢锁。
+- 唯一现有构建workspace如上，JDK <开发盘>/Java/jdk-17.0.14，SDK <开发盘>/Android/Sdk，Gradlehome <开发盘>/env/gradle。
+- 唯一编译owner就是你；锁 <证据根>/locks/android-gradle-exclusive.lock 按既有owner协议确认，文件存在不等于活锁；确有其他活owner则停，不杀进程/抢锁。
 - 允许修完后一次必要 :app:compileDebugAndroidTestKotlin；若本次新增编译错误，只同owner定点修复保留每次红日志。不要JVM全套/lint/assemble，不重建旧APK。旧testAPK a646c8de不含129或130，不作新测试可运行声明。
 
 交付：

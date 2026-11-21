@@ -17,8 +17,8 @@ Root实算最终996源码、42验收工件均与10-v1字节一致，交付清单
 
 ## 原始证据
 
-- [外部报告](<E:/creation-reading-assistant/joint-31-closure-task10-v2/REPORT.md>)、其runs/和evidence/原件保留。
-- [Root机械核对](<E:/creation-reading-assistant/task10v2-codex-review-20261010/verification.json>)与verify.py：996源码、42验收、1146交付、双APK和本地保护DB/WAL/SHM实算。
+- [外部报告](<<证据根>/joint-31-closure-task10-v2/REPORT.md>)、其runs/和evidence/原件保留。
+- [Root机械核对](<<证据根>/task10v2-codex-review-20261010/verification.json>)与verify.py：996源码、42验收、1146交付、双APK和本地保护DB/WAL/SHM实算。
 - 诊断文件root-cause-j1-55s.md、diag-scroll-r6.txt与各轮diag-reader-state.json需按各自绑定理解；空日志不作为补证。
 
 ## 恢复与副作用

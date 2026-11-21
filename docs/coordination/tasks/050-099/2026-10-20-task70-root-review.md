@@ -10,14 +10,14 @@ host0f20cd22d3730cfd6f83a2de97c74ed514bdc75fafc6d92584868a5bcd9e4dc6，test4493a
 没有发现相关活动Python/Java任务。Root只写task70/root-review小型JSON、本报告/current，子智能体全只读；不改候选或工件，不调用设备/构建/Git或外部应用。已有A14/分类74充分证据复用。
 
 ## 环境
-59唯一工作区、D:/develop/env/gradle及原锁不变；本轮Root没有新工程/缓存或APK复制。使用比例核验技能，只查实际交付与具体风险。
+59唯一工作区、<开发盘>/env/gradle及原锁不变；本轮Root没有新工程/缓存或APK复制。使用比例核验技能，只查实际交付与具体风险。
 
 ## 执行与结果
 Root实跑verify_binding、verify_freeze、audit_import_closure和预算均ok。预算4320=阶段2460+恢复1620+裕量240，覆盖orphan420。真实最终构建日志BUILD SUCCESSFUL；导出回执原XML7项、零失败，采纳A生产成功/失败/取消结果接缝与约定Downloads导航实现。B实际新增独立仪器候选，已由A编译打包一个集成版本，但不是最终交付原件。
 B最终ready/src SHA531c16b9888be40577ae7c0d26e59d3073c2640fb141e22909f6362765ab8a70；集成版f9551cf686f89781d9884f607d8693b85ba1fa7bdd2e61ede91d86750838914e。Root实算且文本diff证不是行尾差异：最终B增加showDetail卸载Composition、viewModelScope.cancel和DISPOSE_UI_BEFORE_DB_CLOSE，集成版缺这段。A报告所谓逐字节一致及对B ready哈希转述不成立。B本地ready和src自身匹配，不据A误述指控B原件错误。当前冻结绑定的是f955集成版，不能证明已纳入B最终收尾修复；下一版只补此真实差量和必要test构建/重绑，不重做B。
 
 ## 原始证据
-E:/creation-reading-assistant/task70-parallel-closeout-v1/A/REPORT-70-v1-A.md；B/REPORT/ready/src；integration/ready、STATUS、logs/03-final-build.log、evidence/ReaderExportReceiptsTest.xml；attempts/20261020-193412-8d7568的initial-protection、99-summary、20-recovery-*、recovery/final-protection与host-final-state、host-adb-disconnect；Root实算root-review/checks.json及recovery-checks.json。
+<证据根>/task70-parallel-closeout-v1/A/REPORT-70-v1-A.md；B/REPORT/ready/src；integration/ready、STATUS、logs/03-final-build.log、evidence/ReaderExportReceiptsTest.xml；attempts/20261020-193412-8d7568的initial-protection、99-summary、20-recovery-*、recovery/final-protection与host-final-state、host-adb-disconnect；Root实算root-review/checks.json及recovery-checks.json。
 
 ## 恢复与副作用
 19:34:12–19:39:16的唯一attempt在安装前保护门禁失败：night期望no、实得yes，install_attempted=false/phase_started=false，三仪器全未运行。不能据该阻塞判断产品失败。

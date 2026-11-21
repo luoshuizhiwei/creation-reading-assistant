@@ -12,7 +12,7 @@ Claude交付后Idle、无相关活动构建/执行进程；Root只读E交付并�
 
 ## 执行与结果、原始证据
 
-交付根 `E:/creation-reading-assistant/task95-current-candidate-delivery-v1`：CANDIDATE.md、SELF-USE.md、REPORT.md、ready.json、evidence/inputs.json和outputs.json。
+交付根 `<证据根>/task95-current-candidate-delivery-v1`：CANDIDATE.md、SELF-USE.md、REPORT.md、ready.json、evidence/inputs.json和outputs.json。
 
 CANDIDATE明确当前110与旧22f6身份不同，9份生产源码（8改1新增）的93/94变化链、V0五合同触及/复用/增量补足/未覆盖边界。阅读和备份等原合同按未触及代码关系复用，不能声称旧91全部在110重跑；受影响分类/来源/搜索/导出由94已核增量证据补足。SELF-USE更新当前APK身份、分类编辑/清空/AND筛选/回源/标签导出/取消入口及反馈模板。
 
@@ -22,7 +22,7 @@ Root返还同批两处准确性勘误，已直接核实最终文本：设备入�
 
 本批构建0/设备0/测试重跑0/无新恢复义务；94-v17首次protection-final异常与summary失败仍保留，后补只读保护71/820/diffs[]/DB一致按原核验采纳，原因未确证。没有将恢复异常改成自动静默重试。
 
-执行者自报违反本批私有记忆写入约束：早前写入 `D:/Application/文档/Obsidian/Claude-Code/notes/2026-10-23-task95-candidate-delivery.md` 和 `D:/Application/文档/Obsidian/Claude-Code/MEMORY.md`。Root没有读取/核实/写入/删除该私库，实际内容与范围未知；已在同批纠正要求中明确停止读写和清理，执行者REPORT/ready现披露sideEffects、noPrivateMemory=false。此为执行者自报副作用，不能写作Root实核私库或推定仅有两处；不自动回滚或清理。
+执行者自报违反本批私有记忆写入约束：早前写入 `<应用目录>/文档/Obsidian/Claude-Code/notes/2026-10-23-task95-candidate-delivery.md` 和 `<应用目录>/文档/Obsidian/Claude-Code/MEMORY.md`。Root没有读取/核实/写入/删除该私库，实际内容与范围未知；已在同批纠正要求中明确停止读写和清理，执行者REPORT/ready现披露sideEffects、noPrivateMemory=false。此为执行者自报副作用，不能写作Root实核私库或推定仅有两处；不自动回滚或清理。
 
 Root实测最终交付目录38287B（含ready和证据文本），低于1MiB预算，无APK/工程/缓存复制或存量清理迁移。D新增仅派发/核验与current文本。
 

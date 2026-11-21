@@ -344,12 +344,12 @@ totalChapters   = run.totalChapters                    // 全书口径，直接�
 
 ```bash
 # 全量 JVM（等价 gradlew.bat）
-GRADLE_USER_HOME=D:/develop/env/gradle JAVA_HOME=D:/develop/Java/jdk-17.0.14 \
+GRADLE_USER_HOME=<开发盘>/env/gradle JAVA_HOME=<开发盘>/Java/jdk-17.0.14 \
 java -Dorg.gradle.appname=gradlew -classpath gradle/wrapper/gradle-wrapper.jar \
      org.gradle.wrapper.GradleWrapperMain :app:testDebugUnitTest --no-daemon --console=plain
 
 # 构建 + 装机
-GRADLE_USER_HOME=D:/develop/env/gradle JAVA_HOME=D:/develop/Java/jdk-17.0.14 \
+GRADLE_USER_HOME=<开发盘>/env/gradle JAVA_HOME=<开发盘>/Java/jdk-17.0.14 \
 java -Dorg.gradle.appname=gradlew -classpath gradle/wrapper/gradle-wrapper.jar \
      org.gradle.wrapper.GradleWrapperMain :app:assembleDebug --no-daemon --console=plain
 adb -s c49ac6cf install -r -t android/app/build/outputs/apk/debug/app-debug.apk
@@ -433,7 +433,7 @@ search_index_daily_v1       0                  0         -256              1    
 
 **结论**：终验 APK 的 `once` 作业已确认到达 `SUCCEEDED` 终态 —— 整库索引构建在真机上**完整跑通并正常收尾**，P0 修复端到端闭环。
 
-> 取证脚本路径：`C:/Users/23254/AppData/Local/Temp/cra-db2/`（含 `monitor_final.py`、`db_verify.py`、`monitor_final.log`）。
+> 取证脚本路径：`<用户目录>/AppData/Local/Temp/cra-db2/`（含 `monitor_final.py`、`db_verify.py`、`monitor_final.log`）。
 
 ## 10. 整库终验结论（PASS）
 
@@ -560,7 +560,7 @@ search_index_daily_v1       0                  0         -256     # ENQUEUED
 
 §6.7 属防御路径（需一条合法规则先落盘、再改成非法正则并跨窗口续建才会触发），真机不做强制复现，以 §6.7.4 的 2 个单测为准。
 
-**设备副作用已还原**：`stay_on_while_plugged_in` 7 → 3、应用进程 0、默认输入法仍为微信、无 `/data/local/tmp` 残留。取证用的 5.6 GB 本机副本留在 `C:/Users/23254/AppData/Local/Temp/cra-db2/v67_main.db*`（含 `-wal` / `-shm`），需要时可复查，不再使用时可直接删除。
+**设备副作用已还原**：`stay_on_while_plugged_in` 7 → 3、应用进程 0、默认输入法仍为微信、无 `/data/local/tmp` 残留。取证用的 5.6 GB 本机副本留在 `<用户目录>/AppData/Local/Temp/cra-db2/v67_main.db*`（含 `-wal` / `-shm`），需要时可复查，不再使用时可直接删除。
 
 > 注：为补 §11.6 的定向实验，设备随后被再次占用（改锚点 + 冷启动），实验结束后**再次还原**，见 §11.6 末尾。
 

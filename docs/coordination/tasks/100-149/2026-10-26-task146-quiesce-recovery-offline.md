@@ -7,7 +7,7 @@
 
 剩余具体依赖：instrument正常Back返回搜索页不代表产品进程退出。当前preserve_three_roots见进程存活直接NEEDS_APPROVED_QUIESCE，正常设备批可能只能保产品而无法完整恢复。138有真实“停写前归档→精确产品force-stop一次→停写后完整保全”历史，引用其已证命令与原字节口径，不把历史许可当本轮设备许可。本146仅写未来可明确批准的接缝与离线验证，绝不实际ADB/VM/stop；后续Root独立设备合同才可启用。
 
-所有权仅E:/creation-reading-assistant/task146-quiesce-recovery-offline-v1/新host最小delta/REPORT/raw/ready.json。旧145-v1至r8r1所有host/inputs/raw/SYNTHETIC不改不删不rmtree。加载pin已审r8host，输入闭包原路径只读引用；不要复制一套145链、APK、工程。其他owner无并行任务，这一接缝与未来同设备恢复共享唯一owner，不造泛审。
+所有权仅<证据根>/task146-quiesce-recovery-offline-v1/新host最小delta/REPORT/raw/ready.json。旧145-v1至r8r1所有host/inputs/raw/SYNTHETIC不改不删不rmtree。加载pin已审r8host，输入闭包原路径只读引用；不要复制一套145链、APK、工程。其他owner无并行任务，这一接缝与未来同设备恢复共享唯一owner，不造泛审。
 
 实现只补“检测真实本批产品仍活”的恢复路径：默认没有单独quiesce许可则沿现有NEEDS_APPROVED_QUIESCE/KEEP_PRODUCT，不能暗中停写。未来明确许可分支先核serial/boot/user/本批install所有权与instrument已停止或正常终态（父stop_ok门必须保留）；先把本批product CE=/data/user/0/com.creationreadingassistant、DE=/data/user_de/0/com.creationreadingassistant、external=/storage/emulated/0/Android/data/com.creationreadingassistant整根原始tar字节、原rc/stdoutstderr与源清单/proof落盘。正在写的pre归档只能准确PRE_LIVE_UNSTABLE，不能冒充一致快照；若三根pre原始归档/清单失败或空间不足，产品保留且不执行stop，不卸载、不删资产。
 

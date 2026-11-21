@@ -4,7 +4,7 @@
 CRA-TASKS25-31-CODEX-REVIEW-v1；2026-10-13。用户报告全部完成，Root直接核查，不创建GPT/Claude子代理。
 
 ## 输入指纹
-HEAD e39a78da9c62f02614207cffb36969a32492eaea、暂存空。主输入1009清单SHA 08e09f3965a1540e0c85d6cfdbcfc46b4afaec3ec229f8b22cc79d0bd6d798b5。六个新候选实际源码SHA差量与原XML已核；31七工具SHA与五原结果SHA共12/12匹配。详细输入/差量在[完整核查](<E:/creation-reading-assistant/tasks25-31-codex-review-20261013/REPORT.md>)。
+HEAD e39a78da9c62f02614207cffb36969a32492eaea、暂存空。主输入1009清单SHA 08e09f3965a1540e0c85d6cfdbcfc46b4afaec3ec229f8b22cc79d0bd6d798b5。六个新候选实际源码SHA差量与原XML已核；31七工具SHA与五原结果SHA共12/12匹配。详细输入/差量在[完整核查](<<证据根>/tasks25-31-codex-review-20261013/REPORT.md>)。
 
 ## 执行与结果
 7/7交付存在。25/27/28/29/30五项源码/JVM限定采纳，26/31两项返修；不合流、不推进新功能。六候选原绿JVM85/30/56/24/17/57均与XML/日志相符，是不同树269次原执行，不是共同树新门禁。原10项发现8项限定采纳，R3/R7未完整关闭。
@@ -20,10 +20,10 @@ HEAD e39a78da9c62f02614207cffb36969a32492eaea、暂存空。主输入1009清单S
 两P1剩余点在完整报告精确定位。返修沿26-v2/31-v2，不新增32号。26只补现有同键关联字段保护及其回归；31闭合强冻结实际内容/集合并绑定真实当前根，保留已过S1/S2/R8。五个合格增量不重派，不重跑输入未变的充分证据。
 
 ## 原始证据
-[六树SHA与XML](<E:/creation-reading-assistant/tasks25-31-codex-review-20261013/artifact-verification.json>)、[Root新反例](<E:/creation-reading-assistant/tasks25-31-codex-review-20261013/remaining-gaps.json>)、[可复核脚本](<E:/creation-reading-assistant/tasks25-31-codex-review-20261013/check_remaining_gaps.py>)、[31收据SHA](<E:/creation-reading-assistant/tasks25-31-codex-review-20261013/receipt-checks.json>)。反例首次正常夹具因CRLF/缺参数拒绝不计证据，修正自有夹具后才取正常/坏输入对照。
+[六树SHA与XML](<<证据根>/tasks25-31-codex-review-20261013/artifact-verification.json>)、[Root新反例](<<证据根>/tasks25-31-codex-review-20261013/remaining-gaps.json>)、[可复核脚本](<<证据根>/tasks25-31-codex-review-20261013/check_remaining_gaps.py>)、[31收据SHA](<<证据根>/tasks25-31-codex-review-20261013/receipt-checks.json>)。反例首次正常夹具因CRLF/缺参数拒绝不计证据，修正自有夹具后才取正常/坏输入对照。
 
 ## 所有权与改动
-Root仅审核E与活动协调文档。26-v2独立E目录`E:/creation-reading-assistant/task26-backup-relation-preservation-fix-v2`，31-v2独立E目录`E:/creation-reading-assistant/task31-acceptance-freeze-backup-guards-fix-v2`。两任务互斥文件，可并行；26定向JVM仍排他锁，31纯离线。v1原件保留。
+Root仅审核E与活动协调文档。26-v2独立E目录`<证据根>/task26-backup-relation-preservation-fix-v2`，31-v2独立E目录`<证据根>/task31-acceptance-freeze-backup-guards-fix-v2`。两任务互斥文件，可并行；26定向JVM仍排他锁，31纯离线。v1原件保留。
 
 ## 环境
 Windows/Python。无新构建/ADB/模拟器/网络/模型配置或外部消息。模型继续实际交付的26 GLM5.3（替换DeepSeek Flash/Pro）、31 DeepSeek Flash（替换GLM5.3），禁止GPT/Claude外部执行；参考耗时26 30–50分钟、31 45–75分钟，排队另计。

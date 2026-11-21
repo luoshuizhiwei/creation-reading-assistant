@@ -5,7 +5,7 @@
 - 所有权与改动：Root核查E代码/原始工件，准备32路径精确源码payload及文档；设备只补核屏幕超时、删除本批脚本生成的精确临时文件。未回灌产品、未构建、未操作Git。
 - 环境：Windows/Python3.13；MuMu serial127.0.0.1:16416。没有操作另一serial或实体手机。
 - 执行与结果：源码树/文件SHA、XML、设备JSON与UI层级、APK、恢复账核查；独立只读审查实际SE4→SE3状态移交。
-- 原始证据：[Root audit](<E:/creation-reading-assistant/mdfix-review-20261003/audit.json>)；[执行报告](../../dispatches/2026-10/2026-10-03-next-md-annotation-return-fix-v1.md)；原始文件均保留。
+- 原始证据：[Root audit](<<证据根>/mdfix-review-20261003/audit.json>)；[执行报告](../../dispatches/2026-10/2026-10-03-next-md-annotation-return-fix-v1.md)；原始文件均保留。
 - 未覆盖项：Markdown跨章设备、note typed目标、无定位失败提示的设备可见性；旧APK逐批安装读回仅粗粒度文字关联，本轮不扩大为完整原始安装证明。
 - 恢复与副作用：53文件/3原APK/7项设置原始前后账一致；第8项屏幕超时未记入本批基线，Root现场读取60000，与上一批基线相同，不伪称本批有完整8项前后账。
 - 交付状态与下一步：单章Markdown非起点回源限定通过；32路径源码包准备完成，下一合流构建及受影响MuMu验证，不应用D或提交。
@@ -28,7 +28,7 @@
 
 ## 规划与下一步
 
-Root已准备[32路径manifest与源码payload](<E:/creation-reading-assistant/mdfix-review-20261003/payload32-preparation/manifest.json>)：25基础＋4回滚＋3Markdown，互不重叠，32/32源SHA核定。只是源码包；尚无对应联合APK/设备通过，也未写共享产品树。单章MD修复闭环成立，下一进入集成，不继续重复调查。
+Root已准备[32路径manifest与源码payload](<<证据根>/mdfix-review-20261003/payload32-preparation/manifest.json>)：25基础＋4回滚＋3Markdown，互不重叠，32/32源SHA核定。只是源码包；尚无对应联合APK/设备通过，也未写共享产品树。单章MD修复闭环成立，下一进入集成，不继续重复调查。
 
 下一单owner：CRA-INTEGRATION-BUILD-ACCEPT-v2，复制冻结基础到新E候选，精确覆盖32路径，先定向合流回归再构建；隔离新UID MuMu仅验证合流后的回滚保护、Markdown非起点及跨章定位接缝。复用其余N1/G1/Profile/同步旧证据，不全量设备重跑。设备恢复必须明确8设置、临时文件、APK、DB/文件、映射账。失败留证停止，不越界修其他功能。
 

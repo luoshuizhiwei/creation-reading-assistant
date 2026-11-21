@@ -8,7 +8,7 @@
 
 输入指纹与所有权与改动：基线SHA见下，各执行者只写独立E；Codex只改派发索引与交接。
 
-唯一只读产品基线：`E:/creation-reading-assistant/joint-final-bound-20261008/candidate/android`，992项源码manifest SHA `198fe92a0104e663514b271cb37db30495fdcf11582af6fb7e2aec6ba1f61588`。当前联合设备输入与双APK保持冻结，不应用4/5增量。任务3的外部窗口状态不能仅凭未见输出目录/匹配进程认定；新增执行者仍自行核占用，不发送外部消息。
+唯一只读产品基线：`<证据根>/joint-final-bound-20261008/candidate/android`，992项源码manifest SHA `198fe92a0104e663514b271cb37db30495fdcf11582af6fb7e2aec6ba1f61588`。当前联合设备输入与双APK保持冻结，不应用4/5增量。任务3的外部窗口状态不能仅凭未见输出目录/匹配进程认定；新增执行者仍自行核占用，不发送外部消息。
 
 | 编号/技术ID | 建议模型与作用 | 所有权 | 退出条件 |
 |---|---|---|---|
@@ -16,7 +16,7 @@
 | 5 / CRA-TTS-TIMER-LIFECYCLE-EVIDENCE-v1 | GLM5.3Flash；已有定时停止的必要生命周期回归补证 | 独立E的ReaderTtsController、必要的同包实际接入计时协调器与定向测试 | 用真实生产调用链覆盖到期、关闭/改时、stop/release及失效回调；现无确定缺陷，不无故重写TTS；无实体音频通过结论 |
 | 6 / CRA-POST-ACCEPT-INTEGRATION-PAYLOAD-PREP-v1 | GLM5.3Flash；预先备好精确集成材料 | 仅读冻结E源码与D Android；只写独立E清单/diff/可逆脚本/报告，不应用 | 复用旧已核语义处置，只核新指纹差异；逐文件前置SHA、D独有WIP保留和冲突停止，设备未通过时不得标可应用 |
 
-任务目录分别为 `E:/creation-reading-assistant/parallel-search-task4-v1`、`parallel-tts-task5-v1`、`integration-payload-task6-v1`，各自固定`REPORT.md`。建议模型不是实际执行模型，执行报告另记。
+任务目录分别为 `<证据根>/parallel-search-task4-v1`、`parallel-tts-task5-v1`、`integration-payload-task6-v1`，各自固定`REPORT.md`。建议模型不是实际执行模型，执行报告另记。
 
 ## 并发资源与边界
 

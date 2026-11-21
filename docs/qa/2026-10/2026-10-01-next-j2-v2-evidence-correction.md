@@ -5,9 +5,9 @@
 - **任务版本**：J2-v2
 - **任务性质**：设备验收证据只读勘误、物证冲突复核与恢复边界审查。严格执行零 ADB 设备交互、零产品代码修改、零环境配置变更。
 - **报告日期**：2026-10-01
-- **上游裁决基准**：[Codex review 2026-10-01-next-j1-j2-codex-review.md](file:///D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/coordination/reviews/2026-10/2026-10-01-next-j1-j2-codex-review.md) 及 [verification.json](file:///E:/creation-reading-assistant/next-j1-j2-codex-review-20261001/verification.json)。
-- **归档保留原报告**：[2026-10-01-next-j2-joint-mumu-acceptance.md](file:///D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/qa/2026-10/2026-10-01-next-j2-joint-mumu-acceptance.md)。
-- **本轮核查矩阵输出**：[evidence_correction_matrix.json](file:///E:/creation-reading-assistant/next-round-j2-v2-evidence-review/evidence_correction_matrix.json)。
+- **上游裁决基准**：[Codex review 2026-10-01-next-j1-j2-codex-review.md](file:///<仓库>/docs/coordination/reviews/2026-10/2026-10-01-next-j1-j2-codex-review.md) 及 [verification.json](file:///<证据根>/next-j1-j2-codex-review-20261001/verification.json)。
+- **归档保留原报告**：[2026-10-01-next-j2-joint-mumu-acceptance.md](file:///<仓库>/docs/qa/2026-10/2026-10-01-next-j2-joint-mumu-acceptance.md)。
+- **本轮核查矩阵输出**：[evidence_correction_matrix.json](file:///<证据根>/next-round-j2-v2-evidence-review/evidence_correction_matrix.json)。
 
 ---
 
@@ -26,7 +26,7 @@
 - **目标设备声明**：MuMu 模拟器 Android 12（宿主序列号声明为 `127.0.0.1:16416`）；本轮未连接设备，未刷新设备 serial；报告严格遵循用户规则，绝不将 MuMu 模拟器称作实体手机或 MIUI。
 - **审计对象**：
   - 恢复仓库 HEAD：`e39a78da9c62f02614207cffb36969a32492eaea`。
-  - 冻结 APK 元数据：[READY.json](file:///E:/creation-reading-assistant/next-round-joint-20261001/READY.json) 与五个冻结 APK 文件。
+  - 冻结 APK 元数据：[READY.json](file:///<证据根>/next-round-joint-20261001/READY.json) 与五个冻结 APK 文件。
   - JVM 单元测试结果：`android/app/build/test-results/testDebugUnitTest/` 下全部 287 份 XML 报告。
   - 真 Room 仪器测试日志：`E:\creation-reading-assistant\next-round-j2-acceptance\logs\instrumentation_persistence_test.log`。
   - WebDAV 自动化套件汇总：`E:\creation-reading-assistant\next-round-j2-acceptance\logs\acceptance_suite_summary.json`。

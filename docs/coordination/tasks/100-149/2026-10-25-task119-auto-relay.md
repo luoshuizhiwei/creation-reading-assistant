@@ -41,12 +41,12 @@ E/task119-netcafe-relay-v1/ROOT-RELAY-STATE.json、relay-snapshot-latest.json、
 用户明确要求两端自动交流，不再让用户逐轮复制提示词/报告。本文件是Root发布的119限定接力启动指令，不扩大生产/设备权限。
 官方Start Plan GLM-5.3保持；不换账号模型/购买，不接119以外任务。香港2026-10-25 20:00停止；未知文件/基线冲突/模型不可用/网络连续两次失败时通知用户一次并停止，不能自行恢复无限重试。
 
-1. 使用现有便携SFTP、私钥与固定known_hosts，把/download/Wait-119Feedback.ps1下载到C:/Users/Administrator/CRA119/relay/Wait-119Feedback.ps1。创建relay目录属于本次控制目录；保护work基线和旧交付。
+1. 使用现有便携SFTP、私钥与固定known_hosts，把/download/Wait-119Feedback.ps1下载到<用户目录>/Administrator/CRA119/relay/Wait-119Feedback.ps1。创建relay目录属于本次控制目录；保护work基线和旧交付。
 脚本SHA256：6cec9d70a688baeabcb6c7f5a942db3820099e21c0c4212b8fadba9b2e7b1a1c
 校验后运行脚本，不修改执行策略/安全设置。如果本机策略阻止脚本，报告真实阻塞，不绕过。脚本只做传输/校验/接收ACK，不自动执行反馈代码。
 
 2. 读本地relay/state.json（初始无文件则lastCompletedSequence=0），调用：
-& "C:/Users/Administrator/CRA119/relay/Wait-119Feedback.ps1" -LastSequence 0 -WaitSeconds 45
+& "<用户目录>/Administrator/CRA119/relay/Wait-119Feedback.ps1" -LastSequence 0 -WaitSeconds 45
 必须依据实际state传值，不能每次硬编码0。
 脚本NEW_JOB时已按输入源码SHA/Root反馈SHA校验并上传ack；完整读取返回的path内任务，再实施允许的新仪器修订。收到ACK仅表示收到，Root不会当完成。
 WAIT是正常暂无反馈：继续等待，不把它作为结束任务的理由，也不每次向人报告。

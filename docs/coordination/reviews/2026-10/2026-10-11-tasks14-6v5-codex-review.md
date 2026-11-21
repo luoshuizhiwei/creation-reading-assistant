@@ -18,7 +18,7 @@ HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空。14 run_t14v1_final/d
 
 ## 原始证据
 
-[Root核验](<E:/creation-reading-assistant/tasks14-6v5-codex-review-20261011/verification.json>)、runs-summary.json、freeze-verify.log与[next-input-binding](<E:/creation-reading-assistant/tasks14-6v5-codex-review-20261011/next-input-binding.json>)。14各runs summary/raw/harvest/restore、6-v5 evidence与INDEX保留原件。初次Root调用沿用旧CLI参数位置产生usage error，已按现有子命令参数位置修正，最终真实verify PASS；前次调用错误不算产品门禁失败。
+[Root核验](<<证据根>/tasks14-6v5-codex-review-20261011/verification.json>)、runs-summary.json、freeze-verify.log与[next-input-binding](<<证据根>/tasks14-6v5-codex-review-20261011/next-input-binding.json>)。14各runs summary/raw/harvest/restore、6-v5 evidence与INDEX保留原件。初次Root调用沿用旧CLI参数位置产生usage error，已按现有子命令参数位置修正，最终真实verify PASS；前次调用错误不算产品门禁失败。
 
 ## 恢复与副作用
 

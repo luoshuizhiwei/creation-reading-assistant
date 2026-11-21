@@ -2,7 +2,7 @@
 
 ## 任务编号/版本、输入指纹
 
-111-v1，2026-10-24。唯一run T106A-T111V1-20261024-133356。E:/creation-reading-assistant/task111-material-journey-navigation-v1。REPORT 1201d695afbadaa50a699789afe30d4c2dfdb444344aaf25a2576d875202363d（6685B）；ready f52245d50996099c528a8b62f35917bc661f7f2998e66ab3114ee5c0d402722a（4372B）。Root读取原始输出、四阶段数据、源码补丁和恢复回执，未重复执行测试。
+111-v1，2026-10-24。唯一run T106A-T111V1-20261024-133356。<证据根>/task111-material-journey-navigation-v1。REPORT 1201d695afbadaa50a699789afe30d4c2dfdb444344aaf25a2576d875202363d（6685B）；ready f52245d50996099c528a8b62f35917bc661f7f2998e66ab3114ee5c0d402722a（4372B）。Root读取原始输出、四阶段数据、源码补丁和恢复回执，未重复执行测试。
 
 ## 所有权与改动
 

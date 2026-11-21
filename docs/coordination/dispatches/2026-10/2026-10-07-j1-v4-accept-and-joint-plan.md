@@ -5,7 +5,7 @@ CRA-J1-V4-CODEX-ACCEPT-AND-JOINT-PLAN-v1。用户报告完成后已找到实际v
 
 ## 输入指纹
 D HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存区空。当前J1完整982项实算相对v3恰四授权文件变化，无缺项；24/24证据SHA一致。
-E核查根：E:/creation-reading-assistant/j1-v4-codex-review-20261007；root-check.json、j1-source-current.json、joint-inputs.json记录完整当前输入。
+E核查根：<证据根>/j1-v4-codex-review-20261007；root-check.json、j1-source-current.json、joint-inputs.json记录完整当前输入。
 J1完整当前清单SHA ff8d424bed986f137ad88ce06388cc5cb1c442302202798f1a69e6883bb6f3c8；patch SHA 419dcc10b1200bb96b24e4a9f085f4ca3fa82c46b58c221751ec00b76359c5c2。
 TXT完整底座984项清单8004d4a23433d08b2cf9c939a83c64deca450d53e45dc08b11d2ff19ca16fa80；TXT v4与Root strict overlay、D2完整980清单940bbca58cbe93c3c59ac9aba560d7ac267666cc15bbe4a748b7855b28624be0沿用已核证据。
 

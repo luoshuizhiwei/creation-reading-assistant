@@ -15,7 +15,7 @@
 
 ## 2. 开工输入与所有权
 
-活动仓库：`D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919`。产品源码主载体为本轮实核D工作树；E历史candidate只读引用，不整体回灌、不以旧APK覆盖D产物。先读用户级/仓库AGENTS及current，记录HEAD、相关diff、当前APK与下列文件SHA；不清理WIP。
+活动仓库：`<仓库>`。产品源码主载体为本轮实核D工作树；E历史candidate只读引用，不整体回灌、不以旧APK覆盖D产物。先读用户级/仓库AGENTS及current，记录HEAD、相关diff、当前APK与下列文件SHA；不清理WIP。
 
 最近核对APK为52,812,949B、SHA256 `d9c5adcf364244365549eecb8b8df6f8be50b480e16599dfb97de6eaad352545`。它只是核对线索，若盘上已变，先核明确切输入/owner并记录，不退回旧包。UIX-CLOSE-v1旧问题及证据核清另按原合同，不把本设计实现算作旧语义修复或覆盖旧结论。
 
@@ -99,7 +99,7 @@ SETTINGS保留ROOT、TYPOGRAPHY、PAGING、DISPLAY、EYE_CARE、ADVANCED既有�
 
 ## 8. 交付和反返工约束
 
-交付根：`E:/creation-reading-assistant/reader-pages-v1/`。新增预算300MiB，先查空间，复用单一工作区、缓存和输入。交付PLAN.md、REPORT.md、ready.json、最小patch、必要修改源码SHA/构建log/XML、四入口前后截图/连贯短录像、设备恢复原证。最终冻结APK只保一套，避免每轮复制工程/APK对。
+交付根：`<证据根>/reader-pages-v1/`。新增预算300MiB，先查空间，复用单一工作区、缓存和输入。交付PLAN.md、REPORT.md、ready.json、最小patch、必要修改源码SHA/构建log/XML、四入口前后截图/连贯短录像、设备恢复原证。最终冻结APK只保一套，避免每轮复制工程/APK对。
 
 ready绑定源码清单、HEAD/工作树diff、APK/测试包SHA、构建测试原rc及实际验收范围；缺证据不得写PASS。现有WIP要在diff里区分归属，不把整仓脏改动算本批成果。当前入口/状态修改前核指纹并合并，历史原红不改写。
 

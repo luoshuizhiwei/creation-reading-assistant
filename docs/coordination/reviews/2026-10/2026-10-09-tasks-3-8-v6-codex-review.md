@@ -7,6 +7,6 @@
 - Root核8的996源码与7字节完全一致；4份原始XML SHA/清单绑定成立，33+19+8+4=64，failure/error/skipped均0。最终原日志30 executed、exit0成立。JOINT_DIRECTED_JVM_PASS限定接受，不是设备通过。无需重跑该64未变输入。
 - Root当前设备复核：71保护文件size/nsmtime/SHA、原APK对、包状态、映射、shell正常；night实际yes而约定no。已记录漂移并补no，再完整核同8设置。最终MuMu process/android均false。外部恢复报告保留，当前结论由Root补正证据覆盖。
 
-Root证据：`E:/creation-reading-assistant/tasks-3-8-v6-codex-review-20261009/verification.json`、`root-readonly-restore-drift.json`、`root-readonly-restore-proof.json`、`root-power-final.json`。
+Root证据：`<证据根>/tasks-3-8-v6-codex-review-20261009/verification.json`、`root-readonly-restore-drift.json`、`root-readonly-restore-proof.json`、`root-power-final.json`。
 
 下一3-v7以8已验996树为基线，在独立E叠加3-v6两J1测试；仅搜索点击导航线程边界最小修正，IO换算保留IO，Main负责导航/反馈。不能把缺显式Main本身当生产根因，应区分Compose测试拦截器影响并用修前/后真实单方法验证。此举避免旧992树修复后再合流构建。最终31仍等待Root核。7/8不重派，不制造独立重复任务。D产品/Git/发布、C2签名选择及X整机中断等边界不扩展。

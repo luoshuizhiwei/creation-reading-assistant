@@ -6,14 +6,14 @@
 
 原207 owner连续负责导航最小实现、相关测试、candidate集成、必要定向测试/编译和报告。206设备恢复已有限关闭；本批无设备/ADB/VM/恢复许可。
 
-唯一工作区：`E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android`。
+唯一工作区：`<证据根>/task59-common-candidate-v1/candidate/android`。
 
 - `app/src/main/java/com/creationreadingassistant/ui/screen/reader/ReaderRoute.kt` before SHA `ce0fd7b2996e374dc971063928ee913d12e458cdf1e453fbff8e02e041e7b9e4`。
 - `app/src/test/java/com/creationreadingassistant/ui/screen/reader/ReaderTemporaryBackTest.kt` before SHA `aa3de67cdd3c8c9d39c3acd4f7d3f7da93d84629332fdf354f7a6c1a9b9de587`。
 - 203设备测试保持 `ReaderInternalTemporaryLifoTest.kt` SHA `1f2895409b6e90d0f0e2f4e4f943d5acf040bb6618365ad754636681db4f02af`，不修改其断言或timeout。
 - 允许必要时新增独立androidTest：`app/src/androidTest/java/com/creationreadingassistant/acceptance/ReaderTemporaryNavigationStackTest.kt`。
 
-207-v1外部根：`E:/creation-reading-assistant/task207-reader-exit-stack-repair-v1`，ready SHA `a76fc11c55de783aabac87fb2e73600e94b99b5363775186a049459120aee160`。该版本**未合流**，不是默认可应用补丁。
+207-v1外部根：`<证据根>/task207-reader-exit-stack-repair-v1`，ready SHA `a76fc11c55de783aabac87fb2e73600e94b99b5363775186a049459120aee160`。该版本**未合流**，不是默认可应用补丁。
 
 ## 必须解决的证据和行为缺口
 
@@ -29,6 +29,6 @@
 
 因产品修改，生成匹配的宿主/测试APK并核实际size/SHA、证书05249完整指纹、CraIsolatedTestRunner/target和目标方法。旧APK先查唯一保全，只缺才留一份；不复制工程/缓存/依赖，不构建完再丢失旧输入。
 
-交付根：`E:/creation-reading-assistant/task207-reader-exit-stack-repair-v1/recheck-r1/`；REPORT、ready、after与candidate同、最小标准patch、before路径/SHA、真实正反apply、原rc/XML/build日志、新APK完整pins无自引用。source/runtime/report/ready≤256KiB、普通raw≤256KiB，必要唯一旧APK单列。
+交付根：`<证据根>/task207-reader-exit-stack-repair-v1/recheck-r1/`；REPORT、ready、after与candidate同、最小标准patch、before路径/SHA、真实正反apply、原rc/XML/build日志、新APK完整pins无自引用。source/runtime/report/ready≤256KiB、普通raw≤256KiB，必要唯一旧APK单列。
 
 实际收到任务起40分钟，发送时间未知不补造。到预算交实际进度与具体缺口，不随机重跑；实施/必要编译修复/验证归同owner。禁止设备、Git暂存提交pushPR发布、删移资产、云正式库/私库session DB、`.codex/memories`和自动记忆。用户stop/Esc、权限登录、输入或所有权冲突停对应操作。完成后Root验收，不自行设备重跑。最终总结独立末行“这是任务207-r1。”。

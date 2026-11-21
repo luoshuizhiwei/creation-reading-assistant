@@ -25,7 +25,7 @@ Root只读B脚本、原始诊断和输入，不重新执行诊断，不修改A/B
 
 ## 原始证据
 
-E:/creation-reading-assistant/task63-common-device-entry-v1 下：B报告/ready，v7/consumer-check/tools/diagnose_de_consumer.py、diagnostic/run2/input-index.json、report.json、stdout.log和overall-consumer-report.diagnostic.json。顶层第一次产物及后续禁止覆盖FAIL保留；run2为已明确指向的权威结果，不再生成run3或复制一套。
+<证据根>/task63-common-device-entry-v1 下：B报告/ready，v7/consumer-check/tools/diagnose_de_consumer.py、diagnostic/run2/input-index.json、report.json、stdout.log和overall-consumer-report.diagnostic.json。顶层第一次产物及后续禁止覆盖FAIL保留；run2为已明确指向的权威结果，不再生成run3或复制一套。
 
 ## 未覆盖项
 

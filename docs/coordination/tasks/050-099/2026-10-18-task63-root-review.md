@@ -2,7 +2,7 @@
 
 ## 任务编号/版本
 
-63-v1，Root入口最小修正root-r1，2026-10-18香港时间。[接收清单](<E:/creation-reading-assistant/task63-common-device-entry-v1/root-review/ready.json>)。
+63-v1，Root入口最小修正root-r1，2026-10-18香港时间。[接收清单](<<证据根>/task63-common-device-entry-v1/root-review/ready.json>)。
 
 ## 输入指纹
 
@@ -41,4 +41,4 @@ Root无新设备恢复义务，旧63冻结/APK/交付与旧56工具不改；只�
 
 ## 交付状态与下一步
 
-63共同冻结/新APK采纳；入口使用Root-r1替代原v14，沿同任务完成小修，不重派、不重建。具体单次方案以原DEVICE-PLAN加[Root更正](<E:/creation-reading-assistant/task63-common-device-entry-v1/root-review/DEVICE-PLAN-DELTA.md>)为准，冻结/APK不变，改用Root入口/95绑定及独立Room观察账。唯一设备owner/一次新run/一次attempt，fresh基线与完整阶段+1200秒恢复，失败不现场改码重绑再试；设备执行仍等待用户决定，两个自动化不恢复。
+63共同冻结/新APK采纳；入口使用Root-r1替代原v14，沿同任务完成小修，不重派、不重建。具体单次方案以原DEVICE-PLAN加[Root更正](<<证据根>/task63-common-device-entry-v1/root-review/DEVICE-PLAN-DELTA.md>)为准，冻结/APK不变，改用Root入口/95绑定及独立Room观察账。唯一设备owner/一次新run/一次attempt，fresh基线与完整阶段+1200秒恢复，失败不现场改码重绑再试；设备执行仍等待用户决定，两个自动化不恢复。

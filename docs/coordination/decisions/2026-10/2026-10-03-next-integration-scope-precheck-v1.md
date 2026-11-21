@@ -1,7 +1,7 @@
 # 32路径集成范围预检（合并前只读预案）
 
 - 任务编号/版本：CRA-INTEGRATION-SCOPE-PRECHECK-v1；2026-10-03 指定，实际执行 2026-10-04T00:14–01:05+08:00，应用 ZCode/GLM。
-- 输入指纹：HEAD `e39a78da9c62f02614207cffb36969a32492eaea`（开始/结束一致）；暂存区空（前后均 0 条 staged）；工作树状态条目 1569（开始）→1570（结束），唯一新增为另一窗口报告 `docs/coordination/reviews/2026-10/2026-10-03-next-reading-coverage-review-v1.md`（untracked，未读取）。固定输入 [manifest.json](<E:/creation-reading-assistant/mdfix-review-20261003/payload32-preparation/manifest.json>) SHA256 `cf05ea577548de034dfbef16c612c658f60c48bdc4b62d352061a70ae7107358` + `payload\` 32 文件；32 路径 D 侧 SHA 开始/结束零漂移。已有同任务结果占用检查：`next-round-integration-scope-precheck-v1` 此前不存在，本轮新建。
+- 输入指纹：HEAD `e39a78da9c62f02614207cffb36969a32492eaea`（开始/结束一致）；暂存区空（前后均 0 条 staged）；工作树状态条目 1569（开始）→1570（结束），唯一新增为另一窗口报告 `docs/coordination/reviews/2026-10/2026-10-03-next-reading-coverage-review-v1.md`（untracked，未读取）。固定输入 [manifest.json](<<证据根>/mdfix-review-20261003/payload32-preparation/manifest.json>) SHA256 `cf05ea577548de034dfbef16c612c658f60c48bdc4b62d352061a70ae7107358` + `payload\` 32 文件；32 路径 D 侧 SHA 开始/结束零漂移。已有同任务结果占用检查：`next-round-integration-scope-precheck-v1` 此前不存在，本轮新建。
 - 所有权与改动：只读 HEAD/暂存区/D 盘 32 路径与状态清单、E 盘固定输入、mdfix-review 审查报告；写入仅自有目录 `E:\creation-reading-assistant\next-round-integration-scope-precheck-v1`（scripts×7、verify/threeway/hunk/wip/final JSON×5）与本唯一报告。未应用 payload、未构建、未操作设备、未执行任何 Git 写操作。
 - 环境：Windows Git Bash + Python 3.13（difflib 行区间 + 逐函数人工阅读）。关键事实：`core.autocrlf=true` 且 `.gitattributes` 为 `* text=auto eol=lf`——HEAD blob 为 LF、多数 D 工作树文件为 CRLF，原始字节 SHA 会把「仅 EOL 不同」误判成改动；本预检分类一律用 CRLF→LF 规范化内容比较，原始字节 SHA 另列存证。
 - 执行与结果：

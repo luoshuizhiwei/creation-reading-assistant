@@ -13,7 +13,7 @@
 
 - **任务编号**：`W2-accept-v3`
 - **版本**：`v3`
-- **响应依据**：[`docs/coordination/reviews/2026-10/2026-10-01-next-w2v2-d1-codex-review.md`](file:///D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/coordination/reviews/2026-10/2026-10-01-next-w2v2-d1-codex-review.md) §W2 指出的唯一剩余缺口——Case 5 中 ZIP 精确路径此前仅由电脑 Python 探针获取，缺乏 App 原生端（okhttp UA）发出的真实 GET 请求证据。
+- **响应依据**：[`docs/coordination/reviews/2026-10/2026-10-01-next-w2v2-d1-codex-review.md`](file:///<仓库>/docs/coordination/reviews/2026-10/2026-10-01-next-w2v2-d1-codex-review.md) §W2 指出的唯一剩余缺口——Case 5 中 ZIP 精确路径此前仅由电脑 Python 探针获取，缺乏 App 原生端（okhttp UA）发出的真实 GET 请求证据。
 - **任务范围**：严格限定于复用冻结 APK，在独立目录部署受控 WebDAV 服务与夹具，通过 App 真实 UI 路径触发“从开源阅读导入记录”，捕获并核验 App 发出的真实 ZIP GET 请求与 200 响应，完成严格 404 对照实测，并完成设备环境完全恢复。
 
 ---
@@ -34,8 +34,8 @@
    - 文件大小：`266` 字节
    - SHA-256：`aec6d4ff8f6114b8b82d858be193cdc527817c80b34a1372f83c879d376aaecf`
 4. **前序审查与基线输入**：
-   - Codex 总指挥审查结论：[`docs/coordination/reviews/2026-10/2026-10-01-next-w2v2-d1-codex-review.md`](file:///D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/coordination/reviews/2026-10/2026-10-01-next-w2v2-d1-codex-review.md)
-   - W2-v2 验收报告：[`docs/qa/2026-10/2026-10-01-next-w2-v2-webdav-ui-mumu-acceptance.md`](file:///D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/qa/2026-10/2026-10-01-next-w2-v2-webdav-ui-mumu-acceptance.md)
+   - Codex 总指挥审查结论：[`docs/coordination/reviews/2026-10/2026-10-01-next-w2v2-d1-codex-review.md`](file:///<仓库>/docs/coordination/reviews/2026-10/2026-10-01-next-w2v2-d1-codex-review.md)
+   - W2-v2 验收报告：[`docs/qa/2026-10/2026-10-01-next-w2-v2-webdav-ui-mumu-acceptance.md`](file:///<仓库>/docs/qa/2026-10/2026-10-01-next-w2-v2-webdav-ui-mumu-acceptance.md)
 
 ---
 

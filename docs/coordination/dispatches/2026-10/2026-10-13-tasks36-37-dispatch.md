@@ -6,12 +6,12 @@
 37-v1 CRA-JOINT-PRODUCER-CONSUMER-AUDIT-v1：Root-v2生产者/消费者合同独立离线审计。
 
 ## 输入指纹
-唯一产品输入E:/creation-reading-assistant/second-look-fixed-root-v2-20261013，源1019/tree36331e2af4544586eba32e1766854e69afbd61b8b7d472697e0e945470e77f5e，source manifest SHA5599ce1c2c0b9f001db2ab8e45bdd98074389fcb3e2f9590f01cab05fb88a762。
-验收58/tree93784ce0cb4ad1ac6bee974919951ab8eb6447169b80f54a0bf4d17da80510fc，manifest SHA92e49fc76ce3861611d22292ce53169d4938305cdae419da85c2e212a672f8ef。Root本轮实际逐文件复核一致，见[开工指纹复核](<E:/creation-reading-assistant/external-tasks36-37-dispatch-20261013/input-preflight.json>)。
+唯一产品输入<证据根>/second-look-fixed-root-v2-20261013，源1019/tree36331e2af4544586eba32e1766854e69afbd61b8b7d472697e0e945470e77f5e，source manifest SHA5599ce1c2c0b9f001db2ab8e45bdd98074389fcb3e2f9590f01cab05fb88a762。
+验收58/tree93784ce0cb4ad1ac6bee974919951ab8eb6447169b80f54a0bf4d17da80510fc，manifest SHA92e49fc76ce3861611d22292ce53169d4938305cdae419da85c2e212a672f8ef。Root本轮实际逐文件复核一致，见[开工指纹复核](<<证据根>/external-tasks36-37-dispatch-20261013/input-preflight.json>)。
 
 ## 所有权与改动
-36唯一输出E:/creation-reading-assistant/task36-joint-runtime-bind-freeze-v1。独占自有candidate/acceptance、主机driver/adapters/config/runtime consumers、工具/清单、lint/最终双APK/强冻结；产品与全部Kotlin源1019不修改。补Task34原生事件采集、35全行/PID/URI/权限/创建账、32新工具PENDING与最终输入/实际触碰计划绑定。不放松强冻结/pending/marker/数据保护门。
-37唯一输出E:/creation-reading-assistant/task37-joint-producer-consumer-audit-v1。只读Root-v2与正式合同，独占自有离线反例/接口矩阵/审计报告，不改36或其他目录，不构建APK，不读36的活动WIP当稳定输入。任务价值是跨生产者格式/消费者/配置的接口审计，不重复32的16/35的24绿灯。
+36唯一输出<证据根>/task36-joint-runtime-bind-freeze-v1。独占自有candidate/acceptance、主机driver/adapters/config/runtime consumers、工具/清单、lint/最终双APK/强冻结；产品与全部Kotlin源1019不修改。补Task34原生事件采集、35全行/PID/URI/权限/创建账、32新工具PENDING与最终输入/实际触碰计划绑定。不放松强冻结/pending/marker/数据保护门。
+37唯一输出<证据根>/task37-joint-producer-consumer-audit-v1。只读Root-v2与正式合同，独占自有离线反例/接口矩阵/审计报告，不改36或其他目录，不构建APK，不读36的活动WIP当稳定输入。任务价值是跨生产者格式/消费者/配置的接口审计，不重复32的16/35的24绿灯。
 Root独占全局文档与最终验收决定。两条无共享可写文件，可立即并行；36唯一Gradle构建owner，共享锁检查仍必需。37提交给Root，不把其Root-v2审计PASS误当36最终driver通过。
 
 ## 环境

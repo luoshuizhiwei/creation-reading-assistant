@@ -4,7 +4,7 @@
 
 ## 输入指纹与原始证据
 
-99 VM after0842cc744ab7e697fea5fab5663d79e0fca31acbedef428d75b55a91a098e9bf与新增测试82db3af96363dc9fa9d26a1d7c9cfc5b138cb99503ea5f8bd3b0686f4588db3a实物核同；原worker before/六artifact已核。E:/creation-reading-assistant/task99-dictionary-query-lifecycle-v1/integration/REPORT.md SHA a7daa78f89a03cc81679578613ff6e84db6f836b5b15d76d9e6bba5cb1ce186c核同。
+99 VM after0842cc744ab7e697fea5fab5663d79e0fca31acbedef428d75b55a91a098e9bf与新增测试82db3af96363dc9fa9d26a1d7c9cfc5b138cb99503ea5f8bd3b0686f4588db3a实物核同；原worker before/六artifact已核。<证据根>/task99-dictionary-query-lifecycle-v1/integration/REPORT.md SHA a7daa78f89a03cc81679578613ff6e84db6f836b5b15d76d9e6bba5cb1ce186c核同。
 
 ## 执行与结果
 

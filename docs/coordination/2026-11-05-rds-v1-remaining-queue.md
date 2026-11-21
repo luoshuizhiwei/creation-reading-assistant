@@ -6,7 +6,7 @@
 
 ## 现态与裁决边界
 
-- RDS-v1 真机走查已执行到 P13。ZCode 的 `E:/creation-reading-assistant/rds-v1-real-device-smoke/REPORT.md` 已更新为终稿 v2，v1 原件保存于 `REPORT-v1-archived.md`；`ISSUES.md` 已记录 Trae 清单的逐项采纳。
+- RDS-v1 真机走查已执行到 P13。ZCode 的 `<证据根>/rds-v1-real-device-smoke/REPORT.md` 已更新为终稿 v2，v1 原件保存于 `REPORT-v1-archived.md`；`ISSUES.md` 已记录 Trae 清单的逐项采纳。
 - 当前终稿的有限裁决是 `EXECUTED_COMPLETE`，含义仅为 P0–P13 走查流程执行完毕。它有明确覆盖缺口：S1=0、S2=3、S3=10，以及 P6.2/P6.4/P6.5、P8 拔耳机、P9.3/P9.4、P11.3/P11.4、P12 主体、全局搜索等 NOT_RUN。不得解释为产品验收通过。
 - 已确认的 S2：RDS-101（MD 位置恢复归零，两次复现）；候选 S2：RDS-102（书内搜索命中不跳转）、RDS-103（TTS 进度和控制联动）。RDS-103 的“跨书串扰”已撤回，不得继续作为缺陷。
 - 测试身份：`c49ac6cf` / bootId `7fdcf9dc-ed4a-46cb-aa77-634a2bde7c2a` / APK `c396ebe1…` / 53,899,310B。新批须重新探测 identity，不沿用旧 runId 或 bootId 作为当前事实。
@@ -23,11 +23,11 @@
 
 ### Z1 — 冻结 RDS-v1 交付与待修基线
 
-输入：`REPORT.md` v2、`REPORT-v1-archived.md`、`ISSUES.md`、`E:/creation-reading-assistant/coordination/RDS-v1-ZCODE-ISSUES.md`、Trae 观察日志、evidence/screenshots/logcat。
+输入：`REPORT.md` v2、`REPORT-v1-archived.md`、`ISSUES.md`、`<证据根>/coordination/RDS-v1-ZCODE-ISSUES.md`、Trae 观察日志、evidence/screenshots/logcat。
 
 动作：核 v2 是否仍有互相矛盾的裁决、错误计数、把 NOT_RUN 写成 PASS 的条目、误写的 `stay_awake=7`、Download “已清空”措辞和隐私面过宽的 SAF dump；把遗留缺陷写成追加件，保留 v1/v2 原字节。列三条 S2 的复现输入、期望、实际、原始证据路径及不明确之处。检查 `ISSUES.md` 证据树里“8 问题”与实际 3+10 条的措辞冲突。
 
-交付：`E:/creation-reading-assistant/rds-v1-real-device-smoke/REPAIR-BASELINE.md` 与 `ready/Z1.json`，含上述文件 SHA256、设备与 APK 身份、逐项检查结论。ready 只是交付信号。
+交付：`<证据根>/rds-v1-real-device-smoke/REPAIR-BASELINE.md` 与 `ready/Z1.json`，含上述文件 SHA256、设备与 APK 身份、逐项检查结论。ready 只是交付信号。
 
 验收：每项有文件与证据指针；原文失败证据可定位；不覆盖 v1/v2；没有把已有缺陷写为通过。失败即停并写具体差异。
 
@@ -77,7 +77,7 @@
 
 动作：汇总每条问题的最终状态、修复文件、测试、设备结果、恢复结果、未覆盖项与残余风险；纠正 REPORT/ISSUES 中受新结果影响的事实，保留旧版原件；给 Root 一份限定接受建议，明确真机范围、模拟器历史范围、原红保留范围。
 
-交付：`E:/creation-reading-assistant/rds-v1-real-device-smoke/FINAL-ROOT-PACKAGE.md`、`ready/Z6.json`、清单与 SHA256；停下等 Root 裁决，不自行修下一轮。
+交付：`<证据根>/rds-v1-real-device-smoke/FINAL-ROOT-PACKAGE.md`、`ready/Z6.json`、清单与 SHA256；停下等 Root 裁决，不自行修下一轮。
 
 验收：报告不出现“全产品完成”或无分母百分比；没有把旧 V0/MuMu 证据升级为真机通过；current/state 由 Root 更新，ZCode 不写。
 
@@ -85,7 +85,7 @@
 
 ### T1 — 复核 Z1 冻结件
 
-只读核 v1/v2 原件、ISSUES、Trae 原清单、Z1 的 SHA 和逐项结论；输出是否有裁决冲突、计数错误、证据缺失或隐私面过宽，写入 `E:/creation-reading-assistant/coordination/rds-v1-trae-observation.md` 的新章节 `T1`。不发设备命令，不改 ZCode 文件。
+只读核 v1/v2 原件、ISSUES、Trae 原清单、Z1 的 SHA 和逐项结论；输出是否有裁决冲突、计数错误、证据缺失或隐私面过宽，写入 `<证据根>/coordination/rds-v1-trae-observation.md` 的新章节 `T1`。不发设备命令，不改 ZCode 文件。
 
 ### T2 — 复核 Z2 判别证据
 

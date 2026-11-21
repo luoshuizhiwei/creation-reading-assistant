@@ -10,7 +10,7 @@
 Root只写核验工件与文档，两名独立只读审查检查49、50；未改外部交付候选。48-v3继续拥有独立Android main和相关JVM测试；49-v3拥有主机host/runtime恢复链与Python测试（明确包括生产账本创建端）；50-v3仅探针与本任务规则/测试。共享构建/设备/全局文档由Root唯一负责，各v3目录由原任务名后缀改为-v3，保留v2。50不可抢改48的ReaderProgressEffects；缺诊断身份则保守不签保护结论或交Root接缝，不伪造。
 
 ## 环境
-新证据根 E:/creation-reading-assistant/tasks48-50-v2-codex-review-20261015。本轮无设备、无APK构建、无正式书库、无D产品回灌或Git写操作。不刷新旧MuMu状态，仅保留原恢复证据。
+新证据根 <证据根>/tasks48-50-v2-codex-review-20261015。本轮无设备、无APK构建、无正式书库、无D产品回灌或Git写操作。不刷新旧MuMu状态，仅保留原恢复证据。
 
 ## 执行与结果
 - 48九份XML合计65项0失败；旧全局merge/repository改动已撤回，与v9一致，原3回归不再存在。Root新编译实际TemporaryReturnSaveGuard和原6测试，加2个源码接线边界序列，6旧通过、2新增失败。仅纯JVM及抽取的实际退出谓词，不是Compose/设备调度实测。

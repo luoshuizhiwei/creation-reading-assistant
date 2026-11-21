@@ -4,7 +4,7 @@
 CRA-UNIFIED-V1-CODEX-REVIEW-v1；2026-10-05。复核两项外部交付，未执行新构建或设备任务。
 
 ## 输入指纹
-恢复仓库 HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存区空。统一候选位于 E:/creation-reading-assistant/unified-candidate-integration-v1/android。逐行重算 application-manifest 的980项D输入SHA和E应用后SHA，零不一致。补录完整源码文件指纹（含新增ReaderProgressActionsPersistTest）至本轮verification.json；后续复制与冻结须使用此完整文件清单，不能只冻结原980行。
+恢复仓库 HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存区空。统一候选位于 <证据根>/unified-candidate-integration-v1/android。逐行重算 application-manifest 的980项D输入SHA和E应用后SHA，零不一致。补录完整源码文件指纹（含新增ReaderProgressActionsPersistTest）至本轮verification.json；后续复制与冻结须使用此完整文件清单，不能只冻结原980行。
 
 ## 所有权与改动
 Codex仅维护本报告、current和TODO；外部报告及候选原件只读。无D产品源码、设备、原仓库或Git写入。
@@ -30,8 +30,8 @@ Windows PowerShell / Python 3.13。原构建JDK17/Gradle8.9日志复用，不重
 ## 原始证据
 - [统一候选报告](../../dispatches/2026-10/2026-10-05-unified-candidate-integration-v1.md)
 - [合同原报告](../../dispatches/2026-10/2026-10-05-unified-acceptance-contract-v1.md)
-- [Root逐行SHA/完整源码/XML计数](<E:/creation-reading-assistant/unified-v1-codex-review-20261005/verification.json>)
-- [原始门禁](<E:/creation-reading-assistant/unified-candidate-integration-v1/test-results/gate-run.log>)
+- [Root逐行SHA/完整源码/XML计数](<<证据根>/unified-v1-codex-review-20261005/verification.json>)
+- [原始门禁](<<证据根>/unified-candidate-integration-v1/test-results/gate-run.log>)
 - [分页已核历史结论](2026-10-05-semantic-v3-codex-review.md)
 
 ## 恢复与副作用

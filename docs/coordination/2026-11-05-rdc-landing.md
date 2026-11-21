@@ -3,7 +3,7 @@
 状态：`DECIDED_AWAITING_ZCODE_EXECUTION`
 决策方：Codex Root（用户委任决策权延续）
 执行方：ZCode
-前置证据：`E:/creation-reading-assistant/coordination/root-decision-batch-20261104/REPORT.md` RD-C 节 + `attachment-rdc-treediff.json` / `attachment-rdc-android-changes-291.txt`
+前置证据：`<证据根>/coordination/root-decision-batch-20261104/REPORT.md` RD-C 节 + `attachment-rdc-treediff.json` / `attachment-rdc-android-changes-291.txt`
 
 ## 背景（分歧实测结论）
 
@@ -42,7 +42,7 @@ RD-20261104 的 RD-C 锚点核验证伪了原合同假设"D 树未提交修改 =
 
 ### Step 2：落地 commit（commit 3b）
 
-从 `E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android` 复制全树覆盖到 D 仓库 `android/`，排除：`build/`、`.gradle/`、`.kotlin/`、`local.properties`、`*.log`。candidate 侧全程只读。
+从 `<证据根>/task59-common-candidate-v1/candidate/android` 复制全树覆盖到 D 仓库 `android/`，排除：`build/`、`.gradle/`、`.kotlin/`、`local.properties`、`*.log`。candidate 侧全程只读。
 
 复制后硬门（全过才 commit，任一不符即停报告）：
 1. 重跑文件级 treediff（排除同上）→ **必须为空集**；

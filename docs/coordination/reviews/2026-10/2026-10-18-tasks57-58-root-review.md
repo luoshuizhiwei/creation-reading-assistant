@@ -8,7 +8,7 @@
 
 原交付为E盘`task57-highlight-source-v1`和`task58-search-cancel-state-v1`。4个原基线SHA及4个交付后SHA实算匹配。原REPORT/ready和源码保留，不把“代码已交付、JVM待Root”当成已通过。
 
-完整前后SHA、实际命令和限制见[Root报告](<E:/creation-reading-assistant/tasks57-58-root-review-20261018/REPORT.md>)、[ready](<E:/creation-reading-assistant/tasks57-58-root-review-20261018/ready.json>)。最终4文件在`root-r2/changed-source`；原task48冻结源码和56-v13 APK没有被覆盖。
+完整前后SHA、实际命令和限制见[Root报告](<<证据根>/tasks57-58-root-review-20261018/REPORT.md>)、[ready](<<证据根>/tasks57-58-root-review-20261018/ready.json>)。最终4文件在`root-r2/changed-source`；原task48冻结源码和56-v13 APK没有被覆盖。
 
 ## 所有权与改动
 

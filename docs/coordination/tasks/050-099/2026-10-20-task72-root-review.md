@@ -10,14 +10,14 @@ host ceb60dd1a24455efbfcbcac4143a058b2d30e45b6f42659653ec7034925ae79a，test004a
 相关task72/59 Python/Java查询为空。Root只写task72/root-review的校验JSON、小型依赖字节码及javap输出、本D报告/current；子智能体只读。未改原候选/工件、未执行设备/ADB/MuMu或构建，未Git或外部投递。
 
 ## 环境
-59唯一工作区、D:/develop/env/gradle及既有依赖复用。比例核验技能用于实际变化；MD判定/分类/回执等未变充分证据沿用。用户禁止设备命令包含只读探测，本轮遵守，反例中的命令仅字符串，subprocess边界已替换。
+59唯一工作区、<开发盘>/env/gradle及既有依赖复用。比例核验技能用于实际变化；MD判定/分类/回执等未变充分证据沿用。用户禁止设备命令包含只读探测，本轮遵守，反例中的命令仅字符串，subprocess边界已替换。
 
 ## 执行与结果
 Root实跑verify_binding、verify_freeze、audit_import_closure、check_budget_plan全ok，两APK实算匹配。真实最终构建日志BUILD SUCCESSFUL。来源状态B实现闭合：Loading/Loaded/Failed经Route/Screen/Detail消费，Missing保留快照并明确缺书，动作与显示同源；不再派B产品返修。8项新测试仅编译，5Compose/Room及3VM逻辑均未运行。
 MD/取材已接新退出helper，严格退出/持久位置/续读断言仍在。独立审阅曾怀疑performClick仅语义点击，Root直接解本机ui-test-android1.9.0 AAR并javap：ActionsKt.performClick→AndroidActions.performClickImpl→performTouchInput，明确是真实触摸，不将该怀疑写成缺陷或据此改代码。
 
 ## 原始证据
-E:/creation-reading-assistant/task72-parallel-closeout-v1/A/REPORT、src、logs/02-final-merge-build-rev2.log；B/REPORT/ready/src/patch；integration/ready/STATUS及candidate；Root root-review/checks-and-counterexamples.json、offline-recovery/shutdown-verify.json、compose-actions-javap.txt及compose-android-actions-javap.txt。所有原报告/FAIL保留，不复制历史或APK。
+<证据根>/task72-parallel-closeout-v1/A/REPORT、src、logs/02-final-merge-build-rev2.log；B/REPORT/ready/src/patch；integration/ready/STATUS及candidate；Root root-review/checks-and-counterexamples.json、offline-recovery/shutdown-verify.json、compose-actions-javap.txt及compose-android-actions-javap.txt。所有原报告/FAIL保留，不复制历史或APK。
 
 ## 未覆盖项与明确反例
 1. Root调用生产_process_alive，边界模拟超时rc=None/空输出，返回alive=false；实际_instance_alive在PID/netstat/ADB探测全失败时也返回alive=false。这不是设备状态证明，未知应阻塞，不能被当成已关闭。

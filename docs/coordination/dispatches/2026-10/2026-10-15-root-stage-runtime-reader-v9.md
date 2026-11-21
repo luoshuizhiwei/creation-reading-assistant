@@ -6,7 +6,7 @@ CRA-ROOT-READER-STAGE-20261015-v9，本批实施、核验与外层恢复已收�
 
 ## 输入指纹
 
-工作根为 `E:/creation-reading-assistant/root-runtime-device-20261015`。v7强冻结SHA为 c0cab011e3b20689da3e7927f617c039350c68b3bf05229b9a27054548e5f64a。v9保持1023源码、65验收工件，只改ProfileHomeScreen的现有笔记入口与D诊断的PID日志作用域；验收工件复用v7。
+工作根为 `<证据根>/root-runtime-device-20261015`。v7强冻结SHA为 c0cab011e3b20689da3e7927f617c039350c68b3bf05229b9a27054548e5f64a。v9保持1023源码、65验收工件，只改ProfileHomeScreen的现有笔记入口与D诊断的PID日志作用域；验收工件复用v7。
 
 v9实际构建宿主与测试双APK，snapshot/wrap/独立verify均PASS：`freeze-v9/attempt1/freeze.json` SHA b7583c782fbf4c3b86bf0f5fadf066ab51d008e14892f26030486482c90ba8b3；host SHA 118d39467543ea442291aa8486126632789bb1f3d82f405b030de4156ae23cf3；test SHA 4d779518bd351f979b0a3b302cd00f017baec3c98a711ae52073d1b53bd8f6f8；source manifest SHA 505c35235e2ecafc8cc248870753e2ca3c0b06e9adffc02e74debb658ab18dc5；acceptance manifest SHA 9f768fad00b76b20a3c08167a756b8882497fd572dafcb23c32e2c4f3d925a01。547个main/config路径仅ProfileHomeScreen改变，旧宿主未复用。
 

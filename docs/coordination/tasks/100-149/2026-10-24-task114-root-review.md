@@ -8,7 +8,7 @@
 ZCode官方Start Plan GLM-5.3唯一E仪器/host/build/device owner，Root D文档。产品6a复用110，生产零改动。MuMu1模拟器，不是实体手机。114新增删除前置观测和滚动重解析，仍沿用错误any-sibling归属谓词。
 
 ## 执行与结果、原始证据
-E:/creation-reading-assistant/task114-saved-view-delete-observation-v1。原stdout1 test/1 failure、6.228秒；host132.0146秒，attempt耗尽。03 compile10秒/04 assemble8秒原EXIT_CODE=0；01编译失败保留。
+<证据根>/task114-saved-view-delete-observation-v1。原stdout1 test/1 failure、6.228秒；host132.0146秒，attempt耗尽。03 compile10秒/04 assemble8秒原EXIT_CODE=0；01编译失败保留。
 71 Store原件515B/SHA3a6f11fa3f4a15381edb19952edfe2d2e8d2a890dfc948094ad9b8da6a817f41，双方含名；72原件293B/SHA43a849bdb672e1036facd5eb30369787aa613b5a8fca67a68c7cf563f4e556ed，只含目标，对照已删。Root直接核原bytes内容。71两个删除候选449/525、各102x70、位置y1424/1516；rowSiblingName都错误显示对照名。源码402-403 any parent-sibling匹配任意目标，419 indexOfFirst可选错节点，观测归属同样不可靠。
 本run实际点击移除了对照，证明这次生产删除操作写入成功。不能据此宣称113历史现场已直接取证、生产删除全链完全正常或排除所有其他缺陷；113失败Store终态已丢，114树也缺失，共享parent具体结构需115离线/运行观测核清。
 本run在captureDeleteObservation:457 onRoot printToString因两个root失败，原目标消失断言未执行；不是目标删除通过。原FAIL保持。

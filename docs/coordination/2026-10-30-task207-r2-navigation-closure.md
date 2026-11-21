@@ -4,9 +4,9 @@
 作用：闭合207-r1的生产失败/取消回退与真实生产测试缺口。依赖Root本轮核验；本任务ZCode为唯一实施owner、独占candidate导航和Gradle，无设备线并行；现无可独立派发的明确B线工作，不造任务。用户2026-10-30重新授权自动化提示词交接；设备批仍需另派。
 
 ````text
-你接续任务207，执行207-r2。Root未接受207-r1；r1已经由你改入E candidate，不要套用旧“207-v1未合流”假定当前仍为旧基线，不回滚用户资产。先读活动仓库AGENTS/current、docs/coordination/2026-10-30-task207-r1-navigation-closure.md和E:/creation-reading-assistant/task207-reader-exit-stack-repair-v1/recheck-r1/root-review/REPORT.md。
+你接续任务207，执行207-r2。Root未接受207-r1；r1已经由你改入E candidate，不要套用旧“207-v1未合流”假定当前仍为旧基线，不回滚用户资产。先读活动仓库AGENTS/current、docs/coordination/2026-10-30-task207-r1-navigation-closure.md和<证据根>/task207-reader-exit-stack-repair-v1/recheck-r1/root-review/REPORT.md。
 
-唯一工作区E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android。Root本次已获用户授权将本合同发送至ZCode，原外部owner不得并写；本合同不授权执行者操作设备、ADB、VM或其他桌面应用，不授权向外部代发消息或自动继续其他任务。不得改D产品源码、Git暂存提交pushPR发布、删除移动已有资产、正式库、私库session DB或记忆。
+唯一工作区<证据根>/task59-common-candidate-v1/candidate/android。Root本次已获用户授权将本合同发送至ZCode，原外部owner不得并写；本合同不授权执行者操作设备、ADB、VM或其他桌面应用，不授权向外部代发消息或自动继续其他任务。不得改D产品源码、Git暂存提交pushPR发布、删除移动已有资产、正式库、私库session DB或记忆。
 
 输入：r1 ready SHA 396bd602947801d8743092f23582e1c7eb2d8ab4cf5a64d59cdb04a1770a0579；ReaderRoute.kt 17153B/SHA6451a94ec6115a36d0162c2fb51446d23e7e1235e01d3a599d85ea7dfb6f88dc；新图测试14718B/SHA06aeb981aa7f114c749bb55f59555876ce65cf6bd9b1798e9b117caaae6b373a。原基线和r1完整证据就地只读复用。JVM测试aa3de67c、203测试1f289540保持原断言和timeout。
 

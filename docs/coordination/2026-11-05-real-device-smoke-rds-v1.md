@@ -21,7 +21,7 @@
 
 ## 交付与证据
 
-- 交付根：`E:/creation-reading-assistant/rds-v1-real-device-smoke/`（evidence/ 按项分子目录、screenshots/、logcat 分段、ISSUES.md 实时追加）。
+- 交付根：`<证据根>/rds-v1-real-device-smoke/`（evidence/ 按项分子目录、screenshots/、logcat 分段、ISSUES.md 实时追加）。
 - 设备命令一律 `adb -s <本轮 fresh 探测 serial>`；全程 logcat 缓冲监控 FATAL/AndroidRuntime/ANR。
 - 测试书一律中性命名：`测试 TXT`、`测试 EPUB`、`测试 MD`；禁止触碰设备上任何既有正式书库/个人数据。
 
@@ -40,14 +40,14 @@
 | P0.1 | 设备探测 | adb devices；记录 model/Android 版本/serial/bootId；电量 ≥30%、存储 ≥2GB |
 | P0.2 | 已装检查 | pm list packages 查 com.creationreadingassistant；有则取 versionName+签名 SHA 与 accepted APK 比对；**冲突即停** |
 | P0.3 | 基线记录 | 已装包快照、相关系统设置原值（含 stay_on_while_plugged_in 若启用）、存储路径 |
-| P0.4 | 测试素材 | push 既有中性素材到 Download 并记录 SHA：`E:/creation-reading-assistant/task83-selfuse-delivery-v1/B/v2/materials/测试TXT-84.txt`（11475B）、`E:/creation-reading-assistant/task89-epub-selfuse-accept-v1/materials/测试EPUB-89.epub`（3130B）、`E:/creation-reading-assistant/task83-selfuse-delivery-v1/B/v2/materials/测试MD-84.md`（12068B） |
+| P0.4 | 测试素材 | push 既有中性素材到 Download 并记录 SHA：`<证据根>/task83-selfuse-delivery-v1/B/v2/materials/测试TXT-84.txt`（11475B）、`<证据根>/task89-epub-selfuse-accept-v1/materials/测试EPUB-89.epub`（3130B）、`<证据根>/task83-selfuse-delivery-v1/B/v2/materials/测试MD-84.md`（12068B） |
 | P0.5 | 证据通道 | logcat -c 后开启分段捕获；创建交付根与 ISSUES.md |
 
 ## P1 安装与首启（约 10 分钟，全必测）
 
 | ID | 项目 | 预期 |
 |---|---|---|
-| P1.1 | 安装 accepted APK `c396ebe1…`（53899310B，源路径 `E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android/app/build/outputs/apk/debug/app-debug.apk`） | 安装成功，无签名冲突；MIUI USB 安装确认按零接触模式自动点击 |
+| P1.1 | 安装 accepted APK `c396ebe1…`（53899310B，源路径 `<证据根>/task59-common-candidate-v1/candidate/android/app/build/outputs/apk/debug/app-debug.apk`） | 安装成功，无签名冲突；MIUI USB 安装确认按零接触模式自动点击 |
 | P1.2 | 首启 | 权限请求流程合理、引导层出现、无 FATAL |
 | P1.3 | 冷启动时长 | 主观流畅 + logcat 时间戳记录 |
 

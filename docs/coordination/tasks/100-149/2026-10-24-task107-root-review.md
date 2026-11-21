@@ -8,7 +8,7 @@
 
 B已纳106-B两文件，Root实物核当前ShelfSavedViewsStore.kt 8df4f1924f915a5c970f373b48b4eaca83517659c208424042aebd015876da4c(4026B)、测试2a2493f8f299af557fb3ddae7315dd268c613bb7b6fbb81c33988baa86e506d8(4321B)，均与106差量相同。保原@Inject Context/@ApplicationScope次构造，内部构造供真实DataStore隔离测试，不改存储合同。
 
-E:/creation-reading-assistant/task107-material-diagnosis-savedviews-v1/B/logs/01-savedviews-test.log原日志BUILD SUCCESSFUL52s，实际kspDebugKotlin/compileDebugKotlin/hiltJavaCompileDebug及定向test执行成功；B/evidence/TEST-com.creationreadingassistant.data.settings.ShelfSavedViewsStoreTest.xml原XML1/1、fail/error/skipped均0、0.384s。测试真实PreferenceDataStoreFactory临时文件三独立scope完整cancelAndJoin重开，含多维筛选与非空对照删除，Root已审差量，不是mock store。源码/主编译Hilt/JVM范围接受，无需重跑。
+<证据根>/task107-material-diagnosis-savedviews-v1/B/logs/01-savedviews-test.log原日志BUILD SUCCESSFUL52s，实际kspDebugKotlin/compileDebugKotlin/hiltJavaCompileDebug及定向test执行成功；B/evidence/TEST-com.creationreadingassistant.data.settings.ShelfSavedViewsStoreTest.xml原XML1/1、fail/error/skipped均0、0.384s。测试真实PreferenceDataStoreFactory临时文件三独立scope完整cancelAndJoin重开，含多维筛选与非空对照删除，Root已审差量，不是mock store。源码/主编译Hilt/JVM范围接受，无需重跑。
 
 A尚无原执行者诊断REPORT/ready（服务错误前目录无有效输出）；独立只读窄核排除selectedIds.clear传空：List429-433先toList快照dispatch后清原集合；Route同步接action/VM371-376先Loaded/匹配>=2才起协程，fixture IDs及inbox/列表已出现和选2过程成立。仍缺失败时实际action IDs/VM命中数/回调与DB快照，不能确认后续写未发生原因；布局可能挤压但performClick语义直调不足以用物理触达解释本次失败。保留106业务FAIL，不猜修布局/不新设备重试。
 

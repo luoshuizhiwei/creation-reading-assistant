@@ -1,7 +1,7 @@
 # 任务166-v1：165残留产品保全恢复与静止分支闭环
-编号166-v1，推荐当前WorkBuddy global:deepseek-v4.1-flash1M。唯一host/device恢复owner，与167测试源码/定向构建独立。仅原165owner结束/Idle后派，不双写。25分钟从实际UI发送起，安全恢复不中断。只新E:/creation-reading-assistant/task166-quiet-writer-recovery-v1/内host最小patch/定向offline/raw/REPORT/ready。原实例已运行，禁launch/reboot/其他VM/设备；禁仪器/业务main/run_attempt/新APK安装/Gradle/Android源/系统后台策略修改。
+编号166-v1，推荐当前WorkBuddy global:deepseek-v4.1-flash1M。唯一host/device恢复owner，与167测试源码/定向构建独立。仅原165owner结束/Idle后派，不双写。25分钟从实际UI发送起，安全恢复不中断。只新<证据根>/task166-quiet-writer-recovery-v1/内host最小patch/定向offline/raw/REPORT/ready。原实例已运行，禁launch/reboot/其他VM/设备；禁仪器/业务main/run_attempt/新APK安装/Gradle/Android源/系统后台策略修改。
 
-基线165 ready E:/creation-reading-assistant/task165-two-temporary-entry-single-device-v1/ready.json：业务两方法tile147失败永留，singleinstrument已用不可重跑；恢复STABLE_FAILED归档后pid24621复活，summary KEEP与12decisions NOT_INSTALLED冲突，postcheck产品仍装，不把它当卸载成功。旧158同类红/154历史缺证永留。只读复用163真实runner和158安全体，不能手改旧summary或传假installed来屏蔽产品。
+基线165 ready <证据根>/task165-two-temporary-entry-single-device-v1/ready.json：业务两方法tile147失败永留，singleinstrument已用不可重跑；恢复STABLE_FAILED归档后pid24621复活，summary KEEP与12decisions NOT_INSTALLED冲突，postcheck产品仍装，不把它当卸载成功。旧158同类红/154历史缺证永留。只读复用163真实runner和158安全体，不能手改旧summary或传假installed来屏蔽产品。
 
 Root定位host158.py pinned30578B SHA22ce70f8c547466a79ca74a833b0fb9ed1650f99452fbf898f6e4fa4c1d22ded：ident.quiescent分支直接stable归档不做包force-stop；prelive后needsApprovedQuiesce=false又提前BECAME_QUIESCENT。这允许当前无pid但可被job唤起的产品在archive后复活。新生产恢复策略须明确本批允许package quiesce，保留真实观测不得伪造pid或needsApprovedQuiesce。采用正常授权包force-stop一次，不是修改系统后台策略。
 

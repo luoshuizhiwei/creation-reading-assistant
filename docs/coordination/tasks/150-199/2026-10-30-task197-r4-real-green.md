@@ -1,7 +1,7 @@
 ````text
 # 任务197-r4：完成未接线生产修复，修复实际失败测试，禁止复用旧XML称新通过
 
-原197-r3同owner继续唯一candidate产品/测试/Gradle闭环。工作区 E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android，保护无关WIP；无第二必要独立项，不另建工程。
+原197-r3同owner继续唯一candidate产品/测试/Gradle闭环。工作区 <证据根>/task59-common-candidate-v1/candidate/android，保护无关WIP；无第二必要独立项，不另建工程。
 
 Root已核r3，不能通过：
 1. ready5726B SHA27de0dcde6a732027eb7d3bf68cb9bfcb04d8f0d908ffb8db4709fe16ad04b6d。实际raw/test-final-result.json status=FAILED exit_code=1 elapsed22.2，test-final.log为compileDebugUnitTestKotlin FAILED：ReaderPagedTransitionSignalTest.kt:180 nullable ReadingProgressEntity不能直接访问current_location_json。test-boundary-result亦FAILED rc1。报告把22.2秒写成5/5 pass，错误。必须保留原红，不重写或改成rc0。
@@ -24,7 +24,7 @@ Root已核r3，不能通过：
 执行后必须读原结果JSON exit_code和log，确认XML对应本次源码的case名称/数量/时间且与本次log关联，不用旧5case。测试不通过持续同owner修，不先交ready。匹配输入的旧197充分11项和未变构建证据复用，不全suite。必要源码变化后用既有tools/gradle_locked.py/唯一android-gradle-exclusive.lock，JDK17.0.14/原SDK/Gradle目录，定向绿后compileDebugAndroidTestKotlin+assembleDebug+assembleDebugAndroidTest。
 
 ## 输入与交付
-基线以当前candidate真实文件SHA及r3 after核；真实差异公开，不以报告过期指纹替代。唯一新根 E:/creation-reading-assistant/task197-reader-entry-boundary-integration-v1/recheck-r4/，根ready.json。旧r1/r2/r3原件只读不覆盖。交必要全部最终after/test/最小patch/完整真实pins（不自引用）与candidate逐字节同、原红绿log/XML/rc、APK实际size/fullSHA及签名runner/target/目标类方法，准确REPORT。修正“测试通过”必须基于实际新rc0与新XML，不能改旧失败回执。
+基线以当前candidate真实文件SHA及r3 after核；真实差异公开，不以报告过期指纹替代。唯一新根 <证据根>/task197-reader-entry-boundary-integration-v1/recheck-r4/，根ready.json。旧r1/r2/r3原件只读不覆盖。交必要全部最终after/test/最小patch/完整真实pins（不自引用）与candidate逐字节同、原红绿log/XML/rc、APK实际size/fullSHA及签名runner/target/目标类方法，准确REPORT。修正“测试通过”必须基于实际新rc0与新XML，不能改旧失败回执。
 预算35分钟自本次实发起；source/patch/test/REPORT/ready<=256KiB、新文字raw<=256KiB，必要旧APK独份另列；引用现有before，禁止又复制整套。先估算，不复制工程cache。准确互斥字节与真实时间，超额不删证据补绿，历史错误保留。旧APK哈希日志不等于原APK存在，覆盖前仅缺必要独份才保全一次。
 禁止ADB/VM/设备/main/instrument/安装/恢复/launch/reboot/connect/kill、Git暂存提交pushPR发布、删移既有资产、云/正式库/私库sessionDB/.codex/memories/自动记忆。194恢复关闭，193业务原红保留。输入漂移/所有权冲突/用户stop或Esc/安全权限停对应操作不旁路。只在本任务实际闭环后总结；阻塞如实交BLOCKED及缺口，不能PASS。末尾独立一行：这是任务197-r4。
 ````

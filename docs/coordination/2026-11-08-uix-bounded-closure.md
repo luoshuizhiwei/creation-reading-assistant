@@ -6,7 +6,7 @@
 
 - 已实算 D 仓库 `android/app/build/outputs/apk/debug/app-debug.apk`，52,812,949B，SHA256 `d9c5adcf364244365549eecb8b8df6f8be50b480e16599dfb97de6eaad352545`，匹配第七轮报告。
 - 已读 D 源码：`ShelfScreen.kt` 的整理入口保留 Row.clickable，箭头携带说明；`ReaderChrome.kt` 的 ReaderFooterAction 保留 Surface(onClick)，内部 IconPedestal 携带 label。第七轮修改存在；这不证明设备导出节点与动作已正确。
-- 最新 `E:/creation-reading-assistant/uix-v1/UIX-V1-REACCEPTANCE-REPORT-zcode.md` 截止第六轮：报告称顶栏/scrubber、书架四钮通过；剩余书架整理入口和底栏五钮失败。上述历史设备结论本轮仅按报告引用，未重跑设备，不宣称独立实证。
+- 最新 `<证据根>/uix-v1/UIX-V1-REACCEPTANCE-REPORT-zcode.md` 截止第六轮：报告称顶栏/scrubber、书架四钮通过；剩余书架整理入口和底栏五钮失败。上述历史设备结论本轮仅按报告引用，未重跑设备，不宣称独立实证。
 - 联合 patch 当前实际为 98,237B，报告/提示词仍写 91,742B；必须纠正引用并核清 patch 的基线/内容关系，不能只改数字冒充已绑定。
 - 既有 `ReaderAccessibilityLayoutTest.kt` 已包含底栏显示、Click 和48dp断言，应优先补充/运行这些真实生产组件测试，避免另造静态字符串检查体系。
 - 旧交接词“一分钟抽查后将无障碍标 PASS、宣布全面收官”预设了结果，应以本文件取代该部分。当前入口旧头部为11月4日口径，不能覆盖11月8日尚未验收的UIX变更。
@@ -22,7 +22,7 @@
 ```text
 执行任务 UIX-CLOSE-v1。你的目标是用现成第七轮候选收尾UIX，在本合同内最多增加一个修复候选。不要继续逐个猜 modifier 写法并逐轮转给ZCode。
 
-1. 先读仓库AGENTS.md、docs/handoff/current.md、本合同，以及 E:/creation-reading-assistant/uix-v1/UIX-V1-FIX-REPORT-qoder.md 第十节、UIX-V1-REACCEPTANCE-REPORT-zcode.md 最新段和对应原证。若已有第七轮或更新验收，先复用，不重发、不覆盖。说明实际源码工作区、构建工作区、设备owner；D/E不混用、不整树回灌。
+1. 先读仓库AGENTS.md、docs/handoff/current.md、本合同，以及 <证据根>/uix-v1/UIX-V1-FIX-REPORT-qoder.md 第十节、UIX-V1-REACCEPTANCE-REPORT-zcode.md 最新段和对应原证。若已有第七轮或更新验收，先复用，不重发、不覆盖。说明实际源码工作区、构建工作区、设备owner；D/E不混用、不整树回灌。
 
 2. 冻结现有输入。D仓库APK预期52812949B、SHA256 d9c5adcf364244365549eecb8b8df6f8be50b480e16599dfb97de6eaad352545。记录两处呈现源码及必要依赖SHA、实际diff、构建原rc/log、APK身份、patch基线与SHA。patch现值98237B，与报告91742B不符，核清实际内容和基线后更正文档。输入变化先查明owner变更，不使用旧包冒充新构建。保全旧证，只交差量；新增交付预算100MiB，不复制工程、缓存或历史证据。
 
@@ -36,7 +36,7 @@
 
 7. 必要时一次完成最小修复、定向测试、编译和APK绑定，再交第二轮联合验收。单Gradle owner持项目约定锁；禁止使用构建失败后残留旧APK。第二轮仍失败，停止同方法循环，交付精确未闭合项、已排除假设与下一步改变方法的建议。不能删掉失败用例、放宽业务断言、把NOT_RUN改PASS来满足两轮目标。不创建r8/r9无限转发链。
 
-8. 报告放 E:/creation-reading-assistant/uix-v1/closure-v1/REPORT.md，原始日志/XML/必要截图放同目录，提供每项判定、候选SHA、测试原rc、设备前后基线、恢复结果和未验项。已充分历史证据引用原路径；改动涉及的才定向回归，不重跑整个历史。无障碍达标、功能激活、动效历史结论和数据安全分别报告。所有必需项达标且恢复有证据才接受本UIX范围，不宣布全产品完成。
+8. 报告放 <证据根>/uix-v1/closure-v1/REPORT.md，原始日志/XML/必要截图放同目录，提供每项判定、候选SHA、测试原rc、设备前后基线、恢复结果和未验项。已充分历史证据引用原路径；改动涉及的才定向回归，不重跑整个历史。无障碍达标、功能激活、动效历史结论和数据安全分别报告。所有必需项达标且恢复有证据才接受本UIX范围，不宣布全产品完成。
 
 9. 更新本批交接与状态前核指纹、合并他人变更。若你拥有Root维护职责，定向同步current/state的UIX条目；没有则交付精确更新建议。不要重写旧全局验收数字或历史结论。无Git暂存/commit/push/PR/发布、私有记忆写入、自动化恢复或既有资产清理许可。最终总结末行写“这是任务 UIX-CLOSE-v1。”
 ```

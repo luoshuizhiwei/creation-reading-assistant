@@ -161,7 +161,7 @@ webPreferences: {
 
 **流程**：
 1. **STAGE 1**：启动 app1 → `waitForSelector(".desktop-canvas")` → `api.reader.getInstalledFonts()` 返回 `[]`（空目录未建）→ 关闭。
-2. 中间步骤：`mkdirSync(userData/NovelWorkbench/fonts, { recursive: true })` + `copyFileSync("C:/Windows/Fonts/Candara.ttf", "<profile>/NovelWorkbench/fonts/Candara.ttf")`（242012 B）。
+2. 中间步骤：`mkdirSync(userData/NovelWorkbench/fonts, { recursive: true })` + `copyFileSync("<系统字体>/Candara.ttf", "<profile>/NovelWorkbench/fonts/Candara.ttf")`（242012 B）。
 3. **STAGE 2**：启动 app2（同一 profile）→ 在渲染进程执行：
    ```js
    const styleEl = document.createElement("style");

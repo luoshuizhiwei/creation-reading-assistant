@@ -14,7 +14,7 @@
 
 ## 所有权与改动
 
-唯一可写候选E:/creation-reading-assistant/v0-joint-mumu-task24-v1。对Root-v2为0改/3增/0删，仅EpubDispatchAcceptTest、NotesExportShareAcceptTest、ReaderRegressionAcceptTest。生产代码未变。Root只更新协调文档，自有E保存核查与更新前快照；D产品/暂存/提交/push/发布无授权。
+唯一可写候选<证据根>/v0-joint-mumu-task24-v1。对Root-v2为0改/3增/0删，仅EpubDispatchAcceptTest、NotesExportShareAcceptTest、ReaderRegressionAcceptTest。生产代码未变。Root只更新协调文档，自有E保存核查与更新前快照；D产品/暂存/提交/push/发布无授权。
 
 ## 环境
 
@@ -31,7 +31,7 @@ HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空。本轮未发现24相
 
 ## 原始证据
 
-核查：[verification.json](<E:/creation-reading-assistant/task24-partial-codex-review-20261013/verification.json>)，含逐文件哈希、增量及日志SHA。原日志在24/logs：compile_check.out、compile_check2.out、gate_check.out、rerun_bootmirror.out。当前单类XML在24/candidate/android/app/build/test-results/testDebugUnitTest。
+核查：[verification.json](<<证据根>/task24-partial-codex-review-20261013/verification.json>)，含逐文件哈希、增量及日志SHA。原日志在24/logs：compile_check.out、compile_check2.out、gate_check.out、rerun_bootmirror.out。当前单类XML在24/candidate/android/app/build/test-results/testDebugUnitTest。
 
 ## 未覆盖项
 

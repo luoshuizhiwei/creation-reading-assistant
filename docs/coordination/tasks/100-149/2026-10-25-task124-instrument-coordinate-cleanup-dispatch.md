@@ -5,7 +5,7 @@
 ````text
 新任务124-v1 B，同唯一仪器源码owner，当前仅离线实现/必要编译/定向验证。先读123/lane-a/coordinate-diagnosis/REPORT.md（Root已读实核11464B/2277bb22），两缺陷已确定，不再泛审或重跑旧设备。
 
-唯一可改源码E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android/app/src/androidTest/java/com/creationreadingassistant/acceptance/SearchContentHitJourneyDeviceTest.kt，基线72207B SHA9f7261bd0058cad89d76b551fbaa2210ea832c5c5d57f965a6162b45a6bf5e22。旧J1测试/共享J1RealReaderFixtures.kt（SHA0aea2c5eed35d7f189df72590013fdea1bdf658045b5ae7373d16617d9265ce9）冻结，不按A建议直接改共享helper；产品/host/公共配置/保护适配器不改。
+唯一可改源码<证据根>/task59-common-candidate-v1/candidate/android/app/src/androidTest/java/com/creationreadingassistant/acceptance/SearchContentHitJourneyDeviceTest.kt，基线72207B SHA9f7261bd0058cad89d76b551fbaa2210ea832c5c5d57f965a6162b45a6bf5e22。旧J1测试/共享J1RealReaderFixtures.kt（SHA0aea2c5eed35d7f189df72590013fdea1bdf658045b5ae7373d16617d9265ce9）冻结，不按A建议直接改共享helper；产品/host/公共配置/保护适配器不改。
 
 1)在119仪器本地deriveSearchCoordinate调用处，按生产同一TxtChapterSplitter/章节起始合同，用winningChapterIndex及expectedCharOffset推导真实原文全书偏移，回溯term与bodySnippet；章2起始15+章内3991=全书4006，不能硬编码15或写特例补偿。保留derived expectedCharOffset/legalOffsets/expectedLocationSnippet章内口径供UI真实匹配；只替换错误的全书正文回溯计算，保留严格断言并记录章起始/章内/全书/term值。注意traceTerm必须对应winningChapter和span，不能同offset跨章误取。复用现生产分章/真实索引合同，不另造tokenizer/平行算法，不改查询词/marker/阈值、不重启Activity绕过。若现数据类型无法局部最小处理先报告具体依赖，不改J1历史。
 
@@ -13,7 +13,7 @@
 
 必要验证由同owner闭环：一次compileDebugAndroidTestKotlin，唯一E工程/Gradlehome/JDK/SDK/锁沿用，不assemble/JVM/旧全套。用实际当前编译函数/实际生产分章调用（不手工字符串假模型）验证真实A正文索引章内3991+chapterStart15对应QUERY_A全书4006/term匹配，UI期望仍3991；再有意义验证非零章起始与章起始0的映射不硬编码。清理预检用本任务E内新建中性合成fixture目录真实函数核：准确两登记文件校验通过；未知兄弟、缺失、字节漂移、读取失败（可必要mock真实边界）均BLOCKED。只对本任务新合成测试资产按精确登记处理，不触存量/真实设备；无需全套回归。保留原红日志/新日志，不掩饰无法真实执行的缺口。
 
-输出E:/creation-reading-assistant/task124-instrument-coordinate-cleanup-v1/lane-b/REPORT.md、ready.json，≤2MiB差量/4MiB必要原始，最小patch/单份before/前后SHA/原始验证日志；基线owner冲突停报不覆盖。若编译失败只本两处必要范围同owner修复。产品74d106b6/test77ed0a3e/host1236fbfe76f/inputs9c90560b不改，旧APK不含新修复，构建另派。
+输出<证据根>/task124-instrument-coordinate-cleanup-v1/lane-b/REPORT.md、ready.json，≤2MiB差量/4MiB必要原始，最小patch/单份before/前后SHA/原始验证日志；基线owner冲突停报不覆盖。若编译失败只本两处必要范围同owner修复。产品74d106b6/test77ed0a3e/host1236fbfe76f/inputs9c90560b不改，旧APK不含新修复，构建另派。
 
 当前所有ADB/设备探测/安装卸载/清理/host主入口/新attempt禁止，12313:00预算不是124许可。123产品、DB两本书相关行、两TXT和14件results继续KEPT_BLOCKED，TXT实际字节/部分DB原件尚未保全，不能因此次代码修复自动解除或补卸载；后续保全/解除需Root另明确范围。不要改123红summary/报告/attempt，不批内重跑。
 

@@ -1,6 +1,6 @@
 # 发给 Qoder：R1 书籍删除与撤销完整性
 
-请直接实施这项任务。工作目录必须为 `D:/develop/Code/Codex/cra-android-qoder-r1`，分支 `codex/android-qoder-r1`。
+请直接实施这项任务。工作目录必须为 `<Codex 工作区>/cra-android-qoder-r1`，分支 `codex/android-qoder-r1`。
 完整阅读仓库AGENTS.md与 `docs/plans/android-parallel-delivery-2026-09-09/{README,COMMON}.md`。
 你不是唯一开发者：Trae负责阅读笔记，Codex负责reader与共享接口。不要改他人文件，不stage/commit/push。
 

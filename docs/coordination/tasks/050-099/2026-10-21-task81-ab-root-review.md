@@ -10,7 +10,7 @@ A/logcat-nemuinit-excerpt.txt直接支持nemuinit在10-21 07:52:50至07:52:53下
 A称全量dump可复现过强：只保留摘录，原环形logcat会滚动，已删全量不能保证重新取得同一原字节。保存现有摘录，不补造全量，不重复读剪贴板或私人内容。
 
 ## 恢复入口实际反例与未覆盖项
-Root直接导入A实际入口，复用其Harness只替换设备/进程外部边界，在独立新fixture运行3个反例，无真实设备动作。证据E:/creation-reading-assistant/task81-recovery-closeout-v1/root-review-d0775fb0/red-cases.json。
+Root直接导入A实际入口，复用其Harness只替换设备/进程外部边界，在独立新fixture运行3个反例，无真实设备动作。证据<证据根>/task81-recovery-closeout-v1/root-review-d0775fb0/red-cases.json。
 1. 已存在recovery-completion.json预置原字节被覆盖，入口rc0；默认mkdir(exist_ok=True)不保护历史输出。
 2. bound=false仍先请求restore_settings和final_protection_check，直到保活才判归属失败。变更设置前未核真实实例归属。
 3. summary.freeze_sha256错为全零仍请求三步骤并rc0；入口固定v6 freeze，未在变更前验证该attempt/输入/绑定适配性。模拟成功时final_protection=null仍ok=true，说明当前测试也未约束真实proof消费。

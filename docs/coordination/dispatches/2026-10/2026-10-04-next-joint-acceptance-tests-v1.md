@@ -38,7 +38,7 @@
   - `ui/screen/reader/ReaderAnnotationPendingConsumptionTest.kt` `12cfd95cdedf77c2d2909d07a3df1c6604bfb1f52f9b3929ca9ae28166eb3e9f`（新增）
 - **执行顺序**（12 仪器方法）：jera_10 → jera_20 → se4_10 → se4_20 → se4_30 → mdtc_00 → mdtc_01 →（ui.py 驱动保存）mdtc_10 →（cold）mdtc_11 →（离章）mdtc_20 →（回源）mdtc_30 → mdtc_90；行为分母口径沿用各原批合同（MD 行为分母 01/10/11/20/30，夹具/终态不计）。
 - **依赖与 runner**：androidTest 既有库零新增；instrumentation = `<HOST>.test/com.creationreadingassistant.testing.CraIsolatedTestRunner`；宿主后缀建议按 Root MD 模式在设备副本树绑定（如 `.qahostjointv1`），透传生产 App（结果 JSON `applicationClass` 可核对）。**本批不改任何构建配置**。
-- 详细清单见 [TESTING-NOTES.md](<E:/creation-reading-assistant/next-round-joint-acceptance-tests-v1/TESTING-NOTES.md>) 与 `execution.json`。
+- 详细清单见 [TESTING-NOTES.md](<<证据根>/next-round-joint-acceptance-tests-v1/TESTING-NOTES.md>) 与 `execution.json`。
 
 ## 6. 编译核对（非运行证据）
 

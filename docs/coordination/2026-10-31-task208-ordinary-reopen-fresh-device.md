@@ -13,7 +13,7 @@
 
 先读活动仓库AGENTS/current和稳定机制合同docs/coordination/2026-10-30-task202-lifo-body-device.md；旧路径查docs/document-map.csv。202旧APK/版本/owner/发送时间不是本批输入；只继承本稿明确复用的fresh179r3/26role/166恢复机制。206有限恢复已收口，不重复它。
 
-Root接受的只读candidate：E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android。
+Root接受的只读candidate：<证据根>/task59-common-candidate-v1/candidate/android。
 宿主app/build/outputs/apk/debug/app-debug.apk：53899310B/SHA c396ebe14b1583180c005dabbc51184826d05a0838933203a21adf5bb72b1d31。
 测试app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk：10724766B/SHA e4b7b70b00e49adf5e420f99812b688d019233ccdf4784593fcbf7aeb8f5a86f。
 证书SHA256 05249d786e3d3d117bb5bd7b1f83512a0c9b8f1ee4e502112c4b2d9ccbd7b9a1；runner com.creationreadingassistant.testing.CraIsolatedTestRunner，target com.creationreadingassistant。
@@ -22,7 +22,7 @@ Root接受的只读candidate：E:/creation-reading-assistant/task59-common-candi
 执行和恢复：
 1. 唯一原MuMu instance1，创建时间1777974446694936只作绑定校验；先adb devices，再由完整fresh179r3实际identity/唯一owner/transport/boot验证本轮serial。历史127.0.0.1:16416和旧boot只读对照，不写死。只用adb -s 本轮serial；原VM离线时仅官方正常启动原instance1和必要连接，在线不重启，不换实例/重建删盘/改GPU或安全设置。
 2. fresh26role+完整179r3 strictidentity、APK归属、无活动instrumentation；实际产品pm/user0及CE/DE/external三根确认基线，原testAPK/data/userState、八设置/focus、71private/820external/DB-WAL-SHM及strictkeepalive完整原始基线。原test0d18d788a04e366271df3ad2ac18cc2ceeb95edc3c64c37cb995745aefbc9a9c/inventoryd6ac3c5ff7845b4afc9b384fb11b7a2bf921b9f722d4706bb6fe10801d003e29仅作已知基线预期，实漂移BLOCKED，不自动改数据迎合预期。实际argv/rc/stdout/stderr判定，查询失败不能当空值成功，manager原flags保留完整resolver判断。
-3. runId沿冻结入口合法T165V1-YYYYMMDD-HHMMSS格式，实际当前时刻生成；任务报告根E:/creation-reading-assistant/task208-ordinary-reopen-fresh-device-v1/。执行scope仍在原TASK192合法根下新attempt-runId，不能绕路径门。冻结host入口E:/creation-reading-assistant/task192-reader-internal-lifo-host-offline-v1/host/entry_lifo_192.py和host192.verify_inputs_192全核；184r2 keepalive.bind(host192)绑定真实parent。只在本任务最小input-prep/driver派生输入，所有26role依赖、runId、scope、testAPK、source、owner、preflight、serial/boot真实一致，不修改冻结host/collector/consumer/resolver来绕门。
+3. runId沿冻结入口合法T165V1-YYYYMMDD-HHMMSS格式，实际当前时刻生成；任务报告根<证据根>/task208-ordinary-reopen-fresh-device-v1/。执行scope仍在原TASK192合法根下新attempt-runId，不能绕路径门。冻结host入口<证据根>/task192-reader-internal-lifo-host-offline-v1/host/entry_lifo_192.py和host192.verify_inputs_192全核；184r2 keepalive.bind(host192)绑定真实parent。只在本任务最小input-prep/driver派生输入，所有26role依赖、runId、scope、testAPK、source、owner、preflight、serial/boot真实一致，不修改冻结host/collector/consumer/resolver来绕门。
 4. 完整预检后仅一次main、一次instrument，唯一方法com.creationreadingassistant.acceptance.ReaderInternalTemporaryLifoTest#readerInternalLifo_twoSources_returnChain_preservesOrdinaryRow，expectedCount1。必须按当前冻结203实际方法体保留S0权威保存排除seed、临时行12列exact、正文正/对立负、真实移动合法保存、T1/T2/回T1/普通S0/一次普通退出书架及重开S0全强断言。原argv/stdout/stderr/terminal/count/rc/DB落盘；业务失败KEEP，不换包、不修改断言/timeout/fixture/源码/模式、不重试。
 5. 166完整恢复：真实冻结host166.run_recovery/sameHOST158/preserve166/RUNNER/父正常恢复体，184r2绑定实际HOST158.H.R3.load_parent及已返回b对象，正常/异常finally还原。完整pre三根manifest/tar成员type,size,内容SHA读回→必要单user0stop→post静止集合writer→父正常uninstall门；stop/uninstall按冻结合同次数，原回执及时独立保存，不等最后总写，不重复操作补证、不手写简化卸载。恢复失败KEEP，保全原证不循环、不改门、不硬编码binding=true。
 6. 独立恢复消费：原testAPK及data/inventory/userState/八设置focus、71private/820external/DB保护、strictkeepalive原rc与实际DEV回执、原宿主/APK对与安装状态均核。userState不得只给stdout片段，父卸载rc0/Success与after查询rc和缺席证据单独保存；pre/post四tar核真实成员type/size/内容SHA，不能只核整tar哈希。最终完整identity在全部保护查询之后；恢复缺证/损坏不得写全绿。全部书名/记录中性测试TXT/EPUB。

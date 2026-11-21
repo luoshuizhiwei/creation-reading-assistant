@@ -7,23 +7,23 @@
 ## 所有权与改动
 
 - 恢复仓库 HEAD：`e39a78da9c62f02614207cffb36969a32492eaea`；结束仍相同、暂存区空。
-- 候选：[G1-v3 android](<E:/creation-reading-assistant/next-round-g1-fix-accept-v3/android>)，父候选 G1-build-v2。
+- 候选：[G1-v3 android](<<证据根>/next-round-g1-fix-accept-v3/android>)，父候选 G1-build-v2。
 - 唯一实现写入：候选的 `app/src/androidTest/java/com/creationreadingassistant/feature/library/LibraryLifecycleAcceptanceTest.kt`；产品、runner、构建配置未修改，没有复制到 D 仓库。另写 E 验收工具/工件和本报告/交接现态。
-- [接手前副本](<E:/creation-reading-assistant/g1-codex-takeover-20261002/before>)包含暂停时测试源码、freeze APK/基线/证据及原运行日志；历史失败保留。[差异](<E:/creation-reading-assistant/g1-codex-takeover-20261002/test-correction.patch>)。
+- [接手前副本](<<证据根>/g1-codex-takeover-20261002/before>)包含暂停时测试源码、freeze APK/基线/证据及原运行日志；历史失败保留。[差异](<<证据根>/g1-codex-takeover-20261002/test-correction.patch>)。
 - 上轮使用不存在的 `assembleQahostDebugAndroidTest`。改用 `:app:assembleQahostAndroidTest -PcraAndroidTestBuildType=qahost --offline --max-workers=1`；两次构建分别 25 秒/11 秒成功。依赖复用既存 E 盘 gradle-home；所有新构建产物在 E。
 - 上轮把“无 StatusRail 调用”误推为“没有状态筛选 UI”，改成 ALL+TXT，缩小了协议。实际路径：书架标题下拉“打开书架整理”→阅读状态→在读。测试恢复 **READING+txt** 的真实 UI 选择；五书夹具包含 1 本在读 TXT、3 本非在读 TXT、1 本在读 EPUB，同时核两个筛选条件。
 - 结果 JSON 增加实际进程 PID，阶段内截屏，避免 Activity recreate 冒充进程冷启动。
-- [源码核对](<E:/creation-reading-assistant/g1-codex-takeover-20261002/source-audit.json>)检查 856 个 kt/kts/xml/json/pro/properties 文件（排除 build/.gradle/.kotlin/local.properties），855 字节一致，只该仪器类不同。此分母是本次扩展名集合，不冒充旧 876 全资产清单。
+- [源码核对](<<证据根>/g1-codex-takeover-20261002/source-audit.json>)检查 856 个 kt/kts/xml/json/pro/properties 文件（排除 build/.gradle/.kotlin/local.properties），855 字节一致，只该仪器类不同。此分母是本次扩展名集合，不冒充旧 876 全资产清单。
 
 ## 最终 APK 合同
 
 | 工件 | SHA-256 |
 |---|---|
 | 复用父宿主 `.qahostlibrary` | `4bf670ab4006c6d60a7e18d8d31d0856d55755d6b8ff6994b3f41edc3b272531` |
-| [最终测试 APK](<E:/creation-reading-assistant/g1-codex-takeover-20261002/final-test.apk>) | `23a35d8ed94af3e3c7ae7d93cd7a2746a1db2937f4c178044d9ada83dde66c51` |
+| [最终测试 APK](<<证据根>/g1-codex-takeover-20261002/final-test.apk>) | `23a35d8ed94af3e3c7ae7d93cd7a2746a1db2937f4c178044d9ada83dde66c51` |
 | 最终仪器类 | `d59289b5ddf5db293b9216513a48002841369f985795fd03c299b228e9afc93c` |
 
-测试包 `com.creationreadingassistant.qahostlibrary.test`，target `com.creationreadingassistant.qahostlibrary`，runner `com.creationreadingassistant.testing.CraIsolatedTestRunner`。实际安装后 pull 回 APK 与冻结 SHA 一致。[APK 后账](<E:/creation-reading-assistant/g1-codex-takeover-20261002/installed/apk-sha256.json>)、[签名](<E:/creation-reading-assistant/g1-codex-takeover-20261002/final-test-signing.txt>)：debug 证书 SHA `05249d786e3d3d117bb5bd7b1f83512a0c9b8f1ee4e502112c4b2d9ccbd7b9a1`。
+测试包 `com.creationreadingassistant.qahostlibrary.test`，target `com.creationreadingassistant.qahostlibrary`，runner `com.creationreadingassistant.testing.CraIsolatedTestRunner`。实际安装后 pull 回 APK 与冻结 SHA 一致。[APK 后账](<<证据根>/g1-codex-takeover-20261002/installed/apk-sha256.json>)、[签名](<<证据根>/g1-codex-takeover-20261002/final-test-signing.txt>)：debug 证书 SHA `05249d786e3d3d117bb5bd7b1f83512a0c9b8f1ee4e502112c4b2d9ccbd7b9a1`。
 
 旧 freeze 内 `sha256.txt` 不随上轮重建更新，已保全且视为旧记录；最终合同以本报告/E 接手证据为准。
 
@@ -48,18 +48,18 @@
 
 ## 原始证据
 
-- 原始日志：[搁置](<E:/creation-reading-assistant/g1-codex-takeover-20261002/run-assertAfterShelve.txt>)、[移除](<E:/creation-reading-assistant/g1-codex-takeover-20261002/run-assertAfterRemoveContent.txt>)、[删除撤销](<E:/creation-reading-assistant/g1-codex-takeover-20261002/run-deleteUndoChainRealUi.txt>)、[保存](<E:/creation-reading-assistant/g1-codex-takeover-20261002/run-savedFilterUiChain.txt>)、[冷启动](<E:/creation-reading-assistant/g1-codex-takeover-20261002/run-l1ColdStartReapply.txt>)。
-- [生命周期 JSON](<E:/creation-reading-assistant/g1-codex-takeover-20261002/lifecycle-final>)、[删除撤销 JSON](<E:/creation-reading-assistant/g1-codex-takeover-20261002/delete-undo-final>)、[保存 PID/条件](<E:/creation-reading-assistant/g1-codex-takeover-20261002/saved-final/l1-saved.json>)、[冷启动 PID/条件](<E:/creation-reading-assistant/g1-codex-takeover-20261002/cold-final/l1-cold-start-readback.json>)。
-- [冷启动套用截图](<E:/creation-reading-assistant/g1-codex-takeover-20261002/cold-final/l1-cold-start-reapply.png>)经 Codex 目视：竖屏、2项筛选、共5本显示1本。删除撤销阶段截图仍可能处于异步 UI 未重绘的空架/撤销条，**不作为 UI 已重新显示书卡的证据**；本项恢复结论来自同会话 DB 断言。书卡视觉重绘未单独设验收点。
+- 原始日志：[搁置](<<证据根>/g1-codex-takeover-20261002/run-assertAfterShelve.txt>)、[移除](<<证据根>/g1-codex-takeover-20261002/run-assertAfterRemoveContent.txt>)、[删除撤销](<<证据根>/g1-codex-takeover-20261002/run-deleteUndoChainRealUi.txt>)、[保存](<<证据根>/g1-codex-takeover-20261002/run-savedFilterUiChain.txt>)、[冷启动](<<证据根>/g1-codex-takeover-20261002/run-l1ColdStartReapply.txt>)。
+- [生命周期 JSON](<<证据根>/g1-codex-takeover-20261002/lifecycle-final>)、[删除撤销 JSON](<<证据根>/g1-codex-takeover-20261002/delete-undo-final>)、[保存 PID/条件](<<证据根>/g1-codex-takeover-20261002/saved-final/l1-saved.json>)、[冷启动 PID/条件](<<证据根>/g1-codex-takeover-20261002/cold-final/l1-cold-start-readback.json>)。
+- [冷启动套用截图](<<证据根>/g1-codex-takeover-20261002/cold-final/l1-cold-start-reapply.png>)经 Codex 目视：竖屏、2项筛选、共5本显示1本。删除撤销阶段截图仍可能处于异步 UI 未重绘的空架/撤销条，**不作为 UI 已重新显示书卡的证据**；本项恢复结论来自同会话 DB 断言。书卡视觉重绘未单独设验收点。
 - 一次探索性首页书卡长按实际进入阅读器，已返回；仅发生于可删除沙箱夹具，不计搁置动作。真实搁置/移除步骤的截图/XML在 E `before-shelve`、`book-actions`、`before-removecontent` 等工件中保留。
 
 ## 恢复与副作用
 
-- [后账](<E:/creation-reading-assistant/g1-codex-takeover-20261002/restoration-audit.json>)：原 G1 测前记录 46/46 一致（含 DB/WAL/SHM 和 files）；Codex 接手补录 databases/files/shared_prefs/no_backup **65/65 字节哈希与路径集合一致**，无新增/缺失。
+- [后账](<<证据根>/g1-codex-takeover-20261002/restoration-audit.json>)：原 G1 测前记录 46/46 一致（含 DB/WAL/SHM 和 files）；Codex 接手补录 databases/files/shared_prefs/no_backup **65/65 字节哈希与路径集合一致**，无新增/缺失。
 - 原 qahost 宿主 SHA `e82904cc9c1315466ed5c521693f93f541560feef038bf074ce7f7cf8324ef8a`、测试 SHA `fdbd019011088505fa37d71565259a0d76f6927407af69148379e2ef7c27038d` 前后完全相同；无需重新安装或覆盖原数据。
-- [设置前账](<E:/creation-reading-assistant/g1-codex-takeover-20261002/takeover-baseline/settings.txt>)与[后账](<E:/creation-reading-assistant/g1-codex-takeover-20261002/restored/settings.txt>)逐字一致：size/density、旋转、stay_on、飞行模式、休眠及动画设置；forward/reverse 清单同样一致。与原记录 1080×1920/280 及七设置一致。
+- [设置前账](<<证据根>/g1-codex-takeover-20261002/takeover-baseline/settings.txt>)与[后账](<<证据根>/g1-codex-takeover-20261002/restored/settings.txt>)逐字一致：size/density、旋转、stay_on、飞行模式、休眠及动画设置；forward/reverse 清单同样一致。与原记录 1080×1920/280 及七设置一致。
 - 两个本批新增 `.qahostlibrary` APK 已各自 uninstall 成功，私有目录确认不存在；新 UID 数据/KeyStore 随卸载清理，不保留测试状态。临时 UI XML 已清除。没有清除正式应用数据或原 qahost。
-- [恢复 APK 对](<E:/creation-reading-assistant/g1-codex-takeover-20261002/restored/apk-sha256.json>)。本次未做 qahost 启动、安装或数据库写入。
+- [恢复 APK 对](<<证据根>/g1-codex-takeover-20261002/restored/apk-sha256.json>)。本次未做 qahost 启动、安装或数据库写入。
 
 ## 交付状态与下一步
 

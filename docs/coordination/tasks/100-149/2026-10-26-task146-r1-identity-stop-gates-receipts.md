@@ -13,5 +13,5 @@ C. 当前stop dict和postStop仅放out，hook返回decisions时不含它们，�
 
 只必要新场景：批准但身份错误（含rc错stdout似正常）→stop0/archive0/uninstall0/整体假；父stop_okfalse→本任务归档stop0/产品保留；真正quiescent无批准→不stop且稳定保全成功；live批准成功→三根pre完整可读原件早于唯一精确stop、stop前同身份、post稳定证明早于uninstall1且原命令回执实际落盘；pre/stop失败原性质复用未变部分，保留146v1原红绿，不刷旧145suite。真main/真父run_attempt/collect/recover/cmd_*只mock外部出口，不测试local另写hook。端点严格参数核验force-stop --user 0 product，不能任何force-stop都让fake产品死；未知外部命令抛。
 
-只新E:/creation-reading-assistant/task146-quiesce-recovery-offline-v1/recheck-r1/修改host/最小相对v1patch/REPORT/必要原红绿raw/独立summary及必要小fake归档proof/ready.json，旧v1/raw/SYNTHETIC冻结不rmtree，避免裁掉本次唯一证据却称可审。存储delta256KiB/raw512KiB，实际分类新增体积同REPORT。r8固定host/inputs/15rolepins/144匹配APK/Android源码APKGradle/父136baseadapter全冻结引用不复制、不buildcompile。任何真实ADB/VM/stop/安装卸载settings/hostmain/runid预算attemptsummary/F1/实体禁；参数只是未来许可开关不等本批授权。Root只核具体delta后另裁，不能自动设备。不Git云正式库私库自动记忆删移旧资产kill共享进程。最后一行：这是任务146-r1。
+只新<证据根>/task146-quiesce-recovery-offline-v1/recheck-r1/修改host/最小相对v1patch/REPORT/必要原红绿raw/独立summary及必要小fake归档proof/ready.json，旧v1/raw/SYNTHETIC冻结不rmtree，避免裁掉本次唯一证据却称可审。存储delta256KiB/raw512KiB，实际分类新增体积同REPORT。r8固定host/inputs/15rolepins/144匹配APK/Android源码APKGradle/父136baseadapter全冻结引用不复制、不buildcompile。任何真实ADB/VM/stop/安装卸载settings/hostmain/runid预算attemptsummary/F1/实体禁；参数只是未来许可开关不等本批授权。Root只核具体delta后另裁，不能自动设备。不Git云正式库私库自动记忆删移旧资产kill共享进程。最后一行：这是任务146-r1。
 ````

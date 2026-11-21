@@ -62,6 +62,6 @@ Android完整产品尚无可靠统一分母，不给百分比。A的五合同只
 
 [方向评审](reviews/2026-10/2026-10-14-product-direction-review.md)、[产品总规划](../plans/2026-10-01-product-roadmap-realignment.md)。旧任务32/33和模型分配不再作为当前命令；准确任务状态统一到current。
 
-本次更新前原文与其他被改入口已保全于[规划调整快照](<E:/creation-reading-assistant/usable-product-plan-20261014-215815/plan.md>)。不改历史报告或既有验收结论。
+本次更新前原文与其他被改入口已保全于[规划调整快照](<<证据根>/usable-product-plan-20261014-215815/plan.md>)。不改历史报告或既有验收结论。
 
-2026-10-15范围纠偏前原文已保存于[E盘快照](<E:/creation-reading-assistant/android-only-scope-20261015-001536/plan.md>)。任务44不再执行；历史报告保留，不改写为完成或未曾发生。
+2026-10-15范围纠偏前原文已保存于[E盘快照](<<证据根>/android-only-scope-20261015-001536/plan.md>)。任务44不再执行；历史报告保留，不改写为完成或未曾发生。

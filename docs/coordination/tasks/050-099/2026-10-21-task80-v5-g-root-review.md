@@ -20,4 +20,4 @@ G报告7.5称覆盖前原字节未保留、只有SHA，此说与实际不符。R
 ## 交付状态与下一步、停止条件
 下一批80-v6-H仅补两个真实缺口：候选与点击限定新鲜唯一roots_list子树；导航后通过实际可得位置/provider身份确认Downloads，禁止把硬编码描述或抽屉关闭当位置证明。保留唯一名读回、冲突、真实导出和正文/持久链断言。围绕实际调用helper做必要行为验证，编译后独立封存新输入，再一次MuMu联合验收和恢复；同owner闭环，不重做旧接线或泛审查。已有并行只读核查已完成，没有第二个独立实现缺口，不为凑数量制造任务。
 用户设备与本run已证新建且保全size/SHA匹配导出精确收尾授权继续适用；不关闭重启实例，结束保持运行；同批仅一个main/run/attempt，失败停后续并恢复，未确认身份/owner、漂移、预算不足或恢复失败即阻塞。原始快照、旧FAIL和报告不覆盖。两个自动化保持PAUSED；不Git/外部消息/桌面/云/存量清理。
-Root本轮设备0、构建0，仅新增本报告及更新current，不复制工程/APK/缓存。G自报新增约5.2MiB，Root未为此重复全树盘点。当前唯一构建工作区task59-common-candidate-v1/candidate/android与Gradle home D:/develop/env/gradle不变。
+Root本轮设备0、构建0，仅新增本报告及更新current，不复制工程/APK/缓存。G自报新增约5.2MiB，Root未为此重复全树盘点。当前唯一构建工作区task59-common-candidate-v1/candidate/android与Gradle home <开发盘>/env/gradle不变。

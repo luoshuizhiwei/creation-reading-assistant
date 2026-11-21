@@ -2,7 +2,7 @@
 
 ## 任务编号/版本、输入指纹、环境
 
-94-v4，2026-10-23香港时间03:03—03:15。实际报告及ready位于`E:/creation-reading-assistant/task94-organizing-export-integration-v1/v4`。输入15项真实依赖绑定在inputs.json；产品fac29复用，test APK d80d62135fff1e99e8cf049ac7ba194c596bccd1844993feccb22ef55eebf7c6。唯一task59工作区/既有依赖与构建锁复用。
+94-v4，2026-10-23香港时间03:03—03:15。实际报告及ready位于`<证据根>/task94-organizing-export-integration-v1/v4`。输入15项真实依赖绑定在inputs.json；产品fac29复用，test APK d80d62135fff1e99e8cf049ac7ba194c596bccd1844993feccb22ef55eebf7c6。唯一task59工作区/既有依赖与构建锁复用。
 
 ## 所有权与改动
 

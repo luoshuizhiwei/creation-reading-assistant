@@ -2,7 +2,7 @@
 任务151-v1｜ZCode A：149页面退出测试宿主/collector接线（离线），等待150新APK固定pin｜2026-10-27 HK｜GLM-5.3-Flash当前档｜25分钟
 Root已核148-r3实际新tar、三根逐文件集合SHA和正常uninstall一次，限定恢复收尾接受；原148-r2单次滚动业务PASS但原整体false永留。Download .exmu-cfg1.data差异归因未知，不伪造补文件、不宣称完整全同。你本轮释放设备，不再ADB/VM/安装/设置/instrument；B150-v1独占Gradle构建新匹配APK，你实现下一页面测试设备批次必需的host接缝，真正并行不争资源。
 先读current页首及149/recheck-r2/ready，真实candidate测试路径app/src/androidTest/java/com/creationreadingassistant/ui/screen/reader/ReaderExitSaveDrainDeviceTest.kt SHA7dcfa26ae31d3205a5b1f6a976483597854cea811e59a390c563ab541100c061；已有compile已接受不重跑。类com.creationreadingassistant.ui.screen.reader.ReaderExitSaveDrainDeviceTest，四性质：pending页面存活/Back防重入、保存完成后pop一次、失败反馈+第二代重试成功、无pending正常退出。受控await接缝+生产ReaderScreen/NavHost组合，不是Room进度落盘/进程死亡全链。测试不生成t141b成果JSON，不得复用scroll结果字典造绿。
-唯一新输出E:/creation-reading-assistant/task151-exit-page-host-offline-v1/。只写新host/collector/必要inputs生成实现、最小patch、REPORT、raw/ready。旧host/父/adapter/inputs/summary和candidate冻结不改，不复制历史链/工程/APK。source/doc512KiB、raw+fake512KiB，mock大归档内存构造，必要原件最小保留。
+唯一新输出<证据根>/task151-exit-page-host-offline-v1/。只写新host/collector/必要inputs生成实现、最小patch、REPORT、raw/ready。旧host/父/adapter/inputs/summary和candidate冻结不改，不复制历史链/工程/APK。source/doc512KiB、raw+fake512KiB，mock大归档内存构造，必要原件最小保留。
 实现实际可用入口，优先引用冻结真实父/基座+148修复，不另造Dev API或StubParent：
 1 load_parent后scope先bind，再fresh instance；actualDev.sh(*args,timeout,stdin)不编造capture_stdout，runner=testpkg/CraIsolatedTestRunner，instrument -e class必须新测试类。runid/budget/attempt/summary/output/protection同scope，恢复reserve至少1200。
 2 新collector真实读取本次instrument独占raw输出/原rc（不是旧t141b files）：必须实际四个预期测试名字完整终态、0 failures/errors/skips/assumption/abort、唯一合法总终态，class与host当前参数绑定。先核真实runner输出格式及现有capture机制，不能只字符串contains OK(4 tests)或拿旧log。失败/缺测/重复终态/未知状态严格失败。业务boolean与父要求tuple适配按真实API；不为编译或mock绿降断言。

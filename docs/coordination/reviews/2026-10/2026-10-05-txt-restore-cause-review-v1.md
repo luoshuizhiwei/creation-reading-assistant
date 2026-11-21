@@ -4,13 +4,13 @@
 CRA-TXT-RESTORE-CAUSE-REVIEW-v1，2026-10-06 交付。只读分析；不用 ADB、不构建、不写产品/测试源码、不操作 Git、不改全局交接/TODO。
 
 ## 输入指纹
-- 产品基线 [TXT-v4 android](<E:/creation-reading-assistant/txt-reentry-fix-v4/android>)：freeze/source-sha256.json 980 条实算 **980/980 一致**（本窗口 Python 实算）。
-- 失败批（只读）[txt-final-mumu-accept-v1](<E:/creation-reading-assistant/txt-final-mumu-accept-v1>)：runs/j1-txtv4-20261005-a 全部 raw/*.txt、items/*.json、raw/j1_ui/*.xml/png、binding.json、config、freeze、evidence 已核。
-- 对照 [prep-v2 payload](<E:/creation-reading-assistant/txt-final-acceptance-prep-v2/payload>)：测试源与本批 diff 仅两处（binding 目录 /data/local/tmp、chapters 断言 isEmpty→size==1）。
+- 产品基线 [TXT-v4 android](<<证据根>/txt-reentry-fix-v4/android>)：freeze/source-sha256.json 980 条实算 **980/980 一致**（本窗口 Python 实算）。
+- 失败批（只读）[txt-final-mumu-accept-v1](<<证据根>/txt-final-mumu-accept-v1>)：runs/j1-txtv4-20261005-a 全部 raw/*.txt、items/*.json、raw/j1_ui/*.xml/png、binding.json、config、freeze、evidence 已核。
+- 对照 [prep-v2 payload](<<证据根>/txt-final-acceptance-prep-v2/payload>)：测试源与本批 diff 仅两处（binding 目录 /data/local/tmp、chapters 断言 isEmpty→size==1）。
 - 前序核查 [2026-10-05-txt-mumu-prep-v2-codex-review.md](2026-10-05-txt-mumu-prep-v2-codex-review.md)。
 
 ## 所有权与改动
-本窗口仅写本报告与 [E 分析工件目录](<E:/creation-reading-assistant/txt-restore-cause-review-v1>)（4 件：证据取证/代码追踪/候选原因/设备观测清单）。未用 ADB，未构建，未改 D/E 产品、Git、原损坏仓库、正式书库与其他应用私有库。设备与新证据目录归另一窗口，本报告未读取其任何在写结果。
+本窗口仅写本报告与 [E 分析工件目录](<<证据根>/txt-restore-cause-review-v1>)（4 件：证据取证/代码追踪/候选原因/设备观测清单）。未用 ADB，未构建，未改 D/E 产品、Git、原损坏仓库、正式书库与其他应用私有库。设备与新证据目录归另一窗口，本报告未读取其任何在写结果。
 
 ## 环境
 Windows 本地静态审查（Python 实算 SHA/解析 dump；Read 通读产品与测试源码）；未接触设备、模拟器与网络。
@@ -38,7 +38,7 @@ Windows 本地静态审查（Python 实算 SHA/解析 dump；Read 通读产品�
 - **C1（主）**：重进会话加载读到 null/零行（行被软删或被未识别写入方清零）→ 恢复直通 0 → 0 落库 → 冷启动自确认。静态上这是"视口顶部 + 新鲜 0 行"的唯一产品代码路径；缺口=软删/清零写入方在主源码不可达（无 sync 配置、书未删、三条启动接线不碰 progress、无 SQL 级 UPDATE/DELETE）。
 - **C2**：真实 Compose 布局接缝致恢复链未按 JVM 模型运行（FlowTest 自认布局提交未复现）。但"循环挂起→DB 保持 S"与"落位→视口离开顶部"均与证据矛盾，单独成立可能性低，更可能是 C1 的伴随项。
 - **C3**：观察过早（恢复 >6-12s 才完成）。反证：小书三会话全 0 且无一例中途值；首页"未读"矛盾独立于读库时点。
-- **裁决**：设备 owner 一次"不杀进程"的最小复现 + 三时点行级真值（E1）+ 延迟视口 dump（E2）即可同时裁定 C1/C2/C3 并分叉 C1 的 A1（软删）/A2（零行）。观测清单见[工件 4](<E:/creation-reading-assistant/txt-restore-cause-review-v1/04-device-owner-observations.md>)，不要求重跑全批。
+- **裁决**：设备 owner 一次"不杀进程"的最小复现 + 三时点行级真值（E1）+ 延迟视口 dump（E2）即可同时裁定 C1/C2/C3 并分叉 C1 的 A1（软删）/A2（零行）。观测清单见[工件 4](<<证据根>/txt-restore-cause-review-v1/04-device-owner-observations.md>)，不要求重跑全批。
 
 ### 测试/产品责任边界
 - **产品侧（未被排除的指控）**：首次重进会话把 DB 行替换为 (percent=0, locator=0) 的新鲜行，且 UI 停留顶部 0%——"重进清零"的用户可见缺陷方向成立；但"加载输入为何异常"未闭合，不得据此直接宣称生产根因。
@@ -51,10 +51,10 @@ Windows 本地静态审查（Python 实算 SHA/解析 dump；Read 通读产品�
 - 若裁定 C3：修的是验收合同（观测时点/等待期定义），产品不动。
 
 ## 原始证据
-- 断言原文：[j1_20 raw](<E:/creation-reading-assistant/txt-final-mumu-accept-v1/runs/j1-txtv4-20261005-a/raw/j1_20_reentryFromHome.txt>)、j1_30/j1_40/j1_60 同目录。
-- UI dump 链：[raw/j1_ui](<E:/creation-reading-assistant/txt-final-mumu-accept-v1/runs/j1-txtv4-20261005-a/raw/j1_ui>)（ui_scrolled=132-149；ui_reentry_home/shelf、ui_cold=0%+段落 0-43；ui_new_scroll=启动器）。
-- 绑定/账本：[binding.json](<E:/creation-reading-assistant/txt-final-mumu-accept-v1/runs/j1-txtv4-20261005-a/binding.json>)、[apk-sha256.json](<E:/creation-reading-assistant/txt-final-mumu-accept-v1/freeze/apk-sha256.json>)、[installed-test-readback.apk](<E:/creation-reading-assistant/txt-final-mumu-accept-v1/evidence/installed-test-readback.apk>)。
-- 分析工件：[01 证据取证](<E:/creation-reading-assistant/txt-restore-cause-review-v1/01-evidence-review.md>)、[02 代码追踪](<E:/creation-reading-assistant/txt-restore-cause-review-v1/02-code-trace.md>)、[03 候选原因](<E:/creation-reading-assistant/txt-restore-cause-review-v1/03-candidates.md>)、[04 设备观测清单](<E:/creation-reading-assistant/txt-restore-cause-review-v1/04-device-owner-observations.md>)。
+- 断言原文：[j1_20 raw](<<证据根>/txt-final-mumu-accept-v1/runs/j1-txtv4-20261005-a/raw/j1_20_reentryFromHome.txt>)、j1_30/j1_40/j1_60 同目录。
+- UI dump 链：[raw/j1_ui](<<证据根>/txt-final-mumu-accept-v1/runs/j1-txtv4-20261005-a/raw/j1_ui>)（ui_scrolled=132-149；ui_reentry_home/shelf、ui_cold=0%+段落 0-43；ui_new_scroll=启动器）。
+- 绑定/账本：[binding.json](<<证据根>/txt-final-mumu-accept-v1/runs/j1-txtv4-20261005-a/binding.json>)、[apk-sha256.json](<<证据根>/txt-final-mumu-accept-v1/freeze/apk-sha256.json>)、[installed-test-readback.apk](<<证据根>/txt-final-mumu-accept-v1/evidence/installed-test-readback.apk>)。
+- 分析工件：[01 证据取证](<<证据根>/txt-restore-cause-review-v1/01-evidence-review.md>)、[02 代码追踪](<<证据根>/txt-restore-cause-review-v1/02-code-trace.md>)、[03 候选原因](<<证据根>/txt-restore-cause-review-v1/03-candidates.md>)、[04 设备观测清单](<<证据根>/txt-restore-cause-review-v1/04-device-owner-observations.md>)。
 
 ## 恢复与副作用
 本窗口未接触设备，无副作用。上一批恢复缺口（夜间 no→yes、43 文件前后账、原测试 APK 后账）维持 Codex 前序核查定性，待设备 owner 按既有口径处理（E5 可选项）。
@@ -63,4 +63,4 @@ Windows 本地静态审查（Python 实算 SHA/解析 dump；Read 通读产品�
 设备在跑进程的行级真值、恢复 effect 进程内行为、j1_60 之外三条重进路径的 >30s 延迟观测、MD 邻接与末项 clamp（前序 NOT_PROVEN/NOT_RUN 维持）、实体手机/MIUI。既有跨候选 J2–J5 4/5=80% 范围不变。
 
 ## 交付状态与下一步
-1/2 交付完成（只读因果分析）。下一动作：设备 owner 按[工件 4](<E:/creation-reading-assistant/txt-restore-cause-review-v1/04-device-owner-observations.md>) 执行 E1-E4 最小观测并回写结论；Root 核定两报告后再派修复任务；D 集成/Git/发布不执行。规划保持"稳定阅读与数据保全"主线：先区分产品状态变化与仪器观测错误，再修根因。
+1/2 交付完成（只读因果分析）。下一动作：设备 owner 按[工件 4](<<证据根>/txt-restore-cause-review-v1/04-device-owner-observations.md>) 执行 E1-E4 最小观测并回写结论；Root 核定两报告后再派修复任务；D 集成/Git/发布不执行。规划保持"稳定阅读与数据保全"主线：先区分产品状态变化与仪器观测错误，再修根因。

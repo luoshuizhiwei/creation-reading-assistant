@@ -128,18 +128,18 @@ try {
 ### 5.1 命令
 
 ```bash
-cd D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/android
-export GRADLE_USER_HOME=D:/develop/env/gradle
+cd <仓库>/android
+export GRADLE_USER_HOME=<开发盘>/env/gradle
 ./gradlew :app:testDebugUnitTest \
   --tests "com.creationreadingassistant.data.repository.BookResidueSafeCleanupTest" \
-  --init-script E:/creation-reading-assistant/codex-s04-build-20260925/redirect-build.gradle \
+  --init-script <证据根>/codex-s04-build-20260925/redirect-build.gradle \
   --offline \
-  > E:/creation-reading-assistant/codex-s04-build-20260925/test-aborted-midway.log 2>&1
+  > <证据根>/codex-s04-build-20260925/test-aborted-midway.log 2>&1
 ```
 
 - **退出码**：`0`（首次实现运行 `0`；try/finally 修正后重跑同样 `0`）
 - `--init-script` 用的是既有 E 盘 `redirect-build.gradle`（把 `buildDirectory` 指向
-  `E:/creation-reading-assistant/codex-s04-build-20260925/project-builds`），未新建或修改重定向配置
+  `<证据根>/codex-s04-build-20260925/project-builds`），未新建或修改重定向配置
 - `--offline`：复用既有依赖缓存，避免网络
 - 只跑了该类，**未做全量构建**
 
@@ -165,9 +165,9 @@ tests="31" skipped="0" failures="0" errors="0"
 
 ### 5.4 一次失败的尝试（如实记录）
 
-首次运行我把 `GRADLE_USER_HOME` 误设为 `E:/.../codex-s04-build-20260925/gradle-home`（该目录只有空的 `wrapper/dists`），
+首次运行我把 `GRADLE_USER_HOME` 误设为 `<证据盘>/.../codex-s04-build-20260925/gradle-home`（该目录只有空的 `wrapper/dists`），
 导致 Gradle 重新下载发行包与 `kotlin-compiler-embeddable`，最终因 `github.com:443` 连接超时 **BUILD FAILED**。
-改用环境里既有的 `D:/develop/env/gradle` 并加 `--offline` 后成功。该失败与被测代码无关，属命令配置错误。
+改用环境里既有的 `<开发盘>/env/gradle` 并加 `--offline` 后成功。该失败与被测代码无关，属命令配置错误。
 
 ---
 

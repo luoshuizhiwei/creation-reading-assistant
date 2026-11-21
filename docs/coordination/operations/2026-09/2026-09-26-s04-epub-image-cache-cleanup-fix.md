@@ -110,7 +110,7 @@ BookResidueSafeCleanupTest > clearBookCache reports remains when epub image cach
 
 > **未使用 E 盘重定向**：任务指明「不要使用已知会在 KSP/Hilt 跨盘失败的
 > `redirect-build.gradle`」。已核实该脚本的实现方式是
-> `project.layout.buildDirectory.set(new File('E:/…'))` —— 把整个构建目录指向另一盘符，
+> `project.layout.buildDirectory.set(new File('<证据盘>/…'))` —— 把整个构建目录指向另一盘符，
 > 正是跨盘失败的来源。**完整 APK 构建由集成者随后串行进行**，本窗口不参与。
 
 ---

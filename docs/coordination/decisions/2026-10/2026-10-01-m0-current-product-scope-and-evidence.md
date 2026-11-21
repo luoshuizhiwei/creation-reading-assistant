@@ -7,7 +7,7 @@ M0-v1；来源：产品总规划 M0 与 W2 核查后的并行授权——空出�
 ## 输入指纹
 
 - 活动仓库：`D:\develop\Code\Codex\creation-reading-assistant-recovery-20260919`；实读 HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，暂存区空，工作树保留共享 WIP（未纳入本轮输入）。
-- 唯一当前联合候选：[J1-v3 android](<E:/creation-reading-assistant/next-round-joint-j1-v3/android>)，六文件 SHA 实算 6/6 一致。
+- 唯一当前联合候选：[J1-v3 android](<<证据根>/next-round-joint-j1-v3/android>)，六文件 SHA 实算 6/6 一致。
 - 并行只读引用：[W2 构建/设备核查](../../reviews/2026-10/2026-10-01-next-w2-codex-review.md)、[产品总规划](../../../plans/2026-10-01-product-roadmap-realignment.md)、[当前执行入口](../../../handoff/current.md)。
 - 需求依据：桌面 P1 规格 2026-08-09、桌面 v2.0 需求 2026-09-10、Android 八组需求 2026-09-09、本地书库路线 2026-09-12、书架成熟化 2026-09-18。均有明确日期，旧顶部状态一律不作为当前执行命令。
 
@@ -78,7 +78,7 @@ Windows、PowerShell/Python；仅读取相关规格、现有 E 候选/冻结清�
 - 矩阵：`E:\creation-reading-assistant\m0-product-scope-20261001\m0-journey-matrix-v1.csv`（34 条 × 13 字段）；证据索引：同目录 `m0-evidence-index-v1.csv`（25 条 × 8 字段）。
 - [产品总规划](../../../plans/2026-10-01-product-roadmap-realignment.md)、[当前执行入口](../../../handoff/current.md)、[W2 核查](../../reviews/2026-10/2026-10-01-next-w2-codex-review.md)、[J1-v3/J2-v4/W1-v2 核查](../../reviews/2026-10/2026-10-01-next-j1v3-j2v4-w1v2-codex-review.md)、[N1/N3 审阅](../../reviews/2026-10/2026-10-01-next-n1-n3-codex-review.md)、[阶段E限定关闭](../../dispatches/2026-10/2026-10-01-stage-e-final-v2-codex-closure.md)。
 - [桌面 P1 规格](../../../plans/desktop-reference/2026-08-09-desktop-creation-workbench-phase-1-spec.md)、[桌面 v2.0 需求](../../../plans/2026-09-10-desktop-global-card-library-requirements.md)、[Android 八组需求](../../../plans/android-parallel-delivery-2026-09-09/README.md)、[本地书库路线](../../../plans/android/2026-09-12-android-library-folder-smart-recognition-roadmap.md)、[书架成熟化](../../../plans/android/2026-09-18-android-shelf-maturity-plan.md)。
-- E 资产：[J1-v3 六 SHA](<E:/creation-reading-assistant/next-round-joint-j1-v3/freeze/six-file-sha256.txt>)、[W2 冻结](<E:/creation-reading-assistant/next-round-w2-webdav-ui-build/freeze>)、[W2 READY](<E:/creation-reading-assistant/next-round-w2-webdav-ui-build/READY.json>)、[W2 设备准备目录](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance>)、[N1 证据](<E:/creation-reading-assistant/next-round-n1/acceptance>)。
+- E 资产：[J1-v3 六 SHA](<<证据根>/next-round-joint-j1-v3/freeze/six-file-sha256.txt>)、[W2 冻结](<<证据根>/next-round-w2-webdav-ui-build/freeze>)、[W2 READY](<<证据根>/next-round-w2-webdav-ui-build/READY.json>)、[W2 设备准备目录](<<证据根>/next-round-w2-webdav-ui-acceptance>)、[N1 证据](<<证据根>/next-round-n1/acceptance>)。
 
 ## 未覆盖项
 

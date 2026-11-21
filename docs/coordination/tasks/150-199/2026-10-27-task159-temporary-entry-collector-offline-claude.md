@@ -1,6 +1,6 @@
 # 任务159-v1：两项真实临时阅读入口的离线collector差量
 
-与A158真实设备批独立：你只写E:/creation-reading-assistant/task159-temporary-entry-collector-offline-v1/，candidate/所有APK/Gradle/设备/真实hostinputs/raw全部只读，不能改A运行输入/共享host全局文件。使用Claude桌面恢复项目新独立闲置会话，不打断原138-A。只新collector/必要离线验证，不造产品功能/不复制工程cache，不设备/ADB/VM/真实mainattempt。
+与A158真实设备批独立：你只写<证据根>/task159-temporary-entry-collector-offline-v1/，candidate/所有APK/Gradle/设备/真实hostinputs/raw全部只读，不能改A运行输入/共享host全局文件。使用Claude桌面恢复项目新独立闲置会话，不打断原138-A。只新collector/必要离线验证，不造产品功能/不复制工程cache，不设备/ADB/VM/真实mainattempt。
 
 目标为157已编译、尚未设备运行的两个可达notes临时入口方法下一批结果判定：com.creationreadingassistant.acceptance.NestedTemporaryReaderEntryTest#normalThenSingleTemporaryEntry_isolatesOrdinaryRow_andReturnsToOrdinarySpot，#secondSourceEntry_sameBookDifferentTarget_reentersTemporarilyWithoutCarriedState。真实source候选app/src/androidTest/java/com/creationreadingassistant/acceptance/NestedTemporaryReaderEntryTest.kt14224B SHAb54c506769b4de253a0478448da37c401abc8fd5c4e169774de305171da8ddfb；实际source/API/协议只读取证，不发明reader内二次嵌套UI或任意深度contract。旧153找到既定入口/返回再进入合同复用，不重审全历史。断言范围页面/会话/ordinary row精确对比，不能把instrument rc0或唯一总终态当两方法通过。
 

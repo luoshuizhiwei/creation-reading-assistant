@@ -7,7 +7,7 @@
 复用已核Root-v2 1019源码和36-v1双APK/原强冻结。38-v5实际调用已核强冻结器与只读SDK工具并返回PASS，无APK重构建。新38/39交付逐文件SHA在本轮verification.json；D HEAD仍e39a78da9c62f02614207cffb36969a32492eaea、暂存空。原交付只读。
 
 ## 所有权与改动
-Root只自有E核验与D全局交接。40-v1输出E:/creation-reading-assistant/task40-host-joint-integration-v1，唯一拥有自有共同候选host/runtime配置、基线schema接缝、执行编排和工具冻结。41-v1输出E:/creation-reading-assistant/task41-saf-permission-capability-map-v1，只读现有Android/验收工具，写自有报告/命令合同，不改任何源代码、40候选或原产物。两线无需共写文件或设备，可并行；41不成为第二实现owner。
+Root只自有E核验与D全局交接。40-v1输出<证据根>/task40-host-joint-integration-v1，唯一拥有自有共同候选host/runtime配置、基线schema接缝、执行编排和工具冻结。41-v1输出<证据根>/task41-saf-permission-capability-map-v1，只读现有Android/验收工具，写自有报告/命令合同，不改任何源代码、40候选或原产物。两线无需共写文件或设备，可并行；41不成为第二实现owner。
 
 ## 环境
 Windows Python3.13。38重跑载入测试并将TEST_TMP定向至自有E；39逐测试在自有E子目录调用。原日志/文件保持只读。38使用本机aapt2/apksigner仅读APK和原强冻结工具，device命令全部mock；未真实ADB/设备/Gradle。实际外部菜单未核，模型推荐不声称已验证可用。
@@ -20,7 +20,7 @@ Root直接把38-v5/evidence/baseline-simulated.json交给39-v2/read_first_baseli
 39 URI_REVOKE_CAPABILITY=UNAVAILABLE，基线非空URI阻断是正确保守门禁；尚未找到真实按run释放接口。41只读确认本次测试会新增/持久化哪些URI授权、已有真实生产/仪器接缝可否释放/删除本人次对象；区分旧授权存在与本次操作会改旧授权，不把全部全局dumpsys字符串当可恢复合同。Root限定rg发现RealSystemUiAcceptTest.kt takePersistableUriPermission，仅线索，不视为已证无释放接口。
 
 ## 原始证据
-[38原测试实核](<E:/creation-reading-assistant/tasks38v5-39v2-codex-review-20261014/38-verification.json>)；[39测试与实际接缝](<E:/creation-reading-assistant/tasks38v5-39v2-codex-review-20261014/39-verification.json>)；[脚本](<E:/creation-reading-assistant/tasks38v5-39v2-codex-review-20261014/verify.py>)；[38重跑](<E:/creation-reading-assistant/tasks38v5-39v2-codex-review-20261014/38-tests.log>)；[39重跑](<E:/creation-reading-assistant/tasks38v5-39v2-codex-review-20261014/39-tests.log>)。
+[38原测试实核](<<证据根>/tasks38v5-39v2-codex-review-20261014/38-verification.json>)；[39测试与实际接缝](<<证据根>/tasks38v5-39v2-codex-review-20261014/39-verification.json>)；[脚本](<<证据根>/tasks38v5-39v2-codex-review-20261014/verify.py>)；[38重跑](<<证据根>/tasks38v5-39v2-codex-review-20261014/38-tests.log>)；[39重跑](<<证据根>/tasks38v5-39v2-codex-review-20261014/39-tests.log>)。
 
 ## 未覆盖项
 实现交付2/2及定向离线修复采纳不代表完整联合主机或设备验收；实际联合接缝0/1。设备全NOT_RUN，D/F NOT_PROVEN，X/实体/MIUI/发布不扩大。全产品分母未知。新的主机工具未合流冻结，原APK冻结保持其限定意义。

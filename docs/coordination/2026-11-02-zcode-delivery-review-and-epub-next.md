@@ -12,8 +12,8 @@
 
 ## 2. 本轮实际核对与有限结论
 
-原证公共根：`E:/creation-reading-assistant/task192-reader-internal-lifo-host-offline-v1/attempt-<runId>/evidence/`。
-新增报告根：`E:/creation-reading-assistant/task209-navigation-coverage-v1/inventory-repair-r2/`。
+原证公共根：`<证据根>/task192-reader-internal-lifo-host-offline-v1/attempt-<runId>/evidence/`。
+新增报告根：`<证据根>/task209-navigation-coverage-v1/inventory-repair-r2/`。
 
 | 项目 | 本轮核到的原件 | 可以确认 / 不能推出 |
 |---|---|---|
@@ -29,7 +29,7 @@
 
 ### F1：恢复归属与成功聚合必须先修
 
-文件：`E:/creation-reading-assistant/task209-navigation-coverage-v1/inventory-repair-r2/scripts/recover_E2_r2.py`。
+文件：`<证据根>/task209-navigation-coverage-v1/inventory-repair-r2/scripts/recover_E2_r2.py`。
 
 - 第24行R_A固定指向旧E的T165V1-20261101-140419；第163—175行又固定currentCreatedTimestamp、installedByRunId和E安装回执并声明OWNERSHIP_OK。最新01:43 recover-log仍引用它，实际待恢复的是EP 013251。产品APK SHA相同不等于安装/数据归属同批。
 - 第224—237行verdict主要据productAbsent，overallOk未纳入rec_err、完整result/保护rc与ok/diffs、最终identity等；test APK SHA甚至允许None。由此存在异常或保护失败仍总体绿的路径。不能只补一段报告声称“已核”。

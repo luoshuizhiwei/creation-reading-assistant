@@ -6,7 +6,7 @@
 
 Root实算996源码等于任务3-v9，tree `750333e3383e4dff6d9605a09744b4cd330a6a13eab263a28d774424d6281b1a`；双APK仍为宿主 `187ee9e7…`、test `4ad918bb…`。未重新构建、未改产品。42验收工件相对Root9只有`driver/j1_ui_callback.py`变化，最终SHA `53210493545714e94e6df3a4fdacaf07a7de23b238bf0bf6641196e67bab2657`。修订包括sqlite3旧版本非-json回退、数值归一化、55s切scroll模式；不据此认定保存根因已修。
 
-Root核313个清单工件SHA与报告SHA，合计314/314存在且匹配；最终源码清单SHA `7daf3bb60b35e1fe2896979c87c82a27916b7d6a82279e9ea0859149398292c7`，验收清单SHA `d2de9d0488cc6e4d87384de490b83ef62e49b118f725fe8b7913caf6e19d12d7`。下一输入完整绑定：[10-v2指纹](<E:/creation-reading-assistant/task10-codex-review-20261010/task10-v2-input-binding.json>)。原v1只读，新owner只写独立`E:/creation-reading-assistant/joint-31-closure-task10-v2`，设备/构建唯一owner。
+Root核313个清单工件SHA与报告SHA，合计314/314存在且匹配；最终源码清单SHA `7daf3bb60b35e1fe2896979c87c82a27916b7d6a82279e9ea0859149398292c7`，验收清单SHA `d2de9d0488cc6e4d87384de490b83ef62e49b118f725fe8b7913caf6e19d12d7`。下一输入完整绑定：[10-v2指纹](<<证据根>/task10-codex-review-20261010/task10-v2-input-binding.json>)。原v1只读，新owner只写独立`<证据根>/joint-31-closure-task10-v2`，设备/构建唯一owner。
 
 ## 环境、执行与结果
 
@@ -34,9 +34,9 @@ Root核313个清单工件SHA与报告SHA，合计314/314存在且匹配；最终
 
 ## 原始证据、恢复与副作用
 
-- [外部原报告](<E:/creation-reading-assistant/joint-31-closure-task10-v1/REPORT.md>)及其r1–r9失败轮次全部保留。
-- [Root机械核对](<E:/creation-reading-assistant/task10-codex-review-20261010/verification.json>)；[独审](<E:/creation-reading-assistant/task10-codex-review-20261010/independent-review.txt>)。
-- [取证门核对](<E:/creation-reading-assistant/task10-codex-review-20261010/private-db-gate-check.json>)：最终r9新测试包卸载前DB/WAL/SHM原件、暂存、本地三方size/SHA实核3/3，清理成功，旧直pull拒绝已由Root9真实门禁改善。新包对卸载有exit0原始记录。
+- [外部原报告](<<证据根>/joint-31-closure-task10-v1/REPORT.md>)及其r1–r9失败轮次全部保留。
+- [Root机械核对](<<证据根>/task10-codex-review-20261010/verification.json>)；[独审](<<证据根>/task10-codex-review-20261010/independent-review.txt>)。
+- [取证门核对](<<证据根>/task10-codex-review-20261010/private-db-gate-check.json>)：最终r9新测试包卸载前DB/WAL/SHM原件、暂存、本地三方size/SHA实核3/3，清理成功，旧直pull拒绝已由Root9真实门禁改善。新包对卸载有exit0原始记录。
 - owner独立恢复后账`restore-verify-final2.json`为71文件size/SHA/ns-mtime、原APK对、8设置、映射、包/data状态与tmp顶层核同，problems为空；Root核其脚本/结果并实算本地保护DB/WAL/SHM备份3/3，当前MuMu进程/Android均关闭。Root未重开设备复跑全部71项，恢复结论据此限定。
 - 本轮保护qahost的WAL/SHM曾消失，owner已按原备份还原字节/mtime，后账成立；“SQLite checkpoint”触发来源未定位。所查工具和日志未出现SQL打开保护原库，不能归因于这些脚本，也不能推为隔离S2读错库。下一轮需目标身份拒绝、命令审计及前后保护文件核对，追查误选/工具动作/原包后台生命周期，禁止为诊断直接打开保护原库或删sidecar绕过。
 

@@ -8,7 +8,7 @@
 ````text
 接续98-v3，只修刚发生的宿主多测试计数误判并离线验证，禁止重跑设备或构建产品。先读有效AGENTS/current及docs/coordination/tasks/050-099/2026-10-24-task98-v2-root-review.md，已加载未变复用。Root已核98-v2真实Controller/仪器after SHA、同步产品17bbfe54...52763889B/test23a2618e...10567324B/6031旧保全、编译组装成功、原始逐项8个状态0与OK(8 tests)3.148s；原test完整inventory/userState和71/820/DB恢复核同。原summary primaryError/ok=false永久保留，不改原raw/report/ready，不为改绿开下一设备batch。真实系统焦点/音频/UI/legacy与跨新会话风险仍未验，不扩矩阵。
 
-你只拥有E:/creation-reading-assistant/task98-tts-focus-feedback-v1/v3-host中的最小host差量/离线验证/REPORT/ready；读取v2-integration/scripts实际host代码，修其真正采用的成功判定，不另造平行parser作为摆设。保留执行rc/runner状态/错误检查及原恢复合同。不能用仅宽泛字符串OK或正则任意数替代完整成功条件：本轮绑定预期class与测试数8，逐项唯一测试完成状态/失败/忽略/中止、runner最终结束及命令退出需一致，计数不符/FAILURES/INSTRUMENTATION_FAILED/崩溃/只有部分成功都不能绿。若既有host已有逐项解析则只补必要成功计数hunk，不过度抽象。兼容原单test若当前脚本确有复用需求，以参数绑定expectedCount而非放宽为任意数。不要修改全套历史runner。
+你只拥有<证据根>/task98-tts-focus-feedback-v1/v3-host中的最小host差量/离线验证/REPORT/ready；读取v2-integration/scripts实际host代码，修其真正采用的成功判定，不另造平行parser作为摆设。保留执行rc/runner状态/错误检查及原恢复合同。不能用仅宽泛字符串OK或正则任意数替代完整成功条件：本轮绑定预期class与测试数8，逐项唯一测试完成状态/失败/忽略/中止、runner最终结束及命令退出需一致，计数不符/FAILURES/INSTRUMENTATION_FAILED/崩溃/只有部分成功都不能绿。若既有host已有逐项解析则只补必要成功计数hunk，不过度抽象。兼容原单test若当前脚本确有复用需求，以参数绑定expectedCount而非放宽为任意数。不要修改全套历史runner。
 
 用v2原stdout及4-run真实exitcode的离线调用验证实际host判定；覆盖原8成功、预期计数不符、其中一例失败/只运行部分、进程失败/runner崩溃至少这些真正不同失败边界。可以小型离线样本，不建测试框架，不重复产品8项/48/161/97/96。保全原输入SHA，输出patch与仅必要改动脚本/新增定向离线测试/原日志退出码，证明调用实际脚本而非copy policy。无ADB调用，禁止在脚本导入时触发设备；若脚本无法安全import就最小隔离原判定函数且host真正接线。
 

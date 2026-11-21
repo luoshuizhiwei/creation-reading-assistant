@@ -6,11 +6,11 @@
 Root实际读142-r3 232行patch/REPORT/原2case红log/8case绿XML及compile log，VM55808B/f8762da6326972c3c4582c6a38aa142656dbbeedd6a5fd04b73265edd5c2e3e3、VMTest103388B/cec25280cc84d17ecf784bd83742d665b37d241b65b8aa2229f7baf77473c19b实核同。接受限定源码修复/八目标与编译事实，不设备/全产品。原141/142-v1/r1/r2/r3红绿原件冻结，仅引用。
 
 本批目标：将已审141-B-r1新SearchScreen观察接缝与新scroll测试整合到唯一共享候选，完成必要Kotlin编译；不构建APK、不设备、不host/inputs/attempt。不要顺便重做已充分reader JVM。
-唯一工程 E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android。
+唯一工程 <证据根>/task59-common-candidate-v1/candidate/android。
 
 输入先核sizeSHA：
 - 共享原SearchScreen.kt43228B/72cc0d1a6900c2b8aed423b8a3e2ff05ef22ce185c436df89420f3983625ecba。
-- B未变seam源码 E:/creation-reading-assistant/task141-offline-implementation-v1/lane-b/android/app/src/main/java/com/creationreadingassistant/ui/screen/search/SearchScreen.kt 45026B/80181fa42605dc9616635795af26623bfa20aa309cc8b58052ca78331110570f。
+- B未变seam源码 <证据根>/task141-offline-implementation-v1/lane-b/android/app/src/main/java/com/creationreadingassistant/ui/screen/search/SearchScreen.kt 45026B/80181fa42605dc9616635795af26623bfa20aa309cc8b58052ca78331110570f。
 - B seam patch同lane-b/SearchScreen.seam.patch3158B/37862c933178454e105ab3b112b5f02adf4ad13265c0d06d1e98671ce1fd989e。
 - 最终修正test同lane-b/recheck-r1/android/app/src/androidTest/java/com/creationreadingassistant/acceptance/SearchListScrollRetentionTest.kt32650B/11092359b9857571d304646d9694e1e74e1f0763853cbf0555855ac0b40a012f。
 - B-r1原REPORT5735B/c08617b4936d431c9266e44dcecda479d559a6e9ed53918b7843080405e5ad19；Root已读相对v1实际修正patch，五缺口已修：QUERY真实起点/Back状态/窄Compose超时/25本12列nullableJSON/点击中心listbounds。原件只读引用，不复制整个交付或工程。
@@ -19,9 +19,9 @@ Root实际读142-r3 232行patch/REPORT/原2case红log/8case绿XML及compile log�
 
 先按真实调用编译：:app:compileDebugAndroidTestKotlin，一次必要原log；本批新增代码造成的import/API/nullable/参数等编译缺陷由同owner最小修正并必要重跑，全红日志留。不能为编译吞错/改断言/删测试。特别B awaitBackState的ComposeTimeoutException被换UNKNOWN：若本批触及该块，保留原cause再报明确失败，不让超时丢因。其余不造泛审/架构变动。若真实API缺口需要产品新框架则准确BLOCKED。无全JVM/整VMTest/lint/assemble/运行仪器。
 
-reader frozen：VM f8762da6，VMTest cec25280，Screen c1727db4、Platform6de3b254、Session19c5ddc5、Route3c0cd8bd、ReaderNavLateDisposePersistenceTest ca28dab9；F1cc429bb8、SaveOrder61b2ca9d、AppNavigation7a6046a5/helper原件不改。只核必要前后指纹，不重复旧全部日志或保护扫描。Root不build/ADB。JDK D:/develop/Java/jdk-17.0.14 SDK D:/develop/Android/Sdk Gradlehome D:/develop/env/gradle，独占锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock，冲突停不杀daemon。
+reader frozen：VM f8762da6，VMTest cec25280，Screen c1727db4、Platform6de3b254、Session19c5ddc5、Route3c0cd8bd、ReaderNavLateDisposePersistenceTest ca28dab9；F1cc429bb8、SaveOrder61b2ca9d、AppNavigation7a6046a5/helper原件不改。只核必要前后指纹，不重复旧全部日志或保护扫描。Root不build/ADB。JDK <开发盘>/Java/jdk-17.0.14 SDK <开发盘>/Android/Sdk Gradlehome <开发盘>/env/gradle，独占锁<证据根>/locks/android-gradle-exclusive.lock，冲突停不杀daemon。
 
-输出 E:/creation-reading-assistant/task143-scroll-integration-compile-v1/ready.json、REPORT、两文件最小集成patch/必要编译修正patch、前后sizeSHA、必要原log。20分钟，差量256KiB/raw1MiB；不复制工程/cache/历史/APKs。新增文件与patch按需最小交付，不多份复制同源。列明真实compile结果、未运行UI/未设备/未构建APK，确认新增类源码不等于现有APK已含类。
+输出 <证据根>/task143-scroll-integration-compile-v1/ready.json、REPORT、两文件最小集成patch/必要编译修正patch、前后sizeSHA、必要原log。20分钟，差量256KiB/raw1MiB；不复制工程/cache/历史/APKs。新增文件与patch按需最小交付，不多份复制同源。列明真实compile结果、未运行UI/未设备/未构建APK，确认新增类源码不等于现有APK已含类。
 
 当前产品52763832B/74d106b6b1349cfea1f4b4bb5f49e41c27691d6621ca1424e4c55effa0de84e4、test10658820B/281731702481a5a92f65efe8c64558a38577c0e711105726f6f9c6e1dc3db25b冻结不得覆盖。未来产品接缝+reader修复需Root另行新产品/测试APK构建冻结，旧产品单件保全；单testassemble不足。本批明确不授权build任何APK或device。
 

@@ -6,7 +6,7 @@ CRA-D2-DEVICE-ARTIFACTS-REPAIR-v2、CRA-J1-REAL-READER-ARTIFACTS-REPAIR-v2、CRA
 
 ## 输入指纹
 
-Root证据：`E:/creation-reading-assistant/abc-artifacts-codex-review-20261008/fingerprints.json`。
+Root证据：`<证据根>/abc-artifacts-codex-review-20261008/fingerprints.json`。
 原v1 Android987/987、acceptance24/24内容保持，无源码漂移。
 上轮提示词将不同JSON封装清单混淆：freeze/candidate-android-sha256.json实际SHA为fe00810694919e9d80e3661b154814afd681d44239743e2c52943bdeaed76081；candidate/freeze/source-sha256.json为728dff4b05e7660e7939888b323d1a677e07e3bed4db9b6db199157c0ff0d243。同987条内容，不把包装差异算源码漂移；下一提示使用准确路径及SHA。
 

@@ -11,9 +11,9 @@ v4唯一attempt在initial保护被外部前台com.clggjv.xcjfmd.ffo挡住，未�
 
 仅入场安全且预算完整后，本批最多一次主run/attempt含入场失败：本轮中性TXT由真实可解析FileProvider URI生产importer导入，立即记录resolver name/size、原字节hash与DB content_hash，身份不成立快速失败并保存真实提示/DB；UI移除正文后原位置标注source保持；实际同内容重关联同bookId且恢复可读；不同内容拒绝资产不变；取消不破坏。搜索文件沿真实已验结果行身份；失败前保全真实树/提示/DB，不靠30秒超时反推根因。失败停业务完整取证恢复，不批内修码重跑；相同阻塞无新证据不新开设备。EPUB UI仍未验如实写，不用TXT代表全D2。
 
-设备已有授权可用/必要启动隔离MuMu1，可关闭明确已授权游戏，全程不关闭重启杀VM/共享ADB，结束运行。ADB D:/Application/NetEase/MuMuPlayer/nx_main/adb.exe；fresh身份/owner/前台/完整阶段上限+1200秒恢复预留，全命令绑serial。原71私有/820外部、DB/WAL/SHM、原宿主/test代码完整数据用户状态、strict night=no合同不放松。只操作本批新建中性书夹具，不触正式/既有书库。仪器不rm Download夹具；host collect成功→E原字节sizeSHA→初始精确缺席/本轮归属→设备当前sizeSHA→单资产删除→缺席复核。未知不删不递归，探测失败不算不存在。collect/保全失败保留证据依赖产品BLOCKED，独立原test/设置恢复继续；原业务/取证/清理/恢复错误分开，必要恢复先完成再交接。夜间漂移原因未证实，不能循环retry改绿。
+设备已有授权可用/必要启动隔离MuMu1，可关闭明确已授权游戏，全程不关闭重启杀VM/共享ADB，结束运行。ADB <MuMu adb>/adb.exe；fresh身份/owner/前台/完整阶段上限+1200秒恢复预留，全命令绑serial。原71私有/820外部、DB/WAL/SHM、原宿主/test代码完整数据用户状态、strict night=no合同不放松。只操作本批新建中性书夹具，不触正式/既有书库。仪器不rm Download夹具；host collect成功→E原字节sizeSHA→初始精确缺席/本轮归属→设备当前sizeSHA→单资产删除→缺席复核。未知不删不递归，探测失败不算不存在。collect/保全失败保留证据依赖产品BLOCKED，独立原test/设置恢复继续；原业务/取证/清理/恢复错误分开，必要恢复先完成再交接。夜间漂移原因未证实，不能循环retry改绿。
 
-你独占E仪器/宿主/设备/必要构建，Root仅D协调；Root另有独立只读TTS入口梳理，不碰共享源码。唯一工作区E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android，Gradle D:/develop/env/gradle、JDK D:/develop/Java/jdk-17.0.14、SDK D:/develop/Android/Sdk，锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock。输出接续task96-library-settings-closure-v1/v5，差量8MiB，构建增量预计0/APK复制0；确有必要变动先查保全件并解释必要一次构建，不复制工程/build/.gradle/.kotlin/缓存/依赖/历史证据/APK对，不删除移动压缩迁移存量。实际新增体积/保留理由写REPORT。
+你独占E仪器/宿主/设备/必要构建，Root仅D协调；Root另有独立只读TTS入口梳理，不碰共享源码。唯一工作区<证据根>/task59-common-candidate-v1/candidate/android，Gradle <开发盘>/env/gradle、JDK <开发盘>/Java/jdk-17.0.14、SDK <开发盘>/Android/Sdk，锁<证据根>/locks/android-gradle-exclusive.lock。输出接续task96-library-settings-closure-v1/v5，差量8MiB，构建增量预计0/APK复制0；确有必要变动先查保全件并解释必要一次构建，不复制工程/build/.gradle/.kotlin/缓存/依赖/历史证据/APK对，不删除移动压缩迁移存量。实际新增体积/保留理由写REPORT。
 
 交付REPORT/ready、真实输入输出SHA、最小patch（没源码改动就0）、必要原日志rc/XML/阶段证据/恢复，清楚分实现/离线/构建/模拟器/整链。不称实体手机MIUI或全产品百分比。旧FAIL/历史原APK缺失永久保留。Root核后继续现有授权目标，不把单批完成当项目停止。无Git暂存提交pushPR发布、D产品回灌、桌面/正式库/HOLD/云/私库/存量清理、关闭其他进程。严禁任何Claude/Cowork/Claude-Code/DSH或.codex/memories读写含自动记忆收尾；不建自动化不发外部消息。保持当前模型，确证限额才保全交Root转ZCode。
 

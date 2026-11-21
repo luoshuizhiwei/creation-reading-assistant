@@ -42,7 +42,7 @@
 
 | 项 | 值 |
 |----|-----|
-| 路径 | E:/creation-reading-assistant/next-round-w2-webdav-ui-build/freeze/apk/app-qahost.apk |
+| 路径 | <证据根>/next-round-w2-webdav-ui-build/freeze/apk/app-qahost.apk |
 | 包名 | com.creationreadingassistant.qahostwebdav |
 | SHA256 | 0221d88fb34e8c88e274f09b939c5f1b84f20d9c2674abb7c8588e6593c71594 |
 | 大小 | 51,306,172 bytes |

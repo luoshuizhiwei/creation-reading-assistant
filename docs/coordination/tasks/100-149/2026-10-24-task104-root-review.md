@@ -6,7 +6,7 @@
 
 ## 输入指纹、执行与结果、原始证据
 
-E:/creation-reading-assistant/task104-tts-countdown-reverify-v1 REPORT/ready/原logs/20-instrument-stdout.log已核。T104V1-20261024-073700一次run，实际class ReaderTtsControllerAudioFocusTest、test timedStopLifecycleOnRealController、numtests1、状态1→0、OK (1 test)、Time1.388、最终INSTRUMENTATION_CODE -1，无失败。派生XML只作派生证据，原stdout为直接依据。
+<证据根>/task104-tts-countdown-reverify-v1 REPORT/ready/原logs/20-instrument-stdout.log已核。T104V1-20261024-073700一次run，实际class ReaderTtsControllerAudioFocusTest、test timedStopLifecycleOnRealController、numtests1、状态1→0、OK (1 test)、Time1.388、最终INSTRUMENTATION_CODE -1，无失败。派生XML只作派生证据，原stdout为直接依据。
 
 既有一例按生产Controller+Handler断言武装850..900、关闭保持Playing/剩余0、重设、pause清零、resume显式外部mock onStart后Playing/重新武装、release清零，整例通过。Controller1546dab4/测试93d01170未再改，102行为红→103最小修复/夹具FAIL→104修后夹具整例通过关系成立。
 

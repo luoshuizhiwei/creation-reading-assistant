@@ -1,6 +1,6 @@
 # 发给 Codex：R1 阅读可靠性与集成
 
-工作目录 `D:/develop/Code/Codex/creation-reading-assistant`。完整阅读本目录README/COMMON；主仓库仍有桌面改动与诊断文件，不纳入本任务。
+工作目录 `<旧仓库>`。完整阅读本目录README/COMMON；主仓库仍有桌面改动与诊断文件，不纳入本任务。
 Trae和Qoder各在独立工作树开发，按README分配文件；未经交接冻结不覆盖他们的文件。
 
 ## 本轮产品任务

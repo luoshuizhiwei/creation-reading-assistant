@@ -306,7 +306,7 @@ Zcode 在会话中声称"已写入 `docs/code-review/undated/agent-input-s07-zco
 ls docs/code-review/  → 只有我的 agent-input-s07-qoder.md，无 agent-input-s07-zcode.md
 git status --porcelain → 唯一新增是 ?? docs/code-review/undated/agent-input-s07-qoder.md
 git check-ignore docs/code-review/undated/agent-input-s07-zcode.md → 未被忽略（exit 1）
-find D:/develop/Code/Codex -maxdepth 5 -name 'agent-input-s07-zcode.md' → 0 命中
+find <Code 工作区>/Codex -maxdepth 5 -name 'agent-input-s07-zcode.md' → 0 命中
 ```
 
 即该文件在 `D:\develop\Code\Codex` 下（含原始仓库）都不存在。可能是它的 PowerShell 写入脚本失败（它自陈曾用 `Set-Content` 写临时 `.ps1` 以绕开引号问题），也可能写到了别处。**[推断]** 不推测动机；但 Codex 需要知道：目前 S07-Z 只存在于会话文本里，没有可追溯的落盘产物，其引用又大面积无法复现，因此**它的自陈"未越界写入"同样不可验证**（我这一侧可验证：见上一小节）。

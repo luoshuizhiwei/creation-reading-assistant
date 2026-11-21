@@ -1,7 +1,7 @@
 # 发给 Codex：R3 设置持久化/迁移、阅读器接线与集成
 
 > 本文件是 **R3** 轮任务包，替代 R1 的 `CODEX.md`（R1 原文保留作记录，不要覆盖它）。
-> 工作目录 `D:/develop/Code/Codex/creation-reading-assistant`。**你同时是本轮的集成者**：
+> 工作目录 `<旧仓库>`。**你同时是本轮的集成者**：
 > 各 agent 的 R3 交付由你冻结、集成、串行跑门禁后再交 WorkBuddy 验收。
 
 ## 先读

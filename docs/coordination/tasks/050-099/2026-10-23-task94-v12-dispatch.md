@@ -12,9 +12,9 @@
 不要重复94-v11。Root已核v11 REPORT/源码/patch/当前宿主/两APK指纹；原test代码、完整数据清单、用户状态及补做后的保护final均核同，fresh只读核产品包缺席、原test包保留。v11两次run都在保存前失败，原始错误保留，不能写成单attempt或导出已验。
 
 权威入口：
-D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/AGENTS.md
-D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/handoff/current.md
-以及当前有效用户约定、Codex项目入口。已加载未变复用，直接读E:/creation-reading-assistant/task94-organizing-export-integration-v1/v11/REPORT.md、ready.json和恢复合同，不扫历史/私库。
+<仓库>/AGENTS.md
+<仓库>/docs/handoff/current.md
+以及当前有效用户约定、Codex项目入口。已加载未变复用，直接读<证据根>/task94-organizing-export-integration-v1/v11/REPORT.md、ready.json和恢复合同，不扫历史/私库。
 
 当前产品APK：1102346485a9e47b7b12885310f678e56b5c86d36082834fbec8732906ffc30c
 当前test APK：aebcb018739bf0264260e19dd4acee01816a2f8904d698640a459166f0fb0612
@@ -24,10 +24,10 @@ D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/handoff/
 
 本批同一owner完成最小修正、定向验证、必要构建、绑定、一次设备、恢复及报告。先核相关进程/锁/owner/文件mtime，不覆盖正在运行任务。若已有人接续94-v12，先核归属并等待，不重复派发或重启。
 
-工作区唯一：E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android
-Gradle home D:/develop/env/gradle，JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk
-锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock。
-输出E:/creation-reading-assistant/task94-organizing-export-integration-v1/v12，存在则核归属接续，保留v11原件。
+工作区唯一：<证据根>/task59-common-candidate-v1/candidate/android
+Gradle home <开发盘>/env/gradle，JDK <开发盘>/Java/jdk-17.0.14，SDK <开发盘>/Android/Sdk
+锁<证据根>/locks/android-gradle-exclusive.lock。
+输出<证据根>/task94-organizing-export-integration-v1/v12，存在则核归属接续，保留v11原件。
 源差量/报告/日志证据预算8MiB，既有build增量预计256MiB。原test恢复资产直接引用；如确需构建覆盖唯一aebc原件，先核同SHA副本，无副本仅必要单份10525181B保全并单列预算。无工程/缓存/历史证据/APK对复制，无存量清理迁移。实际空间和保留理由写同一REPORT。
 
 先做方向自审：现阶段只剩真实导出、清空、取消，不重做已经设备通过的分类、搜索、AND、回源，不重跑69项。一次核对剩余直接接线，不能每处失败拆新提示词或加通用框架。
@@ -41,7 +41,7 @@ Gradle home D:/develop/env/gradle，JDK D:/develop/Java/jdk-17.0.14，SDK D:/dev
 若输入不变复用两APK；仪器确改才必要test构建，产品不改不重建。冻结输入后再构建，实核实际动态依赖及恢复资产，用本批新run/输出/输入绑定，不运行旧v11 inputs，不只改编号。保存前/后失败树、截图、确切URI和字节证据须在后续断言前保全。
 
 用户当前设备授权：使用或必要启动项目隔离MuMu实例1，已授权范围可关闭占用游戏；全程不关闭/重启/杀VM，不操作共享ADB服务，结束保持运行。不重复询问同样范围。
-ADB D:/Application/NetEase/MuMuPlayer/nx_main/adb.exe，每轮fresh核serial/boot/owner/前台/预算，所有命令绑定本轮serial。预算覆盖完整阶段上限加至少1200秒恢复预留；严格原71私有/820外部、DB/WAL/SHM、原test代码/完整数据/用户状态、宿主APK/设置和strict night=no合同不放宽。
+ADB <MuMu adb>/adb.exe，每轮fresh核serial/boot/owner/前台/预算，所有命令绑定本轮serial。预算覆盖完整阶段上限加至少1200秒恢复预留；严格原71私有/820外部、DB/WAL/SHM、原test代码/完整数据/用户状态、宿主APK/设置和strict night=no合同不放宽。
 本批一次明确主run/attempt，含入场失败；失败停止业务并完整恢复，不同批修码再启第二次主入口。只读探测/必要同run恢复不是新业务attempt，必须如实分开。
 
 验收：真实用户导出入口→系统选择器→返回URI实际原字节（标签/正文/摘录/来源）；明确清空分类并等待同精确行持久化、来源不变；取消编辑不改同一行payload与有效更新见证。既有通过项仅为必要真实夹具/快速回归，不能DB灌入替代用户流程。

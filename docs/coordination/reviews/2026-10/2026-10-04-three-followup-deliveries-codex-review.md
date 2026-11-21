@@ -25,7 +25,7 @@ Root 只读候选源码/原XML/编译日志；复用只读 reviewer 检查锁路
 3. 新方法未在MuMu运行，旧MD通过不绑定新最终APK；SE4编译基树为rollback-v2而非最终合流effects，最终合流编译/行为仍需验证。
 
 ## 原始证据
-[独立反例与原XML计数](<E:/creation-reading-assistant/three-followup-deliveries-review-20261004/verification.json>)；[仪器payload SHA](<E:/creation-reading-assistant/three-followup-deliveries-review-20261004/test-payload-sha.json>)。各交付报告中的原日志/XML保留。
+[独立反例与原XML计数](<<证据根>/three-followup-deliveries-review-20261004/verification.json>)；[仪器payload SHA](<<证据根>/three-followup-deliveries-review-20261004/test-payload-sha.json>)。各交付报告中的原日志/XML保留。
 
 ## 恢复与副作用
 无设备操作；纯函数/Fake反例；原输入、产品源码及Git状态未改。驱动离线测试短暂使用系统临时目录，不含APK真实大文件或设备数据；后续测试临时目录设E。

@@ -14,7 +14,7 @@
 
 6-v7 SUMS88/88 SHA匹配；65patch与v6逐件相同、26supersedes完整存在匹配；默认只读核验exit0；D15WIP当前/d_pre一致。8条行包含仅行级证据，7条SUPERSEDED共128hunks、292新增行未在12-v2逐字节出现，语义保留待审，规模或符号存在不当等价证明。新发现BoundarySelfTest行123-124无条件递归删除预存_rp_target，材料安全子门不通过；当前scratch空不消除此复用风险。
 
-Root核查未运行Gradle/设备写入。只读子审查意外运行15 verify_input.py，重写其logs/input-verify.json为同值结果；仅此E证据副作用已登记，未改产品。后续不运行会写原件的审计脚本。Root证据：[verification.json](<E:/creation-reading-assistant/tasks15-14restore-6v7-codex-review-20261011/verification.json>)、occupancy-current.json；外部REPORT/raw/XML保留。
+Root核查未运行Gradle/设备写入。只读子审查意外运行15 verify_input.py，重写其logs/input-verify.json为同值结果；仅此E证据副作用已登记，未改产品。后续不运行会写原件的审计脚本。Root证据：[verification.json](<<证据根>/tasks15-14restore-6v7-codex-review-20261011/verification.json>)、occupancy-current.json；外部REPORT/raw/XML保留。
 
 ## 恢复与副作用、未覆盖项、里程碑复盘与下一任务
 

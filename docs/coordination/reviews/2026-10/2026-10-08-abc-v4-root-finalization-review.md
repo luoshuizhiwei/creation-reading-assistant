@@ -6,10 +6,10 @@ A/D2、B/J1、C/恢复工件v4，2026-10-08。三个实际报告已交付。Root
 
 ## 输入指纹
 
-Root核查根 `E:/creation-reading-assistant/abc-v4-codex-review-20261008`，fingerprints.json：A4/4、B9/9、C2263/2263匹配。B三源码与candidate_build/android对应3/3，准确编译输入绑定成立。
+Root核查根 `<证据根>/abc-v4-codex-review-20261008`，fingerprints.json：A4/4、B9/9、C2263/2263匹配。B三源码与candidate_build/android对应3/3，准确编译输入绑定成立。
 A manifest 413f046a882979d76f62933b316a94b83166f0fcf8a765276b1063a2aaa0db11；B manifest 0fbdeab909d6f164891c511c0298fcd2f928495bda6c314f53eb4e0f86953b74；C evidence manifest 1c730ff98518902fdc864b089a474bea022821a76a4d13f992efaad1c38e002c。
 
-Root补齐根 `E:/creation-reading-assistant/abc-v4-codex-finalization-20261008`：
+Root补齐根 `<证据根>/abc-v4-codex-finalization-20261008`：
 - A/android/.../D2PersistenceContract.kt SHA de5cc537a2b806666a54af347471c39a0d093d18ea5e53ac5a79006cf42b9ab4。
 - C/acceptance/driver/joint_driver.py SHA 3ad9ba27a1adc5624c5ea80e8a103f0fb75587c00d54bab0e4255aa703c849f6。
 changed-sha256.json为精确overlay，不是全产品冻结或APK冻结。
@@ -53,7 +53,7 @@ DataStore双方具体Store指纹/路径全集与MAY_TOUCH_BOTH恢复要求、run
 
 ## 执行与结果
 
-RootA命令：gradlew.bat :app:compileQahostAndroidTestKotlin -PcraAndroidTestBuildType=qahost --offline --no-daemon --max-workers=1 --console=plain -g E:/creation-reading-assistant/txt-persist-codex-completion-20261006/gradle-home；cwd Root A/android，BUILD SUCCESSFUL in1m22s，机器exit0存A/compile-exit.txt，完整A/compile.log。
+RootA命令：gradlew.bat :app:compileQahostAndroidTestKotlin -PcraAndroidTestBuildType=qahost --offline --no-daemon --max-workers=1 --console=plain -g <证据根>/txt-persist-codex-completion-20261006/gradle-home；cwd Root A/android，BUILD SUCCESSFUL in1m22s，机器exit0存A/compile-exit.txt，完整A/compile.log。
 Root原C两专项8/8、5/5 exit0存核查根C-v4-specific.log、C-repro-tests.log。
 Root修订C实际清理函数11/11 exit0存补齐根C/ownership.log及逐例evidence；未调用真实adb。
 原充分197产品JVM及APK身份复用，不重跑。

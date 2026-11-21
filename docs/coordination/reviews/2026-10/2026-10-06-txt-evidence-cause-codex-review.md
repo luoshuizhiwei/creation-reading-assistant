@@ -23,7 +23,7 @@ Windows/Python本地SHA/JSON/MD5账解析；不把历史serial当当前在线事
 - 产品getByBook过滤deleted_at，测试裸SQL只读locator，两者语义不同已由源码核实；软删/percent分裂是待证假设。“唯一生产路径”“编解码不是根因”没有完整时点状态，不宜排除其他路径。缺失进度行正常新书也存在，不能未经证据对全部null/0永久保留pending。
 
 ## 原始证据
-[Root验证](<E:/creation-reading-assistant/txt-evidence-cause-codex-review-20261006/verification.json>)；[真实保存JSON](<E:/creation-reading-assistant/txt-failure-evidence-repair-v1/runs/evir-min/harvest/j1_10_recordExitSaved.json>)；[最小批](<E:/creation-reading-assistant/txt-failure-evidence-repair-v1/runs/evir-min>)；[下一观测建议](<E:/creation-reading-assistant/txt-restore-cause-review-v1/04-device-owner-observations.md>)。不采用其中旧包仍可追回的假设，旧包已卸载。
+[Root验证](<<证据根>/txt-evidence-cause-codex-review-20261006/verification.json>)；[真实保存JSON](<<证据根>/txt-failure-evidence-repair-v1/runs/evir-min/harvest/j1_10_recordExitSaved.json>)；[最小批](<<证据根>/txt-failure-evidence-repair-v1/runs/evir-min>)；[下一观测建议](<<证据根>/txt-restore-cause-review-v1/04-device-owner-observations.md>)。不采用其中旧包仍可追回的假设，旧包已卸载。
 
 ## 恢复与副作用
 新批protected43文件MD5前后逐项一致，Root实算43/43（不是SHA256账）。七设置、wm、forward/reverse原始文本一致，night=yes是本批继承基线，不能关闭旧批no→yes差异。原APK前账文件SHA成立，后账SHA有原始命令记录；after文件写/tmp未保存在新证据目录，接受限定命令证据，不称Root重新哈希后账APK。沙箱卸载证据复用；本次不再次设备取证。旧批缺失前账不能由新账补造。

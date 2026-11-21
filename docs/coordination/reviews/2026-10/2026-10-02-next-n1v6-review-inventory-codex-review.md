@@ -12,7 +12,7 @@
 
 ## 所有权与改动
 
-Root只读产品/候选/共享WIP，写本报告与交接、项目页、TODO/skill log；E自有审查根[本轮证据](<E:/creation-reading-assistant/n1v6-review-inventory-codex-20261002>)保存完整SHA/路径、XML核对、当前WIP差异及文档前副本。使用独立android_reviewer只读语义抽检，与原实施者不同；其未运行测试，不替代Root证据核对。
+Root只读产品/候选/共享WIP，写本报告与交接、项目页、TODO/skill log；E自有审查根[本轮证据](<<证据根>/n1v6-review-inventory-codex-20261002>)保存完整SHA/路径、XML核对、当前WIP差异及文档前副本。使用独立android_reviewer只读语义抽检，与原实施者不同；其未运行测试，不替代Root证据核对。
 
 为补缺失探针绿XML，Root独占已结束的外部probe副本构建输出，先归档其旧LocalZipBackupTest XML，再只跑两个N1v6ReviewProbeTest。未改测试/产品源码或v5/v6正式候选。
 
@@ -26,7 +26,7 @@ Windows/Python3.13/JDK17/Gradle8.9；构建与缓存均在E。零ADB、零APK安
 
 - 实算v5/v6除机器local.properties与生成/缓存目录：877/877，875同、2改、无增删；报告878口径含local.properties，不能混用分母。两处授权修改与未改StateStore/JsonBridge/Profile/build配置成立。
 - 合流相对J1-v3：875→877，6改+2新增=8路径；继承依赖不能只拿v6本轮两文件。原清单的两个Profile共享WIP交集成立。
-- 拟合流补丁两侧副本的8路径逐一对J1/N1 SHA成立；Root [verification.json](<E:/creation-reading-assistant/n1v6-review-inventory-codex-20261002/verification.json>)给完整路径与四套SHA，补正原报告省略号/缩写口径。未应用共享树。
+- 拟合流补丁两侧副本的8路径逐一对J1/N1 SHA成立；Root [verification.json](<<证据根>/n1v6-review-inventory-codex-20261002/verification.json>)给完整路径与四套SHA，补正原报告省略号/缩写口径。未应用共享树。
 - 原“独立审查”由实施者同一会话执行，采纳实算证据，独立性由另一个只读reviewer与Root补充；不称原报告为第三方。
 
 规范结论：限定交付采纳，未发现产品越界；证据保全/分母/独立性限制已补正。
@@ -43,8 +43,8 @@ Windows/Python3.13/JDK17/Gradle8.9；构建与缓存均在E。零ADB、零APK安
 
 ## 原始证据
 
-- [完整实算清单](<E:/creation-reading-assistant/n1v6-review-inventory-codex-20261002/verification.json>)：红61/4、绿61/0、accepted探针v5红2/1，日志任务实际执行；v5/v6差异与8路径四方指纹。
-- Root探针命令：自有外部probe/android目录，`:app:testDebugUnitTest --tests com.creationreadingassistant.feature.sync.N1v6ReviewProbeTest --rerun --offline --console=plain --max-workers=1`，44秒成功；[日志](<E:/creation-reading-assistant/n1v6-review-inventory-codex-20261002/root-probe-green.log>)、[XML](<E:/creation-reading-assistant/n1v6-review-inventory-codex-20261002/root-probe-green.xml>)。
+- [完整实算清单](<<证据根>/n1v6-review-inventory-codex-20261002/verification.json>)：红61/4、绿61/0、accepted探针v5红2/1，日志任务实际执行；v5/v6差异与8路径四方指纹。
+- Root探针命令：自有外部probe/android目录，`:app:testDebugUnitTest --tests com.creationreadingassistant.feature.sync.N1v6ReviewProbeTest --rerun --offline --console=plain --max-workers=1`，44秒成功；[日志](<<证据根>/n1v6-review-inventory-codex-20261002/root-probe-green.log>)、[XML](<<证据根>/n1v6-review-inventory-codex-20261002/root-probe-green.xml>)。
 - Root未把诊断导出错误的探针通过写成完整导出成功；accepted反例在v5失败、v6通过可支持该分支行为。
 
 ## 未覆盖项

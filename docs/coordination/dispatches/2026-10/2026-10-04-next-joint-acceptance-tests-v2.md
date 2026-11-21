@@ -8,7 +8,7 @@
 
 - 恢复仓库基线：`e39a78da9c62f02614207cffb36969a32492eaea`。
 - 输入为只读 `next-round-joint-acceptance-tests-v1/android` 编译树；本次新目录排除了其 `build/` 与 `.gradle/` 生成物。原件没有修改。
-- 精确 payload 路径、SHA-256、字节数和复制后核对在 [manifest.json](<E:/creation-reading-assistant/next-round-joint-acceptance-tests-v2/payload/manifest.json>)；三个 payload 均与 v2 编译树同名源逐字节相同。
+- 精确 payload 路径、SHA-256、字节数和复制后核对在 [manifest.json](<<证据根>/next-round-joint-acceptance-tests-v2/payload/manifest.json>)；三个 payload 均与 v2 编译树同名源逐字节相同。
 
 ## 所有权与改动
 
@@ -29,7 +29,7 @@ v1 的三个 androidTest 相对路径与 v2 完全相同，均为 39 个源文�
 
 - JDK：`D:\develop\Java\jdk-17.0.14`；Python：`D:\develop\Python\Python313\python.exe`。
 - Gradle 命令：`./gradlew --offline --no-daemon :app:compileDebugAndroidTestKotlin`。
-- 每次命令退出码、缓存位置和最终停止状态见 [execution.json](<E:/creation-reading-assistant/next-round-joint-acceptance-tests-v2/execution.json>)。
+- 每次命令退出码、缓存位置和最终停止状态见 [execution.json](<<证据根>/next-round-joint-acceptance-tests-v2/execution.json>)。
 
 ## 执行与结果
 
@@ -53,10 +53,10 @@ SE4 源码和生产 `ReaderProgressEffects` 已定向核对：测试真实组合
 
 ## 原始证据
 
-- [三源 payload](<E:/creation-reading-assistant/next-round-joint-acceptance-tests-v2/payload>) 与 [SHA manifest](<E:/creation-reading-assistant/next-round-joint-acceptance-tests-v2/payload/manifest.json>)。
-- [离线 ZIP/SQLite 契约脚本](<E:/creation-reading-assistant/next-round-joint-acceptance-tests-v2/offline_contract_check.py>)：本轮 exit 0。
-- [独立缓存离线失败日志](<E:/creation-reading-assistant/next-round-joint-acceptance-tests-v2/compile-androidtest.log>)：exit 1，插件解析阶段，未进入 Kotlin。
-- [串行 v1 缓存编译日志](<E:/creation-reading-assistant/next-round-joint-acceptance-tests-v2/compile-androidtest-v1-cache.log>)：exit 0，BUILD SUCCESSFUL。
+- [三源 payload](<<证据根>/next-round-joint-acceptance-tests-v2/payload>) 与 [SHA manifest](<<证据根>/next-round-joint-acceptance-tests-v2/payload/manifest.json>)。
+- [离线 ZIP/SQLite 契约脚本](<<证据根>/next-round-joint-acceptance-tests-v2/offline_contract_check.py>)：本轮 exit 0。
+- [独立缓存离线失败日志](<<证据根>/next-round-joint-acceptance-tests-v2/compile-androidtest.log>)：exit 1，插件解析阶段，未进入 Kotlin。
+- [串行 v1 缓存编译日志](<<证据根>/next-round-joint-acceptance-tests-v2/compile-androidtest-v1-cache.log>)：exit 0，BUILD SUCCESSFUL。
 
 ## 未覆盖项
 

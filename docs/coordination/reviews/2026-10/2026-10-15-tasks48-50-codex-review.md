@@ -10,7 +10,7 @@
 本轮仅Root核验记录和E盘反例工件，两个独立只读审查分别检查49、50；未修改交付候选。48继续独占独立main业务与JVM测试，49独占主机恢复与Python测试，50独占原探针与专属测试；全局文档、合流和设备归Root。v2交付各用原任务名末尾-v2目录，保留v1资产，不自动删除多余副本。
 
 ## 环境
-所有新验证在 E:/creation-reading-assistant/tasks48-50-codex-review-20261015。无设备操作、无APK构建、无D产品回灌或Git变更。48反例编译使用原始ReadingEntities.kt、LocatorCodec.kt、ReaderProgressMergeTest.kt，仅给Android注解/BookEntity提供编译桩；测试实际合并函数，范围不含Compose/Room/设备。
+所有新验证在 <证据根>/tasks48-50-codex-review-20261015。无设备操作、无APK构建、无D产品回灌或Git变更。48反例编译使用原始ReadingEntities.kt、LocatorCodec.kt、ReaderProgressMergeTest.kt，仅给Android注解/BookEntity提供编译桩；测试实际合并函数，范围不含Compose/Room/设备。
 
 ## 执行与结果
 - 48原六份XML合计40项0失败属实，但没有原始Gradle执行日志。Root新执行实际纯合并/codec：v9原3测试+3反例=6/6通过；48原9测试通过、同3反例失败（12项中3失败）。不能以原40绿证明新边界安全。

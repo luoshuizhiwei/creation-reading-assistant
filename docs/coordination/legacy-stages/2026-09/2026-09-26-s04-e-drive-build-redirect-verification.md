@@ -10,7 +10,7 @@
 `redirect-build.gradle`（308 字节，2026-09-25 23:47，**非本窗口创建，原样使用**）：
 
 ```groovy
-def outputRoot = new File('E:/creation-reading-assistant/codex-s04-build-20260925/project-builds')
+def outputRoot = new File('<证据根>/codex-s04-build-20260925/project-builds')
 gradle.beforeProject { project ->
     def relativeName = project.path == ':' ? 'root' : project.path.substring(1).replace(':', '/')
     project.layout.buildDirectory.set(new File(outputRoot, relativeName))

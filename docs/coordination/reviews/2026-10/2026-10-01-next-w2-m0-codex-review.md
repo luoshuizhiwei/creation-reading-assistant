@@ -8,11 +8,11 @@ Codex-review-W2-M0-v1，2026-10-01。来源：用户“都完成了”，核查�
 
 - 恢复仓库HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，暂存区空；J1-v3六源码SHA本轮重新计算6/6一致。
 - W2冻结APK本轮重算SHA `0221d88fb34e8c88e274f09b939c5f1b84f20d9c2674abb7c8588e6593c71594`。此前APK/Manifest/签名核查复用；不重建。
-- 实读[W2设备报告](../../../qa/2026-10/2026-10-01-next-w2-webdav-ui-mumu-acceptance.md)、[M0报告](../../decisions/2026-10/2026-10-01-m0-current-product-scope-and-evidence.md)与[原始设备工件](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance>)、[M0 CSV](<E:/creation-reading-assistant/m0-product-scope-20261001>)。
+- 实读[W2设备报告](../../../qa/2026-10/2026-10-01-next-w2-webdav-ui-mumu-acceptance.md)、[M0报告](../../decisions/2026-10/2026-10-01-m0-current-product-scope-and-evidence.md)与[原始设备工件](<<证据根>/next-round-w2-webdav-ui-acceptance>)、[M0 CSV](<<证据根>/m0-product-scope-20261001>)。
 
 ## 所有权与改动
 
-Codex只维护本报告、current、产品总规划、Codex项目页/TODO及实际skill记录。修改前[完整回退副本](<E:/creation-reading-assistant/w2-m0-codex-review-20261001/before>)已保存。产品、测试、配置、原外部报告与工件保持原件；未stage/commit/push/reset/checkout。下一批任务以用户转交为执行入口，本轮没有向外部应用发送消息。
+Codex只维护本报告、current、产品总规划、Codex项目页/TODO及实际skill记录。修改前[完整回退副本](<<证据根>/w2-m0-codex-review-20261001/before>)已保存。产品、测试、配置、原外部报告与工件保持原件；未stage/commit/push/reset/checkout。下一批任务以用户转交为执行入口，本轮没有向外部应用发送消息。
 
 ## 环境
 
@@ -52,9 +52,9 @@ Windows；Python只读解析SHA、JSONL、PNG、XML与SQL输出。Codex零ADB/�
 
 ## 原始证据
 
-- [本轮审计脚本](<E:/creation-reading-assistant/w2-m0-codex-review-20261001/audit.py>)、[逐会话/哈希/图像/分母审计JSON](<E:/creation-reading-assistant/w2-m0-codex-review-20261001/verification.json>)。
-- [Case5脚本](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance/scripts/run_case5.py>)、[服务](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance/service/controlled_webdav_w1.py>)、[清理脚本](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance/scripts/cleanup_and_reconciliation.py>)。
-- [Case6前后SQL](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance/evidence/case6_legado>)、[Case7前后SQL与UI](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance/evidence/case7_json>)、[原请求会话](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance/logs/sessions>)。
+- [本轮审计脚本](<<证据根>/w2-m0-codex-review-20261001/audit.py>)、[逐会话/哈希/图像/分母审计JSON](<<证据根>/w2-m0-codex-review-20261001/verification.json>)。
+- [Case5脚本](<<证据根>/next-round-w2-webdav-ui-acceptance/scripts/run_case5.py>)、[服务](<<证据根>/next-round-w2-webdav-ui-acceptance/service/controlled_webdav_w1.py>)、[清理脚本](<<证据根>/next-round-w2-webdav-ui-acceptance/scripts/cleanup_and_reconciliation.py>)。
+- [Case6前后SQL](<<证据根>/next-round-w2-webdav-ui-acceptance/evidence/case6_legado>)、[Case7前后SQL与UI](<<证据根>/next-round-w2-webdav-ui-acceptance/evidence/case7_json>)、[原请求会话](<<证据根>/next-round-w2-webdav-ui-acceptance/logs/sessions>)。
 - [此前构建独立核查](2026-10-01-next-w2-codex-review.md)、[总规划](../../../plans/2026-10-01-product-roadmap-realignment.md)。
 
 ## 未覆盖项

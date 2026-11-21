@@ -2,7 +2,7 @@
 
 ## 任务编号/版本
 
-63 Root-r1入口的一次设备attempt，用户2026-10-18明确“启动”。run `CRA63_DE_JOINT_20261018_125028`，12:50:28开始、12:57:12入口结束。结果FAIL；没有重试或现场改码重绑。[本轮结果](<E:/creation-reading-assistant/task63-common-device-entry-v1/root-review/device-run-20261018_125028/result.json>)。
+63 Root-r1入口的一次设备attempt，用户2026-10-18明确“启动”。run `CRA63_DE_JOINT_20261018_125028`，12:50:28开始、12:57:12入口结束。结果FAIL；没有重试或现场改码重绑。[本轮结果](<<证据根>/task63-common-device-entry-v1/root-review/device-run-20261018_125028/result.json>)。
 
 ## 输入指纹
 
@@ -33,7 +33,7 @@ clamp、SAF、Room4、DE及总消费者均NOT_RUN；不是业务断言失败的�
 
 ## 原始证据
 
-attempt：`E:/creation-reading-assistant/task63-common-device-entry-v1/attempts/attempt_v14_root_20261018_125028`。
+attempt：`<证据根>/task63-common-device-entry-v1/attempts/attempt_v14_root_20261018_125028`。
 
 关键文件：`attempt-state.json`、`a/abc-entry-result.json`、`logs/abc-raw.log`、`h/CRA63_DE_JOINT_20261018_125028/invoke-*.json`及instrumentation原始输出、`phase_scratch/abc_execution.out.json`。恢复证据位于`device_recovery/`的前后保护快照、final-protection-result、final-tmp-recovery-v6、final-uninstall-forensics、host原始/最终状态。控制台与Root核对结果在`root-review/device-run-20261018_125028/`。
 

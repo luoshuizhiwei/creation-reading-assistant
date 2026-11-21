@@ -6,7 +6,7 @@
 
 ## 输入指纹、执行与结果、原始证据
 
-E:/creation-reading-assistant/task103-tts-countdown-fix-v1原日志/REPORT/ready与patch已读。01compile、02assemble、03testcandidate、04LF重建日志成功；行尾恢复后的重复构建已发生，不要求继续重复。实物保全产品694bf93dcae49b0c36375856537c6a195c42604b1e843554b1daf061edc52f3b(52763781B)、旧5049b01f同size、候选test960808b52a4bffad1273ddd07538df487d70c85678f669c73b69046b0eb953d6(10567324B)均核同。旧run test d0d2已在102保全，不新复制。
+<证据根>/task103-tts-countdown-fix-v1原日志/REPORT/ready与patch已读。01compile、02assemble、03testcandidate、04LF重建日志成功；行尾恢复后的重复构建已发生，不要求继续重复。实物保全产品694bf93dcae49b0c36375856537c6a195c42604b1e843554b1daf061edc52f3b(52763781B)、旧5049b01f同size、候选test960808b52a4bffad1273ddd07538df487d70c85678f669c73b69046b0eb953d6(10567324B)均核同。旧run test d0d2已在102保全，不新复制。
 
 T103V1-20261024-072400一次run，原stdout1项1fail，行241 expected Playing actual Paused；此前顺序断言倒计时850..900、关闭保持Playing、重设和pause清零已通过。整体仍FAIL，不按通过断言数写整例成功。生产播放态在onStart异步进入，原mock fixture resume后没有投递，修后候选已补与play相同onStart，尚未设备执行。102原红保留，不追加before设备。
 

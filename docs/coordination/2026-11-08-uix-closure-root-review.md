@@ -7,7 +7,7 @@
 ## 已确认
 
 - 实算 D 仓库 APK SHA256 `d9c5adcf364244365549eecb8b8df6f8be50b480e16599dfb97de6eaad352545`，匹配第七轮候选。
-- `E:/creation-reading-assistant/uix-v1/closure-install3.log` 为安装 Success，前两次确有 INSTALL_FAILED_USER_RESTRICTED；安装日志自身不包含设备端APK哈希，不据此声称设备二进制三方独立核验。
+- `<证据根>/uix-v1/closure-install3.log` 为安装 Success，前两次确有 INSTALL_FAILED_USER_RESTRICTED；安装日志自身不包含设备端APK哈希，不据此声称设备二进制三方独立核验。
 - 已解析 `closure-v1/evidence/uidump-reader-final.xml`：顶栏返回/更多与上一章/下一章均有clickable和自身描述；底栏五个clickable父节点恢复，后代分别有目录/听书/灵感/外观/设置描述。
 - 已解析 `uidump-shelf-final.xml`：整理入口clickable父节点恢复，后代有打开书架整理描述；书架四图标按钮描述存在。
 - `restore-check.txt` 有动画1.0×3、reduce_motion null、触感1及四服务配置输出。

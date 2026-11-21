@@ -23,7 +23,7 @@ Windows/Python3.13；MuMu实读serial127.0.0.1:16416；emulator-5556为同设备
 - 本批新双包卸载/缺席已从原始日志和Root本轮成功包列表空输出核实。
 - night基线yes、外部收尾no，Root本轮实读no后执行cmd uimode night yes并读回yes，原始命令与退出码落盘。该单项已补恢复，不表示整个批次恢复通过。
 - baseline-data.txt标记“databases SHA”但正文只有ls -l；保护数据仅43个计数+少量路径，无完整逐文件哈希；原APK仅路径，不是APK字节前后核验。不能声称“字节一致/全账恢复完成”。
-- 基线/data/local/tmp命令遭Git Bash路径转换为D:/develop/Git/Git/data/local/tmp，错误后grep计0，不能当目录干净证据。原基线forward/reverse及全部设置也未形成完整对应。
+- 基线/data/local/tmp命令遭Git Bash路径转换为<开发盘>/Git/Git/data/local/tmp，错误后grep计0，不能当目录干净证据。原基线forward/reverse及全部设置也未形成完整对应。
 - 不补造开工SHA，不把事后哈希伪装成本批前账；保留历史恢复证据不足，下一批必须正确采集。
 ### 仪器断言缺口
 umu_12_verifyJ1Reentered只require进度行存在，即使offset=0也输出pass=true；umu_31仅计算inChapter2但不require其为真。当前J1报告人工识别为FAIL没有误关，但仪器绿色不能当旅程通过。下一验收补强断言与真实UI证据。
@@ -33,10 +33,10 @@ GAP-1原驱动未强制runner身份确实存在；任务目录最小补丁增加
 ## 原始证据
 - [设备外部原报告](../../../qa/2026-10/2026-10-05-unified-mumu-accept-v1.md)
 - [离线外部原报告](../../dispatches/2026-10/2026-10-05-unified-offline-binding-v1.md)
-- [Root源码与APK核验](<E:/creation-reading-assistant/unified-mumu-v1-codex-review-20261005/source-apk-check.json>)
-- [Root离线55结果](<E:/creation-reading-assistant/unified-mumu-v1-codex-review-20261005/patched-offline-results.json>)
-- [夜间模式补恢复](<E:/creation-reading-assistant/unified-mumu-v1-codex-review-20261005/night-mode-restored.json>)
-- [本批包缺席读回](<E:/creation-reading-assistant/unified-mumu-v1-codex-review-20261005/batch-package-absence.json>)
+- [Root源码与APK核验](<<证据根>/unified-mumu-v1-codex-review-20261005/source-apk-check.json>)
+- [Root离线55结果](<<证据根>/unified-mumu-v1-codex-review-20261005/patched-offline-results.json>)
+- [夜间模式补恢复](<<证据根>/unified-mumu-v1-codex-review-20261005/night-mode-restored.json>)
+- [本批包缺席读回](<<证据根>/unified-mumu-v1-codex-review-20261005/batch-package-absence.json>)
 设备原始UI/JSON及baseline/cleanup均在unified-mumu-accept-v1/evidence，保持原件。
 
 ## 恢复与副作用

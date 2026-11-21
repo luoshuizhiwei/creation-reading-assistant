@@ -15,7 +15,7 @@
 - 4剩余P1两窗口（静态交错审查，不冒充实跑红例）：Repository:717检查后等待sweepLock并stateDao.set，取消可在检查与commit之间先到达但仍清断点；775检查后挂起bookDao.countActive，再标queued/triggerNow，取消先cancelUniqueWork后仍可新enqueue。现B1/B2测试都把取消放在检查之前，未覆盖真正动作窗口。v4须先针对这两窗口建立真实红例，再统一串行/原子合同修复；单加检查不能闭合。
 - 红基线需纠正：make_red_baseline.py把取消查询恒false、移除分发等是故障突变，并非精确v2回退。A1/A2具体交错可解释共享布尔问题，但10红不能整体宣称原v2产品缺陷已实证。下一直接在未修v3与修复v4运行同一屏障测试。
 
-原始证据：[Root实算](<E:/creation-reading-assistant/tasks-3-4-v3-codex-review-20261009/delivery-verification.json>)、任务3两run/raw/summary/restore、任务4evidence/raw/green-v3-directed八XML及_meta退出码；[Root恢复补正](<E:/creation-reading-assistant/tasks-3-4-v3-codex-review-20261009/ROOT_RESTORE_ADDENDUM.md>)与漂移/恢复两只读proof。
+原始证据：[Root实算](<<证据根>/tasks-3-4-v3-codex-review-20261009/delivery-verification.json>)、任务3两run/raw/summary/restore、任务4evidence/raw/green-v3-directed八XML及_meta退出码；[Root恢复补正](<<证据根>/tasks-3-4-v3-codex-review-20261009/ROOT_RESTORE_ADDENDUM.md>)与漂移/恢复两只读proof。
 
 未覆盖项：首项J1通过与余30项；取消两动作窗口；Compose实际设备渲染/WorkManager端到端。新worker若在取消之后才启动并取新epoch，不可笼统声称epoch一定会阻止它执行。实体手机、X整机中断、Back完成归因/队列排空/初始新save不宣称关闭。全产品分母未核。
 

@@ -6,7 +6,7 @@ CRA-TXT-D2-J1-JOINT-FREEZE-PREP-v1；2026-10-07。实现合流、构建和 APK �
 
 ## 输入指纹
 
-交付根：`E:/creation-reading-assistant/txt-d2-j1-joint-freeze-prep-v1`。Root 核查根：`E:/creation-reading-assistant/joint-freeze-prep-codex-review-20261007`。
+交付根：`<证据根>/txt-d2-j1-joint-freeze-prep-v1`。Root 核查根：`<证据根>/joint-freeze-prep-codex-review-20261007`。
 
 - Android manifest：728dff4b05e7660e7939888b323d1a677e07e3bed4db9b6db199157c0ff0d243；987/987 文件匹配。
 - acceptance manifest：b588794c28b9b1f17abfa2fbd9b31c91056577a0a4c8610a70d5389726d56c67；24/24 文件匹配。

@@ -26,9 +26,9 @@ Windows/Python3.13；本轮复用原始XML/ADB记录，不重新执行已充分�
 ## 原始证据
 - [TXT外部报告](../../dispatches/2026-10/2026-10-05-txt-reentry-fix-v1.md)
 - [真实J5外部报告](../../../qa/2026-10/2026-10-05-restore-real-interruption-accept-v1.md)
-- [Root核查输出](<E:/creation-reading-assistant/txt-rj5-codex-review-20261005/verification.json>)
-- [TXT生产effect](<E:/creation-reading-assistant/txt-reentry-fix-v1/android/app/src/main/java/com/creationreadingassistant/ui/screen/reader/ReaderProgressEffects.kt>)
-- [前账](<E:/creation-reading-assistant/restore-real-interruption-accept-v1/evidence/baseline_pre.json>)与[后账](<E:/creation-reading-assistant/restore-real-interruption-accept-v1/evidence/baseline_post.json>)
+- [Root核查输出](<<证据根>/txt-rj5-codex-review-20261005/verification.json>)
+- [TXT生产effect](<<证据根>/txt-reentry-fix-v1/android/app/src/main/java/com/creationreadingassistant/ui/screen/reader/ReaderProgressEffects.kt>)
+- [前账](<<证据根>/restore-real-interruption-accept-v1/evidence/baseline_pre.json>)与[后账](<<证据根>/restore-real-interruption-accept-v1/evidence/baseline_post.json>)
 - J5信号/强停/重试在同任务evidence/raw与evidence/ui，原件保留。
 
 ## 恢复与副作用

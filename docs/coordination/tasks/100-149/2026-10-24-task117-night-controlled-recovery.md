@@ -5,7 +5,7 @@
 Root核11-read-only-samples原命令rc/currentuser0、nightyes、secure2及dumpsys当前mNightMode2，接受当前模式证据。现日志没有caller不足以排除来源。14-summary误读mNightModeLocked为“locked to yes”，该标志本身来自config_lockDayNightMode配置与权限约束，不证明写者或强制yes；MODE_NIGHT_NO也不是0，不能用错误数值验收。参考[官方AOSP UiModeManagerService](https://android.googlesource.com/platform/frameworks/base/+/android16-release/services/core/java/com/android/server/UiModeManagerService.java)与[官方UiModeManager常量](https://developer.android.com/reference/android/app/UiModeManager)，不是MuMu定制实现已核。报告host补丁不存在的更正接受，冻结旧报告不改造历史。
 
 ````text
-接续117-v1必要恢复补充2，同E:/creation-reading-assistant/task117-saved-view-reopen-entry-v1，新增recovery-observation/，旧REPORT/ready/diagnostic不覆盖。沿官方GLM-5.3/同设备唯一owner。现阶段只读定位已达现存证据边界：caller未知。Root在既有strictnight=no恢复授权内明确指定一次必要恢复及有限观察，不再开相同业务批、不建inputs/attempt、不安装包、不执行仪器。
+接续117-v1必要恢复补充2，同<证据根>/task117-saved-view-reopen-entry-v1，新增recovery-observation/，旧REPORT/ready/diagnostic不覆盖。沿官方GLM-5.3/同设备唯一owner。现阶段只读定位已达现存证据边界：caller未知。Root在既有strictnight=no恢复授权内明确指定一次必要恢复及有限观察，不再开相同业务批、不建inputs/attempt、不安装包、不执行仪器。
 
 先更正诊断解释：mNightModeLocked=true本身不是“锁为yes/明确外部写入”的证据；AOSP该标志取config_lockDayNightMode并用于权限约束，MuMu定制是否相同未核，不能推导writer。恢复验收不要用mNightMode=0（AUTO）；以cmd uimode night=no对应实际平台常量及同user持久字段、dumpsys一致为准。原样保留14-summary，补充更正。5分钟保持no也不能证明历史yes只是一次外部写入，只能证明该观察窗内未再现。
 

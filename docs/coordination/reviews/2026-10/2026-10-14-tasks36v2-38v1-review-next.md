@@ -20,7 +20,7 @@ Windows/Python3.13，未调用实际ADB或设备；所有device_session外部命
 38原测试保留原日志18/18；Root原样载入并迁移测试输出先得16/18，其中2项因audit路径不在allowlist而提前拒绝，不能称产品失败。随后仅给自有audit根加入测试allowlist、临时目录强制E隔离重新执行，结果见38-selftest-isolated.log及verification.json，测试fixture未经产品修改。关键缺陷来自上述独立反例，不以旧18/18推断恢复完整。
 
 ## 原始证据
-[独立验证与SHA](<E:/creation-reading-assistant/tasks36v2-38v1-codex-review-20261014/verification.json>)；[36原自测重跑](<E:/creation-reading-assistant/tasks36v2-38v1-codex-review-20261014/36-selftest.log>)；[核查脚本](<E:/creation-reading-assistant/tasks36v2-38v1-codex-review-20261014/verify.py>)；[38隔离重跑脚本](<E:/creation-reading-assistant/tasks36v2-38v1-codex-review-20261014/rerun38.py>)。原任务REPORT保留只读，不覆盖执行者报告。
+[独立验证与SHA](<<证据根>/tasks36v2-38v1-codex-review-20261014/verification.json>)；[36原自测重跑](<<证据根>/tasks36v2-38v1-codex-review-20261014/36-selftest.log>)；[核查脚本](<<证据根>/tasks36v2-38v1-codex-review-20261014/verify.py>)；[38隔离重跑脚本](<<证据根>/tasks36v2-38v1-codex-review-20261014/rerun38.py>)。原任务REPORT保留只读，不覆盖执行者报告。
 
 ## 未覆盖项
 设备全部NOT_RUN，D/F NOT_PROVEN，X/实体手机/MIUI/发布不扩大；全产品分母未知。冻结产物有效不代表新主机工具已冻结或设备就绪。

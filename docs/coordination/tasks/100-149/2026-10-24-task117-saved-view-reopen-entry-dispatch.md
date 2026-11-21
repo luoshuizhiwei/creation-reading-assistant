@@ -13,9 +13,9 @@
 
 业务沿116仪器原样：20-70保存套用精确删除、71-74完整多root树Store；80真实套用当前相同control组合关闭，确认Shelf/toolbar/摘要/书正反状态同后真实重开，原80目标缺席对照在和90实体关系不变。81-84边界先落证据再assert。明确称套用关闭后重开，不冒充Back验收/修复。不得直接OnClick/VM/Store/Activity重启造绿、不删断言、不批内修码重试。107Store/111素材充分复用，不before、不额外确认run或格式矩阵。
 
-输出E:/creation-reading-assistant/task117-saved-view-reopen-entry-v1，差量4MiB/必要原始8MiB/build0/APK复制0，复制前核空间；仅host最小patch/前后SHA/输入绑定、必要原始stdout/日志exit/JSON树Store/REPORT/ready/恢复、实际分类字节保留理由，不复制冻结仪器源码或历史证据，用SHA引用。不工程build/.gradle/.kotlin/node_modules/Gradlehome/cache/历史APK对复制、不硬链接cache、不删除移动压缩迁移存量。唯一workspace task59；Gradlehome D:/develop/env/gradle、JDK D:/develop/Java/jdk-17.0.14、SDK D:/develop/Android/Sdk、锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock，不运行构建。
+输出<证据根>/task117-saved-view-reopen-entry-v1，差量4MiB/必要原始8MiB/build0/APK复制0，复制前核空间；仅host最小patch/前后SHA/输入绑定、必要原始stdout/日志exit/JSON树Store/REPORT/ready/恢复、实际分类字节保留理由，不复制冻结仪器源码或历史证据，用SHA引用。不工程build/.gradle/.kotlin/node_modules/Gradlehome/cache/历史APK对复制、不硬链接cache、不删除移动压缩迁移存量。唯一workspace task59；Gradlehome <开发盘>/env/gradle、JDK <开发盘>/Java/jdk-17.0.14、SDK <开发盘>/Android/Sdk、锁<证据根>/locks/android-gradle-exclusive.lock，不运行构建。
 
-仅项目MuMu1，ADB D:/Application/NetEase/MuMuPlayer/nx_main/adb.exe，fresh serial/boot/owner/前台/包/night/预算，命令全-s。一次主run含入场失败，业务1800秒+至少1200秒恢复预留。失败停业务完整collect恢复，不批内重试。原71私有820外部/DBWALSHM/原宿主test完整代码数据inventoryuserState/strictnightno合同不放宽；collect失败/唯一证据未保全/归属不明依赖资产BLOCKED，独立安全恢复继续，业务观测取证清理恢复错误分列不吞。原test0d18未安装替换时只核untouched不造restore；collectnull/Downloadnull原样不写成功。仅本批新中性fixture，不正式旧库，不冒充导入阅读全程。精确清理仅本轮初始缺席+runURI绑定+E原字节sizeSHA与现设备同资产，后核缺席，未知兄弟后代不递归，探测失败不当absence。
+仅项目MuMu1，ADB <MuMu adb>/adb.exe，fresh serial/boot/owner/前台/包/night/预算，命令全-s。一次主run含入场失败，业务1800秒+至少1200秒恢复预留。失败停业务完整collect恢复，不批内重试。原71私有820外部/DBWALSHM/原宿主test完整代码数据inventoryuserState/strictnightno合同不放宽；collect失败/唯一证据未保全/归属不明依赖资产BLOCKED，独立安全恢复继续，业务观测取证清理恢复错误分列不吞。原test0d18未安装替换时只核untouched不造restore；collectnull/Downloadnull原样不写成功。仅本批新中性fixture，不正式旧库，不冒充导入阅读全程。精确清理仅本轮初始缺席+runURI绑定+E原字节sizeSHA与现设备同资产，后核缺席，未知兄弟后代不递归，探测失败不当absence。
 
 禁止关闭重启杀VM/共享ADB，结束运行，managerfalse不单独判关也不造true。禁止任何Claude/Cowork/Claude-Code/DSH或.codex/memories读写含自动记忆，不vault记忆维护，不D协调current，不Git暂存提交pushPR发布/D产品回灌/桌面正式库HOLD云部署源码上传实体手机新服务端/存量清理/关闭其他进程/建自动化或外部发消息。网吧云中转仍仅方案，与117独立。完整恢复交Root，不自行下批。最后单独一行：这是任务117-v1。
 ````

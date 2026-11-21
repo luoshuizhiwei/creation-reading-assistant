@@ -28,8 +28,8 @@ Windows；MuMu `127.0.0.1:16416`。只读查询夜间及成功pm list；不是�
 
 ## 原始证据
 - [恢复v2报告](../../dispatches/2026-10/2026-10-04-next-md-paged-restore-close-v2.md)、[清单v2报告](../../dispatches/2026-10/2026-10-04-next-joint-integration-manifest-v2.md)，保留原文。
-- `E:/creation-reading-assistant/next-round-md-paged-restore-close-v2/evidence/`：readback_before/after、restore_night_mode；原始命令退出/输出在JSON中。
-- `E:/creation-reading-assistant/next-round-joint-integration-manifest-v2/evidence/diffs/`：ProfileRoute、ProfileViewModel、ReaderProgressActions、ReaderProgressEffects的cand2dw。Root并已实读final-v3与D对应文件核归属。
+- `<证据根>/next-round-md-paged-restore-close-v2/evidence/`：readback_before/after、restore_night_mode；原始命令退出/输出在JSON中。
+- `<证据根>/next-round-joint-integration-manifest-v2/evidence/diffs/`：ProfileRoute、ProfileViewModel、ReaderProgressActions、ReaderProgressEffects的cand2dw。Root并已实读final-v3与D对应文件核归属。
 
 ## 恢复与副作用
 恢复窗口已释放MuMu；Root只读。原数据/APK/七设置账匹配，没有源码集成、安装或Git操作。收尾日志的grep||echo仅作辅助；包缺失由Root成功pm list空结果补核，不用单一pm path rc1证明。

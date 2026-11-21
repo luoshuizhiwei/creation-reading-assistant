@@ -35,7 +35,7 @@ HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空；D产品只读。报�
 
 ## 原始证据
 
-[核查目录](<E:/creation-reading-assistant/task24-delivery-codex-review-20261013>)：verification.json含源码/工件差量与哈希；evidence-check.json含355 XML、12 runner及5原件备份绑定；inventory-check.json含受保护71/0文件完整原始清单SHA。原件在任务24的logs、freeze、evidence/jvm/full-gate、runs/run_t24_device3、baseline及recovery-final-ledger。两独立审核均只读，未构建/ADB。
+[核查目录](<<证据根>/task24-delivery-codex-review-20261013>)：verification.json含源码/工件差量与哈希；evidence-check.json含355 XML、12 runner及5原件备份绑定；inventory-check.json含受保护71/0文件完整原始清单SHA。原件在任务24的logs、freeze、evidence/jvm/full-gate、runs/run_t24_device3、baseline及recovery-final-ledger。两独立审核均只读，未构建/ADB。
 
 ## 恢复与副作用
 

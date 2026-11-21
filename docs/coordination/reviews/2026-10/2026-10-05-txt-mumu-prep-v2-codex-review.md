@@ -25,11 +25,11 @@ Windows/Python本地静态审查；未核当前模拟器在线状态，不复用
 清单v2准备成果可采纳：980路径目标指纹匹配、已有决策已映射、5待仪器归属/1临时排除清晰。SRC/JVM仍保持原有效力；清单绑定TXT-v4现在须HOLD，不因准备完毕应用D。B6提出回到早期组合态再跑测试的口径应以已验统一候选最终指纹为准：实际输入未变复用，实际改变才重跑。
 
 ## 原始证据
-- [原始方法失败](<E:/creation-reading-assistant/txt-final-mumu-accept-v1/runs/j1-txtv4-20261005-a/raw/j1_20_reentryFromHome.txt>)
-- [运行汇总](<E:/creation-reading-assistant/txt-final-mumu-accept-v1/runs/j1-txtv4-20261005-a/summary.json>)、[checker](<E:/creation-reading-assistant/txt-final-mumu-accept-v1/evidence/raw/j1-check-result.json>)
-- [冻结SHA](<E:/creation-reading-assistant/txt-final-mumu-accept-v1/freeze/apk-sha256.json>)、[设备读回测试APK](<E:/creation-reading-assistant/txt-final-mumu-accept-v1/evidence/installed-test-readback.apk>)
-- [前账](<E:/creation-reading-assistant/txt-final-mumu-accept-v1/evidence/raw/baseline.txt>)、[收工账](<E:/creation-reading-assistant/txt-final-mumu-accept-v1/evidence/raw/final-reconciliation.txt>)
-- [精确清单v2](<E:/creation-reading-assistant/exact-integration-prep-v2/integration-manifest-v2.json>)
+- [原始方法失败](<<证据根>/txt-final-mumu-accept-v1/runs/j1-txtv4-20261005-a/raw/j1_20_reentryFromHome.txt>)
+- [运行汇总](<<证据根>/txt-final-mumu-accept-v1/runs/j1-txtv4-20261005-a/summary.json>)、[checker](<<证据根>/txt-final-mumu-accept-v1/evidence/raw/j1-check-result.json>)
+- [冻结SHA](<<证据根>/txt-final-mumu-accept-v1/freeze/apk-sha256.json>)、[设备读回测试APK](<<证据根>/txt-final-mumu-accept-v1/evidence/installed-test-readback.apk>)
+- [前账](<<证据根>/txt-final-mumu-accept-v1/evidence/raw/baseline.txt>)、[收工账](<<证据根>/txt-final-mumu-accept-v1/evidence/raw/final-reconciliation.txt>)
+- [精确清单v2](<<证据根>/exact-integration-prep-v2/integration-manifest-v2.json>)
 
 ## 恢复与副作用
 本次未接触设备。外部双沙箱卸载已有驱动证据，但全量前账缺失不能事后补造；夜间差异仍待设备owner核占用后处理，后续新批须先建立完整基线。原43文件名与后MD5账仅用于限定当前已存事实，不记录具体书名。

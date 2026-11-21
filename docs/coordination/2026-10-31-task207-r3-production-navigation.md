@@ -7,7 +7,7 @@
 ````text
 你接续同一项目207，执行207-r3。用户已明确要求Root把下一轮提示词实际交给ZCode。207-r2的文件/构建证据已核，整项未接受；不要重新实现无关功能或重跑充分旧审计。本任务修正具体测试错误，并将测试接到生产实际调用点。
 
-先读活动仓库AGENTS.md、docs/handoff/current.md、E:/creation-reading-assistant/task207-reader-exit-stack-repair-v1/recheck-r2/root-review/REPORT.md及本合同。唯一工作区E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android。原205业务红永久保留，206有限恢复不重跑；异步保存失败未被排除，导航不是205唯一已证根因。
+先读活动仓库AGENTS.md、docs/handoff/current.md、<证据根>/task207-reader-exit-stack-repair-v1/recheck-r2/root-review/REPORT.md及本合同。唯一工作区<证据根>/task59-common-candidate-v1/candidate/android。原205业务红永久保留，206有限恢复不重跑；异步保存失败未被排除，导航不是205唯一已证根因。
 
 基线：r2 ready SHA934039cd2a85ca087ad65d188fe66b53a2540dafe8917f67a7d6d1d012975966；ReaderRoute.kt SHA5953dd9d8be64cbd4557d965d9e762fddeb8ffd05c8709e1323fdddc6cc17ada；ReaderTemporaryBackTest.kt SHA6a37e45b6c16986d04dabccfe90ee691b6ca16b53909e6ac03cd635ef6a26bba；ReaderTemporaryNavigationStackTest.kt SHA4e4640152a44bfde67f89959ab18dc271924bca25ec2a91f04115895a1039dfb。先核三文件与candidate，不覆盖新WIP。原JVM12项rc0和r2产物/签名证据按未变输入范围复用。
 
@@ -22,7 +22,7 @@ Root技术决定及验收边界：
 
 验证：原JDK17/SDK/Gradle home、tools/gradle_locked.py唯一锁。仅新增或改变的JVM定向验证；未改的12项证据可复用，新增生产提取需要定向编译，图/生产UI测试compileDebugAndroidTestKotlin。必要assembleDebug/assembleDebugAndroidTest生成匹配APK对，不全suite、不重跑历史D或206恢复。设备/Android专属用例本轮NOT_RUN，报告必须明确“编译交付可供Root审查”，不能称行为通过。Root可以在源码/编译/产物核验接受后另定fresh设备合同；当前合同不包含执行它。
 
-交付E:/creation-reading-assistant/task207-reader-exit-stack-repair-v1/recheck-r3/：REPORT.md、ready.json、必要before/after、最小标准patch、实际正反apply结果、原rc/log/XML、candidate对应APK路径/size/SHA及完整证书05249d786e3d3d117bb5bd7b1f83512a0c9b8f1ee4e502112c4b2d9ccbd7b9a1、runner CraIsolatedTestRunner/target com.creationreadingassistant与目标方法。报告不得用“壳/镜像”当生产闭环；分别写共享分派、完整真实UI、保存/加载边界的实际覆盖。r2原件不覆盖；r1旧pins索引实际为recheck-r1/raw/deliverable-pins.json。pins无自引用、最终数值与实际字节一致。
+交付<证据根>/task207-reader-exit-stack-repair-v1/recheck-r3/：REPORT.md、ready.json、必要before/after、最小标准patch、实际正反apply结果、原rc/log/XML、candidate对应APK路径/size/SHA及完整证书05249d786e3d3d117bb5bd7b1f83512a0c9b8f1ee4e502112c4b2d9ccbd7b9a1、runner CraIsolatedTestRunner/target com.creationreadingassistant与目标方法。报告不得用“壳/镜像”当生产闭环；分别写共享分派、完整真实UI、保存/加载边界的实际覆盖。r2原件不覆盖；r1旧pins索引实际为recheck-r1/raw/deliverable-pins.json。pins无自引用、最终数值与实际字节一致。
 
 存储：复制前估算新增体积/检查E可用空间；source/runtime/report/ready≤256KiB，普通raw≤256KiB；before引用既有稳定原件优先，不重复复制工程/依赖/cache或已保全APK。r2 APK若构建覆盖前尚无build外唯一保全，仅缺时留一对，约64.62MB，单列依据。新增空间/保全/临时scratch统一记REPORT，不另造收据。40分钟到交实际进展与具体缺口，不随机重跑；产品改动、必要编译修复、核验报告由同owner闭环。
 

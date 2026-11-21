@@ -7,7 +7,7 @@
 
 ## 输入指纹与范围
 源码取唯一E候选android当前实际字节，不取D旧产品；逐文件baseline-manifest.json。只发Android源码、schema、Gradle声明/wrapper、119任务说明、118必要Root结论，不发缓存/build/APK/local.properties/正式书库/DB备份/私钥/账号配置/任何私库。文件名与常见凭证模式定向核无命中，不是全安全审计。
-E输出：E:/creation-reading-assistant/task119-netcafe-relay-v1。
+E输出：<证据根>/task119-netcafe-relay-v1。
 119-start.zip：4379238B SHA52717d928f23296e58be30b79083ff95c798886768ea52494630a780afbd4794。
 包内1052文件、17313007B（不含manifest自身），逐文件回读及打包期间源字节核同。manifest SHAe6df71df1c1d003d5b0f89616f40a7125581684e15892232f2c47c475493069d。
 

@@ -7,13 +7,13 @@ Codex-review-W2v2-D1-v1；核查W2-accept-v2、D1-v1/M0-v2。用户“都完成�
 ## 输入指纹
 
 - 活动仓库HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，暂存区空；源码资产保持。
-- [J1-v3六文件清单](<E:/creation-reading-assistant/next-round-joint-j1-v3/freeze/six-file-sha256.txt>)实算6/6一致。
-- [W2冻结APK](<E:/creation-reading-assistant/next-round-w2-webdav-ui-build/freeze/apk/app-qahost.apk>) SHA256 `0221d88fb34e8c88e274f09b939c5f1b84f20d9c2674abb7c8588e6593c71594`，临时包`com.creationreadingassistant.qahostwebdav`；不纳入永久包名。
+- [J1-v3六文件清单](<<证据根>/next-round-joint-j1-v3/freeze/six-file-sha256.txt>)实算6/6一致。
+- [W2冻结APK](<<证据根>/next-round-w2-webdav-ui-build/freeze/apk/app-qahost.apk>) SHA256 `0221d88fb34e8c88e274f09b939c5f1b84f20d9c2674abb7c8588e6593c71594`，临时包`com.creationreadingassistant.qahostwebdav`；不纳入永久包名。
 - N1下一独立候选从J1-v3取源；LocalZipBackup.kt SHA256 `ab78a16e8e34c50a59ada31040278569baaa013f2c1eba6054a675b89997514c`，已有逐文件journal，不能按不存在重写。
 
 ## 所有权与改动
 
-Codex只写本报告、current、项目页、TODO、现有规划有关段落和skill日志；原报告/CSV/产品源码/外部工件不改。本轮自有E目录存审查程序及结果。修改前五文档的[回退副本](<E:/creation-reading-assistant/w2v2-d1-codex-review-20261001/before>)已保存并检查编辑前字节一致。TODO其他项目后缀与skill既有记录保留。
+Codex只写本报告、current、项目页、TODO、现有规划有关段落和skill日志；原报告/CSV/产品源码/外部工件不改。本轮自有E目录存审查程序及结果。修改前五文档的[回退副本](<<证据根>/w2v2-d1-codex-review-20261001/before>)已保存并检查编辑前字节一致。TODO其他项目后缀与skill既有记录保留。
 
 ## 环境
 
@@ -54,10 +54,10 @@ JSON服务发送SHA `4bcbeabf3594c834082ee38e58b6211612c74046ec2f58d0c8c702d0de4
 
 ## 原始证据
 
-- [本轮审查结果](<E:/creation-reading-assistant/w2v2-d1-codex-review-20261001/verification.json>)、[审查脚本](<E:/creation-reading-assistant/w2v2-d1-codex-review-20261001/audit.py>)。
-- [Root当前设备后账](<E:/creation-reading-assistant/w2v2-d1-codex-review-20261001/device-verification.json>)及[逐命令stdout/stderr](<E:/creation-reading-assistant/w2v2-d1-codex-review-20261001/device-readback>)。
-- [W2-v2原报告](../../../qa/2026-10/2026-10-01-next-w2-v2-webdav-ui-mumu-acceptance.md)、[原始会话](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance-v2/logs/sessions>)、[UI/DB证据](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance-v2/evidence>)。
-- [D1原报告](../../dispatches/2026-10/2026-10-01-next-d1-desktop-ownership-and-m0-v2.md)、[纠正矩阵](<E:/creation-reading-assistant/next-round-d1-desktop-scope/m0-journey-matrix-v2.csv>)、[证据索引](<E:/creation-reading-assistant/next-round-d1-desktop-scope/m0-evidence-index-v2.csv>)。
+- [本轮审查结果](<<证据根>/w2v2-d1-codex-review-20261001/verification.json>)、[审查脚本](<<证据根>/w2v2-d1-codex-review-20261001/audit.py>)。
+- [Root当前设备后账](<<证据根>/w2v2-d1-codex-review-20261001/device-verification.json>)及[逐命令stdout/stderr](<<证据根>/w2v2-d1-codex-review-20261001/device-readback>)。
+- [W2-v2原报告](../../../qa/2026-10/2026-10-01-next-w2-v2-webdav-ui-mumu-acceptance.md)、[原始会话](<<证据根>/next-round-w2-webdav-ui-acceptance-v2/logs/sessions>)、[UI/DB证据](<<证据根>/next-round-w2-webdav-ui-acceptance-v2/evidence>)。
+- [D1原报告](../../dispatches/2026-10/2026-10-01-next-d1-desktop-ownership-and-m0-v2.md)、[纠正矩阵](<<证据根>/next-round-d1-desktop-scope/m0-journey-matrix-v2.csv>)、[证据索引](<<证据根>/next-round-d1-desktop-scope/m0-evidence-index-v2.csv>)。
 - [v1采纳边界](2026-10-01-next-w2-m0-codex-review.md)、[N1旧中断实证](2026-10-01-next-n1-n3-codex-review.md)、[现行总规划](../../../plans/2026-10-01-product-roadmap-realignment.md)。
 
 ## 未覆盖项

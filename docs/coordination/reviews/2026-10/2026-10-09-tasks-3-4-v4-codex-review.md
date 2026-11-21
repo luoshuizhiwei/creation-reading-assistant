@@ -15,12 +15,12 @@
 - 4红基树生产Repository字节与v3一致，同测试SHA与v4一致；红原XML31项恰2失败（等reset资格取消、countActive挂起取消），绿31/31与8类107/107、exit0成立。WorkerPolicy未改复用12/12，不累加重复集合当独立功能数。提交资格定义下两窗口关闭，没有新P1证据。
 - 4报告“锁内无挂起”不准确：stateDao.set为suspend。资格先到允许reset提交，合同行为成立，但DAO未完成时首次cancel仍可能anchorPreserved=true；ProfileVM据此虚称断点保留。反向测试丢弃首次结果而漏测。Root独立补进行中/成功/失败真实反馈，避免新一轮外部转发。
 
-原始证据：[Root实算](<E:/creation-reading-assistant/tasks-3-4-v4-codex-review-20261009/delivery-verification.json>)；3单run raw/summary/back_diag三截图及JSON；4evidence/raw/red-v3base-windows与green-v4-directed逐XML及_meta。未用旧报告代替原始日志。
+原始证据：[Root实算](<<证据根>/tasks-3-4-v4-codex-review-20261009/delivery-verification.json>)；3单run raw/summary/back_diag三截图及JSON；4evidence/raw/red-v3base-windows与green-v4-directed逐XML及_meta。未用旧报告代替原始日志。
 
 未覆盖项：J1正确初始位置/搜索B卡/整项旅程；31联合；搜索取消Compose渲染及WorkManager端到端。X整机中断、实体手机、Back归因/队列排空/初始新save不关闭，全产品分母未核。
 
 恢复与副作用：Root当前再次核71文件size/完整mtime/SHA、原APK对、8设置/映射、原shell uid2000以及正式/新宿主不存在状态全部一致。外部仍留MuMu运行，Rootcontrol-v1-shutdown返回errcode0，info进程false。证据在tasks-3-4-v4-codex-review-20261009/root-readonly-restore-proof.json、root-power-final.json与root-adb-final.txt。没有应用数据或D产品/Git写入。
 
-Root反馈补正：独立候选[E目录报告](<E:/creation-reading-assistant/parallel-search-task4-root-feedback-v4-20261009/ROOT_REPORT.md>)。单原子三态PRESERVED/RESET_PENDING/RESET_COMMITTED，DAO成功才发布已重置、失败恢复此前真实状态，VM进行中反馈优先；三处游标状态发布移入相应写入锁内，避免迟到覆盖。原v4生产加真实VM断言红32/2；最终33取消+4VM+19重建并发56/56、两批exit0，Root实算994源码/3修改/991不变及3原XML SHA全部一致。最终清单文件SHA ab916de24375c776def3a4740bc3dbf97383ad4b4759ce66ee670e9dd86dd102。原107对未改部分复用，不相加冒充最终独立全集。
+Root反馈补正：独立候选[E目录报告](<<证据根>/parallel-search-task4-root-feedback-v4-20261009/ROOT_REPORT.md>)。单原子三态PRESERVED/RESET_PENDING/RESET_COMMITTED，DAO成功才发布已重置、失败恢复此前真实状态，VM进行中反馈优先；三处游标状态发布移入相应写入锁内，避免迟到覆盖。原v4生产加真实VM断言红32/2；最终33取消+4VM+19重建并发56/56、两批exit0，Root实算994源码/3修改/991不变及3原XML SHA全部一致。最终清单文件SHA ab916de24375c776def3a4740bc3dbf97383ad4b4759ce66ee670e9dd86dd102。原107对未改部分复用，不相加冒充最终独立全集。
 
 交付状态与下一步：3-v5唯一MuMu继续正确位置合同及搜索卡补证；4含Root补正退出实现返修，不再派4-v5。任务7纯E机械合流已验4/5产品增量及清单，可与3并行，无设备/构建/最终APK，不吸收3-v4放松断言，不提前应用D。任务6旧材料不含4/5，保留只读及C2签名待决定边界。复盘保持稳定阅读/检索回源主线；7仅提前准备互斥增量，不新增功能、不签整体验收，下一联合门禁仍等J1合同成立。5/6不重派，不扩桌面或发布。

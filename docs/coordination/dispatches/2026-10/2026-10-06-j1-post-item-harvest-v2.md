@@ -4,13 +4,13 @@
 CRA-J1-POST-ITEM-HARVEST-v2；2026-10-06 交付。**离线验证（14/14 场景），设备未运行**。
 
 ## 输入指纹
-- v1 基线（已审 1P2）：[j1-post-item-harvest-v1](<E:/creation-reading-assistant/j1-post-item-harvest-v1>)（joint_driver `d9d93b1e…`、j1_harvest `d828f2ba…`、j1_run `599f88ad…`、runner `a634a344…`、checker `157562b2…`）。
-- Root 反例：[stale-only-repro.json](<E:/creation-reading-assistant/rowprobe-harvest-codex-review-20261006/stale-only-repro.json>)——CURRENT-RUN + 仅 j1_00/OLD-RUN 文件，v1 生产采集返回 status=ok/problems=[]（Root P2）。
-- 真实 writeResult 字段合同：evir 批真实观测 [j1_10_recordExitSaved.json](<E:/creation-reading-assistant/txt-failure-evidence-repair-v1/runs/evir-min/harvest/j1_10_recordExitSaved.json>)（step/pid/packageName/taskId/runId/configSha256/fixtureSha256/payload）。
+- v1 基线（已审 1P2）：[j1-post-item-harvest-v1](<<证据根>/j1-post-item-harvest-v1>)（joint_driver `d9d93b1e…`、j1_harvest `d828f2ba…`、j1_run `599f88ad…`、runner `a634a344…`、checker `157562b2…`）。
+- Root 反例：[stale-only-repro.json](<<证据根>/rowprobe-harvest-codex-review-20261006/stale-only-repro.json>)——CURRENT-RUN + 仅 j1_00/OLD-RUN 文件，v1 生产采集返回 status=ok/problems=[]（Root P2）。
+- 真实 writeResult 字段合同：evir 批真实观测 [j1_10_recordExitSaved.json](<<证据根>/txt-failure-evidence-repair-v1/runs/evir-min/harvest/j1_10_recordExitSaved.json>)（step/pid/packageName/taskId/runId/configSha256/fixtureSha256/payload）。
 - 依据：[2026-10-06-rowprobe-harvest-codex-review.md](../../reviews/2026-10/2026-10-06-rowprobe-harvest-codex-review.md)、[handoff/current.md](../../../handoff/current.md)。
 
 ## 所有权与改动
-所有权目录 [j1-post-item-harvest-v2](<E:/creation-reading-assistant/j1-post-item-harvest-v2>)；唯一本报告。v1 目录只读（未覆盖），公共驱动/repair-v1 原件/产品/Git/全局交接零写入；未用 ADB、未构建 APK。冻结清单与逐文件 SHA 见 [CHANGE-FREEZE.md](<E:/creation-reading-assistant/j1-post-item-harvest-v2/CHANGE-FREEZE.md>)（全部经程序化复核）。
+所有权目录 [j1-post-item-harvest-v2](<<证据根>/j1-post-item-harvest-v2>)；唯一本报告。v1 目录只读（未覆盖），公共驱动/repair-v1 原件/产品/Git/全局交接零写入；未用 ADB、未构建 APK。冻结清单与逐文件 SHA 见 [CHANGE-FREEZE.md](<<证据根>/j1-post-item-harvest-v2/CHANGE-FREEZE.md>)（全部经程序化复核）。
 
 ## 环境
 Windows/Python 3.13 本地离线；设备模型 fake adb（真子进程 + 事件 JSONL 顺序账），观测目录卸载后不可达=时序可验证约束；冻结 runner.py 经 default_runner_factory 真子进程参与全部场景。
@@ -38,11 +38,11 @@ Windows/Python 3.13 本地离线；设备模型 fake adb（真子进程 + 事件
 | S10-current-missing-others | 当前文件缺失但当前 run 旧步骤存在 → 必需缺失降级 FAIL；旧文件仍归档且 `current_item_file=false` |
 | S11-entry-cli | `j1_run.py` 唯一入口子进程整链：overall PASS、采集先于卸载 |
 
-调用顺序账（events.jsonl）与身份记录（`expected.identity` 六字段）均入证据；总账 [offline-verify-summary.json](<E:/creation-reading-assistant/j1-post-item-harvest-v2/offline/out/offline-verify-summary.json>)（`e2070602…`，verdict=PASS，failures=[]）。
+调用顺序账（events.jsonl）与身份记录（`expected.identity` 六字段）均入证据；总账 [offline-verify-summary.json](<<证据根>/j1-post-item-harvest-v2/offline/out/offline-verify-summary.json>)（`e2070602…`，verdict=PASS，failures=[]）。
 
 ## 原始证据
-- 冻结清单：[CHANGE-FREEZE.md](<E:/creation-reading-assistant/j1-post-item-harvest-v2/CHANGE-FREEZE.md>)；v1→v2 逐行精确差异：[CHANGE-v1-to-v2.diff](<E:/creation-reading-assistant/j1-post-item-harvest-v2/CHANGE-v1-to-v2.diff>)（`d96cc9c2…`，joint_driver 仅 +7 行 expect 校验）。
-- harness：[offline/verify_offline.py](<E:/creation-reading-assistant/j1-post-item-harvest-v2/offline/verify_offline.py>)；采集实现：[j1_harvest.py](<E:/creation-reading-assistant/j1-post-item-harvest-v2/j1_harvest.py>)。
+- 冻结清单：[CHANGE-FREEZE.md](<<证据根>/j1-post-item-harvest-v2/CHANGE-FREEZE.md>)；v1→v2 逐行精确差异：[CHANGE-v1-to-v2.diff](<<证据根>/j1-post-item-harvest-v2/CHANGE-v1-to-v2.diff>)（`d96cc9c2…`，joint_driver 仅 +7 行 expect 校验）。
+- harness：[offline/verify_offline.py](<<证据根>/j1-post-item-harvest-v2/offline/verify_offline.py>)；采集实现：[j1_harvest.py](<<证据根>/j1-post-item-harvest-v2/j1_harvest.py>)。
 - 逐场景证据树：`offline/out/<场景>/`（config/state/events/evidence 全树）。
 
 ## 恢复与副作用
@@ -52,4 +52,4 @@ Windows/Python 3.13 本地离线；设备模型 fake adb（真子进程 + 事件
 设备真机链未跑；真实 UI 旅程（before_item 动作）需真机；configSha256/fixtureSha256 的 mismatch 分支离线未触发（正例与缺席分支已覆盖，mismatch 逻辑与 runId 同构）；完整八项 checker 的设备证据未产生。设备 owner 的匹配冷启/仪器重建对照与本返修互不依赖、并行推进。
 
 ## 交付状态与下一步
-1/1 交付：身份窄返修 + 14 场景离线回归 + 冻结差异与绑定说明（config 逐项 `after_item.expect` + 以本目录为驱动目录执行 j1_run.py）。交回 Codex 审核；新驱动审核通过后按 [CHANGE-FREEZE.md](<E:/creation-reading-assistant/j1-post-item-harvest-v2/CHANGE-FREEZE.md>) §4 绑定后续批次。根因未核定前不做产品修复，D/Git 暂停。
+1/1 交付：身份窄返修 + 14 场景离线回归 + 冻结差异与绑定说明（config 逐项 `after_item.expect` + 以本目录为驱动目录执行 j1_run.py）。交回 Codex 审核；新驱动审核通过后按 [CHANGE-FREEZE.md](<<证据根>/j1-post-item-harvest-v2/CHANGE-FREEZE.md>) §4 绑定后续批次。根因未核定前不做产品修复，D/Git 暂停。

@@ -2,7 +2,7 @@
 
 Root对160会话当前问题的决定：原160/158同boot恢复条件已不成立，不准把旧expected boot直接改成新值放行，不在旧scope继续冒充同批身份。用户已授权自动接续与必要MuMu设备恢复；没有明确用户stop证据时，本任务允许有条件单次正常启动已证为原实例的MuMu，并仅以新批身份recover-only。若有明确用户停止/关闭以停任务的指令，或无法证明实例连续性，立即BLOCKED不启动/不mutation，交具体缺证；不得以授权推测用户意图。B161离线独立，不动其输入/候选/APK/Gradle。
 
-只新E:/creation-reading-assistant/task160-writer-revival-recover-only-v1/recheck-r1/交付；旧158原红/原160所有产物与原doc起点冻结。先将当前设备连接拒绝/MuMu未运行的原rc/fullstdoutstderr及原旧boot门冲突写新assessment；原160没有交付也如实，原10:59:35起25分11:24:35超时永留，本新批25分钟从实际UI消息计，不倒填旧预算。禁止新instrument/main/attempt/业务测试/APK安装build/Android改源，158四真实方法全过充分复用。
+只新<证据根>/task160-writer-revival-recover-only-v1/recheck-r1/交付；旧158原红/原160所有产物与原doc起点冻结。先将当前设备连接拒绝/MuMu未运行的原rc/fullstdoutstderr及原旧boot门冲突写新assessment；原160没有交付也如实，原10:59:35起25分11:24:35超时永留，本新批25分钟从实际UI消息计，不倒填旧预算。禁止新instrument/main/attempt/业务测试/APK安装build/Android改源，158四真实方法全过充分复用。
 
 阶段一只读：核158原始MuMu官方manager实例信息/持久实例标识或磁盘配置指纹与当前指定instance1的对应，只用已有任务链接和官方manager精确此实例，不扫其他VM/私库/全盘。至少有足以追溯同一持久guest实例的旧/新记录，不能用serial字符串相同、实例序号或展示名称相同单独自证。若旧批没有可追溯标识，如实缺失，停止启动/包变更并交BLOCKED_NEEDS_INSTANCE_CONTINUITY，不伪造。当前MuMu已停事实不等于可修改旧boot，也不等于用户明确stop。
 

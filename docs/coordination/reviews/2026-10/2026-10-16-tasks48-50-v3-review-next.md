@@ -4,7 +4,7 @@
 48-v3、49-v3、50-v3交付3/3；50限定离线成果采纳1/3，48/49定向返修v4。2026-10-16 00:05 +08:00。下一批仅48-v4与49-v4并行，50不重派；未向外部应用自动发消息。
 
 ## 输入指纹
-v9源码1023项本轮全核无差异，source manifest SHA 505c35235e2ecafc8cc248870753e2ca3c0b06e9adffc02e74debb658ab18dc5。48-v3实际5改5增（相对v9），50-v3实际1改4增（相对v9）；声明候选SHA均核同。49-v3候选2生产文件+3测试SHA核同。候选分别位于 E:/creation-reading-assistant/task48-temporary-return-freeze-v3、task49-inner-restore-cleanup-v3、task50-remeasure-probe-repair-v3。
+v9源码1023项本轮全核无差异，source manifest SHA 505c35235e2ecafc8cc248870753e2ca3c0b06e9adffc02e74debb658ab18dc5。48-v3实际5改5增（相对v9），50-v3实际1改4增（相对v9）；声明候选SHA均核同。49-v3候选2生产文件+3测试SHA核同。候选分别位于 <证据根>/task48-temporary-return-freeze-v3、task49-inner-restore-cleanup-v3、task50-remeasure-probe-repair-v3。
 
 49实际改了共享E工作根的host/integration_chain.py，当前SHA 4872800d2c6ab03d2336ef33b0ef9090c23541909d49c1b3c86bd899e8a2a984；改前原文patch/original可核回旧SHA b2de4347240ea1540a880f48890d33fbc8ff9d35f14bcb79cf2d573dba4653e0。旧tool-freeze-v9的own_files复核仅此一项漂移。保留现场，不回滚；旧31工具冻结结果不得沿用，合流时另行重绑定。D HEAD e39a78da9c62f02614207cffb36969a32492eaea，index空。
 
@@ -12,7 +12,7 @@ v9源码1023项本轮全核无差异，source manifest SHA 505c35235e2ecafc8cc24
 Root维护核验/交接并决定采纳，独立只读审查分别核49、50；未修产品。48-v4拥有独立Android main/相关JVM测试，并承担50所需的session_guard_observe诊断增加bid这一处接缝。49-v4仅独立host/runtime及测试，不再直接改共同E工作根。v4各自新目录后缀-v4，v3与历史资产保留。50已完成的探针/规则交Root后续集成，执行者无需继续等待或重复实施。
 
 ## 环境
-新增核验工件 E:/creation-reading-assistant/tasks48-50-v3-codex-review-20261016。本轮纯JVM/内存FakeDevice/只读日志；无真实设备、无APK构建、无D产品回灌/Git操作。不把原MuMu关闭证据写成当前设备现态复核。
+新增核验工件 <证据根>/tasks48-50-v3-codex-review-20261016。本轮纯JVM/内存FakeDevice/只读日志；无真实设备、无APK构建、无D产品回灌/Git操作。不把原MuMu关闭证据写成当前设备现态复核。
 
 ## 执行与结果
 - 48原始compileDebugKotlin/testDebugUnitTest日志exit0，14份XML106/106，补齐了原始日志；源码SHA核同。Root实际编译交付守卫及原13测试，新增旧临时回调反例1项：13旧绿、1新红。反例只覆盖真实guard及生产调用顺序，不冒充Compose调度设备实测。
@@ -29,7 +29,7 @@ Root维护核验/交接并决定采纳，独立只读审查分别核49、50；�
 需求轴2项返修缺口，1项已决集成接缝；50限定采纳。
 
 ## 原始证据
-E核验根delivery-verification.json、48-guard-counterexamples.log/receipt、run_guard_counterexample.py；49原始回执在 E:/creation-reading-assistant/task49-inner-restore-cleanup-v3/review-codex-20261016/fake-restore-foreign-path-receipt.json、fake-restore-missing-ledger-identity-receipt.json，以及pytest-review.log。50原始23绿/10红/最终编译和7反例工件均保留原任务logs/tools，未重复昂贵构建。
+E核验根delivery-verification.json、48-guard-counterexamples.log/receipt、run_guard_counterexample.py；49原始回执在 <证据根>/task49-inner-restore-cleanup-v3/review-codex-20261016/fake-restore-foreign-path-receipt.json、fake-restore-missing-ledger-identity-receipt.json，以及pytest-review.log。50原始23绿/10红/最终编译和7反例工件均保留原任务logs/tools，未重复昂贵构建。
 
 ## 未覆盖项
 48真实Compose交接及快退、49特权设备恢复、50加bid后的真实D实验、合流最终构建和限定MuMu仍未执行。全产品分母未核。旧已过且输入未变的短末项/SAF证据保留；受v4变化影响的场景由Root合流后确定复验。

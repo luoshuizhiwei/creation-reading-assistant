@@ -16,7 +16,7 @@ HEAD e39a78da9c62f02614207cffb36969a32492eaea、暂存空。Root实际运行强�
 
 ## 原始证据
 
-[Root核验](<E:/creation-reading-assistant/tasks14-final-6v6-codex-review-20261011/verification.json>)、verify.py、freeze-verify.log与[next-input-binding](<E:/creation-reading-assistant/tasks14-final-6v6-codex-review-20261011/next-input-binding.json>)。14原REPORT/freeze/run_device6/raw/harvest/restore与6-v6 INDEX/replay/SUMS保留。独立审查默认pwsh与日志/源码证据已核，不重新设备31/广JVM。
+[Root核验](<<证据根>/tasks14-final-6v6-codex-review-20261011/verification.json>)、verify.py、freeze-verify.log与[next-input-binding](<<证据根>/tasks14-final-6v6-codex-review-20261011/next-input-binding.json>)。14原REPORT/freeze/run_device6/raw/harvest/restore与6-v6 INDEX/replay/SUMS保留。独立审查默认pwsh与日志/源码证据已核，不重新设备31/广JVM。
 
 ## 恢复与副作用
 

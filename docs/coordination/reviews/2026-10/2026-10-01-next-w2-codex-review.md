@@ -8,11 +8,11 @@ Codex-review-W2-v1；来源：用户“它们都完成了”。本轮W2两个交
 
 - 恢复仓库HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，暂存区空。
 - J1-v3与W2各875源码，唯一变化为app/build.gradle.kts中的qahost后缀；字节单次替换精确相等，875项冻结SHA全部实算匹配。
-- W2 APK SHA `0221d88fb34e8c88e274f09b939c5f1b84f20d9c2674abb7c8588e6593c71594`，包名`com.creationreadingassistant.qahostwebdav`，与[READY](<E:/creation-reading-assistant/next-round-w2-webdav-ui-build/READY.json>)一致。
+- W2 APK SHA `0221d88fb34e8c88e274f09b939c5f1b84f20d9c2674abb7c8588e6593c71594`，包名`com.creationreadingassistant.qahostwebdav`，与[READY](<<证据根>/next-round-w2-webdav-ui-build/READY.json>)一致。
 
 ## 所有权与改动
 
-Codex仅写本报告、current/项目页/TODO/总规划现态、skill记录及E审计工件。外部候选、READY、设备基线及脚本保持原件，不修改产品、暂存或提交。[入口回退副本](<E:/creation-reading-assistant/w2-codex-review-20261001/before>)。
+Codex仅写本报告、current/项目页/TODO/总规划现态、skill记录及E审计工件。外部候选、READY、设备基线及脚本保持原件，不修改产品、暂存或提交。[入口回退副本](<<证据根>/w2-codex-review-20261001/before>)。
 
 ## 环境
 
@@ -32,9 +32,9 @@ W2-build-v1满足独立宿主构建合同。W2-accept-v1未满足可核查交付
 
 ## 原始证据
 
-- [构建窗口报告](../../dispatches/2026-10/2026-10-01-next-w2-build-webdav-ui-sandbox.md)、[源码清单](<E:/creation-reading-assistant/next-round-w2-webdav-ui-build/freeze/source-sha256.csv>)、[冻结APK](<E:/creation-reading-assistant/next-round-w2-webdav-ui-build/freeze/apk/app-qahost.apk>)。
-- [Codex独立核查JSON](<E:/creation-reading-assistant/w2-codex-review-20261001/verification.json>)、[现场Manifest](<E:/creation-reading-assistant/w2-codex-review-20261001/apk-manifest.txt>)、[现场签名](<E:/creation-reading-assistant/w2-codex-review-20261001/apk-signature.txt>)。
-- [设备窗口已有准备目录](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance>)、[前置摘要](<E:/creation-reading-assistant/next-round-w2-webdav-ui-acceptance/baseline/pre_test_summary.json>)。
+- [构建窗口报告](../../dispatches/2026-10/2026-10-01-next-w2-build-webdav-ui-sandbox.md)、[源码清单](<<证据根>/next-round-w2-webdav-ui-build/freeze/source-sha256.csv>)、[冻结APK](<<证据根>/next-round-w2-webdav-ui-build/freeze/apk/app-qahost.apk>)。
+- [Codex独立核查JSON](<<证据根>/w2-codex-review-20261001/verification.json>)、[现场Manifest](<<证据根>/w2-codex-review-20261001/apk-manifest.txt>)、[现场签名](<<证据根>/w2-codex-review-20261001/apk-signature.txt>)。
+- [设备窗口已有准备目录](<<证据根>/next-round-w2-webdav-ui-acceptance>)、[前置摘要](<<证据根>/next-round-w2-webdav-ui-acceptance/baseline/pre_test_summary.json>)。
 - [产品总规划](../../../plans/2026-10-01-product-roadmap-realignment.md)、[当前执行入口](../../../handoff/current.md)。
 
 ## 未覆盖项

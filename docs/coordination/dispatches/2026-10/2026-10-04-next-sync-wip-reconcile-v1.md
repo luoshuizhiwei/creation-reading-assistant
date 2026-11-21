@@ -1,11 +1,11 @@
 # 同步/Profile 修复与 WIP 语义三方合并
 
 - 任务编号/版本：CRA-SYNC-WIP-RECONCILE-v1；2026-10-04。应用 ZCode/GLM。
-- 输入指纹：HEAD `e39a78da9c62f02614207cffb36969a32492eaea`（开始/结束一致）；暂存区空（前后 0 条 staged）。固定输入：[已验产品基线](<E:/creation-reading-assistant/next-round-integration-build-accept-v2/android>)、[WIP 快照](<E:/creation-reading-assistant/integrationv2-three-deliveries-review-20261004/wip-snapshot>)（[manifest](<E:/creation-reading-assistant/integrationv2-three-deliveries-review-20261004/wip-snapshot/manifest.json>)，9 文件 SHA 锚定）。D 工作树对 5 个共享文件零漂移（D == WIP 快照字节一致）；2 个新测试文件仅存在于候选（不在 HEAD/D/WIP）。
+- 输入指纹：HEAD `e39a78da9c62f02614207cffb36969a32492eaea`（开始/结束一致）；暂存区空（前后 0 条 staged）。固定输入：[已验产品基线](<<证据根>/next-round-integration-build-accept-v2/android>)、[WIP 快照](<<证据根>/integrationv2-three-deliveries-review-20261004/wip-snapshot>)（[manifest](<<证据根>/integrationv2-three-deliveries-review-20261004/wip-snapshot/manifest.json>)，9 文件 SHA 锚定）。D 工作树对 5 个共享文件零漂移（D == WIP 快照字节一致）；2 个新测试文件仅存在于候选（不在 HEAD/D/WIP）。
 - 所有权与改动：仅合并 4 产品 + 3 测试共 7 文件；不修改 ReaderProgressEffects、回滚模块、公共类型/构建配置。写入仅自有目录 `E:\creation-reading-assistant\next-round-sync-wip-reconcile-v1`（payload/patches/freeze/test-results/inputs/scripts/execution.json）与本唯一报告。未应用 D、未操作 Git 写、未启动设备、未跑全量测试。
 - 环境：Windows 10.0.26300 x64 / Git Bash / Java 17.0.14（`JAVA_HOME=D:\develop\Java\jdk-17.0.14`）/ Android SDK `D:\develop\Android\Sdk` / Gradle 8.9。构建根 `…/next-round-sync-wip-reconcile-v1/android-build`（候选树副本）；独立 Gradle home `…/next-round-sync-wip-reconcile-v1/gradle-home`（`-g`，`--no-daemon`），不与并行窗口共享可写构建目录或 D 侧 Gradle 用户缓存。
 - 执行与结果：定向单测 `:app:testDebugUnitTest --tests` 三套件，退出码 0，耗时 5m56s。**55 测试全绿**（SyncRepositoryLocalFactsTest 25/0/0/0、WebDavCompatibilityTest 27/0/0/0、ProfileViewModelTest 3/0/0/0；failures/errors/skipped）。编译通过（仅既有无关告警）。
-- 原始证据：[execution.json](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/execution.json>)；[merged SHAs](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/freeze/merged-sha256.csv>)；[payload](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/payload>)；[patches](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/patches>)；[test XML](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/test-results/xml>)；[console log](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/test-results/run-2-console.log>)；[inputs 3-way](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/inputs>)。
+- 原始证据：[execution.json](<<证据根>/next-round-sync-wip-reconcile-v1/execution.json>)；[merged SHAs](<<证据根>/next-round-sync-wip-reconcile-v1/freeze/merged-sha256.csv>)；[payload](<<证据根>/next-round-sync-wip-reconcile-v1/payload>)；[patches](<<证据根>/next-round-sync-wip-reconcile-v1/patches>)；[test XML](<<证据根>/next-round-sync-wip-reconcile-v1/test-results/xml>)；[console log](<<证据根>/next-round-sync-wip-reconcile-v1/test-results/run-2-console.log>)；[inputs 3-way](<<证据根>/next-round-sync-wip-reconcile-v1/inputs>)。
 - 未覆盖项：设备/仪器测试；全量 `:app:testDebugUnitTest`（仅 3 定向套件）；ReaderProgressEffects 合并（md-annotation owner，排除）；ShelfImporter/EpubRepository/ShelfImporterTest 合并（rollback owner，排除）；D 回灌/Git 提交/push（无本轮授权）；APK 构建（未请求）。
 - 恢复与副作用：D 仓库未写入；D Git 未改；设备未用；共享 Gradle 缓存未改；仅在 E: 创建隔离构建目录与 Gradle home（可弃）。无恢复动作需要。
 - 交付状态与下一步：可独立合并范围全部完成，主候选 7 文件已冻结新 SHA，定向回归 55/55 成立。仍需选择：无（Legado 经核查无实际删留冲突，两侧均保留）。下一步由集成者决定是否回灌 D / 提交 / 进入联合构建；本任务不越权执行。
@@ -22,7 +22,7 @@
 | …/test/…/SyncRepositoryLocalFactsTest.kt | NOT_IN_HEAD | NOT_IN_D | NOT_IN_WIP | f281635b… | n/a（候选新文件） |
 | …/test/…/WebDavCompatibilityTest.kt | NOT_IN_HEAD | NOT_IN_D | NOT_IN_WIP | 16980171… | n/a（候选新文件） |
 
-完整 CSV：[inputs/fingerprints.csv](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/inputs/fingerprints.csv>)。
+完整 CSV：[inputs/fingerprints.csv](<<证据根>/next-round-sync-wip-reconcile-v1/inputs/fingerprints.csv>)。
 
 ## 合并决策（语义三方）
 
@@ -106,16 +106,16 @@
 
 ## 交付物（精确路径）
 
-- 主候选 payload（7 文件）：[payload/](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/payload>)
-- 合并后源 SHA（新冻结）：[freeze/merged-sha256.csv](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/freeze/merged-sha256.csv>)
+- 主候选 payload（7 文件）：[payload/](<<证据根>/next-round-sync-wip-reconcile-v1/payload>)
+- 合并后源 SHA（新冻结）：[freeze/merged-sha256.csv](<<证据根>/next-round-sync-wip-reconcile-v1/freeze/merged-sha256.csv>)
 - before/after SHA：见上方"输入指纹"表（before = HEAD blob / D 工作树 / WIP 快照；after = merged = 候选）
-- patches：[patches/](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/patches>)
+- patches：[patches/](<<证据根>/next-round-sync-wip-reconcile-v1/patches>)
   - `merged-vs-head.patch`（7 文件合并 vs HEAD）
   - `head-vs-merged_<file>.patch`（逐文件，5 个已存在文件）
   - `new-file_<file>.patch`（逐文件，2 个新测试文件）
-- execution.json：[execution.json](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/execution.json>)
-- 测试证据：[test-results/xml/](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/test-results/xml>)、[run-2-console.log](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/test-results/run-2-console.log>)
-- 三方输入副本：[inputs/](<E:/creation-reading-assistant/next-round-sync-wip-reconcile-v1/inputs>)（head/dside/wip/cand 四子目录）
+- execution.json：[execution.json](<<证据根>/next-round-sync-wip-reconcile-v1/execution.json>)
+- 测试证据：[test-results/xml/](<<证据根>/next-round-sync-wip-reconcile-v1/test-results/xml>)、[run-2-console.log](<<证据根>/next-round-sync-wip-reconcile-v1/test-results/run-2-console.log>)
+- 三方输入副本：[inputs/](<<证据根>/next-round-sync-wip-reconcile-v1/inputs>)（head/dside/wip/cand 四子目录）
 
 ## 未覆盖项 / 仍需选择
 

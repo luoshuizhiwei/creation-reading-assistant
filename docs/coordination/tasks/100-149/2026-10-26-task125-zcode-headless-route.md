@@ -4,10 +4,10 @@
 
 ## 本机实际核查
 
-- 安装D:/develop/AI Agent/ZCode/ZCode.exe，Windows签名Valid，签名者北京智谱华章科技股份有限公司；开始菜单快捷方式定位得到，不通过UI启动。
-- 自带官方CLI D:/develop/AI Agent/ZCode/resources/glm/zcode.cjs，--help输出0.17.0，Node D:/develop/Nodejs/nodejs/node.exe v24.22.1。
+- 安装<开发盘>/AI Agent/ZCode/ZCode.exe，Windows签名Valid，签名者北京智谱华章科技股份有限公司；开始菜单快捷方式定位得到，不通过UI启动。
+- 自带官方CLI <开发盘>/AI Agent/ZCode/resources/glm/zcode.cjs，--help输出0.17.0，Node <开发盘>/Nodejs/nodejs/node.exe v24.22.1。
 - 官方源码说明支持node bundle的--prompt/--cwd/--mode/--json和--resume；https://github.com/zai-org/ZCode/blob/main/apps/zcode-cli/docs/usage/01-quickstart.md 与03-config.md已本轮核对。
-- CLI项目探测目录E:/creation-reading-assistant/task125-zcode-headless-v1/probe，仅含本次配置及必要内置catalog副本。zcode.json关闭memory/use、hooks、plugins、skills、mcp、subagent；不启用--memory-bench，不读取Claude/DSH/.codex/memories。
+- CLI项目探测目录<证据根>/task125-zcode-headless-v1/probe，仅含本次配置及必要内置catalog副本。zcode.json关闭memory/use、hooks、plugins、skills、mcp、subagent；不启用--memory-bench，不读取Claude/DSH/.codex/memories。
 - 首次--prompt /model启动前报内置provider路径打包错误。未改安装；用发行包支持的ZCODE_BUILTIN_PROVIDER_CONFIG_FILE指定本次catalog副本，ZCODE_BUILTIN_PROVIDER_BUNDLED_CONFIG_FILE指向安装包catalog。路径错误已越过。
 - 模型选择仍阻断：/model、GLM5.3无工具ready测试以及/model指定ID，都在模型请求前返回 `Error: Select a model before sending a message` / exit1。没有GLM模型成功响应，不能称免UI派发已通。
 - 使用本次不含密钥的personal-provider.json声明defaultModelSelection，先按旧历史Start Plan、再按发行包确有GLM-5.3映射的account:bigmodel-individual-coding-plan核对，仍同错误。该配置仅本次临时文件，不改用户全局模型/账号/认证。没有读取或输出凭据，没有登录/购买/换账号。

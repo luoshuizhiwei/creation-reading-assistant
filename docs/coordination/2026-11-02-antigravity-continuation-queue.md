@@ -12,11 +12,11 @@
 
 最小启动集合：仓库/用户AGENTS → [current](../handoff/current.md) → 本文件 → [2026-11-02交付复核](2026-11-02-zcode-delivery-review-and-epub-next.md) → state当前字段与所需原件。通用方法查[接续手册](../handoff/continuation-playbook.md)，旧路径查[document-map.csv](../document-map.csv)。不加载全部历史，不读取DSH、Claude等其他agent私库。
 
-活动仓库：`D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919`。
-唯一实际candidate：`E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android`。
-state：`E:/creation-reading-assistant/coordination/android-zcode-luna-state.json`。
-当前原证索引：`E:/creation-reading-assistant/coordination/zcode-delivery-review-20261102/evidence.json`。
-209新增报告根：`E:/creation-reading-assistant/task209-navigation-coverage-v1/inventory-repair-r2/`。
+活动仓库：`<仓库>`。
+唯一实际candidate：`<证据根>/task59-common-candidate-v1/candidate/android`。
+state：`<证据根>/coordination/android-zcode-luna-state.json`。
+当前原证索引：`<证据根>/coordination/zcode-delivery-review-20261102/evidence.json`。
+209新增报告根：`<证据根>/task209-navigation-coverage-v1/inventory-repair-r2/`。
 
 复用事实：208普通退出/重开已有原证；R2新基线及8XML授权清理已闭合；搜索E/P5按已接受范围保留；I/C-R2仪器运行PASS但语义有限；EP最终013251业务RED，后续014321有卸载/具体保护回执而恢复归属及聚合仍缺。205原红、206有限恢复、旧D限定复用不重做。具体SHA以current/原scope为准，不把历史test APK套到新批。
 
@@ -160,7 +160,7 @@ state：`E:/creation-reading-assistant/coordination/android-zcode-luna-state.jso
 
 ### 5.3 资源、空间与证据最小化
 
-报告建议根：`E:/creation-reading-assistant/task209-navigation-coverage-v1/continuation-20261102/`，已存在先检查owner并接续；不要为了新卡复制完整candidate。
+报告建议根：`<证据根>/task209-navigation-coverage-v1/continuation-20261102/`，已存在先检查owner并接续；不要为了新卡复制完整candidate。
 
 上文各卡相对路径统一相对于此根；既有`ep-followup-r1/`若已占用则引用实际原路径，不移动/覆盖。每卡patch/source/REPORT/ready/普通raw预算512KiB，9卡普通新增预算4.5MiB；必要构建日志/设备原capture/恢复资产单列真实bytes和原因，超出先估算与查空间，不删原证腾空间。APK原路径引用优先，不按每卡复制APK对。唯一candidate和现有Gradle home/依赖复用；开工时记录实际缓存路径/owner/锁，不从本文件猜值。
 

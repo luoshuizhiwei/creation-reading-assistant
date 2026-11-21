@@ -105,7 +105,7 @@ APK 哈希也就不可能与报告一致。
 
 ## 5. APK 内容核对（aapt 直接读二进制，非文档转述）
 
-工具：`D:/develop/Android/Sdk/build-tools/34.0.0/aapt.exe`
+工具：`<开发盘>/Android/Sdk/build-tools/34.0.0/aapt.exe`
 
 ### 5.1 host APK（`app-qahost.apk`）
 

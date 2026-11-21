@@ -11,13 +11,13 @@
 
 ## 输入（开工实算，漂移停）
 
-candidate `E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android`：宿主APK `c396ebe1…`/53899310B、测试APK `e4b7b70b…`/10724766B（与208实际安装对同源）；ReaderRoute `5368065b…`、203冻结 `1f289540…`、图测试 `d2a08684…`、生产测试 `811cae6d…`、fixture `0aea2c5e…`；runner209/host209以当轮实算SHA入inputs（28role=26基+runner209Source+runner209SpecSource）。机制只读：entry_lifo_192/host192/collector192/161/host165/166/184r2/179r3（冻结pin）。
+candidate `<证据根>/task59-common-candidate-v1/candidate/android`：宿主APK `c396ebe1…`/53899310B、测试APK `e4b7b70b…`/10724766B（与208实际安装对同源）；ReaderRoute `5368065b…`、203冻结 `1f289540…`、图测试 `d2a08684…`、生产测试 `811cae6d…`、fixture `0aea2c5e…`；runner209/host209以当轮实算SHA入inputs（28role=26基+runner209Source+runner209SpecSource）。机制只读：entry_lifo_192/host192/collector192/161/host165/166/184r2/179r3（冻结pin）。
 
 ## 执行者准备（离线，授权后先做）
 
 1. **entry_209.py派生**（3行差量自entry_lifo_192：`EW.bind(host=host209, io_factory=io_factory)`+`host_mod.main(argv)`+finally还原）——host209与host192共享同一H/HOST158冻结对象，bind语义等价；派生后先跑184-r2式离线bind/restore身份核验。
 2. inputs×2：批A/批B各一份209 schema绑定文档（fresh serial/bootId/owner/preflight真实证据+28role实算），批B spec=testMethod单方法+expectedCount=1。
-3. 每批执行：`entry_209.run_main(['--run-id',…,'--inputs',…,'--run-scope','E:/creation-reading-assistant/task192-reader-internal-lifo-host-offline-v1/attempt-<runId>','--serial',…,'--boot-id',…,'--approve-device','--approve-quiesce'])`。
+3. 每批执行：`entry_209.run_main(['--run-id',…,'--inputs',…,'--run-scope','<证据根>/task192-reader-internal-lifo-host-offline-v1/attempt-<runId>','--serial',…,'--boot-id',…,'--approve-device','--approve-quiesce'])`。
 
 ## 执行与恢复（每批）
 
@@ -25,7 +25,7 @@ fresh179r3完整身份+26+2role绑定（`verify_inputs_209`全过）→一次mai
 
 ## 判定与交付
 
-每批按C2四分支分开裁决业务与恢复；**图测试7项任何失败原样保留并进C3式定位（不迎合）**；批B生产链失败同样保留。交付各批`E:/creation-reading-assistant/task209-navigation-coverage-v1/device-A|B/REPORT.md`+ready+原rc/log/XML+恢复原证；raw≤512KiB、保护capture单列。V0矩阵受影响行随批更新。
+每批按C2四分支分开裁决业务与恢复；**图测试7项任何失败原样保留并进C3式定位（不迎合）**；批B生产链失败同样保留。交付各批`<证据根>/task209-navigation-coverage-v1/device-A|B/REPORT.md`+ready+原rc/log/XML+恢复原证；raw≤512KiB、保护capture单列。V0矩阵受影响行随批更新。
 
 ## 权限与停止
 

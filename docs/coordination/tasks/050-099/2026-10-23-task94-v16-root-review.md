@@ -2,7 +2,7 @@
 
 ## 任务编号/版本、输入指纹
 
-2026-10-23 16:06后，Root核同REPORT/仪器/patch/产品/候选test/保全实际run test/宿主7项SHA与大小适用字段。REPORT34a283c8…2c62c、仪器cd744d22…323cd、宿主6132e907…a7604、产品11023464…ffc30c、候选test57477ef2…bfc16（10538197B）、保全d6a3。详细原件见E:/creation-reading-assistant/task94-organizing-export-integration-v1/v16/ready.json。
+2026-10-23 16:06后，Root核同REPORT/仪器/patch/产品/候选test/保全实际run test/宿主7项SHA与大小适用字段。REPORT34a283c8…2c62c、仪器cd744d22…323cd、宿主6132e907…a7604、产品11023464…ffc30c、候选test57477ef2…bfc16（10538197B）、保全d6a3。详细原件见<证据根>/task94-organizing-export-integration-v1/v16/ready.json。
 
 ## 所有权与改动、环境
 

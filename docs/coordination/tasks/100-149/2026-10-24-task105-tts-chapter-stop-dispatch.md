@@ -17,8 +17,8 @@
 
 所有权：ReaderTtsEffect.kt中自动续章相关最小hunk与必要同文件/同目录直接测试接缝、定向测试；可读Host/Bar/Controller/Settings但不得改这些已验文件。若有必须共享seam，列具体原因再Root处理，不顺手改timer协调器/Edge/淡出/设置/搜索/词典/桌面。直接读取host最新timedStopMinutes若框架已保证即可，不加多余状态同步/校验。修复、必要编译修正、定向红绿、交付同owner闭环。现有充分timer1/焦点8/协调器8全部复用，不重跑全量/设备。
 
-本批无ADB/设备操作、不启动新run。必要main/test编译及一次产品候选构建交实际增量，当前产品694/test960已保全，不复制；test APK无新仪器增量就不构建。产品构建前核当前SHA与已有保全，保护实际执行原件，不为新编号重打原冻结。唯一workspace E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android；Gradle home D:/develop/env/gradle，JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk，锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock，你唯一完整build owner，无其他写者。
+本批无ADB/设备操作、不启动新run。必要main/test编译及一次产品候选构建交实际增量，当前产品694/test960已保全，不复制；test APK无新仪器增量就不构建。产品构建前核当前SHA与已有保全，保护实际执行原件，不为新编号重打原冻结。唯一workspace <证据根>/task59-common-candidate-v1/candidate/android；Gradle home <开发盘>/env/gradle，JDK <开发盘>/Java/jdk-17.0.14，SDK <开发盘>/Android/Sdk，锁<证据根>/locks/android-gradle-exclusive.lock，你唯一完整build owner，无其他写者。
 
-输出E:/creation-reading-assistant/task105-tts-chapter-stop-v1，源码/最小patch/报告/必要原日志XML预算4MiB，必要build预计256MiB，APK新复制预计0。复制前查空间，不复制工程/build/.gradle/.kotlin/Gradle home/node_modules/缓存/历史证据/APK对，不硬链可写cache，不删除移动压缩迁移存量，不为行尾重排全文件或重复构建。交前后SHA/实际输入产物绑定/原红绿日志退出码XML/REPORT/ready，实际字节和保留依据/build增量是否测量在同REPORT；明确实现/离线/设备未验，原104宿主误判及旧FAIL不改绿。所有权/输入/预算冲突停依赖工作具体报告，不自扩设备或工具。无Git暂存提交pushPR发布、D产品回灌、正式库/HOLD/云部署/实体手机/关闭其他进程/私库读写。Root核后继续已有实际目标，不把单批完成当项目结束。最终最末单独写：这是任务105-v1。
+输出<证据根>/task105-tts-chapter-stop-v1，源码/最小patch/报告/必要原日志XML预算4MiB，必要build预计256MiB，APK新复制预计0。复制前查空间，不复制工程/build/.gradle/.kotlin/Gradle home/node_modules/缓存/历史证据/APK对，不硬链可写cache，不删除移动压缩迁移存量，不为行尾重排全文件或重复构建。交前后SHA/实际输入产物绑定/原红绿日志退出码XML/REPORT/ready，实际字节和保留依据/build增量是否测量在同REPORT；明确实现/离线/设备未验，原104宿主误判及旧FAIL不改绿。所有权/输入/预算冲突停依赖工作具体报告，不自扩设备或工具。无Git暂存提交pushPR发布、D产品回灌、正式库/HOLD/云部署/实体手机/关闭其他进程/私库读写。Root核后继续已有实际目标，不把单批完成当项目结束。最终最末单独写：这是任务105-v1。
 ````
 

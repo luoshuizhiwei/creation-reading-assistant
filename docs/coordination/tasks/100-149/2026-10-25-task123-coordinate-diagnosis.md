@@ -7,7 +7,7 @@
 
 独立suppressed清理错误：tearDown713，“BLOCKED:目录内文件与登记集合不一致（保留现场）”，列表两个本run TXT。05-collect显示14件已pull/missingRequired=[]，但cleanup_blocked存在、teardown cleanupBlocked故collectOk=false，summary产品KEPT_BLOCKED、原testPackageRestored=true，recoveryErrors单列collect，stop needed=false。B唯一device owner在收口报告，A不ADB/探测/安装卸载/清理/host主入口/attempt，Root也不接设备；产品/DB/fixture必须保留，不能因所有权或已pull14件就授权删除。
 
-只读输入E:/creation-reading-assistant/task123-fixture-body-repair-v1/lane-b：evidence/device/summary.json、05-collect.json、logs/20-instrument-stdout.log；实际取证evidence/instrument/t119collect/task119-results-T119V1-20261025-104138/中的first_failure、fixture_index_products、stage4_derived_coordinate、step_markers、teardown_timeline、cleanup_blocked和必要stage1/2/3。仪器冻结72207B SHA9f7261bd0058cad89d76b551fbaa2210ea832c5c5d57f965a6162b45a6bf5e22可只读，唯一E工程；按调用链必要读生产Tokenizer/索引/坐标推导源，别全工程扫。B当前没有源码修改任务，若SHA漂移停报，不覆盖。
+只读输入<证据根>/task123-fixture-body-repair-v1/lane-b：evidence/device/summary.json、05-collect.json、logs/20-instrument-stdout.log；实际取证evidence/instrument/t119collect/task119-results-T119V1-20261025-104138/中的first_failure、fixture_index_products、stage4_derived_coordinate、step_markers、teardown_timeline、cleanup_blocked和必要stage1/2/3。仪器冻结72207B SHA9f7261bd0058cad89d76b551fbaa2210ea832c5c5d57f965a6162b45a6bf5e22可只读，唯一E工程；按调用链必要读生产Tokenizer/索引/坐标推导源，别全工程扫。B当前没有源码修改任务，若SHA漂移停报，不覆盖。
 
 分别确定：1)offset3991的原始来源/坐标系（原文、规整文本、片段等）、真实查询词位置及生产与仪器哪个合同不符，确证后提供最小修复建议但不写源码；2)trackedFiles注册路径与实际列举的两个TXT为何集合不等，绝对/规范化/名称等需实际源与JSON证明，不删保护断言，哪些设备资产/DB行仍保留、唯一证据缺什么；3)当前已覆盖阶段和未运行旅程，不扩称产品失败/通过。若无法从本地原件确定，明确缺口，不新ADB追证。122/121已充分审不重复，不再核全host/JVM/编译。
 

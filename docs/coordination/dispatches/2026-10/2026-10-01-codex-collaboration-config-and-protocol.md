@@ -6,15 +6,15 @@ MEM-COLLAB-v1。来源：用户“好，先按你的想法来，结果给我看�
 
 ## 输入指纹
 
-恢复仓库HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，暂存区空。精确修改清单和前后哈希见 [changes](<E:/codex-collaboration-20261001/changes.json>)、[修改前备份manifest](<E:/codex-collaboration-20261001/backup-manifest.json>)。输入为已整理AGENTS/交接与两仓库既有config/四角色，不采用共享脏树作为产品候选。
+恢复仓库HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，暂存区空。精确修改清单和前后哈希见 [changes](<<证据盘>/codex-collaboration-20261001/changes.json>)、[修改前备份manifest](<<证据盘>/codex-collaboration-20261001/backup-manifest.json>)。输入为已整理AGENTS/交接与两仓库既有config/四角色，不采用共享脏树作为产品候选。
 
 ## 所有权与改动
 
 - 用户级及两个项目默认子智能体：GPT-6 Luna/medium；侦察与验证角色Luna/medium，实现GPT-6.1 Sol/medium，关键审查GPT-6.1 Sol/high。模型允许按风险及实际可用性调整；存量对话角色可能仍为旧快照。
 - 两仓库8角色设备规则引用活动current的当次决定，不固定手机/MuMu；精简重复读取，验证者允许只写指定报告，保护正式数据与他人修改。
-- 用户AGENTS明确总指挥维护状态；现有 [协作工作流](<D:/Application/文档/Obsidian/Codex/agent/项目指挥-完成后进度汇报.md>) 包含单框任务合同、九字段报告、状态转换、通信前置与证据复用。
+- 用户AGENTS明确总指挥维护状态；现有 [协作工作流](<<应用目录>/文档/Obsidian/Codex/agent/项目指挥-完成后进度汇报.md>) 包含单框任务合同、九字段报告、状态转换、通信前置与证据复用。
 - current任务表采用任务编号/版本、所有者、依赖、状态；项目页/TODO同步J2已交付待核。仅登记失败与哈希不一致，不改外部报告、不关单。
-- 新增 [只读协作检查](<D:/Application/文档/Obsidian/Codex/scripts/collaboration_check.py>)；只读显式活跃入口与相关角色，按需检查新报告，不遍历历史，不自动归档、改文件或启动自动任务。
+- 新增 [只读协作检查](<<应用目录>/文档/Obsidian/Codex/scripts/collaboration_check.py>)；只读显式活跃入口与相关角色，按需检查新报告，不遍历历史，不自动归档、改文件或启动自动任务。
 
 ## 环境
 
@@ -29,7 +29,7 @@ Windows，Python3.13标准库。配置语义参考 [官方子智能体文档](ht
 
 ## 原始证据
 
-[本轮核查JSON](<E:/codex-collaboration-20261001/verification.json>)；[配置增补回退记录](<E:/codex-collaboration-20261001/global-config-rollback.json>)。设备原证据沿用J2路径，本轮没有重新运行测试。
+[本轮核查JSON](<<证据盘>/codex-collaboration-20261001/verification.json>)；[配置增补回退记录](<<证据盘>/codex-collaboration-20261001/global-config-rollback.json>)。设备原证据沿用J2路径，本轮没有重新运行测试。
 
 ## 未覆盖项
 

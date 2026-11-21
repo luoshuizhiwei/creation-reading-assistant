@@ -14,7 +14,7 @@ Root 只维护 D 协调；Claude 为 E 唯一集成/构建/设备 owner。96 out
 
 实物核同：新产品 `6031b84171da640f8f454589208386db42121d0ec4f099186fde2e4bc937121b` 53826879B；98 preserved f393 `f3934d930d13c1705906db6ba743e27c2e5c67bf9f5bde1b62ff60e0da830fc9` 53826666B；96运行test `29195a4d269d81183dfbe9ad7c6898e467c01f11dd231e2b2ba5d6c6c6a4fcbe` 10560085B原件保全。没有重复构建测试。
 
-证据根：`E:/creation-reading-assistant/task96-library-settings-closure-v1/v6` 与 `E:/creation-reading-assistant/task98-tts-focus-feedback-v1/integration`，各 REPORT/ready 与上述相对路径。
+证据根：`<证据根>/task96-library-settings-closure-v1/v6` 与 `<证据根>/task98-tts-focus-feedback-v1/integration`，各 REPORT/ready 与上述相对路径。
 
 ## 恢复与副作用
 

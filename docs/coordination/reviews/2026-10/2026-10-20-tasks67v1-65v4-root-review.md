@@ -21,8 +21,8 @@ Root实证新缺陷：既有63 Room仪器原文OK(4 tests)且INSTRUMENTATION_COD
 另一个真实main反例：入场无serial的pm list返回rc1/no devices，67忽略探测错误仍install2次、运行2仪器并exit0。原测试FakeDevice恰对无serial探测返回rc0空，掩盖该现场风险。记录在junit-real-output-red-green.json，全部调用被替换，无真实ADB/设备。
 
 ## 原始证据
-E:/creation-reading-assistant/task67-recovery-runner-v1的REPORT/ready、runner、tests、recovery-verify原回执；Root新增adoption-checks.json、junit-real-output-red-green.json及fixtures/logs保留。
-E:/creation-reading-assistant/task65-reading-material-flow-v1/v4的REPORT/ready、两个源码与patch、static-checks；未运行会覆盖原结果的验证脚本。
+<证据根>/task67-recovery-runner-v1的REPORT/ready、runner、tests、recovery-verify原回执；Root新增adoption-checks.json、junit-real-output-red-green.json及fixtures/logs保留。
+<证据根>/task65-reading-material-flow-v1/v4的REPORT/ready、两个源码与patch、static-checks；未运行会覆盖原结果的验证脚本。
 
 ## 未覆盖项
 67仍非设备合格执行器：安装前探测没有-s且在启动绑定前、rc非0未阻塞；未知/外部已启动实例未拒而继续绑定安装；preflight所谓动态依赖只检查adb/MuMu文件存在，没有实际工具绑定/完整冻结；预算只把各段上限相加写JSON，没有总截止与恢复资源控制；_finish仍直接卸载包，没有阶段/应用证据归档与size/SHA、71/820入场末态、设置恢复、tmp/SAF创建物后账；卸载异常可能有条件误放、安装超时产生的部分副作用未核。不能因“只卸载本轮安装”消除删除前取证义务。

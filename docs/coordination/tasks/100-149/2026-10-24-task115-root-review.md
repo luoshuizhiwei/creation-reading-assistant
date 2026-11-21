@@ -7,7 +7,7 @@
 官方Start Plan GLM-5.3，ZCode唯一E仪器hostbuilddevice owner；Root D。仅精确pill-delete配对及多root采集，产品6a不改。MuMu1模拟器非实体手机。115最小patch15bf07a6eebc664d1ae0e73d4d4ad2bfc3db7b88d945add21bca0d4ccfd815ba/11868B，Root读hunk与实际源码。补114 baseline1fc0747b/27714B和366c2f32/33825B原字节SHA核同，补114patch717126c94002f46d7fdece9e670210ec20e82e5ee6b4e8016242ffff219a8e0f/10986B，冻结114未修改。
 
 ## 执行与结果、原始证据
-原stdout1test1failure/9.288s，host142.9877s，一次attempt耗尽。03compile15s/04assemble8s原exit0，01编译失败保留。原件E:/creation-reading-assistant/task115-saved-view-delete-target-fix-v1。
+原stdout1test1failure/9.288s，host142.9877s，一次attempt耗尽。03compile15s/04assemble8s原exit0，01编译失败保留。原件<证据根>/task115-saved-view-delete-target-fix-v1。
 Root直接核71共享parent415 children顺序：control447→delete449→target523→delete525，双方唯一且不同，实际点击525。71/72多root树存在，rootCount2；treeChars16416与Python字符计数16418为UTF16/Unicode计数差，不是截断证据。73/74仍无tree（includeTree默认false），不能宣称四阶段完整树均已交；其余观测与四段Store均存在。
 71 Store515B SHAfbf23aac0ddf57f4c1813a67aeb0bd09debe5186b67138724e74525f80857cec；72/73/74均253B SHA366f3ce2da0e99d17eebc8a690cb1a256bdef648a163d4826d469a738d03a853。70原件目标pill false/对照true，Store目标false/对照true，全部70原断言通过，精确删除子链接受。
 80 pressBack后标题缺席等待通过，但:321 shelf-filter-summary节点0失败。未保存pressBack后完整树/Activity生命周期；只能确认入口丢失，报告“Activity已退出/标准行为”是未确证推断，不宣称产品back正常或有缺陷。Root核ShelfRoute:506-509实际onApplySaved调用apply后showFilterPanel=false，提供确定真实UI关闭路径。116可套用现已相同的control组合关闭后重开，必须记录这一路径，不冒充系统Back验收。

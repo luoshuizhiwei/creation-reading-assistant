@@ -2,7 +2,7 @@
 
 - 日期：2026-09-10
 - 报告人：WorkBuddy（接收「剩余原生 Android 开发」交接）
-- 工作目录：`D:/develop/Code/Codex/creation-reading-assistant`
+- 工作目录：`<旧仓库>`
 - 切片定位：J1（返回阅读处 / 跳转历史 / 临时查阅）的 **I.1 子切片 = 新鲜门禁 + 生产调用点接线审计**，不改产品行为。
 
 ---

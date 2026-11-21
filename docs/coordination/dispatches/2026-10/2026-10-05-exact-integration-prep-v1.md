@@ -76,10 +76,10 @@ ReaderScrollPositionTest.kt 在 978 清单内且与候选一致，不属于待�
 
 ## 原始证据
 
-- [integration-manifest.json](<E:/creation-reading-assistant/exact-integration-prep-v1/integration-manifest.json>) —— 980 条目逐文件清单（路径/D 当前 SHA/候选 SHA/类别/必要 hunk/依据/共享 WIP 交集与处理）
-- [diffs/INDEX.md](<E:/creation-reading-assistant/exact-integration-prep-v1/diffs/INDEX.md>) —— 13 个 HEAD→候选统一 diff + 6 个冲突块提取
+- [integration-manifest.json](<<证据根>/exact-integration-prep-v1/integration-manifest.json>) —— 980 条目逐文件清单（路径/D 当前 SHA/候选 SHA/类别/必要 hunk/依据/共享 WIP 交集与处理）
+- [diffs/INDEX.md](<<证据根>/exact-integration-prep-v1/diffs/INDEX.md>) —— 13 个 HEAD→候选统一 diff + 6 个冲突块提取
 - 分析中间产物：`normalized-merge-analysis.json`、`line-ending-analysis.json`、`hunk-analysis.json`、`normalized-merges/`、`_scan_delta.py`、`_scan_donly.py`、`_gen_manifest.py`、`_gen_diffs.py`（均在本任务目录）
-- 输入：[verification.json](<E:/creation-reading-assistant/unified-v1-codex-review-20261005/verification.json>)、[TXT-v3 freeze](<E:/creation-reading-assistant/txt-reentry-fix-v3/freeze/source-sha256.json>)、[统一候选](<E:/creation-reading-assistant/unified-candidate-integration-v1/android>)
+- 输入：[verification.json](<<证据根>/unified-v1-codex-review-20261005/verification.json>)、[TXT-v3 freeze](<<证据根>/txt-reentry-fix-v3/freeze/source-sha256.json>)、[统一候选](<<证据根>/unified-candidate-integration-v1/android>)
 
 ## 恢复与副作用
 

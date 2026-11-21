@@ -3,7 +3,7 @@
 2026-10-26 香港；原142 owner，同Claude global Flash。不是重派142-v1。Root读实际499行patch/REPORT、原JVM及compile日志、XML；4目标绿/11s androidTest compile仅按事实接受，生产闭环未接受。
 
 ````text
-唯一工程 E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android。基线142后VM53115B/077e0c7ff7480f23ba90fabc73262fd72cf4d1b953455b8b3b7e51d50e4cfa36，Screen46336B/0b31b3ade9d09e418b2e27562de321f971ea15a92a7631c086d116a87fae5db5，Route16158B/3c0cd8bd9b6cd09629b5d8691d9072b53eb5a10fd3c644ea01c286106030ed75，VMTest90028B/dc7837ed542cab69084351204ed3d157c9b7b1b4a1dc6e0e67acda26d3d9e1d8。原142交付与141红冻结不改，先核当前指纹，冲突停。
+唯一工程 <证据根>/task59-common-candidate-v1/candidate/android。基线142后VM53115B/077e0c7ff7480f23ba90fabc73262fd72cf4d1b953455b8b3b7e51d50e4cfa36，Screen46336B/0b31b3ade9d09e418b2e27562de321f971ea15a92a7631c086d116a87fae5db5，Route16158B/3c0cd8bd9b6cd09629b5d8691d9072b53eb5a10fd3c644ea01c286106030ed75，VMTest90028B/dc7837ed542cab69084351204ed3d157c9b7b1b4a1dc6e0e67acda26d3d9e1d8。原142交付与141红冻结不改，先核当前指纹，冲突停。
 
 只修以下真实缺口，不泛审/扩框架：
 1. ReaderExitBoundary捕获CancellationException直接throw，onFailure未调用，和REPORT“失败/取消原异常反馈”不符。区分保存自身取消与退出协程自身被取消；保存取消必须留reader、通过既有错误路径可观察原因；自身取消保留协程取消语义。awaitProgressSaves当前清空failure后throw，下一次空保存退出可假成功，须保证失败/取消未真正修复前不以消费错误当drained，定义可重试语义并用实测证明。不得永久无解卡死或静默成功。
@@ -15,7 +15,7 @@
 
 仅新改目标JVM必要红绿，保留新增fixture编译红并由同owner闭环；若生产接线变化，一次必要compileDebugAndroidTestKotlin。无全VMTest/全JVM/lint/assemble/device。原APK74d106b6/test28173170冻结，不包含修复。Root不build/ADB。冲突/必须超范围准确BLOCKED。
 
-交付 E:/creation-reading-assistant/task142-reader-exit-save-drain-v1/recheck-r1/ready.json，修正patch相对142-v1、最终必要patch/REPORT、前后SHA、目标原log/XML与编译raw。原142目录原件不修改，引用不复制历史。差量1MiB/raw2MiB，25分钟，只本批独占Gradle；B仅隔离草稿核查，不竞争。禁止Git暂存commit/push/PR发布、云、正式库、任何ADB/VM/安装设置/hostmain/attempt/F1、旧资产删移压迁、其他进程处置、任何私库/自动记忆。
+交付 <证据根>/task142-reader-exit-save-drain-v1/recheck-r1/ready.json，修正patch相对142-v1、最终必要patch/REPORT、前后SHA、目标原log/XML与编译raw。原142目录原件不修改，引用不复制历史。差量1MiB/raw2MiB，25分钟，只本批独占Gradle；B仅隔离草稿核查，不竞争。禁止Git暂存commit/push/PR发布、云、正式库、任何ADB/VM/安装设置/hostmain/attempt/F1、旧资产删移压迁、其他进程处置、任何私库/自动记忆。
 
 报告如实区分源码修正/定向JVM/未设备；不要以4绿宣称真实页面设备通过。完成等待Root核实际边界，不自动下一批。最终用户总结末行：这是任务142-r1。
 ````

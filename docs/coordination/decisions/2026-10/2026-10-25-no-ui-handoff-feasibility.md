@@ -4,7 +4,7 @@
 
 ## 已核事实
 
-- PATH存在C:/Users/23254/.local/bin/claude.exe，本地--version为2.1.296 (Claude Code)。
+- PATH存在<用户目录>/.local/bin/claude.exe，本地--version为2.1.296 (Claude Code)。
 - --help明确支持-p/--print、--resume、--model、--bare、--no-session-persistence。
 - 本地帮助和官方文档均表明：print是非交互入口；bare跳过hooks/自动记忆/CLAUDE.md发现，但不沿用订阅OAuth/keychain登录，需要明确API或provider认证。
 - 官方来源：https://code.claude.com/docs/en/cli-reference 与 https://code.claude.com/docs/en/headless （本轮已打开核对）。

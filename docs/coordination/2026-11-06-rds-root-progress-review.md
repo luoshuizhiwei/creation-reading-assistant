@@ -4,7 +4,7 @@
 
 ## 实核结果
 
-- 当前实际 APK：`E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android/app/build/outputs/apk/debug/app-debug.apk`，53,900,372B，Root 复算 SHA256 `f684d8cae38996fcb688723287abd750f4dc1f252d450e50cb20e3cb2c00ae47`，与 NEXT-v2 的最终版本一致。原 c396ebe1 字节未保全的限制继续披露，不能由相同大小推断旧包身份。
+- 当前实际 APK：`<证据根>/task59-common-candidate-v1/candidate/android/app/build/outputs/apk/debug/app-debug.apk`，53,900,372B，Root 复算 SHA256 `f684d8cae38996fcb688723287abd750f4dc1f252d450e50cb20e3cb2c00ae47`，与 NEXT-v2 的最终版本一致。原 c396ebe1 字节未保全的限制继续披露，不能由相同大小推断旧包身份。
 - 实际改动：D 树 PagedTxtReaderHost.kt 增 ON_RESUME 重锚及生产判定函数；新增 PagedTxtReaderResumeReanchorDecisionTest.kt。读取已有 targeted-tests-result/assemble-result 与日志均 rc=0/BUILD SUCCESSFUL。candidate 测试 XML：ResumeReanchorDecision 6 项、PagedPositionReport 6 项，均 failures=errors=0。该测试是决策层回归，不证明所有生命周期调度。
 - 同输入设备原证：`evidence/R3/r3-p1.xml`、after-home、home35s、reopen、cold-reopen 均显示测试 MD 的 4.4%；home-p0 显示 0.0%；TXT home 为 16.2%。`r3-logcat-full.log` 可见 absoluteOffset=192 持久化、savedPlainOffset=192、open target=192 及新 PID 重开链。原失败 offset=192 被清零记录保留。**限定接受该手机、该构建、这些输入的 MD 修复复验，不再要求重做同一证据。**
 - installed SHA 对照与设备最终恢复沿用实施记录和 Trae 相应核验；本轮未连接设备重新采集。日志无 FATAL 的结论只限已捕获窗口。

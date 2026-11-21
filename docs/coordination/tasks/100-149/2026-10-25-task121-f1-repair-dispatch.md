@@ -13,7 +13,7 @@
 
 ## A 全球DeepSeek：并行host独立安全审核，随后审F1实际delta
 ````text
-接续121-v1 A，Root已核你F1静态发现及B实际host准备。B现在独占AppNavigation最小F1修复与一次必要Kotlin编译，你不改源码、不build/ADB，保持原lane只读审查。利用独立时间核B冻结host121.py（E:/creation-reading-assistant/task121-local-deepseek-closure-v1/lane-b/scripts/host121.py，23994B SHA2222537e7465a0ad290309d78d8ed6bfa5f9d6b7c55d31897bad7236a9f5e10d）相对host117基线df3ab14082a05d824a37c8f64756fc691af07eaf0fe882d000ea0c6eae812b34的必要delta，以及直接依赖保护适配器少量必要段落，不读全历史。重点真实119 class/runId/唯一方法/目录collect/成功原件绑定，入场失败算一次attempt、finally恢复不丢首错、collect/清理错独立、71/820/DBWALSHM/原宿主test完整数据用户状态/night保护、未知资产不删、不会引用旧6a/83d冒充新源码、缺输入严格拒绝不静默fallback；具体可执行命令与状态捕获是否符合合同。只给真实触发风险不泛审计，不跑脚本主入口、不import可能有副作用host，静态核必要内容即可。
+接续121-v1 A，Root已核你F1静态发现及B实际host准备。B现在独占AppNavigation最小F1修复与一次必要Kotlin编译，你不改源码、不build/ADB，保持原lane只读审查。利用独立时间核B冻结host121.py（<证据根>/task121-local-deepseek-closure-v1/lane-b/scripts/host121.py，23994B SHA2222537e7465a0ad290309d78d8ed6bfa5f9d6b7c55d31897bad7236a9f5e10d）相对host117基线df3ab14082a05d824a37c8f64756fc691af07eaf0fe882d000ea0c6eae812b34的必要delta，以及直接依赖保护适配器少量必要段落，不读全历史。重点真实119 class/runId/唯一方法/目录collect/成功原件绑定，入场失败算一次attempt、finally恢复不丢首错、collect/清理错独立、71/820/DBWALSHM/原宿主test完整数据用户状态/night保护、未知资产不删、不会引用旧6a/83d冒充新源码、缺输入严格拒绝不静默fallback；具体可执行命令与状态捕获是否符合合同。只给真实触发风险不泛审计，不跑脚本主入口、不import可能有副作用host，静态核必要内容即可。
 
 输出lane-a/host-review/REPORT.md和ready.json，≤1MiB，精确host SHA/结论/发现/必要B修复范围。B修F1同时你审host，文件互斥，不互相等待。完成host审后，若lane-b/f1-repair/ready.json已经存在，直接核AppNavigation实际最小delta并给F1终审补充；若未出先报告host结果后等待Root接续，不自己轮询空转或新造任务。null回退Home不应触发会话清理；不假定LaunchedEffect前后调度已运行时证明，不要求系统字体密度改动来造复现，不改旧J1/扩大设备矩阵。保留F1静态/编译/设备层级。原私库/自动记忆/Git/源码buildADB/D写边界不变。最后：这是任务121-v1 A-host。
 ````

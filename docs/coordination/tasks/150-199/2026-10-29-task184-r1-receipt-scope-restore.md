@@ -1,6 +1,6 @@
 # 任务184-r1：修回执真实scope和绑定还原，严格离线
 
-原184 owner同会话，15分钟自本全文实际发送起评估。只新 E:/creation-reading-assistant/task184-strict-keepalive-entry-offline-v1/recheck-r1/，唯一ready.json。旧v1/原始红/所有历史证据不改。Root独占state/current。当前无第二必要独立任务；183构建已接受不重刷，设备业务尚未授权。
+原184 owner同会话，15分钟自本全文实际发送起评估。只新 <证据根>/task184-strict-keepalive-entry-offline-v1/recheck-r1/，唯一ready.json。旧v1/原始红/所有历史证据不改。Root独占state/current。当前无第二必要独立任务；183构建已接受不重刷，设备业务尚未授权。
 
 ## Root验收与具体退回
 

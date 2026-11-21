@@ -21,7 +21,7 @@
 5. freeze 测试 APK 实算 b46ce1af6e58adb7d48986cb63a3c50ba9d496cb555ca60ff0ff329ed067f947，installed-apk-sha 记录却为 9c6e9f430c0c082e7cb3832ce15b546bf4d9bae799f458b858f4bb4325ad0f50。宿主一致。需要每批驱动/安装/日志关联，不能把最终重建 APK 追溯绑定所有旧运行。
 6. 原始 run index 40 条为 19 PASS、11 FAIL、10 OTHER；40/40 日志 SHA 一致。11 次调试失败保留，19 个 PASS 不是 19 项功能合同。恢复前后持久文件 53/53 相同；原 APK 格式不同，但 package+SHA 3/3 相同；八项设置相同，包括密度 280、night yes。该结论来自落盘前后账，未在本轮重新读取在线设备。新 UID 卸载不等于实测 KeyStore 绝对零残留；公共诊断临时文件清理需按本批实际路径确认。
 
-原始报告：[阅读旅程 v1](../../../qa/2026-10/2026-10-03-next-read-note-journey-accept-v1.md)。Root 独立核对输出：[audit.json](<E:/creation-reading-assistant/reader-rollback-review-20261003/audit.json>)；两份 green、两份 red XML SHA 与恢复语义比较见该文件。
+原始报告：[阅读旅程 v1](../../../qa/2026-10/2026-10-03-next-read-note-journey-accept-v1.md)。Root 独立核对输出：[audit.json](<<证据根>/reader-rollback-review-20261003/audit.json>)；两份 green、两份 red XML SHA 与恢复语义比较见该文件。
 
 ## 规划复核与下一步
 

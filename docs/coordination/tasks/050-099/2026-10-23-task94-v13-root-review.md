@@ -2,7 +2,7 @@
 
 ## 任务编号/版本、输入指纹
 
-2026-10-23 15:11后，94-v13部分交付已核；REPORT/三份源码/仪器patch/产品及test/两保全APK/宿主共10项SHA大小（适用）核同，另640B导出原字节SHA `242435c0545524755ce7437f0694e15d30c9a382f1474582da04564d5c389aa3`核同。产品11023464…ffc30c未变；实际主run test28d1d518…978bd（10530807B），仪器4bd32673…afaa6，通道0db387ee…86875，Probe dad52088…f81e3，宿主c11d57b6…98057。源与保全详细路径见E:/creation-reading-assistant/task94-organizing-export-integration-v1/v13/ready.json。
+2026-10-23 15:11后，94-v13部分交付已核；REPORT/三份源码/仪器patch/产品及test/两保全APK/宿主共10项SHA大小（适用）核同，另640B导出原字节SHA `242435c0545524755ce7437f0694e15d30c9a382f1474582da04564d5c389aa3`核同。产品11023464…ffc30c未变；实际主run test28d1d518…978bd（10530807B），仪器4bd32673…afaa6，通道0db387ee…86875，Probe dad52088…f81e3，宿主c11d57b6…98057。源与保全详细路径见<证据根>/task94-organizing-export-integration-v1/v13/ready.json。
 
 ## 所有权与改动、环境
 

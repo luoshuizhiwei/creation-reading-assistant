@@ -8,11 +8,11 @@ Codex-review-J2v3-W1-v1，2026-10-01；来源：用户“都完成了”。J2-v3
 
 - HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，暂存区空。
 - 当前候选仍J1-v2；宿主SHA `ea68aa16038eba81715c719bca4b9df72887faa5b4c91688419ccfe0a95b67f8`、测试SHA `83380dd46f8858ccdec62d217c0967dc1371bc80e6812bc74ecf22ce14332fa8`。J2-v3完整实装回读日志与这些值一致。
-- W1六工件SHA全部重新核对一致；ZIP/JSON可解析且符合数组/信封基本结构。具体值见[审计输出](<E:/creation-reading-assistant/next-j2v3-w1-codex-review-20261001/verification.json>)。
+- W1六工件SHA全部重新核对一致；ZIP/JSON可解析且符合数组/信封基本结构。具体值见[审计输出](<<证据根>/next-j2v3-w1-codex-review-20261001/verification.json>)。
 
 ## 所有权与改动
 
-仅新报告、current.md、Codex项目页/TODO及E盘审计/自检副本；原报告、证据、源码、freeze未改。文档[回退副本](<E:/creation-reading-assistant/next-j2v3-w1-codex-review-20261001/before>)。外部任务停止状态由用户完成声明及报告停止点支持，下轮仍核活动作业，避免设备冲突。
+仅新报告、current.md、Codex项目页/TODO及E盘审计/自检副本；原报告、证据、源码、freeze未改。文档[回退副本](<<证据根>/next-j2v3-w1-codex-review-20261001/before>)。外部任务停止状态由用户完成声明及报告停止点支持，下轮仍核活动作业，避免设备冲突。
 
 ## 环境
 
@@ -39,9 +39,9 @@ W1受控服务在新副本重跑27/27，exit0；证明协议场景、追加日�
 
 ## 原始证据
 
-- [审计输出](<E:/creation-reading-assistant/next-j2v3-w1-codex-review-20261001/verification.json>) / [W1独立重跑日志](<E:/creation-reading-assistant/next-j2v3-w1-codex-review-20261001/w1-selfcheck-rerun.log>)。
-- [J2-v3原报告](../../../qa/2026-10/2026-10-01-next-j2-v3-room-mumu-acceptance.md) / [原仪器日志](<E:/creation-reading-assistant/next-round-j2-v3-room-acceptance/test_run/instrumentation_raw.log>) / [原恢复清单](<E:/creation-reading-assistant/next-round-j2-v3-room-acceptance/post_recovery/recovery_reconciliation_summary.json>)。
-- [W1-v1原报告](../../dispatches/2026-10/2026-10-01-next-w1-webdav-fixtures.md) / [原操作说明](<E:/creation-reading-assistant/next-round-w1-webdav-fixtures/README-operations.md>)。
+- [审计输出](<<证据根>/next-j2v3-w1-codex-review-20261001/verification.json>) / [W1独立重跑日志](<<证据根>/next-j2v3-w1-codex-review-20261001/w1-selfcheck-rerun.log>)。
+- [J2-v3原报告](../../../qa/2026-10/2026-10-01-next-j2-v3-room-mumu-acceptance.md) / [原仪器日志](<<证据根>/next-round-j2-v3-room-acceptance/test_run/instrumentation_raw.log>) / [原恢复清单](<<证据根>/next-round-j2-v3-room-acceptance/post_recovery/recovery_reconciliation_summary.json>)。
+- [W1-v1原报告](../../dispatches/2026-10/2026-10-01-next-w1-webdav-fixtures.md) / [原操作说明](<<证据根>/next-round-w1-webdav-fixtures/README-operations.md>)。
 
 ## 未覆盖项
 

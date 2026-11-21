@@ -1,6 +1,6 @@
 # 209-v1（C5）：导航剩余运行覆盖矩阵与图/生产测试独立runner适配（待授权）
 
-2026-10-31。208-v1已按C2第1行接受（业务PASS单方法+恢复可核，见`E:/creation-reading-assistant/task208-ordinary-reopen-fresh-device-v1/REPORT.md`）。本卡是手册§9(C5)的落地任务文档；**准备阶段只读，设备执行需用户对本卡明确授权后另记批次**。
+2026-10-31。208-v1已按C2第1行接受（业务PASS单方法+恢复可核，见`<证据根>/task208-ordinary-reopen-fresh-device-v1/REPORT.md`）。本卡是手册§9(C5)的落地任务文档；**准备阶段只读，设备执行需用户对本卡明确授权后另记批次**。
 
 ## 目标（可观察结果）
 
@@ -10,14 +10,14 @@
 
 ## 输入与SHA
 
-- 208报告/ready：`E:/creation-reading-assistant/task208-ordinary-reopen-fresh-device-v1/`（业务PASS原证路径见其REPORT §4/§5）。
-- 207-r4：`E:/creation-reading-assistant/task207-reader-exit-stack-repair-v1/recheck-r4/`（图测试`d2a08684…`、生产测试`811cae6d…`、APK对`c396ebe1…`/`e4b7b70b…`）。
+- 208报告/ready：`<证据根>/task208-ordinary-reopen-fresh-device-v1/`（业务PASS原证路径见其REPORT §4/§5）。
+- 207-r4：`<证据根>/task207-reader-exit-stack-repair-v1/recheck-r4/`（图测试`d2a08684…`、生产测试`811cae6d…`、APK对`c396ebe1…`/`e4b7b70b…`）。
 - 冻结机制：`collector192.py`（`9e406c88…`）、`host192.py`（`1e47afdc…`）只读；179r3/184r2/166机制只读。
 
 ## 所有权与权限
 
 - 唯一candidate/Gradle owner独立（若有并行工作互斥）；本卡离线阶段不占设备。
-- 可写：新任务根`E:/creation-reading-assistant/task209-navigation-coverage-v1/`（矩阵+runner适配源+raw）；冻结host/collector/consumer不可写。
+- 可写：新任务根`<证据根>/task209-navigation-coverage-v1/`（矩阵+runner适配源+raw）；冻结host/collector/consumer不可写。
 - 无设备/ADB/VM/Git/删移/记忆许可直到用户对本卡设备批明确授权；图测试7项+生产UI 1项的设备执行需独立合同与fresh全套机制（照208模式：fresh179r3+26role+166恢复）。
 
 ## 验证与交付

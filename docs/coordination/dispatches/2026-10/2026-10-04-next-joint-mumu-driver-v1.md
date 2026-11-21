@@ -78,7 +78,7 @@ joint_driver.py
 ### 5.2 离线门禁（55 用例，0 失败）
 
 ```
-cd E:/creation-reading-assistant/next-round-joint-mumu-driver-v1
+cd <证据根>/next-round-joint-mumu-driver-v1
 python -B offline_test.py      →  {"tests": 55, "failures": 0, "no_device_calls": true, "runner_reused_byte_identical": true}
 ```
 

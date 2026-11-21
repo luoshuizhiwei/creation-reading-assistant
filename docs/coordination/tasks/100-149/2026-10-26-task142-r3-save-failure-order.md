@@ -9,7 +9,7 @@
 
 先根因/失败证据再局部最小修复原VM记账，不新增failure-generation/wakeup框架，不改ReaderProgressSaveOrder排序/Repository。保留首个原异常因果可观察，但不能丢更新失败的覆盖边界；避免把“某次成功”当“全部失败已解决”。不为一次性测试造工具框架。若必须超出范围准确BLOCKED。
 
-唯一工程E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android。先核VM54725B/48bcefab85842eac8f4c842781f5376d7ff51d71e1f561c43396619522c289c0与VMTest97630B/cf731c0e254929a92bb17f3843f602aeee31868992547af8d21106bf2c2dc901。只VM进度保存记账+必要定向测试；其他reader接线、Search/B草稿、host/inputs/APK/公共配置/deps均不动。原142/r1/r2/141所有红绿交付冻结，新E:/creation-reading-assistant/task142-reader-exit-save-drain-v1/recheck-r3/ready.json，最小patch相对r2、前后SHA、REPORT、必要新case红绿及最终本批目标XML/raw；原六目标+新顺序case定向验证，不全类/全JVM/lint。生产变化后一次必要compileDebugAndroidTestKotlin，无assemble/设备/APK。15分钟，差量256KiB/raw1MiB；不复制工程缓存APKs历史。
+唯一工程<证据根>/task59-common-candidate-v1/candidate/android。先核VM54725B/48bcefab85842eac8f4c842781f5376d7ff51d71e1f561c43396619522c289c0与VMTest97630B/cf731c0e254929a92bb17f3843f602aeee31868992547af8d21106bf2c2dc901。只VM进度保存记账+必要定向测试；其他reader接线、Search/B草稿、host/inputs/APK/公共配置/deps均不动。原142/r1/r2/141所有红绿交付冻结，新<证据根>/task142-reader-exit-save-drain-v1/recheck-r3/ready.json，最小patch相对r2、前后SHA、REPORT、必要新case红绿及最终本批目标XML/raw；原六目标+新顺序case定向验证，不全类/全JVM/lint。生产变化后一次必要compileDebugAndroidTestKotlin，无assemble/设备/APK。15分钟，差量256KiB/raw1MiB；不复制工程缓存APKs历史。
 
 无Git暂存commit push PR发布/云/正式库/私库自动记忆/任何ADB VM探测启停安装设置hostmain attempt F1/旧资产删移压迁或其他进程处置。Root不旁路build/ADB。B集成仍等待该唯一Gradle资源，不造泛审并行。当前产品74d106b6/test28173170冻结不含修复；离线通过不设备通过。完成后等Root核，不自动后批。最终总结末行：这是任务142-r3。
 ````

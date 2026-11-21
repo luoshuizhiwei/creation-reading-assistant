@@ -4,7 +4,7 @@
 CRA-MD-PAGED-AND-MANIFEST-CODEX-REVIEW-v1；2026-10-04。两项外部交付已落盘，尚未全部验收关闭。
 
 ## 输入指纹
-恢复仓库 HEAD `e39a78da9c62f02614207cffb36969a32492eaea`、暂存区空。分页基线 `E:/creation-reading-assistant/next-round-joint-final-v3/android`；修复候选 `E:/creation-reading-assistant/next-round-md-paged-chapter-fix-v1/android`。清单绑定旧 final-v3，并未包含本次分页修复。
+恢复仓库 HEAD `e39a78da9c62f02614207cffb36969a32492eaea`、暂存区空。分页基线 `<证据根>/next-round-joint-final-v3/android`；修复候选 `<证据根>/next-round-md-paged-chapter-fix-v1/android`。清单绑定旧 final-v3，并未包含本次分页修复。
 
 ## 所有权与改动
 
@@ -28,8 +28,8 @@ MuMu serial `127.0.0.1:16416`，1080×1920、280dpi 竖屏宽布局。不能当�
 
 ## 原始证据
 - [分页原报告](../../dispatches/2026-10/2026-10-04-next-md-paged-chapter-fix-v1.md)。原件有恢复口径问题，以下独立核查优先。
-- [修复及原始证据](<E:/creation-reading-assistant/next-round-md-paged-chapter-fix-v1/>)：freeze、logs/jvm-red.log、logs/mdpaged-seam-diag3.log、android/app/build/test-results/testQahostUnitTest、device-mdpc-final-b/f 的 raw、db-results、ui、baseline、adb-readback、restore、summary。
-- [原清单报告](../../dispatches/2026-10/2026-10-04-next-joint-integration-manifest-v1.md)、[清单工件](<E:/creation-reading-assistant/next-round-joint-integration-manifest-v1/>)。本报告分类依据原manifest/summary逐类计数，不把Git归一化hash当原始字节SHA。
+- [修复及原始证据](<<证据根>/next-round-md-paged-chapter-fix-v1/>)：freeze、logs/jvm-red.log、logs/mdpaged-seam-diag3.log、android/app/build/test-results/testQahostUnitTest、device-mdpc-final-b/f 的 raw、db-results、ui、baseline、adb-readback、restore、summary。
+- [原清单报告](../../dispatches/2026-10/2026-10-04-next-joint-integration-manifest-v1.md)、[清单工件](<<证据根>/next-round-joint-integration-manifest-v1/>)。本报告分类依据原manifest/summary逐类计数，不把Git归一化hash当原始字节SHA。
 
 ## 恢复与副作用
 - b/f baseline与末次原始readback独立比对：原qahost71/71文件一致、原测试包0/0一致；APK对保持。七项设置在各批driver finally时一致，测试UID包/数据缺失已核原件，转发为空。

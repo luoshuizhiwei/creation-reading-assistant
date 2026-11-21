@@ -2,7 +2,7 @@
 
 ## 任务编号/版本、输入指纹、环境
 
-94-v5，2026-10-23香港时间。唯一task59工作区、既有依赖/锁不变。产品fac29/测试d80/仪器3cba未变，不重建、不重跑69项。E交付为`E:/creation-reading-assistant/task94-organizing-export-integration-v1/v5`，inputs.json绑定21项真实输入及恢复原件。
+94-v5，2026-10-23香港时间。唯一task59工作区、既有依赖/锁不变。产品fac29/测试d80/仪器3cba未变，不重建、不重跑69项。E交付为`<证据根>/task94-organizing-export-integration-v1/v5`，inputs.json绑定21项真实输入及恢复原件。
 
 ## 所有权与改动
 

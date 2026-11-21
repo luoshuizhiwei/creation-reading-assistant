@@ -1,8 +1,8 @@
 # 任务162-v1：原MuMu实例启动失败的只读定位（不再次启动）
 
-A160-r1现已交BLOCKED_GUEST_BOOT_FAILED，新恢复数据操作未发生；本任务只读定位这一具体外部阻塞，与B161-r1离线host差量独立。只写E:/creation-reading-assistant/task162-mumu-boot-readonly-v1/，不运行设备/VM控制/launch/stop/重启/安装卸载instrument/Gradle，不pause/kill任何背景进程，不改系统/BIOS/Hyper-V/VMP/安全隐私/网络/VM配置/磁盘映像，不清理旧资产。缺证如实，不为证明CPU猜测做干预。
+A160-r1现已交BLOCKED_GUEST_BOOT_FAILED，新恢复数据操作未发生；本任务只读定位这一具体外部阻塞，与B161-r1离线host差量独立。只写<证据根>/task162-mumu-boot-readonly-v1/，不运行设备/VM控制/launch/stop/重启/安装卸载instrument/Gradle，不pause/kill任何背景进程，不改系统/BIOS/Hyper-V/VMP/安全隐私/网络/VM配置/磁盘映像，不清理旧资产。缺证如实，不为证明CPU猜测做干预。
 
-固定基线E:/creation-reading-assistant/task160-writer-revival-recover-only-v1/recheck-r1/ready.json7249B SHA fbe565f64db221e2c26b8c47335dd01338e064db4fed6cafc5afde49bd8e82ba；真实preflight01旧158manager created_timestamp1777974446694936与当前同，vm_config SHA bb3f1b52aea1ae5c1ed757e250cf34bd79535f6e035ca7636ad35f2d9e9cc7b6，原持久实例连续性成立。preflight02官方原instance1单次launch rc0/managererrcode0，但后is_android_startedfalse/RERR_CHECK_ERROR1/adb空/boot等待未attached，07blocked，stop/uninstall/install/instrument均0。原VM当前process_startedtrue不等Android已开机，不能再launch/restart。
+固定基线<证据根>/task160-writer-revival-recover-only-v1/recheck-r1/ready.json7249B SHA fbe565f64db221e2c26b8c47335dd01338e064db4fed6cafc5afde49bd8e82ba；真实preflight01旧158manager created_timestamp1777974446694936与当前同，vm_config SHA bb3f1b52aea1ae5c1ed757e250cf34bd79535f6e035ca7636ad35f2d9e9cc7b6，原持久实例连续性成立。preflight02官方原instance1单次launch rc0/managererrcode0，但后is_android_startedfalse/RERR_CHECK_ERROR1/adb空/boot等待未attached，07blocked，stop/uninstall/install/instrument均0。原VM当前process_startedtrue不等Android已开机，不能再launch/restart。
 
 Root/Luna已核VBox.log现92,586B尾部VM00:05:19 ACPI reset、00:05:21再RUNNING、BIOS Booting from Hard Disk及unmapped ELDL83。只证明VM/BIOS侧复位与引导停滞，不直接证明具体原因。160r1报告称Wallpaper Engine导致启动失败是过强因果：现存单快照hostLoad97%/24逻辑核、PID6812累计CPU56604.92s及start11:52:13，按采样12:52:47生命周期均值约15.6核，不是故障窗口区间CPU率，且无反事实。原报告冻结不改，新assessment更正为可能竞争因素/因果未证。154历史数据保全缺口与158业务四PASS/overallfalse不变不补造。
 

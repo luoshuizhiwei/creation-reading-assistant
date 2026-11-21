@@ -56,7 +56,7 @@ P0「索引构建分片/续建」已修复并通过**静态 + 真机整库终验
 
 ### 2.1 整库跑通真机验证（★已完成）
 - 触发方式：`am force-stop` + 删 `no_backup/androidx.work.workdb*` + `monkey` 冷启动（已执行）。
-- 监控脚本：`C:/Users/23254/AppData/Local/Temp/cra-db2/monitor_final.py`（后台运行，每 90s 采样 workdb 状态 + DB 体积，跑完自动拉库取证写入 `monitor_final.log`）。
+- 监控脚本：`<用户目录>/AppData/Local/Temp/cra-db2/monitor_final.py`（后台运行，每 90s 采样 workdb 状态 + DB 体积，跑完自动拉库取证写入 `monitor_final.log`）。
 - **结果**：首窗把 #22–#26 扫完后，因 MIUI 后台限流 worker 挂死（非代码缺陷）；force-stop 拉库取证确认数据完整（锚点 `#25`、25/26 覆盖、#22 被跳过、#23–#25 续建）。随后干净冷启动复验，`search_index_once_v1` 到达 `SUCCEEDED` 终态（`state=2 run_attempt=1 stop_reason=-256`），`search_index_daily_v1` 正确保持在 `ENQUEUED`。
 - **验收判据全部满足**：`workspec.state=2 (SUCCEEDED)` ✅；`search_index_coverage` 覆盖 25/26 活跃书（#22 因坏书被跳过、留 ERROR 日志，属隔离修复预期）✅；锚点到达末本 `#25` ✅。
 - 终验结论已写入 `workbuddy-r2-s1-7-index-sweep-fix.md` **§9.2 + §10（PASS）**。
@@ -82,10 +82,10 @@ P0「索引构建分片/续建」已修复并通过**静态 + 真机整库终验
 
 ## 4. 环境硬约束（踩坑汇总，详见技能文件）
 
-1. **PowerShell 跑不了外部进程** → 用 Bash 直调 java 跑 Gradle wrapper：`cd android && GRADLE_USER_HOME=D:/develop/env/gradle JAVA_HOME=D:/develop/Java/jdk-17.0.14 java -Dorg.gradle.appname=gradlew -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain <task> --no-daemon --console=plain`
+1. **PowerShell 跑不了外部进程** → 用 Bash 直调 java 跑 Gradle wrapper：`cd android && GRADLE_USER_HOME=<开发盘>/env/gradle JAVA_HOME=<开发盘>/Java/jdk-17.0.14 java -Dorg.gradle.appname=gradlew -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain <task> --no-daemon --console=plain`
 2. **拉二进制必须 `adb exec-out`**，禁用 `shell cat`（会 CRLF 损坏 SQLite 库）。
 3. 设备**无 sqlite3** → 库校验整库拉回本机用 Python 读。
-4. Python 不认 `/tmp` → 临时路径用 `C:/Users/23254/AppData/Local/Temp/...`。
+4. Python 不认 `/tmp` → 临时路径用 `<用户目录>/AppData/Local/Temp/...`。
 5. **`adb install` 必须 Windows 原生路径**（`D:/...`），Git Bash 的 `/d/...` 会被报 "No such file"。
 6. **Gradle 必须 `dangerouslyDisableSandbox:true`**（Bash 工具参数），否则 `dexBuilderDebug` 报 `AccessDeniedException`。
 7. **递归删除用 Python `shutil.rmtree`**，禁 `rm -rf`（safe-delete 守卫对批量删除卡死）。
@@ -105,9 +105,9 @@ P0「索引构建分片/续建」已修复并通过**静态 + 真机整库终验
 | `android/app/src/test/.../data/repository/SearchIndexWorkerPolicyTest.kt` | 4 个新单测 |
 | `docs/plans/android-parallel-delivery-2026-09-09/reports/workbuddy-r2-s1-7-index-sweep-fix.md` | P0 修复真机验证报告（§10 已补，结论 PASS） |
 | `docs/plans/android-parallel-delivery-2026-09-09/reports/workbuddy-r2-s1-6-device-verification.md` | S1.6 双通道搜索端到端验收（前置） |
-| `C:/Users/23254/AppData/Local/Temp/cra-db2/monitor_final.py` | 后台监控 + 自动取证脚本 |
-| `C:/Users/23254/AppData/Local/Temp/cra-db2/db_verify.py` | 覆盖率核验脚本（被 monitor 调用） |
-| `C:/Users/23254/AppData/Local/Temp/cra-db2/monitor_final.log` | 监控输出 + 终验证据 |
+| `<用户目录>/AppData/Local/Temp/cra-db2/monitor_final.py` | 后台监控 + 自动取证脚本 |
+| `<用户目录>/AppData/Local/Temp/cra-db2/db_verify.py` | 覆盖率核验脚本（被 monitor 调用） |
+| `<用户目录>/AppData/Local/Temp/cra-db2/monitor_final.log` | 监控输出 + 终验证据 |
 
 ---
 
@@ -124,16 +124,16 @@ P0「索引构建分片/续建」已修复并通过**静态 + 真机整库终验
 
 ```bash
 # 构建
-cd android && GRADLE_USER_HOME=D:/develop/env/gradle JAVA_HOME=D:/develop/Java/jdk-17.0.14 \
+cd android && GRADLE_USER_HOME=<开发盘>/env/gradle JAVA_HOME=<开发盘>/Java/jdk-17.0.14 \
   java -Dorg.gradle.appname=gradlew -classpath gradle/wrapper/gradle-wrapper.jar \
        org.gradle.wrapper.GradleWrapperMain :app:assembleDebug --no-daemon --console=plain
 # 装机（Windows 路径）
-adb -s c49ac6cf install -r -t "D:/develop/Code/Codex/creation-reading-assistant/android/app/build/outputs/apk/debug/app-debug.apk"
+adb -s c49ac6cf install -r -t "<旧仓库>/android/app/build/outputs/apk/debug/app-debug.apk"
 # 触发全量重建
 adb -s c49ac6cf shell "am force-stop com.creationreadingassistant"
 adb -s c49ac6cf shell "run-as com.creationreadingassistant rm -f no_backup/androidx.work.workdb no_backup/androidx.work.workdb-shm no_backup/androidx.work.workdb-wal"
 adb -s c49ac6cf shell "monkey -p com.creationreadingassistant -c android.intent.category.LAUNCHER 1"
 # 监控（后台，跑完自动取证）
-"C:/Users/23254/.workbuddy-ai/binaries/python/versions/3.13.12/python.exe" \
-  "C:/Users/23254/AppData/Local/Temp/cra-db2/monitor_final.py"
+"<用户目录>/.workbuddy-ai/binaries/python/versions/3.13.12/python.exe" \
+  "<用户目录>/AppData/Local/Temp/cra-db2/monitor_final.py"
 ```

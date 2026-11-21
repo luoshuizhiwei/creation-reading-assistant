@@ -16,7 +16,7 @@ HEAD e39a78da9c62f02614207cffb36969a32492eaea、暂存空。外部13-v2/6-v4报�
 
 ## 原始证据
 
-[Root机械核验](<E:/creation-reading-assistant/tasks13v2-6v4-codex-review-20261011/verification.json>)与[next-input-binding](<E:/creation-reading-assistant/tasks13v2-6v4-codex-review-20261011/next-input-binding.json>)。13 Root报告、TOOL_SHA256与logs/run-selftest.log；6 Root报告、SHA256SUMS及evidence/verification.log、security-suite.log、security-rejection-cases.json均位于各独立Root E目录，Root逐项SHA核对结果见JSON。
+[Root机械核验](<<证据根>/tasks13v2-6v4-codex-review-20261011/verification.json>)与[next-input-binding](<<证据根>/tasks13v2-6v4-codex-review-20261011/next-input-binding.json>)。13 Root报告、TOOL_SHA256与logs/run-selftest.log；6 Root报告、SHA256SUMS及evidence/verification.log、security-suite.log、security-rejection-cases.json均位于各独立Root E目录，Root逐项SHA核对结果见JSON。
 
 ## 恢复与副作用
 

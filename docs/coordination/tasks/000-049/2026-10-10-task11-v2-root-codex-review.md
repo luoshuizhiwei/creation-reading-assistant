@@ -7,7 +7,7 @@
 
 外部43工件实算全部一致，清单SHA ab3194265bef878a693ff8070e3b3edec5d8506c3f453462e3bd62628bbdb7ab；13项证据SHA全部匹配。外部REPORT SHA ab265499ec5e590ef7a72216c4226bdb697b7c3520af60aca12571d6d9cced38。外部自报Antigravity/DeepSeek，不据此推断更细运行型号。报告“干净只读”不能解释为既有WIP不存在；Root HEAD仍e39a78da9c62f02614207cffb36969a32492eaea、暂存区空，既有WIP保留。
 
-Root最终44工件清单SHA 81365a8d0af21b8e383b0c462ebcf52593e6fb518d7dbb04362596f266f36695；完整输入绑定见[下一批绑定](<E:/creation-reading-assistant/task11v2-codex-review-20261010/next-input-binding.json>)。Root仅改callback、对应旧测试并新增Root测试，完整root-relative.patch保留。Root候选旁的3个Kotlin/manifest仅为旧离线验证器synthetic夹具，不是产品997源码，12必须使用绑定中的10-v3真实输入。
+Root最终44工件清单SHA 81365a8d0af21b8e383b0c462ebcf52593e6fb518d7dbb04362596f266f36695；完整输入绑定见[下一批绑定](<<证据根>/task11v2-codex-review-20261010/next-input-binding.json>)。Root仅改callback、对应旧测试并新增Root测试，完整root-relative.patch保留。Root候选旁的3个Kotlin/manifest仅为旧离线验证器synthetic夹具，不是产品997源码，12必须使用绑定中的10-v3真实输入。
 
 ## 环境、执行与结果
 
@@ -19,9 +19,9 @@ verify_seams成功；初次verify_v4_regress为44 PASS/2 FAIL，失败涉及Root
 
 ## 原始证据
 
-- [Root原交付机械核查](<E:/creation-reading-assistant/task11v2-codex-review-20261010/verification.json>)。
-- [Root定向原始日志](<E:/creation-reading-assistant/task11v2-codex-review-20261010/root-tests.log>)、verify_seams.py.log、verify_v4_regress.py.log（首失败）、verify_e2e.py.log与verify_chain_v3.py.log（补正）。
-- [Root最终验收工件](<E:/creation-reading-assistant/task11v2-codex-review-20261010/candidate/acceptance>)与acceptance-sha256.json、root-relative.patch。
+- [Root原交付机械核查](<<证据根>/task11v2-codex-review-20261010/verification.json>)。
+- [Root定向原始日志](<<证据根>/task11v2-codex-review-20261010/root-tests.log>)、verify_seams.py.log、verify_v4_regress.py.log（首失败）、verify_e2e.py.log与verify_chain_v3.py.log（补正）。
+- [Root最终验收工件](<<证据根>/task11v2-codex-review-20261010/candidate/acceptance>)与acceptance-sha256.json、root-relative.patch。
 - 10-v3源码/15JVM证据复用，不重复其Gradle。
 
 ## 恢复与副作用、未覆盖项

@@ -11,7 +11,7 @@
 ## 环境、执行与结果、原始证据
 
 唯一task59工作区/原JDK17/Gradle/SDK。原Claude已最终响应idle。
-E:/creation-reading-assistant/task96-library-settings-closure-v1/v7/logs/20-instrument-stdout.log rc0，方法epubMissingBodyRelinksSameContentAndRejectsDifferent，OK(1 test)，记录19.542s。仪器真实断言FileProvider resolverSize与源字节MD5/DBhash、同bookId恢复、拒绝/取消资产、阅读非progress保持。原始55非progress前后相等，60/70完整资产前后相等。最小单章EPUB闭环采纳。
+<证据根>/task96-library-settings-closure-v1/v7/logs/20-instrument-stdout.log rc0，方法epubMissingBodyRelinksSameContentAndRejectsDifferent，OK(1 test)，记录19.542s。仪器真实断言FileProvider resolverSize与源字节MD5/DBhash、同bookId恢复、拒绝/取消资产、阅读非progress保持。原始55非progress前后相等，60/70完整资产前后相等。最小单章EPUB闭环采纳。
 
 身份文件被同phase writeEvidence覆盖，fixtureMd5/dbContentHash原字段没有保留；不能把离线复算当原运行字段。运行断言成功与原字节可复算证据保留，不为此复跑业务。旧FAIL/丢失APK不补造。
 

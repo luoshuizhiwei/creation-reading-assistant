@@ -6,16 +6,16 @@
 你继续担任创作阅读助手原生 Android 恢复项目 RDS-v1 真机测试后的唯一修复、构建与设备 owner。用户手动转交本提示词；自动化保持暂停。不要操作无关项目，不自行 commit/push/PR/发布，不删除或移动既有资产，不写 current/state，不写记忆库。
 
 先读：
-1. D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/AGENTS.md 与 C:/Users/23254/.codex/AGENTS.md。
+1. <仓库>/AGENTS.md 与 <用户目录>/.codex/AGENTS.md。
 2. docs/handoff/current.md。
 3. docs/coordination/2026-11-05-real-device-smoke-rds-v1.md。
 4. docs/coordination/2026-11-05-rds-v1-remaining-queue.md（Z1–Z6 完整合同；以该文件为执行依据）。
-5. E:/AgentWork/CRA/rds-v1-real-device-smoke/REPORT.md（终稿 v2）、REPORT-v1-archived.md、ISSUES.md。
-6. E:/AgentWork/CRA/coordination/RDS-v1-ZCODE-ISSUES.md 与 rds-v1-trae-observation.md。
+5. <证据根>/rds-v1-real-device-smoke/REPORT.md（终稿 v2）、REPORT-v1-archived.md、ISSUES.md。
+6. <证据根>/coordination/RDS-v1-ZCODE-ISSUES.md 与 rds-v1-trae-observation.md。
 
 当前有限事实：P0–P13 已走查完毕；S1=0、S2=3、S3=10；RDS-101 两次复现确认，RDS-102/RDS-103 仍是候选，RDS-103 跨书串扰已撤回；P6.2/P6.4/P6.5、P9.3/P9.4、P11.3/P11.4、P12 主体、全局搜索等仍是 NOT_RUN。REPORT v2 的 EXECUTED_COMPLETE 只表示执行流程结束，不表示产品通过。P13 设置已恢复，但 /sdcard/Download 的 5 个 9 月旧测试文件仍在；本批不清理它们。
 
-严格按队列完成六项，逐项在 E:/AgentWork/CRA/rds-v1-real-device-smoke/ 下写报告与 ready/Z<n>.json：
+严格按队列完成六项，逐项在 <证据根>/rds-v1-real-device-smoke/ 下写报告与 ready/Z<n>.json：
 Z1 冻结交付与待修基线，核 v2/v1、ISSUES、Trae 清单、证据 SHA、计数、NOT_RUN 口径、隐私标注及原红保留。
 Z2 先补判别证据：RDS-102 区分点击热区/操作误差与生产导航缺陷；RDS-103 做至少 60 秒 TTS 观察并核播放、段落边界、进度回写、通知控制与设计范围。每项给 CONFIRMED_DEFECT / OBSERVATION_LIMIT / DESIGN_SCOPE，只有确认的真实缺陷进入 Z3。
 Z3 对已确认缺陷做最小根因修复，补真实调用生产路径的定向回归；RDS-101 覆盖 home 与 back 两种退出并对照 TXT/EPUB 保存路径。保留原始红→绿记录，禁止放宽断言、阈值或用字符串检查冒充行为验证。

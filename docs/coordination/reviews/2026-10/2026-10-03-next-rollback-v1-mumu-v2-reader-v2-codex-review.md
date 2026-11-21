@@ -26,7 +26,7 @@ Windows/Python/XML/SHA。首次adb devices为空，确认16416宿主监听为MuM
 - 阅读v2基线和删除语义修正可采纳，非设备通过。NOTES入口不可达不通过增加旧页面直接处理；以可达书内笔记/书籍详情冷读回源+仅移除正文为下一有限设备合同。临时查阅跨书入口缺失保留，成功此子链也不关闭整条跨书/临时查看旅程。
 
 ## 原始证据
-[Root本轮E证据](<E:/creation-reading-assistant/next-round-v2-review-20261003>)：qahost-current-sha.txt、fresh-restore-count.json（53/53差异0）、fresh-settings-packages.txt、fresh-reverse.txt、restore-night-to-v1-baseline.txt、fresh-settings-after-restoration.txt。
+[Root本轮E证据](<<证据根>/next-round-v2-review-20261003>)：qahost-current-sha.txt、fresh-restore-count.json（53/53差异0）、fresh-settings-packages.txt、fresh-reverse.txt、restore-night-to-v1-baseline.txt、fresh-settings-after-restoration.txt。
 [回滚修复原报告](../../dispatches/2026-10/2026-10-03-next-reselect-rollback-fix-v1.md)、[MuMu v2原报告](../../../qa/2026-10/2026-10-03-next-integration-mumu-accept-v2.md)、[阅读v2原报告](../../dispatches/2026-10/2026-10-03-next-read-note-return-precheck-v2.md)保留，引用须附本补正。
 
 ## 未覆盖项

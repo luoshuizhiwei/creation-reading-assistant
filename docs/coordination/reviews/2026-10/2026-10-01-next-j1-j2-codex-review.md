@@ -7,15 +7,15 @@ Codex-review-J2-v1，2026-10-01。来源：用户本轮“上面分配的任务�
 ## 输入指纹
 
 - 恢复仓库 HEAD：`e39a78da9c62f02614207cffb36969a32492eaea`；暂存区空。
-- 活动输入：[J1 六文件清单](<E:/creation-reading-assistant/next-round-joint-20261001/source-manifest-j1.csv>)；本轮实算六文件 SHA 全部一致。
-- 五 APK 本轮重新实算；完整值见 [verification.json](<E:/creation-reading-assistant/next-j1-j2-codex-review-20261001/verification.json>)。
+- 活动输入：[J1 六文件清单](<<证据根>/next-round-joint-20261001/source-manifest-j1.csv>)；本轮实算六文件 SHA 全部一致。
+- 五 APK 本轮重新实算；完整值见 [verification.json](<<证据根>/next-j1-j2-codex-review-20261001/verification.json>)。
 - qahost 宿主：`ea68aa16038eba81715c719bca4b9df72887faa5b4c91688419ccfe0a95b67f8`。
 - qahost 测试包：`0deb20074495d831a387a41a7c7d2f51ed8fb7897aeed68fb2206b89d0fa28cb`。
 - J2 报告写的两个完整 SHA 与实算值不一致；只有短前缀一致。没有找到支持报告所称“实装逐位匹配”的原始完整回读日志。不能据此认定当时实际安装的输入正确或错误。
 
 ## 所有权与改动
 
-Codex 仅写本报告、current.md、Codex 项目页/TODO/skill 使用记录和 E 盘只读审计脚本/输出。外部原报告、原日志、冷备、源码和 freeze 均保留。修改前副本在 [before](<E:/creation-reading-assistant/next-j1-j2-codex-review-20261001/before>)。
+Codex 仅写本报告、current.md、Codex 项目页/TODO/skill 使用记录和 E 盘只读审计脚本/输出。外部原报告、原日志、冷备、源码和 freeze 均保留。修改前副本在 [before](<<证据根>/next-j1-j2-codex-review-20261001/before>)。
 
 ## 环境
 
@@ -43,10 +43,10 @@ Windows；原始资料声称 MuMu Android 12 / `127.0.0.1:16416`。本轮未连�
 
 ## 原始证据
 
-- [本轮审计输出](<E:/creation-reading-assistant/next-j1-j2-codex-review-20261001/verification.json>) / [只读审计脚本](<E:/creation-reading-assistant/next-j1-j2-codex-review-20261001/audit.py>)。
+- [本轮审计输出](<<证据根>/next-j1-j2-codex-review-20261001/verification.json>) / [只读审计脚本](<<证据根>/next-j1-j2-codex-review-20261001/audit.py>)。
 - [J1 原报告](../../dispatches/2026-10/2026-10-01-next-j1-joint-build-and-freeze.md) / [J2 原报告](../../../qa/2026-10/2026-10-01-next-j2-joint-mumu-acceptance.md)。
-- [仪器原日志](<E:/creation-reading-assistant/next-round-j2-acceptance/logs/instrumentation_persistence_test.log>) / [WebDAV summary](<E:/creation-reading-assistant/next-round-j2-acceptance/logs/acceptance_suite_summary.json>) / [最终请求日志](<E:/creation-reading-assistant/next-round-j2-acceptance/logs/webdav_requests.jsonl>)。
-- [安全用例 UI XML](<E:/creation-reading-assistant/next-round-j2-acceptance/evidence/spec4_userinfo_blocked.xml>) / [导入 UI XML](<E:/creation-reading-assistant/next-round-j2-acceptance/evidence/spec5_chinese_space_import_done.xml>)。
+- [仪器原日志](<<证据根>/next-round-j2-acceptance/logs/instrumentation_persistence_test.log>) / [WebDAV summary](<<证据根>/next-round-j2-acceptance/logs/acceptance_suite_summary.json>) / [最终请求日志](<<证据根>/next-round-j2-acceptance/logs/webdav_requests.jsonl>)。
+- [安全用例 UI XML](<<证据根>/next-round-j2-acceptance/evidence/spec4_userinfo_blocked.xml>) / [导入 UI XML](<<证据根>/next-round-j2-acceptance/evidence/spec5_chinese_space_import_done.xml>)。
 
 ## 未覆盖项
 

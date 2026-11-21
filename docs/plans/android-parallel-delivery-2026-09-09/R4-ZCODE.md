@@ -2,7 +2,7 @@
 
 > 本文替代 WorkBuddy 在该路线上的工作。前序：[`../../2026-09-12-android-library-folder-smart-recognition-roadmap.md`](../android/2026-09-12-android-library-folder-smart-recognition-roadmap.md)（需求与路线）、
 > [`reports/workbuddy-r4-library-folder.md`](reports/workbuddy-r4-library-folder.md)（第 1–2 组实施报告）。
-> 工作目录：`D:/develop/Code/Codex/creation-reading-assistant`（主仓库，Android 主线在 `android/`）。
+> 工作目录：`<旧仓库>`（主仓库，Android 主线在 `android/`）。
 > 本文是任务包，不是「已完成」的证明；所有结论都要用你自己的实测覆盖。
 
 ## 0. 一句话接手
@@ -121,7 +121,7 @@
 
 ```bash
 cd android
-GRADLE_USER_HOME=D:/develop/env/gradle JAVA_HOME=D:/develop/Java/jdk-17.0.14 \
+GRADLE_USER_HOME=<开发盘>/env/gradle JAVA_HOME=<开发盘>/Java/jdk-17.0.14 \
   "$JAVA_HOME/bin/java" -Dorg.gradle.appname=gradlew \
   -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain \
   :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug --no-daemon

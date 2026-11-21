@@ -32,7 +32,7 @@
 
 ## 2. 证据基线
 
-- 仓库：`D:/develop/Code/Codex/creation-reading-assistant`
+- 仓库：`<旧仓库>`
 - branch：`main`　HEAD：`a9a3bceff5087a0256d03c6263871d9ffc5b663f`
 - 本轮 WorkBuddy 改动（已跟踪文件 diffstat，13→11 个命中路径）：
 
@@ -109,7 +109,7 @@
 
 ## 4. 门禁执行记录
 
-全部命令在 `android/` 目录，`GRADLE_USER_HOME=D:/develop/env/gradle`、`JAVA_HOME=D:/develop/Java/jdk-17.0.14`，`--no-daemon`。
+全部命令在 `android/` 目录，`GRADLE_USER_HOME=<开发盘>/env/gradle`、`JAVA_HOME=<开发盘>/Java/jdk-17.0.14`，`--no-daemon`。
 
 | # | 命令 | 退出码 | 结果 |
 | --- | --- | --- | --- |

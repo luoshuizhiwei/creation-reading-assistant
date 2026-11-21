@@ -1,10 +1,10 @@
 # 恢复仓库 AGENTS.md
 
-先读 [当前交接入口](docs/handoff/current.md)。长期协作规则继承 [用户级 AGENTS](<C:/Users/23254/.codex/AGENTS.md>)；跨项目记忆入口为 [Codex 项目页](<D:/Application/文档/Obsidian/Codex/projects/创作阅读助手.md>)。
+先读 [当前交接入口](docs/handoff/current.md)。长期协作规则继承 [用户级 AGENTS](<用户级 AGENTS.md>)；跨项目记忆入口为 [Codex 项目页](<Obsidian 库>/Codex/projects/创作阅读助手.md>)。
 
 换窗接手见 [接手说明](docs/handoff/next-codex.md)与[后续任务执行手册](docs/handoff/continuation-playbook.md)。后续每项工作开工前先落完整任务合同，写明输入、所有权、步骤、权限、验证、交付与停止条件；用户指定的接任协调者可承担Root核验/排期职责，不依赖原会话在线或额度。每轮收尾更新current/state及下一任务文档，不能只在聊天留接续说明。历史任务和交接快照只按需定位，不整份加载，也不从旧授权恢复自动化、设备批次或Git操作。
 
-DSH 侧另有独立记忆库（[DSH 项目页](<D:/Application/文档/Obsidian/DeepSeek-Harness/projects/创作阅读助手.md>)），只供 DSH 使用；其他智能体不读不写，需要时只引用链接，不复制正文。
+DSH 侧另有独立记忆库（[DSH 项目页](<Obsidian 库>/DeepSeek-Harness/projects/创作阅读助手.md>)），只供 DSH 使用；其他智能体不读不写，需要时只引用链接，不复制正文。
 
 ## 工程与资产边界
 

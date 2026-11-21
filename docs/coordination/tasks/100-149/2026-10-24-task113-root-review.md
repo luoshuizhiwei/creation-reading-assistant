@@ -2,7 +2,7 @@
 
 ## 任务编号/版本、输入指纹
 
-113-v1，唯一run T112V1-T113V1-20261024-143306。E:/creation-reading-assistant/task113-saved-views-navigation-v1。REPORT18356f904c9f3beb15d9853106c69a1e3bddc6d00d716b7a91c2e3fe748492f7（7364B）；ready03f363991ceccf149c5bd427ee5a1e3c94def9b65df3f8ec12deee3740c5d8d7（5744B）。Root实际核原件而非采纳摘要。
+113-v1，唯一run T112V1-T113V1-20261024-143306。<证据根>/task113-saved-views-navigation-v1。REPORT18356f904c9f3beb15d9853106c69a1e3bddc6d00d716b7a91c2e3fe748492f7（7364B）；ready03f363991ceccf149c5bd427ee5a1e3c94def9b65df3f8ec12deee3740c5d8d7（5744B）。Root实际核原件而非采纳摘要。
 
 ## 所有权与改动、环境
 

@@ -3,7 +3,7 @@
 时间2026-10-25；模型本机Flash只做常规指纹/传输/编译，关键语义审查及设备仍需已授权强模型；网吧GLM5.3做核心研发。网吧119仪器与120生产/JVM差量两lane文件互斥，本机唯一集成/构建owner；Root仅处理启动/异常与方向排期。
 
 ````text
-用户最新要求网吧ZCode承担重要任务，网吧时间不足五小时，希望有效使用额度。不要把窗口花在等ACK或重复报告。用户已明确尚未向网吧发启动消息，之前无ACK不是网络故障；Root已准备一条新的短启动消息，将引导下载/download/120-priority-start.md。完整研发授权和文件范围在本地E:/creation-reading-assistant/task119-netcafe-relay-v1/120-priority-start.md（6591B SHA4b4307b4cdff811193886a4c527532d1a9254a7cd78981def632d14fe3564b48），D协调完整源docs/coordination/tasks/100-149/2026-10-25-task120-netcafe-priority-dispatch.md。先读本地文件，不重扫历史。
+用户最新要求网吧ZCode承担重要任务，网吧时间不足五小时，希望有效使用额度。不要把窗口花在等ACK或重复报告。用户已明确尚未向网吧发启动消息，之前无ACK不是网络故障；Root已准备一条新的短启动消息，将引导下载/download/120-priority-start.md。完整研发授权和文件范围在本地<证据根>/task119-netcafe-relay-v1/120-priority-start.md（6591B SHA4b4307b4cdff811193886a4c527532d1a9254a7cd78981def632d14fe3564b48），D协调完整源docs/coordination/tasks/100-149/2026-10-25-task120-netcafe-priority-dispatch.md。先读本地文件，不重扫历史。
 
 你的职责仍本机ZCode核验与直接反馈，Root不接管日常review。请立即优先完成：
 1. 停止单次终端里长时间无返回的while/sleep循环；Root上次模型状态更正排队超过20分钟未处理，fresh后台status不等模型活跃。每次工具等待≤45秒并返回控制权，以便模型处理新包、排队指令和STOP。不要启动无限后台脚本后结束会话。直接使用自己的craverify119受限SFTP，不root密钥，状态写真实GLM5.3Flash；KEY_MODEL_UNAVAILABLE与传输活跃分开。

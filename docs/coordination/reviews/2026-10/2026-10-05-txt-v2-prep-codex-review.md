@@ -26,9 +26,9 @@ v1未就绪直接退出的P1已在v2等待路径关闭，保留此进展；不�
 ## 原始证据
 - [TXT-v2外部报告](../../dispatches/2026-10/2026-10-05-txt-reentry-fix-v2.md)
 - [验收准备外部报告](../../dispatches/2026-10/2026-10-05-txt-final-acceptance-prep-v1.md)
-- [Root独立18例结果](<E:/creation-reading-assistant/txt-v2-prep-codex-review-20261005/offline-results/SUMMARY.json>)
-- [只有run_id仍接受的manifest](<E:/creation-reading-assistant/txt-v2-prep-codex-review-20261005/offline-work/good_unit_start/evidence/run-j1-offline-001.json>)
-- [该例实际门禁输出](<E:/creation-reading-assistant/txt-v2-prep-codex-review-20261005/offline-results/good_unit_start.json>)
+- [Root独立18例结果](<<证据根>/txt-v2-prep-codex-review-20261005/offline-results/SUMMARY.json>)
+- [只有run_id仍接受的manifest](<<证据根>/txt-v2-prep-codex-review-20261005/offline-work/good_unit_start/evidence/run-j1-offline-001.json>)
+- [该例实际门禁输出](<<证据根>/txt-v2-prep-codex-review-20261005/offline-results/good_unit_start.json>)
 生产与测试精确文件见外部freeze与payload，保持原件。
 
 ## 恢复与副作用

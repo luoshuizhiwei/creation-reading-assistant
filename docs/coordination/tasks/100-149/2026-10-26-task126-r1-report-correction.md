@@ -6,5 +6,5 @@
 1. 原派发126-v3明确“若离线/换boot/归属不明，停保留”，而实际首次boot已变为e8e8f221-691e-4945-ac26-8c7a0c770f1d，你继续完成了只读补证。不得声称“按文档完成全部”“boot仅比对可自行覆盖”或无门禁偏离。新报告分开：原boot停止条件未执行到位（程序性偏离）；本次只读采集没有设备写入，现有保护数据匹配事实保留；Root未追认旧门禁PASS，也未授予新业务。不要为修报告再探设备。
 2. night=no/前台Lawnchair是采集时事实，但“用户自行调回”“重启原因属于用户会话正常使用”等没有直接证据。用户只确认早前卸载/深色模式变更，不能据此断言之后每次重启/恢复操作者。用未知原因/本批未执行、不扩大推断。磁盘增长也不直接叫正常痕迹。
 3. 输出体积Root实际17文件402964B，非60KiB；写精确当前清单sum及分类，预算仍满足。r7落盘747B含header/CRLF，d6ac是694B规范化payload，不是落盘文件hash；清楚标原件容器与规范化payload，不再称raw文件本身694B逐字节同。
-输出E:/creation-reading-assistant/task126-zcode-desktop-baseline-recovery-v3/report-correction-r1/REPORT.md、ready.json与必要本地清单（差量<=64KiB）。只引用原件，不覆盖v3红表述，不删除/重采。ready最后写，并明确设备owner已空闲，后续只待Root新批。不自动记忆/私库/Git/云/购买/源码/build。最后单独一行：这是任务126-r1。
+输出<证据根>/task126-zcode-desktop-baseline-recovery-v3/report-correction-r1/REPORT.md、ready.json与必要本地清单（差量<=64KiB）。只引用原件，不覆盖v3红表述，不删除/重采。ready最后写，并明确设备owner已空闲，后续只待Root新批。不自动记忆/私库/Git/云/购买/源码/build。最后单独一行：这是任务126-r1。
 ````

@@ -7,13 +7,13 @@
 ## 输入指纹
 
 - 恢复仓库 HEAD `e39a78da9c62f02614207cffb36969a32492eaea`；暂存区为空。原损坏仓库只作导航，没有产品/Git写入。
-- [v7交付](../../dispatches/2026-10/2026-10-02-next-n1-test-hardening-v7.md)：候选 `E:/creation-reading-assistant/next-round-n1-test-hardening-v7/android`。LocalZipBackupTest SHA `000b7c811abc1ac013d301203d52f6a4ef9c8161a641f6d76ee782573f01e8f3`。
-- [J3交付](../../dispatches/2026-10/2026-10-02-next-j3-n1-sandbox-build-v1.md)：候选 `E:/creation-reading-assistant/next-round-j3-n1-sandbox-build-v1/android`。新增驱动 SHA `3bc297688bf4e98a81dfa67c4180eeb9afc9fe4e906a2e9d05edd5272baaaa4c`。
+- [v7交付](../../dispatches/2026-10/2026-10-02-next-n1-test-hardening-v7.md)：候选 `<证据根>/next-round-n1-test-hardening-v7/android`。LocalZipBackupTest SHA `000b7c811abc1ac013d301203d52f6a4ef9c8161a641f6d76ee782573f01e8f3`。
+- [J3交付](../../dispatches/2026-10/2026-10-02-next-j3-n1-sandbox-build-v1.md)：候选 `<证据根>/next-round-j3-n1-sandbox-build-v1/android`。新增驱动 SHA `3bc297688bf4e98a81dfa67c4180eeb9afc9fe4e906a2e9d05edd5272baaaa4c`。
 - 两候选生产 LocalZipBackup SHA `f141941a628de19660d71875bb34faa5b4833f05f6db7d0025aba774165b298e`。J3 八项继承指纹全部与 v6 一致。
 
 ## 所有权与改动
 
-本轮只新增此报告、更新 current/项目页/TODO/skill使用记录，以及 E 盘独立核查文件。未改产品、测试类、旧候选或旧报告；未构建/安装/操作设备。被修改入口的原始副本在 [docs-before](<E:/creation-reading-assistant/v7-j3-codex-review-20261002/docs-before>)。
+本轮只新增此报告、更新 current/项目页/TODO/skill使用记录，以及 E 盘独立核查文件。未改产品、测试类、旧候选或旧报告；未构建/安装/操作设备。被修改入口的原始副本在 [docs-before](<<证据根>/v7-j3-codex-review-20261002/docs-before>)。
 
 ## 环境
 
@@ -58,10 +58,10 @@ Spec：5项，最高P1。均为驱动/协议修正，不是新的生产算法缺
 
 ## 原始证据
 
-- [Root可复跑核查脚本](<E:/creation-reading-assistant/v7-j3-codex-review-20261002/verify.py>) / [全树指纹、XML与APK核查](<E:/creation-reading-assistant/v7-j3-codex-review-20261002/verification.json>) / [执行输出](<E:/creation-reading-assistant/v7-j3-codex-review-20261002/verify-output.txt>)。
+- [Root可复跑核查脚本](<<证据根>/v7-j3-codex-review-20261002/verify.py>) / [全树指纹、XML与APK核查](<<证据根>/v7-j3-codex-review-20261002/verification.json>) / [执行输出](<<证据根>/v7-j3-codex-review-20261002/verify-output.txt>)。
 - Root E目录保存 host/androidTest 的 badging、manifest、signature 原输出，各自SHA及exit写入verification.json。
-- [v7原始测试证据](<E:/creation-reading-assistant/next-round-n1-test-hardening-v7/freeze/evidence>)：stage1-red、stage2-green、negative-v5-c5 XML/log；未覆盖旧证据。
-- [J3冻结清单](<E:/creation-reading-assistant/next-round-j3-n1-sandbox-build-v1/freeze/freeze-manifest.json>)及 logs/build-qahostn1.log。Root未用外部脚本过期的9路径假设代替当前实际10路径核查。
+- [v7原始测试证据](<<证据根>/next-round-n1-test-hardening-v7/freeze/evidence>)：stage1-red、stage2-green、negative-v5-c5 XML/log；未覆盖旧证据。
+- [J3冻结清单](<<证据根>/next-round-j3-n1-sandbox-build-v1/freeze/freeze-manifest.json>)及 logs/build-qahostn1.log。Root未用外部脚本过期的9路径假设代替当前实际10路径核查。
 
 ## 未覆盖项
 
@@ -71,7 +71,7 @@ Spec：5项，最高P1。均为驱动/协议修正，不是新的生产算法缺
 
 本轮零设备操作，未获得新设备事实；不声称恢复已运行。产品与Git均未改变；原HEAD/空暂存区核实。下一MuMu批须另存本轮既有包/原APK对、持久文件DB/WAL/SHM与settings/forward/reverse基线，严格只装此前不存在的新沙箱对，收尾卸载本轮新UID并对账，不删除正式/历史资产。
 
-入口/报告相称验证见 [document-verification.json](<E:/creation-reading-assistant/v7-j3-codex-review-20261002/document-verification.json>)：显式检查21文件及相关本地链接。TODO其他项目原始后缀逐字节保留，skill日志原始前缀保留；没有把已完成v7当新待办。
+入口/报告相称验证见 [document-verification.json](<<证据根>/v7-j3-codex-review-20261002/document-verification.json>)：显式检查21文件及相关本地链接。TODO其他项目原始后缀逐字节保留，skill日志原始前缀保留；没有把已完成v7当新待办。
 
 ## 交付状态与下一步
 

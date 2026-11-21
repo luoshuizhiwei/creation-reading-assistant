@@ -12,7 +12,7 @@ ready记freeze/freeze.json实际不存在，正确旧路径freeze/attempt1/freez
 Root只写新核验目录及必要D报告/current，不改原源码/FAIL或启动进程。65执行者交两个androidTest差量及新test APK，未报告生产差量。常驻Gradle进程不是活动任务或owner空闲证明。
 
 ## 环境
-复用既有59唯一工作区、D:/develop/env/gradle与排他锁；Root应用verification-before-completion做必要实物/原始日志核查，未重新编译或设备。63既有范围实证保持历史采纳，不能补成本次恢复。
+复用既有59唯一工作区、<开发盘>/env/gradle与排他锁；Root应用verification-before-completion做必要实物/原始日志核查，未重新编译或设备。63既有范围实证保持历史采纳，不能补成本次恢复。
 
 ## 执行与结果
 两份最后成功Gradle原日志均BUILD SUCCESSFUL/EXIT_CODE0，实物test APK匹配，限定采纳编译构建。覆盖早前同名失败日志的偏差如实保留，不伪造找回。
@@ -21,7 +21,7 @@ Root只写新核验目录及必要D报告/current，不改原源码/FAIL或启�
 Root对真实main完全替换run/info，日志重定向到本轮Root夹具，离线反例：JUnitFAIL/rc0仍instrument2次、最终exit0；transport rc1则main提前return，uninstall0/shutdown0，恢复被跳过。没有真实ADB/模拟器/删除动作。原始runner-counterexamples.json及两组stdout/summary保留。此证据只证明主机编排缺陷，不是设备结果。
 
 ## 原始证据
-E:/creation-reading-assistant/task65-reading-material-flow-v1/v3/REPORT-65-v3.md、ready-65-v3.json、scripts/device_journey.py、scripts/locked_gradle.py、logs/09-md-instrument.log、10-material-instrument.log、11-journey-summary.json及两份Gradle成功日志。Root离线反例及artifact-checks在v3/root-review-20261020，不复制已有APK/工程。
+<证据根>/task65-reading-material-flow-v1/v3/REPORT-65-v3.md、ready-65-v3.json、scripts/device_journey.py、scripts/locked_gradle.py、logs/09-md-instrument.log、10-material-instrument.log、11-journey-summary.json及两份Gradle成功日志。Root离线反例及artifact-checks在v3/root-review-20261020，不复制已有APK/工程。
 
 ## 未覆盖项
 MD完整退出续读、取材搜索回源返回未通过；归类最终入库和导出同批记录仍未覆盖。ready中旧freeze不等新candidate证据，run/attempt统一身份、阶段前预算/恢复1200、marker/PID/receipt/保护门禁未在新脚本接线。优先复用已验证63执行/恢复基础，不继续用缩减版脚本替代安全合同。

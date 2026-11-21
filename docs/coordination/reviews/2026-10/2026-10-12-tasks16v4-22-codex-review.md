@@ -10,7 +10,7 @@ HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空。Root共同输入1001
 
 16-v4最终1004项全部SHA匹配，manifest 6046c88cacfe679f49257b6ab67a2f0fff6e54961461890a33cd1ab414ad33d4、tree f25e8dc168211d07ad1fdcba636c14eb4ca57b47d0fa9ca6fe2be19b28927680；相对Root仅BookRepository.kt生产1改/新测试3增/0删。patch SHA c09958af319996c15e6d42d976b4ea88e9296629fb1c441986cc9ade19a6a667。
 
-22矩阵6环节绑定Root1001输入一致。报告及矩阵SHA、原始XML逐文件SHA等见[Root核查工件](<E:/creation-reading-assistant/tasks16v4-22-codex-review-20261012/verification.json>)。
+22矩阵6环节绑定Root1001输入一致。报告及矩阵SHA、原始XML逐文件SHA等见[Root核查工件](<<证据根>/tasks16v4-22-codex-review-20261012/verification.json>)。
 
 ## 所有权与改动
 
@@ -46,9 +46,9 @@ Root实核原XML：green_v1 100套件/877项、0fail/error/skip、机器exit0且
 
 ## 原始证据
 
-- [16-v4报告](<E:/creation-reading-assistant/reader-session-risk-task16-v4/REPORT.md>)及logs/runs/red_f_v2、green_v1/green_v2、evidence源码清单、patch。
-- [22-v1报告](<E:/creation-reading-assistant/material-journey-audit-task22-v1/REPORT.md>)与[journey矩阵](<E:/creation-reading-assistant/material-journey-audit-task22-v1/journey-matrix.json>)。
-- [Root核查](<E:/creation-reading-assistant/tasks16v4-22-codex-review-20261012/verification.json>)；两独立只读审核结论已纳入本报告。
+- [16-v4报告](<<证据根>/reader-session-risk-task16-v4/REPORT.md>)及logs/runs/red_f_v2、green_v1/green_v2、evidence源码清单、patch。
+- [22-v1报告](<<证据根>/material-journey-audit-task22-v1/REPORT.md>)与[journey矩阵](<<证据根>/material-journey-audit-task22-v1/journey-matrix.json>)。
+- [Root核查](<<证据根>/tasks16v4-22-codex-review-20261012/verification.json>)；两独立只读审核结论已纳入本报告。
 
 ## 未覆盖项
 

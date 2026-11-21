@@ -16,7 +16,7 @@ Root实算998源码、44验收全部SHA一致，55项交付证据SHA匹配。最
 
 ## 原始证据、恢复与副作用
 
-[Root机械核对](<E:/creation-reading-assistant/tasks12-6-codex-review-20261011/verification.json>)与verify.py记录998/44、55证据、双APK、18JVM、矩阵。owner恢复后账ok=true/problemlist为空，声称71持久文件/原APK对/8设置/映射/shell核同。Root实际计算本地保护DB/WAL/SHM备份size/SHA3/3一致；MuMuManager当前进程/Android均false。Root没有重启设备复跑71项，恢复结论据此限定。之前17轮诊断/多次构建不重做；下一先离线修复与反例，再联合设备唯一owner。
+[Root机械核对](<<证据根>/tasks12-6-codex-review-20261011/verification.json>)与verify.py记录998/44、55证据、双APK、18JVM、矩阵。owner恢复后账ok=true/problemlist为空，声称71持久文件/原APK对/8设置/映射/shell核同。Root实际计算本地保护DB/WAL/SHM备份size/SHA3/3一致；MuMuManager当前进程/Android均false。Root没有重启设备复跑71项，恢复结论据此限定。之前17轮诊断/多次构建不重做；下一先离线修复与反例，再联合设备唯一owner。
 
 ## 任务6限定核查
 

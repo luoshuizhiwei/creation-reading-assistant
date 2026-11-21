@@ -1,7 +1,7 @@
 # 发给 WorkBuddy：R3 独立验收（只验不修）
 
 > 本文件是 **R3** 轮任务包，替代 R1 的 `WORKBUDDY.md`（R1 原文保留作记录，不要覆盖它）。
-> 工作目录 `D:/develop/Code/Codex/creation-reading-assistant`。
+> 工作目录 `<旧仓库>`。
 > **只在 Codex 明确交付冻结集成快照后才启动完整验收**；三方仍在开发或缺报告时说明依赖，
 > 不能验旧 APK 后宣布新功能 PASS。
 

@@ -6,7 +6,7 @@
 
 ## 1. D0哪些事实已核实
 
-D0根：`E:/creation-reading-assistant/task209-navigation-coverage-v1/inventory-repair-r1/`。
+D0根：`<证据根>/task209-navigation-coverage-v1/inventory-repair-r1/`。
 
 本轮独立读取`raw/d0-round1.json`、`raw/d0-round2.json`并重新计算/解析：
 
@@ -66,4 +66,4 @@ D0两轮raw里的UI XML `stat`调用曾有参数格式错误（rc1），ledger�
 - 自动化继续PAUSED；Root本轮未操作ZCode选择框、未代发、未给任何删除动作授权。用户的选择应由实际执行者记录，不能从本截图推断。
 - 报告继续放task209的本次inventory修复任务根，分开记录D0、R2合同准备/审批、新基线生成、适配门离线验证、一次恢复验证和8文件处置；预算/新增bytes统一写REPORT，复用原件，不复制整工程/缓存或全套历史证据。
 
-本轮复核原证索引：`E:/creation-reading-assistant/coordination/inventory-drift-root-adjudication-20261101/d0-followup/evidence.json`。前版裁决对未知差异的禁止仍有效；本增补只把“已解释的test包安装世代变化”推荐为新版本合同迁移，不授予全环境重置许可。
+本轮复核原证索引：`<证据根>/coordination/inventory-drift-root-adjudication-20261101/d0-followup/evidence.json`。前版裁决对未知差异的禁止仍有效；本增补只把“已解释的test包安装世代变化”推荐为新版本合同迁移，不授予全环境重置许可。

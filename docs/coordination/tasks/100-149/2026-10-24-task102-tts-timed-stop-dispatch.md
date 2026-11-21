@@ -15,11 +15,11 @@
 
 所有权：只读生产TTS/宿主和直接证据；证实缺陷后独占ReaderTtsController.kt、TtsTimedStopCoordinator.kt、ReaderTtsEffect.kt、ReaderTtsBar.kt及直接相关既有定向测试必要hunk，其他源码需具体seam交Root，保护全部WIP。无缺陷不改产品源码。你是唯一完整build/绑定/设备owner；不碰101/词典/设置/桌面源码，不为泛审查建新框架/依赖。先采用现有测试/runner和冻结输入；必要编译只受影响变体，实际当前APK覆盖前查已有同SHA保全，无则仅保全必要单份，实际设备原宿主/test执行件也须覆盖前保护。不得复制工程/缓存/历史APK对。退出码、原日志XML与实际源码/APK指纹绑定，不能把mock/状态断言称真实系统声音仲裁。
 
-若确需设备，本批最多一次主run/attempt，含入场失败；编号102-v1并绑定实际源码/APK/测试/fixture输入。先核全部阶段上限（业务最多1800秒）+至少1200秒恢复预留能完成，预算不足停依赖业务；不得进场后才发现缺保护能力。只用授权隔离MuMu1，必要可启动；fresh adb devices/serial/boot/owner/前台，所有命令-s。ADB D:/Application/NetEase/MuMuPlayer/nx_main/adb.exe。不关闭重启杀VM/共享ADB，结束运行；仅可关闭已明确授权游戏，未知前台不强停。失败立即停业务，完整取证与恢复，不本批改码再试/不静默retry/不重算attempt；只有新修复证据和恢复闭合才交Root决定新批。
+若确需设备，本批最多一次主run/attempt，含入场失败；编号102-v1并绑定实际源码/APK/测试/fixture输入。先核全部阶段上限（业务最多1800秒）+至少1200秒恢复预留能完成，预算不足停依赖业务；不得进场后才发现缺保护能力。只用授权隔离MuMu1，必要可启动；fresh adb devices/serial/boot/owner/前台，所有命令-s。ADB <MuMu adb>/adb.exe。不关闭重启杀VM/共享ADB，结束运行；仅可关闭已明确授权游戏，未知前台不强停。失败立即停业务，完整取证与恢复，不本批改码再试/不静默retry/不重算attempt；只有新修复证据和恢复闭合才交Root决定新批。
 
 设备保护合同不能放宽：原71私有/820外部、DB/WAL/SHM、原宿主/test APK完整字节及inventory/userstate/设置strict night=no，操作前可核基线，结束原样核恢复。仅本批新建中性测试书，不碰正式库。精确清理仅初始缺席、run/URI绑定、E原字节sizeSHA归属及当前设备字节核同的单资产，删后复核缺席；未知兄弟后代不递归，探测失败不当不存在。collect失败/唯一证据未保全/归属不明保留依赖资产BLOCKED，独立安全恢复继续。业务/取证/清理/恢复错误分开保留，不吞错。沿用98保护恢复合同及原runner有价值部分，禁止新造解析矩阵/工具重构。
 
-唯一workspace E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android；Gradle home D:/develop/env/gradle；JDK D:/develop/Java/jdk-17.0.14；SDK D:/develop/Android/Sdk；锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock。报告差量E:/creation-reading-assistant/task102-tts-timed-stop-v1，源码/patch/日志XML预算4MiB，若必要设备原始证据预算8MiB，必要build预计256MiB另列，必要保护当前产品52763781B/实际执行件只缺单份才新增。复制前估可用空间，超预算先报原因不删存量。不复制build/.gradle/.kotlin/Gradle home/node_modules/缓存/历史证据，不硬链接可写cache，不删除移动压缩迁移存量。
+唯一workspace <证据根>/task59-common-candidate-v1/candidate/android；Gradle home <开发盘>/env/gradle；JDK <开发盘>/Java/jdk-17.0.14；SDK <开发盘>/Android/Sdk；锁<证据根>/locks/android-gradle-exclusive.lock。报告差量<证据根>/task102-tts-timed-stop-v1，源码/patch/日志XML预算4MiB，若必要设备原始证据预算8MiB，必要build预计256MiB另列，必要保护当前产品52763781B/实际执行件只缺单份才新增。复制前估可用空间，超预算先报原因不删存量。不复制build/.gradle/.kotlin/Gradle home/node_modules/缓存/历史证据，不硬链接可写cache，不删除移动压缩迁移存量。
 
 交付最小patch/变更源码/前后SHA/REPORT/ready及必要原始退出码日志XML/输入清单；同REPORT写实际字节分类保留理由/build增量是否测量，区分实现/离线/受控模拟器/真实UI/音频和恢复。引用充分旧证据原绝对路径不复制，不把旧FAIL改绿。所有权冲突、准入/预算/恢复不明停依赖操作并具体报告；必要恢复优先完成。无Git暂存提交pushPR发布、D产品回灌、正式库/HOLD/云部署/实体手机/私库读写/关闭其他进程。102完成后Root核并继续现行实际目标，不把本批完成当全项目结束。最终最末单独写：这是任务102-v1。
 ````

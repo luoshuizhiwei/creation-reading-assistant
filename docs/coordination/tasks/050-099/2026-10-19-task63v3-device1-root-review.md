@@ -25,7 +25,7 @@
 
 ## 原始证据
 
-所有E路径基于 `E:/creation-reading-assistant/task63-common-device-entry-v1`：
+所有E路径基于 `<证据根>/task63-common-device-entry-v1`：
 
 - `attempts/attempt_v3_device1_20261018_232820/attempt-state.json`、`a/abc-entry-result.json`、`logs/abc-stderr.txt`、`logs/clamp-execution-result.json`、`phase_scratch/saf_execution.out.json`、`evidence/raw/saf-delivery-diagnostics.json`。
 - 同attempt `device_recovery/protected-baseline-initial.json`，与 `root-review/device-run-v3d1/recovery-completion/final-check/protected-original-final.json` 由Root独立比对路径/size/SHA。

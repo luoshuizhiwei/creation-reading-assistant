@@ -12,7 +12,7 @@
 
 Root自主短暂启动同一隔离实例，复用原基线进行只读取证：保护71文件size/nsmtime/SHA、DB/WAL/SHM、原APK对、8设置、包缺席状态与映射一致，shell uid2000。夜间模式实际基线为no，已对比上一轮原始证据确认，未擅自改yes。最终实例process/android均false。外部报告中baseline已root及控制info命令错误不作为前置电源/权限证明，以Root当前证据补足。
 
-Root证据：`E:/creation-reading-assistant/tasks-3-7-v5-codex-review-20261009/source-verification.json`、`root-readonly-restore-proof.json`、`root-power-final.json`。HEAD仍e39a78da9c62f02614207cffb36969a32492eaea，index空；既有WIP保留。
+Root证据：`<证据根>/tasks-3-7-v5-codex-review-20261009/source-verification.json`、`root-readonly-restore-proof.json`、`root-power-final.json`。HEAD仍e39a78da9c62f02614207cffb36969a32492eaea，index空；既有WIP保留。
 
 ## 下一步及阶段复核
 

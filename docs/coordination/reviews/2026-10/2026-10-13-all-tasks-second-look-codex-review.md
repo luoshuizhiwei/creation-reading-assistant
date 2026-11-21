@@ -12,13 +12,13 @@ HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，暂存空；E任务24最终100
 
 新增10项：Standards 2项、Spec 8项。6项产品逻辑为临时EPUB跨章污染普通位置、索引重建前置取消仍清断点、旧备份清空较新关联、二次素材聚合丢结构化来源、原生灵感同步payload漏字段、TXT读取失败后预览被当正文。4项验收工具为失败探针签absent、备份pull/rmdir失败仍通过、设备入口未闭合完整强冻结、24备份绕开9Root预存暂存资产保护。
 
-产品6项基于真实入口与代码控制流，未新增JVM/设备复现；工具4项有纯Python模拟原函数反例。NEW指本轮新识别，不是断言最近任务引入。旧备份关联和临时EPUB分别阻断V0-3/V0-2；素材/实际跨端缺陷不自动扩大V0分母。完整轴别、级别、文件行号、触发、已有测试漏项及修复方向见[完整报告](<E:/creation-reading-assistant/all-tasks-second-look-codex-20261013/REPORT.md>)。
+产品6项基于真实入口与代码控制流，未新增JVM/设备复现；工具4项有纯Python模拟原函数反例。NEW指本轮新识别，不是断言最近任务引入。旧备份关联和临时EPUB分别阻断V0-3/V0-2；素材/实际跨端缺陷不自动扩大V0分母。完整轴别、级别、文件行号、触发、已有测试漏项及修复方向见[完整报告](<<证据根>/all-tasks-second-look-codex-20261013/REPORT.md>)。
 
-编号1–24都有补查责任覆盖，深度见[逐任务表](<E:/creation-reading-assistant/all-tasks-second-look-codex-20261013/provenance/tasks-01-24-provenance-review.md>)。任务7的14增量逐路径与最终候选匹配，未发现该范围合流丢失。没有重跑所有历史版本或全部源码/全产品验收。
+编号1–24都有补查责任覆盖，深度见[逐任务表](<<证据根>/all-tasks-second-look-codex-20261013/provenance/tasks-01-24-provenance-review.md>)。任务7的14增量逐路径与最终候选匹配，未发现该范围合流丢失。没有重跑所有历史版本或全部源码/全产品验收。
 
 ## 原始证据
 
-[阅读](<E:/creation-reading-assistant/all-tasks-second-look-codex-20261013/reader/REPORT.md>)、[数据](<E:/creation-reading-assistant/all-tasks-second-look-codex-20261013/data/REPORT.md>)、[验收工具](<E:/creation-reading-assistant/all-tasks-second-look-codex-20261013/acceptance/REPORT.md>)、[Root指纹/编辑前快照](<E:/creation-reading-assistant/all-tasks-second-look-codex-20261013/root-inputs.json>)。原脚本反例和定向SHA账保存在同一E审核目录。
+[阅读](<<证据根>/all-tasks-second-look-codex-20261013/reader/REPORT.md>)、[数据](<<证据根>/all-tasks-second-look-codex-20261013/data/REPORT.md>)、[验收工具](<<证据根>/all-tasks-second-look-codex-20261013/acceptance/REPORT.md>)、[Root指纹/编辑前快照](<<证据根>/all-tasks-second-look-codex-20261013/root-inputs.json>)。原脚本反例和定向SHA账保存在同一E审核目录。
 
 ## 所有权与改动
 

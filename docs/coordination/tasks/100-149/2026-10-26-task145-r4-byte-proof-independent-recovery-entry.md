@@ -16,7 +16,7 @@ Root实际读r3host bind_scope/t141b_eval_tuple/preserve_three_roots/install_gua
 5. 实际主入口仍需完整代码。r3只定义bind_scope/install_guarded_recover，脚本没有从CLI解析runId/inputs/批准状态→load_parent→bind_scope→install_guarded_recover→真实parent.run_attempt的调用函数；不能下一设备批再改源才运行。新增明确可运行future_main函数/CLI（本批默认拒真实，必须显式Root批准批参数才可设备），完整输入/预算/单次attempt始终父run_attempt掌握。实际调用完整父run_attempt的离线mock要求所有文件输出仅SYNTHETIC_FAKE路径，所有b.run/Dev命令出口guard+mock，不能ADB；未给approve应在任何attempt/设备前拒绝。批准参数本身不是本批设备授权，本批绝不真实调用。报未来精确命令，Root以后只写已授权run-id/budget并执行，不再手工patch globals。
 特别parent.ROOT当前TASK_ROOT而b.V2=r3root，父budget/attempt/summary与b.write不同scope，必须同一新运行scope闭合；父loadinputs要读新r4，父collect也要同root。verify_fixture_paths_absent与capture_logcat等剩余父F1常量按真实函数是否关联仅必要调整，不能新T141BV1却硬跑T136 guard。PROT_OUT_ROOT保持actual OUT_BASE/task145-scroll-host-binding-v1，不回写task目录内。
 
-只新E:/creation-reading-assistant/task145-scroll-host-binding-v1/recheck-r4/host/inputs/最小patch/REPORT/必要原离线log/ready.json。先核r3host29105B52de269f5d593a419e24828c3cad586f48ff2ce48580755fe42f225a2d7959ef，不改原v1/r1/r2/r3任何原件。25分钟/差量512KiB raw512KiB。只新增以上源字节/恢复独立性/真实主入口调用证据，不重刷旧九项/所有旧suite；必要回归本批新hunk即可。
+只新<证据根>/task145-scroll-host-binding-v1/recheck-r4/host/inputs/最小patch/REPORT/必要原离线log/ready.json。先核r3host29105B52de269f5d593a419e24828c3cad586f48ff2ce48580755fe42f225a2d7959ef，不改原v1/r1/r2/r3任何原件。25分钟/差量512KiB raw512KiB。只新增以上源字节/恢复独立性/真实主入口调用证据，不重刷旧九项/所有旧suite；必要回归本批新hunk即可。
 
 严格validator模板及15rolepins复用，新产品539f44c5/testf2d2982b/instrument11092359/全部Android源码冻结不build/compile。Root不旁路ADB/build。任何ADB/VM探测启停/安装卸载force-stop设置/hostmain真执行/真实runid预算attemptsummary/F1/设备皆禁；Git云正式库私库自动记忆/旧资产删移压迁/杀共享进程亦禁。当前只离线定义真实调用，不是设备批准。超scope或时间仍未闭精确BLOCKED，不能以同size hash缺失降语义或写PASS。完成Root核再派下一批，最终总结末行：这是任务145-r4。
 ````

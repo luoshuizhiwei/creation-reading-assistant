@@ -8,11 +8,11 @@
 
 ## 1. 最新依据与接任
 
-先读仓库/用户AGENTS → [current](../handoff/current.md) → 本文件 → [本批Root复核](2026-11-02-antigravity-stage-delivery-review.md) → 当前卡完整合同和必要原证。state为`E:/creation-reading-assistant/coordination/android-zcode-luna-state.json`，重点currentTask、nextContinuationQueue和原continuationQueue.rootReview；旧路径查document-map，不加载历史全集或其他agent私库。
+先读仓库/用户AGENTS → [current](../handoff/current.md) → 本文件 → [本批Root复核](2026-11-02-antigravity-stage-delivery-review.md) → 当前卡完整合同和必要原证。state为`<证据根>/coordination/android-zcode-luna-state.json`，重点currentTask、nextContinuationQueue和原continuationQueue.rootReview；旧路径查document-map，不加载历史全集或其他agent私库。
 
 旧9卡每项已有交付，但本批复核否定“只差3设备批”：17/17、10/10原用例通过仍有实证漏门；EP/C旧manifest失效，MD6路径4同2异，B线仅静态图。**接任者先修具体缺口，不重做整套旧工作。** 原209-EP-r1/旧AG01—09作为来源保留，新AR卡针对未闭合范围，不重建完整工程或并行旧修复。
 
-活动仓库`D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919`；唯一candidate`E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android`；runtime在`E:/creation-reading-assistant/task209-navigation-coverage-v1/inventory-repair-r2/scripts/`。当前产品c396ebe1/53899310B，test0585723c/10751701B；执行前核实际完整SHA/current，不硬沿用旧包。
+活动仓库`<仓库>`；唯一candidate`<证据根>/task59-common-candidate-v1/candidate/android`；runtime在`<证据根>/task209-navigation-coverage-v1/inventory-repair-r2/scripts/`。当前产品c396ebe1/53899310B，test0585723c/10751701B；执行前核实际完整SHA/current，不硬沿用旧包。
 
 ## 2. 八项任务、依赖与排期
 
@@ -36,7 +36,7 @@
 - `android-zcode`保持暂停。接任会话连续实施不等于恢复自动化；外部代发/桌面操控不由本队列授权。确有当前电脑操作许可时优先实际可用低额度操控模型，实施模型另记。
 - 无Git暂存提交pushPR发布、既有资产删移、D产品回灌、pm clear/盲恢复、正式库/私库session DB或记忆写入许可。冻结host/collector/v13/preserved/R2原归档只读，不改门造绿。
 - 设备前完整fresh/单owner/原APK/data/userState/八设置/保护根/创建物基线及166+R2恢复准备。所有ADB带本轮serial；新runId/scope，不重用旧boot/失败scope。已成功恢复/卸载不为补证重复做。
-- 复用现有唯一candidate、Gradle home和依赖，开工先登记实际路径/owner/锁。报告根`E:/creation-reading-assistant/task209-navigation-coverage-v1/continuation-20261102/next-v2/`，普通文本/源码/patch/raw每卡512KiB、合计4MiB；构建日志和必要设备保护原件另列真实bytes。先估算空间，不复制工程/cache/历史/APK套装，不清理旧资产腾空间。
+- 复用现有唯一candidate、Gradle home和依赖，开工先登记实际路径/owner/锁。报告根`<证据根>/task209-navigation-coverage-v1/continuation-20261102/next-v2/`，普通文本/源码/patch/raw每卡512KiB、合计4MiB；构建日志和必要设备保护原件另列真实bytes。先估算空间，不复制工程/cache/历史/APK套装，不清理旧资产腾空间。
 - 模型按当前实际可选资源和返工风险选择：恢复/数据/导航/最终验收用可靠强推理，机械工作可用低成本。不可用就记录并换可用方案，不虚称切换，不无限重试模型通道。
 
 ## 4. 连续执行、失败分支与状态维护

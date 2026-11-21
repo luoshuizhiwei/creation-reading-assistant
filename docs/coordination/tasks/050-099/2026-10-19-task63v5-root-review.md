@@ -25,7 +25,7 @@
 
 ## 原始证据
 
-E:/creation-reading-assistant/task63-common-device-entry-v1 下：v5/input-snapshot与input-versions.json、attempts/attempt_v5_20261019_100715 的attempt-state、logs/saf-execution-result.json、evidence/task35_evidence/_commands.json、device_recovery/final-uninstall-forensics双包tar、final-tmp-recovery-v6及保护前后清单。共享producer原件位于tasks51-52-codex-review-20261016/saf-root-fix/task52_saf_producer.py，只读确认_finalize回收/命名/资源清单流程。
+<证据根>/task63-common-device-entry-v1 下：v5/input-snapshot与input-versions.json、attempts/attempt_v5_20261019_100715 的attempt-state、logs/saf-execution-result.json、evidence/task35_evidence/_commands.json、device_recovery/final-uninstall-forensics双包tar、final-tmp-recovery-v6及保护前后清单。共享producer原件位于tasks51-52-codex-review-20261016/saf-root-fix/task52_saf_producer.py，只读确认_finalize回收/命名/资源清单流程。
 
 ## 未覆盖项
 

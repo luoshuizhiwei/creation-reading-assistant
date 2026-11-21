@@ -6,7 +6,7 @@
 
 ## 输入指纹
 
-[Root接收清单](<E:/creation-reading-assistant/task62-common-test-apk-v1/root-review/ready.json>)保存原61/62报告、ready、关键证据SHA及共同候选身份。候选位于既有59工作区：1033→1034文件，恰好新增Root-r1的`HighlightInspirationPersistenceAcceptTest.kt`，SHA `74c90e04822593db13b917991144ac1cc3f4630e53d47b7106c996b3be099f6d`，既有文件无改删。完整内容清单digest `aba75da1fea19665591e3ca93ea7eee04d52ce1d4aa5035c116f47ccd1adab15`。
+[Root接收清单](<<证据根>/task62-common-test-apk-v1/root-review/ready.json>)保存原61/62报告、ready、关键证据SHA及共同候选身份。候选位于既有59工作区：1033→1034文件，恰好新增Root-r1的`HighlightInspirationPersistenceAcceptTest.kt`，SHA `74c90e04822593db13b917991144ac1cc3f4630e53d47b7106c996b3be099f6d`，既有文件无改删。完整内容清单digest `aba75da1fea19665591e3ca93ea7eee04d52ce1d4aa5035c116f47ccd1adab15`。
 
 ## 所有权与改动
 

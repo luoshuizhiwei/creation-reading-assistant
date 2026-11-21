@@ -17,5 +17,5 @@ E. 主入口仍未真正验收：r4脚本尾无if __name__=="__main__": main()�
 
 只新增这些真实失败边界必要用例，严禁继续用被测源生成expected或把root忽略的fake当positive。最少positive三根各有不同文件/目录(含CE db/wal/shm)+空DE、wrong-root、空tar、SHA缺失、坏manifest、身份rc/boot漂移、真parent链。不刷旧13绿。独立恢复proof实现复用r4，但如果preserve抛异常，finally仍须产品保留+原test/settings安全恢复，不能异常跳过恢复。原始cause与恢复cause分列，不吞错。未完成明确BLOCKED，不假绿。
 
-只新E:/creation-reading-assistant/task145-scroll-host-binding-v1/recheck-r5/host/inputs/最小相对r4patch/REPORT/原离线raw/ready.json。旧v1/r1/r2/r3/r4源码raw/SYNTHETIC不改不rmtree。仅离线，任何ADB/VM探测启停/安装卸载force-stop设置/hostmain真执行/真实runid预算attemptsummary/F1/设备禁止，Android源码/APK/Gradle冻结。真parent链仅所有外部命令mock且假输出scope明确隔离，不算设备执行授权。Root不旁路ADB/build，不Git云正式库私库自动记忆/删移旧资产/kill共享进程。新144APK539f44c5/f2d2982b与15rolepins复用。完成Root读实际差量和真实parent离线原log后另裁设备，最终总结末行：这是任务145-r5。
+只新<证据根>/task145-scroll-host-binding-v1/recheck-r5/host/inputs/最小相对r4patch/REPORT/原离线raw/ready.json。旧v1/r1/r2/r3/r4源码raw/SYNTHETIC不改不rmtree。仅离线，任何ADB/VM探测启停/安装卸载force-stop设置/hostmain真执行/真实runid预算attemptsummary/F1/设备禁止，Android源码/APK/Gradle冻结。真parent链仅所有外部命令mock且假输出scope明确隔离，不算设备执行授权。Root不旁路ADB/build，不Git云正式库私库自动记忆/删移旧资产/kill共享进程。新144APK539f44c5/f2d2982b与15rolepins复用。完成Root读实际差量和真实parent离线原log后另裁设备，最终总结末行：这是任务145-r5。
 ````

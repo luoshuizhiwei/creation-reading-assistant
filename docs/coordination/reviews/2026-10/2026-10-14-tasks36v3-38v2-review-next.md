@@ -24,7 +24,7 @@ Root独立实核阻断：
 6. 取证本地/设备暂存按basename扁平，多个目录/包同名会碰撞；stage未用run_id，restore临时路径也非run专属。只比较DB组，APK原件备份/原触碰根完整账仍未实现。不得以本轮15测试扩大为安全完整。
 
 ## 原始证据
-[实际测试和独立反例](<E:/creation-reading-assistant/tasks36v3-38v2-codex-review-20261014/verification.json>)；[核查脚本](<E:/creation-reading-assistant/tasks36v3-38v2-codex-review-20261014/verify.py>)；[36原测试重跑](<E:/creation-reading-assistant/tasks36v3-38v2-codex-review-20261014/36-tests.log>)；[38原测试重跑](<E:/creation-reading-assistant/tasks36v3-38v2-codex-review-20261014/38-tests.log>)。原REPORT只读。
+[实际测试和独立反例](<<证据根>/tasks36v3-38v2-codex-review-20261014/verification.json>)；[核查脚本](<<证据根>/tasks36v3-38v2-codex-review-20261014/verify.py>)；[36原测试重跑](<<证据根>/tasks36v3-38v2-codex-review-20261014/36-tests.log>)；[38原测试重跑](<<证据根>/tasks36v3-38v2-codex-review-20261014/38-tests.log>)。原REPORT只读。
 
 ## 未覆盖项
 设备全NOT_RUN、D/F NOT_PROVEN、X/实体/MIUI/发布不扩大。旧APK冻结有效不表示新工具冻结或device_ready。全产品分母未知，不能算全产品进度。
@@ -33,4 +33,4 @@ Root独立实核阻断：
 无实际设备/数据操作，无D产品/Git/发布，无私库/正式库/损坏仓库/桌面HOLD访问；无子代理、外部消息、节点切换、定时任务。Root测试仅自有E模拟材料。
 
 ## 交付状态与下一步
-本批交付2/2，完整主机闭环验收0/2，前述正确修复限定保留。下一36-v4输出E:/creation-reading-assistant/task36-joint-runtime-bind-freeze-v4，重点实际CLI持久化和接缝，DeepSeek普通可用档即可，粗估30–50分钟；38-v3输出E:/creation-reading-assistant/task38-device-admission-restore-closure-v3，重点既有安全合同闭环，建议GLM5.3或DeepSeek较强推理档换视角，粗估60–100分钟。以当前实际菜单为准，不外派GPT/Claude。两线立即并行，无构建/设备；不新增重复审计。两项完成Root核后单一owner整合工具/新冻结，再安排限定MuMu。不能以未知恢复能力允许破坏性测试；确实不可恢复则准确阻断具体动作/范围。
+本批交付2/2，完整主机闭环验收0/2，前述正确修复限定保留。下一36-v4输出<证据根>/task36-joint-runtime-bind-freeze-v4，重点实际CLI持久化和接缝，DeepSeek普通可用档即可，粗估30–50分钟；38-v3输出<证据根>/task38-device-admission-restore-closure-v3，重点既有安全合同闭环，建议GLM5.3或DeepSeek较强推理档换视角，粗估60–100分钟。以当前实际菜单为准，不外派GPT/Claude。两线立即并行，无构建/设备；不新增重复审计。两项完成Root核后单一owner整合工具/新冻结，再安排限定MuMu。不能以未知恢复能力允许破坏性测试；确实不可恢复则准确阻断具体动作/范围。

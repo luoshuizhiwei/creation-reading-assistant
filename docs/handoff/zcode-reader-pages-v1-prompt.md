@@ -5,7 +5,7 @@
 ```text
 你接任任务 READER-PAGES-v1，按Root已定方案直接修改原生Android代码并完成验证。
 
-活动仓库：D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919
+活动仓库：<仓库>
 
 先读仓库AGENTS.md、用户级AGENTS.md、docs/handoff/current.md，然后完整读取：
 docs/coordination/2026-11-08-reader-pages-v1-implementation.md
@@ -21,7 +21,7 @@ docs/coordination/2026-11-08-reader-pages-v1-implementation.md
 
 先读当前源码和WIP，记录输入，不复原、不覆盖他人修改。已通过的UIX按钮结构保持原样。本批是新的页面体验改造，不宣称旧UIX全部历史或全产品完成。先自行集中验证四入口，再进行一批设备验收，避免每个控件一轮交接。最多一次集中返修，不能通过放宽断言凑PASS。
 
-交付到E:/AgentWork/CRA/reader-pages-v1/，按合同提供实际diff、源码和APK指纹、原rc/log/XML、截图/录像、恢复原证及未验项。写current/state前核指纹并合并，仅同步本批。全程不commit/push/发布、不清理既有资产、不写私有记忆，不恢复自动化。不要只交静态稿或继续生成让用户反复转发的修复词。
+交付到<证据根>/reader-pages-v1/，按合同提供实际diff、源码和APK指纹、原rc/log/XML、截图/录像、恢复原证及未验项。写current/state前核指纹并合并，仅同步本批。全程不commit/push/发布、不清理既有资产、不写私有记忆，不恢复自动化。不要只交静态稿或继续生成让用户反复转发的修复词。
 
 最终总结末行：
 这是任务 READER-PAGES-v1。

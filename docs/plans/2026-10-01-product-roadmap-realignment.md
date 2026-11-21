@@ -164,7 +164,7 @@ M2及版本交付阻断优先于非必要体验增强。M4中真正独立的实�
 - [桌面P1目标与安全约束](desktop-reference/2026-08-09-desktop-creation-workbench-phase-1-spec.md)、[桌面v2.0覆盖关系与历史交付](2026-09-10-desktop-global-card-library-requirements.md)。
 - [Android八组授权需求](android-parallel-delivery-2026-09-09/README.md)、[本地书库/来源路线](android/2026-09-12-android-library-folder-smart-recognition-roadmap.md)、[书架已验P0与候选P1–P3](android/2026-09-18-android-shelf-maturity-plan.md)。
 - [A–E恢复计划（历史范围）](android/2026-09-22-android-recovery-convergence-plan.md)、[E限定关闭](../coordination/dispatches/2026-10/2026-10-01-stage-e-final-v2-codex-closure.md)、[N1实测与N3分类补正](../coordination/reviews/2026-10/2026-10-01-next-n1-n3-codex-review.md)。N3的180行仅资产算术，不采用其“仅剩两缺陷”等全产品推断。
-- [现存发布workflow](../../.github/workflows/release.yml)、[候选功能池（非承诺）](legado-feature-backlog.md)、[协作复盘操作协议](<D:/Application/文档/Obsidian/Codex/agent/项目指挥-完成后进度汇报.md>)。
+- [现存发布workflow](../../.github/workflows/release.yml)、[候选功能池（非承诺）](legado-feature-backlog.md)、[协作复盘操作协议](<<应用目录>/文档/Obsidian/Codex/agent/项目指挥-完成后进度汇报.md>)。
 
 ## 未覆盖项
 
@@ -172,7 +172,7 @@ M2及版本交付阻断优先于非必要体验增强。M4中真正独立的实�
 
 ## 恢复与副作用
 
-被改文档均保存[可回退副本](<E:/creation-reading-assistant/planning-realignment-20261001/before>)。不读取Claude独立库，不覆盖自动memories索引；未修改产品、工件、Git index/HEAD或设备，不发送外部消息、不创建自动任务。TODO其他项目后缀保持原字节。
+被改文档均保存[可回退副本](<<证据根>/planning-realignment-20261001/before>)。不读取Claude独立库，不覆盖自动memories索引；未修改产品、工件、Git index/HEAD或设备，不发送外部消息、不创建自动任务。TODO其他项目后缀保持原字节。
 
 ## 交付状态与下一步
 

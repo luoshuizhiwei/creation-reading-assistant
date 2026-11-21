@@ -12,7 +12,7 @@ host ceb60dd1a24455efbfcbcac4143a058b2d30e45b6f42659653ec7034925ae79a；test cb7
 原A交付、B交付、旧冻结/FAIL、共享工具及Android产品/测试源码Root未改。Root-r1独立小候选：worker只拥有lifecycle和定向tests/evidence，Root拥有runner/entry/shutdownworker副本与最终freeze/binding；独立审阅者只读复核。没有覆盖别人文件。相关task73/59 Python/Java活动查询为空，不据此认领设备。
 
 ## 环境
-59工作区、D:/develop/env/gradle与既有依赖复用。Root不构建/设备/端口或进程身份探测。比例核验技能与系统调试技能只用于本次具体缺陷；原充分证据不全量重跑。
+59工作区、<开发盘>/env/gradle与既有依赖复用。Root不构建/设备/端口或进程身份探测。比例核验技能与系统调试技能只用于本次具体缺陷；原充分证据不全量重跑。
 
 ## 执行与结果
 A/B交付采纳：原pytest XML57项、errors/failures/skipped均0；三项ViewModel状态测试已真实JVM运行，原XML3/0/0/0；真实test打包BUILD SUCCESSFUL。helper把中央点击/等待/返回异常纳入原始failure，MD/取材退出成功记录已在必需断言后；独立比对B最终4文件和工作区SHA一致，5项Compose/Room留instrumentation，未执行。
@@ -22,7 +22,7 @@ A/B交付采纳：原pytest XML57项、errors/failures/skipped均0；三项ViewM
 Root实际调用新入口verify_binding、verify_freeze、audit_import_closure、check_budget_plan全部ok。预算5100=3180阶段+1680恢复+240裕量。初次importlib核验漏加candidate sys.path而停止，改成普通脚本对应搜索路径后成功；不是生产入口失败。
 
 ## 原始证据
-E:/creation-reading-assistant/task73-offline-closeout-v1/A/REPORT、evidence/pytest-73-v1-A.xml、red/green-73证据、logs/01与02；B/REPORT/ready/src/patch；integration/ready/STATUS与JVM XML。Root原交付核验root-review/checks.json。
+<证据根>/task73-offline-closeout-v1/A/REPORT、evidence/pytest-73-v1-A.xml、red/green-73证据、logs/01与02；B/REPORT/ready/src/patch；integration/ready/STATUS与JVM XML。Root原交付核验root-review/checks.json。
 Root-r1：candidate实际入口/模块、tests/test_task73_snapshot_gate.py、evidence/red-before-fix.log、green-snapshot-gate.log、task73-lifecycle.patch、verification/final-checks.json、ready-73-root-r1.json。原路径引用，不复制APK、工程或历史证据。
 
 ## 恢复与副作用

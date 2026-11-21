@@ -16,7 +16,7 @@ Root只写E任务/root-review/v7-r1及必要D交接；原A/B、共享producer、
 修正真实list_room_dirs生成脚本：空glob从`[ -e "$d" ] && printf`改为if分支，保留set -e及cache目录必需探测；没有用无条件成功掩盖错误。PID采集异常纳入失败；adb调用10秒timeout、线程join12秒；证据账本写失败与原阶段错误以ExceptionGroup同时保留。其余接缝不变。
 
 ## 环境
-本轮只在本地Python及Git Bash运行离线检查，设备命令0、编译0。单一构建工作区仍E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android；Gradle home D:/develop/env/gradle；唯一构建owner Root按锁协调。自动化2/3保持PAUSED，未改其配置。
+本轮只在本地Python及Git Bash运行离线检查，设备命令0、编译0。单一构建工作区仍<证据根>/task59-common-candidate-v1/candidate/android；Gradle home <开发盘>/env/gradle；唯一构建owner Root按锁协调。自动化2/3保持PAUSED，未改其配置。
 
 ## 执行与结果
 A新run CRA63_DE_JOINT_20261019_V7，attempt_v7_20261019_173305：ABC/clamp/SAF PASS，Room在仪器启动前`ls -d`探测rc1失败，DE/总消费NOT_RUN。不能据此宣称logcat可信通道已在设备通过。
@@ -25,7 +25,7 @@ Root使用真实生产list_room_dirs生成的脚本经本地Git Bash执行，复
 B沿用已核：v6同run17源指纹一致，离线DE53项accepted、总消费7/7PASS；没有新设备DE/整链通过。
 
 ## 原始证据
-E:/creation-reading-assistant/task63-common-device-entry-v1/root-review/v7-r1/：empty-probe-red.json、room-regression-green.log、evidence/room-evidence-regression.json、root-boundaries.log、candidate-checks.json、device-recovery-checks.json、两份.diff；测试夹具留存。
+<证据根>/task63-common-device-entry-v1/root-review/v7-r1/：empty-probe-red.json、room-regression-green.log、evidence/room-evidence-regression.json、root-boundaries.log、candidate-checks.json、device-recovery-checks.json、两份.diff；测试夹具留存。
 A原报告与ready：v7/room-fix/REPORT-63-v7-A.md、ready-63-v7-A.json；原attempt及设备恢复原档保留。
 
 ## 未覆盖项

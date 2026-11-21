@@ -21,7 +21,7 @@ Root 只读产品候选，核查源码、payload、原始 JVM XML；重跑驱动
 7. EPUB payload 三路径是相对 v2 起点增量；最终集成必须同时保全 v1 的 ShelfImporter/测试以及 Parser/FileOps 依赖，不可仅拷三路径。
 
 ## 原始证据
-[独立核查 JSON](<E:/creation-reading-assistant/three-parallel-deliveries-review-20261004/verification.json>)；各任务报告链接原始 XML/日志。驱动反例仅 Fake ADB，不触设备。
+[独立核查 JSON](<<证据根>/three-parallel-deliveries-review-20261004/verification.json>)；各任务报告链接原始 XML/日志。驱动反例仅 Fake ADB，不触设备。
 
 ## 恢复与副作用
 仅核查文档及 E 盘结果写入；无设备恢复需要。既有候选保持原件。

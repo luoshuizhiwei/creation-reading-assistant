@@ -10,7 +10,7 @@
 稳定偏好合并到用户级AGENTS；vault AGENTS只保存信息归属/更新规则并保留既有skill元数据原则。两个仓库AGENTS明确原仓库保护与恢复项目设备决策入口；原current改为历史资产转接，恢复current提供当前基线、6文件候选、单一所有权与待验边界。项目页、TODO、open-loops退出重复流水账，现有相关工作流改为方法/引用，过期模型/额度/ACTIVE/仅真机条款移到按需快照。
 TODO其他项目原条目保持原文；open-loops其他项目段落保留。旧桌面/P1与原生细项是否被替代无法仅凭当前报告逐项确认，按历史待核/暂缓保留，未虚称已完成。
 
-全部修改前原文以字节完整复制到E盘：[备份manifest](<E:/codex-memory-maintenance-20261001/backup-manifest.json>)；manifest记录原路径、备份、大小和SHA。大历史快照均在E盘，未删除旧证据。相对历史链接以manifest中的原路径为解析基准；必要证据的当前直达链接保留在current。
+全部修改前原文以字节完整复制到E盘：[备份manifest](<<证据盘>/codex-memory-maintenance-20261001/backup-manifest.json>)；manifest记录原路径、备份、大小和SHA。大历史快照均在E盘，未删除旧证据。相对历史链接以manifest中的原路径为解析基准；必要证据的当前直达链接保留在current。
 回退：先核目标没有后续用户新改动，再根据manifest核备份SHA，将所选备份逐个复制回其原路径；不要批量覆盖后续改动。本次新增报告/增补笔记可留作历史，不执行删除或Git回退。
 
 ## 最新事实与验收

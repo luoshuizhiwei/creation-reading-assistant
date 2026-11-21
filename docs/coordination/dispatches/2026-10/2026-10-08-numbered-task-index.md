@@ -40,231 +40,231 @@
 
 
 
-| 1 | CRA-JOINT-J1-SEARCH-RETURN-FIX-v1 | 已验收，设备前测试实现/编译限定 | E:/creation-reading-assistant/joint-j1-search-return-fix-v1/REPORT.md；不重派 |
+| 1 | CRA-JOINT-J1-SEARCH-RETURN-FIX-v1 | 已验收，设备前测试实现/编译限定 | <证据根>/joint-j1-search-return-fix-v1/REPORT.md；不重派 |
 
 
 
 
 
 
-| 2 | CRA-JOINT-RUNTIME-EVIDENCE-REPAIR-v1 + Root补齐 | 已验收，992源码/41工件/身份与71离线限定 | E:/creation-reading-assistant/joint-runtime-codex-completion-20261008；不重派 |
+| 2 | CRA-JOINT-RUNTIME-EVIDENCE-REPAIR-v1 + Root补齐 | 已验收，992源码/41工件/身份与71离线限定 | <证据根>/joint-runtime-codex-completion-20261008；不重派 |
 
 
 
 
 
 
-| 3 | CRA-J1-FUNCTION-CLOSURE-v9 | 已验收，996源码/100 JVM/4 J1方法；真实返回A后翻页保存成立；journey03只观察已有位置 | E:/creation-reading-assistant/joint-j1-closure-task3-v9/REPORT.md；31仍另计，不重派 |
+| 3 | CRA-J1-FUNCTION-CLOSURE-v9 | 已验收，996源码/100 JVM/4 J1方法；真实返回A后翻页保存成立；journey03只观察已有位置 | <证据根>/joint-j1-closure-task3-v9/REPORT.md；31仍另计，不重派 |
 
 
 
 
 
 
-| 4 | CRA-SEARCH-INDEX-CANCEL-CONTROL-v4 + Root反馈 | 已验收，实现限定；最终56 JVM，联合设备另计 | E:/creation-reading-assistant/parallel-search-task4-root-feedback-v4-20261009/ROOT_REPORT.md；不重派 |
+| 4 | CRA-SEARCH-INDEX-CANCEL-CONTROL-v4 + Root反馈 | 已验收，实现限定；最终56 JVM，联合设备另计 | <证据根>/parallel-search-task4-root-feedback-v4-20261009/ROOT_REPORT.md；不重派 |
 
 
 
 
 
 
-| 5 | CRA-TTS-TIMER-LIFECYCLE-EVIDENCE-v1 | 已验收，3文件/8 JVM限定；真实音频盲区保留 | E:/creation-reading-assistant/parallel-tts-task5-v1/REPORT.md；不重派 |
+| 5 | CRA-TTS-TIMER-LIFECYCLE-EVIDENCE-v1 | 已验收，3文件/8 JVM限定；真实音频盲区保留 | <证据根>/parallel-tts-task5-v1/REPORT.md；不重派 |
 
 
 
 
 
 
-| 6 | CRA-POST-ACCEPT-INTEGRATION-PAYLOAD-PREP-v9 | 已核路径清理子门/7SHA；65材料仍12-v2 | E:/creation-reading-assistant/integration-payload-task6-v9/REPORT.md；不重派 |
+| 6 | CRA-POST-ACCEPT-INTEGRATION-PAYLOAD-PREP-v9 | 已核路径清理子门/7SHA；65材料仍12-v2 | <证据根>/integration-payload-task6-v9/REPORT.md；不重派 |
 
 
 
 
 
 
-| 7 | CRA-ACCEPTED-INCREMENTS-E-JOIN-PREP-v1 | 已验收，996源码/14增量机械合流准备 | E:/creation-reading-assistant/accepted-increments-task7-v1/REPORT.md；不重派 |
+| 7 | CRA-ACCEPTED-INCREMENTS-E-JOIN-PREP-v1 | 已验收，996源码/14增量机械合流准备 | <证据根>/accepted-increments-task7-v1/REPORT.md；不重派 |
 
 
 
 
 
 
-| 8 | CRA-JOINED-SEARCH-TTS-JVM-GATE-v1 | 已验收，996源码上64定向JVM限定 | E:/creation-reading-assistant/joined-jvm-task8-v1/REPORT.md；输入未变，复用 |
+| 8 | CRA-JOINED-SEARCH-TTS-JVM-GATE-v1 | 已验收，996源码上64定向JVM限定 | <证据根>/joined-jvm-task8-v1/REPORT.md；输入未变，复用 |
 
 
 
 
 
 
-| 9 | CRA-PRIVATE-DB-PREUNINSTALL-EVIDENCE-FIX-v1 + Root-v2 | 已验收，42工件/66离线及真实卸载取证3/3已核；完整联合另计 | E:/creation-reading-assistant/private-db-evidence-task9-root-v2-20261010/ROOT_REPORT.md；采用Root驱动，不重派 |
+| 9 | CRA-PRIVATE-DB-PREUNINSTALL-EVIDENCE-FIX-v1 + Root-v2 | 已验收，42工件/66离线及真实卸载取证3/3已核；完整联合另计 | <证据根>/private-db-evidence-task9-root-v2-20261010/ROOT_REPORT.md；采用Root驱动，不重派 |
 
 
 
 
 
 
-| 10 | CRA-JOINT-31-ACCEPT-CLOSURE-v3 | 已验收，997源码/15定向JVM；设备/31另计 | E:/creation-reading-assistant/joint-31-closure-task10-v3/REPORT.md；不重派 |
+| 10 | CRA-JOINT-31-ACCEPT-CLOSURE-v3 | 已验收，997源码/15定向JVM；设备/31另计 | <证据根>/joint-31-closure-task10-v3/REPORT.md；不重派 |
 
 
 
 
 
 
-| 11 | CRA-SQL-PROBE-TARGET-GUARD-v2 + Root补齐 | 已验收，44工件/21实际执行通过、3跳过，设备另计 | E:/creation-reading-assistant/task11v2-codex-review-20261010；采用Root最终输入 |
+| 11 | CRA-SQL-PROBE-TARGET-GUARD-v2 + Root补齐 | 已验收，44工件/21实际执行通过、3跳过，设备另计 | <证据根>/task11v2-codex-review-20261010；采用Root最终输入 |
 
 
 
 
 
 
-| 12 | CRA-JOINT-31-MERGE-FREEZE-ACCEPT-v2 | 源码/JVM限定已验，999源码/39与1053 JVM；设备另计 | E:/creation-reading-assistant/joint-31-closure-task12-v2/REPORT.md；DeepSeek |
+| 12 | CRA-JOINT-31-MERGE-FREEZE-ACCEPT-v2 | 源码/JVM限定已验，999源码/39与1053 JVM；设备另计 | <证据根>/joint-31-closure-task12-v2/REPORT.md；DeepSeek |
 
 
 
 
 
 
-| 13 | CRA-FREEZE-PROVENANCE-GUARD-v2 | v2+Root离线限定已验，35项；真实构建另计 | E:/creation-reading-assistant/freeze-provenance-task13-root-v2-20261011/ROOT_REPORT.md；不重派 |
+| 13 | CRA-FREEZE-PROVENANCE-GUARD-v2 | v2+Root离线限定已验，35项；真实构建另计 | <证据根>/freeze-provenance-task13-root-v2-20261011/ROOT_REPORT.md；不重派 |
 
 
 
 
 
 
-| 14 | CRA-JOINT-31-FINAL-BOUND-ACCEPT-v1 | 旧冻结31及保护恢复后账已核；Root当前实例已关闭，历史占用保留 | E:/creation-reading-assistant/joint-31-closure-task14-v1/REPORT.md；不重派恢复 |
+| 14 | CRA-JOINT-31-FINAL-BOUND-ACCEPT-v1 | 旧冻结31及保护恢复后账已核；Root当前实例已关闭，历史占用保留 | <证据根>/joint-31-closure-task14-v1/REPORT.md；不重派恢复 |
 
 
 
 
 
 
-| 15 | CRA-READER-SESSION-PROGRESS-GUARD-FIX-v1 | 已核1000源码/reader766，设备另计；全量1既有失败 | E:/creation-reading-assistant/reader-session-progress-guard-task15-v1/REPORT.md；不重派 |
+| 15 | CRA-READER-SESSION-PROGRESS-GUARD-FIX-v1 | 已核1000源码/reader766，设备另计；全量1既有失败 | <证据根>/reader-session-progress-guard-task15-v1/REPORT.md；不重派 |
 
 
 
 
 
 
-| 16 | CRA-READER-DISPATCH-ORDER-MINIMAL-v6 | 已核源码/88JVM限定，已进Root-v2 | E:/creation-reading-assistant/reader-dispatch-order-task16-v6/REPORT.md；不重派 |
+| 16 | CRA-READER-DISPATCH-ORDER-MINIMAL-v6 | 已核源码/88JVM限定，已进Root-v2 | <证据根>/reader-dispatch-order-task16-v6/REPORT.md；不重派 |
 
 
 
 
 
 
-| 17 | CRA-IMPORT-EPUB-WIP-SEMANTIC-REVIEW-v1 | 限定审查交付64hunk/复用121JVM，不重派 | E:/creation-reading-assistant/import-epub-wip-review-task17-v1/REPORT.md；DeepSeek |
+| 17 | CRA-IMPORT-EPUB-WIP-SEMANTIC-REVIEW-v1 | 限定审查交付64hunk/复用121JVM，不重派 | <证据根>/import-epub-wip-review-task17-v1/REPORT.md；DeepSeek |
 
 
 
 
 
 
-| 18 | CRA-SYNC-BACKUP-WIP-SEMANTIC-REVIEW-v1 | 限定审查交付64hunk/3行为差异，不重派 | E:/creation-reading-assistant/sync-backup-wip-review-task18-v1/REPORT.md；DeepSeek |
+| 18 | CRA-SYNC-BACKUP-WIP-SEMANTIC-REVIEW-v1 | 限定审查交付64hunk/3行为差异，不重派 | <证据根>/sync-backup-wip-review-task18-v1/REPORT.md；DeepSeek |
 
 
 
 
 
 
-| 19 | CRA-WEBDAV-CONTRACT-TEST-ALIGN-v1 | 已核51JVM/3路径限定，由21合流 | E:/creation-reading-assistant/webdav-contract-align-task19-v1/REPORT.md；DeepSeek |
+| 19 | CRA-WEBDAV-CONTRACT-TEST-ALIGN-v1 | 已核51JVM/3路径限定，由21合流 | <证据根>/webdav-contract-align-task19-v1/REPORT.md；DeepSeek |
 
 
 
 
 
 
-| 20 | CRA-SYNC-PUSH-CONTRACT-TESTS-v1 | 已核30JVM/3变异/测试1改，由21合流 | E:/creation-reading-assistant/sync-push-contract-tests-task20-v1/REPORT.md；GLM5.3Flash |
+| 20 | CRA-SYNC-PUSH-CONTRACT-TESTS-v1 | 已核30JVM/3变异/测试1改，由21合流 | <证据根>/sync-push-contract-tests-task20-v1/REPORT.md；GLM5.3Flash |
 
 
 
 
 
 
-| 21 | CRA-ACCEPTED-WEBDAV-SYNC-E-JOIN-v1 | 原四路径/81JVM已核；已与16-v3进入Root共同源码 | E:/creation-reading-assistant/accepted-webdav-sync-join-task21-v1/REPORT.md；不重派 |
+| 21 | CRA-ACCEPTED-WEBDAV-SYNC-E-JOIN-v1 | 原四路径/81JVM已核；已与16-v3进入Root共同源码 | <证据根>/accepted-webdav-sync-join-task21-v1/REPORT.md；不重派 |
 
 
 
 
 
 
-| 22 | CRA-MATERIAL-JOURNEY-READONLY-AUDIT-v1 | 已核六环节源码归属/逻辑证据限定，调查退出 | E:/creation-reading-assistant/material-journey-audit-task22-v1/REPORT.md；真实UI/删除证据另计 |
+| 22 | CRA-MATERIAL-JOURNEY-READONLY-AUDIT-v1 | 已核六环节源码归属/逻辑证据限定，调查退出 | <证据根>/material-journey-audit-task22-v1/REPORT.md；真实UI/删除证据另计 |
 
 
 
 
 
 
-| 23 | CRA-INSPIRATION-SOURCE-EXPORT-v2 | 已核源码/16格式紅绿限定，已进Root-v2 | E:/creation-reading-assistant/inspiration-source-export-task23-v2/REPORT.md；不重派 |
+| 23 | CRA-INSPIRATION-SOURCE-EXPORT-v2 | 已核源码/16格式紅绿限定，已进Root-v2 | <证据根>/inspiration-source-export-task23-v2/REPORT.md；不重派 |
 
 
 
 
 
 
-| 24 | CRA-V0-JOINT-FREEZE-MUMU-ACCEPT-v1 | 缺口版已交；1009源/新冻结/阅读与冷读限定采纳；短末项完整门、D/F、系统UI/恢复链未关闭 | E:/creation-reading-assistant/v0-joint-mumu-task24-v1/REPORT.md；用户要求核验后待命，不派发 |
+| 24 | CRA-V0-JOINT-FREEZE-MUMU-ACCEPT-v1 | 缺口版已交；1009源/新冻结/阅读与冷读限定采纳；短末项完整门、D/F、系统UI/恢复链未关闭 | <证据根>/v0-joint-mumu-task24-v1/REPORT.md；用户要求核验后待命，不派发 |
 
 
 
 
 
 
-| 25 | CRA-EPUB-TEMPORARY-PROGRESS-FIX-v1 | 已核源码/JVM限定，85原JVM；已入共同树 | E:/creation-reading-assistant/task25-epub-temporary-progress-fix-v1/REPORT.md；见实际核查 |
+| 25 | CRA-EPUB-TEMPORARY-PROGRESS-FIX-v1 | 已核源码/JVM限定，85原JVM；已入共同树 | <证据根>/task25-epub-temporary-progress-fix-v1/REPORT.md；见实际核查 |
 
 
 
 
 
 
-| 26 | CRA-BACKUP-RELATION-PRESERVATION-FIX-v2 | 已核1010/33原JVM与position红绿，已入共同树 | E:/creation-reading-assistant/task26-backup-relation-preservation-fix-v2/REPORT.md；不重派 |
+| 26 | CRA-BACKUP-RELATION-PRESERVATION-FIX-v2 | 已核1010/33原JVM与position红绿，已入共同树 | <证据根>/task26-backup-relation-preservation-fix-v2/REPORT.md；不重派 |
 
 
 
 
 
 
-| 27 | CRA-SEARCH-REBUILD-CANCEL-EPOCH-FIX-v1 | 已核源码/JVM限定，56原JVM；已入共同树 | E:/creation-reading-assistant/task27-search-rebuild-cancel-epoch-fix-v1/REPORT.md；见实际核查 |
+| 27 | CRA-SEARCH-REBUILD-CANCEL-EPOCH-FIX-v1 | 已核源码/JVM限定，56原JVM；已入共同树 | <证据根>/task27-search-rebuild-cancel-epoch-fix-v1/REPORT.md；见实际核查 |
 
 
 
 
 
 
-| 28 | CRA-TXT-OPEN-FAILURE-PREVIEW-FIX-v1 | 已核源码/JVM限定，24原JVM；已入共同树 | E:/creation-reading-assistant/task28-txt-open-failure-preview-fix-v1/REPORT.md；见实际核查 |
+| 28 | CRA-TXT-OPEN-FAILURE-PREVIEW-FIX-v1 | 已核源码/JVM限定，24原JVM；已入共同树 | <证据根>/task28-txt-open-failure-preview-fix-v1/REPORT.md；见实际核查 |
 
 
 
 
 
 
-| 29 | CRA-MATERIAL-NESTED-MERGE-SOURCE-FIX-v1 | 已核源码/JVM限定，17原JVM；已入共同树 | E:/creation-reading-assistant/task29-material-nested-merge-source-fix-v1/REPORT.md；见实际核查 |
+| 29 | CRA-MATERIAL-NESTED-MERGE-SOURCE-FIX-v1 | 已核源码/JVM限定，17原JVM；已入共同树 | <证据根>/task29-material-nested-merge-source-fix-v1/REPORT.md；见实际核查 |
 
 
 
 
 
 
-| 30 | CRA-INSPIRATION-SYNC-WIRE-FIX-v1 | 已核源码/JVM限定，57原JVM；实际LAN未验，已入共同树 | E:/creation-reading-assistant/task30-inspiration-sync-wire-fix-v1/REPORT.md；见实际核查 |
+| 30 | CRA-INSPIRATION-SYNC-WIRE-FIX-v1 | 已核源码/JVM限定，57原JVM；实际LAN未验，已入共同树 | <证据根>/task30-inspiration-sync-wire-fix-v1/REPORT.md；见实际核查 |
 
 
 
 
 
 
-| 31 | CRA-ACCEPTANCE-FREEZE-BACKUP-GUARDS-FIX-v2 | 已核限定采纳，Root补强freeze SHA必填，七工具已合流 | E:/creation-reading-assistant/task31-acceptance-freeze-backup-guards-fix-v2/REPORT.md；不重派 |
+| 31 | CRA-ACCEPTANCE-FREEZE-BACKUP-GUARDS-FIX-v2 | 已核限定采纳，Root补强freeze SHA必填，七工具已合流 | <证据根>/task31-acceptance-freeze-backup-guards-fix-v2/REPORT.md；不重派 |
 
 
 
 
 
 
-| 32 | CRA-FIXED-JOINT-FREEZE-MUMU-ACCEPT-v1 → v4 | v4主机实现/离线已核并E合流；device gate仍PENDING | E:/creation-reading-assistant/task32-fixed-joint-freeze-mumu-accept-v4/REPORT.md |
+| 32 | CRA-FIXED-JOINT-FREEZE-MUMU-ACCEPT-v1 → v4 | v4主机实现/离线已核并E合流；device gate仍PENDING | <证据根>/task32-fixed-joint-freeze-mumu-accept-v4/REPORT.md |
 
 
 
 
 
 
-| 33 | CRA-MATERIAL-JOINED-DATA-CHAIN-JVM-v1 → v2 | v2原8JVM/产品0改已核采纳，不再返修 | E:/creation-reading-assistant/task33-material-joined-data-chain-jvm-v1/REPORT.md |
+| 33 | CRA-MATERIAL-JOINED-DATA-CHAIN-JVM-v1 → v2 | v2原8JVM/产品0改已核采纳，不再返修 | <证据根>/task33-material-joined-data-chain-jvm-v1/REPORT.md |
 
 
 
@@ -302,13 +302,13 @@
 
 
 
-| 34 | CRA-ABC-DEVICE-CONTRACT-PREP-v2 | 已核E合流/编译限定，设备NOT_RUN | E:/creation-reading-assistant/task34-abc-device-contract-prep-v2 |
+| 34 | CRA-ABC-DEVICE-CONTRACT-PREP-v2 | 已核E合流/编译限定，设备NOT_RUN | <证据根>/task34-abc-device-contract-prep-v2 |
 
 
 
 
 
-| 35 | CRA-CLAMP-SAF-EVIDENCE-PREP-v2 | 已核E合流/接缝及consumer限定，设备NOT_RUN | E:/creation-reading-assistant/task35-clamp-saf-evidence-prep-v2 |
+| 35 | CRA-CLAMP-SAF-EVIDENCE-PREP-v2 | 已核E合流/接缝及consumer限定，设备NOT_RUN | <证据根>/task35-clamp-saf-evidence-prep-v2 |
 
 
 
@@ -347,14 +347,14 @@
 
 
 
-| 36 | CRA-JOINT-RUNTIME-BIND-FREEZE-v4 | 已核43/43及自动索引闭环，独立离线采纳，不重派，无设备 | E:/creation-reading-assistant/task36-joint-runtime-bind-freeze-v1 |
+| 36 | CRA-JOINT-RUNTIME-BIND-FREEZE-v4 | 已核43/43及自动索引闭环，独立离线采纳，不重派，无设备 | <证据根>/task36-joint-runtime-bind-freeze-v1 |
 
 
 
 
 
 
-| 37 | CRA-JOINT-PRODUCER-CONSUMER-AUDIT-v1 | 审计已交，Root收窄原7项因果，任务结束不重派 | E:/creation-reading-assistant/task37-joint-producer-consumer-audit-v1 |
+| 37 | CRA-JOINT-PRODUCER-CONSUMER-AUDIT-v1 | 审计已交，Root收窄原7项因果，任务结束不重派 | <证据根>/task37-joint-producer-consumer-audit-v1 |
 
 
 
@@ -396,7 +396,7 @@
 
 
 
-| 38 | CRA-DEVICE-ADMISSION-RESTORE-CLOSURE-v5 | 已核18/18，所属离线修复采纳，交40唯一owner合流，无设备 | E:/creation-reading-assistant/task38-device-admission-restore-closure-v1 |
+| 38 | CRA-DEVICE-ADMISSION-RESTORE-CLOSURE-v5 | 已核18/18，所属离线修复采纳，交40唯一owner合流，无设备 | <证据根>/task38-device-admission-restore-closure-v1 |
 
 
 
@@ -443,7 +443,7 @@
 
 
 
-| 39 | CRA-DEVICE-BACKUP-RESTORE-COMPLETION-v2 | 已核20/20，所属离线修复采纳，实际schema接缝交40，URI仍BLOCKED，无设备 | E:/creation-reading-assistant/task39-device-backup-restore-completion-v1 |
+| 39 | CRA-DEVICE-BACKUP-RESTORE-COMPLETION-v2 | 已核20/20，所属离线修复采纳，实际schema接缝交40，URI仍BLOCKED，无设备 | <证据根>/task39-device-backup-restore-completion-v1 |
 
 
 
@@ -463,21 +463,21 @@
 
 
 
-| 40 | CRA-HOST-JOINT-INTEGRATION-v4 | 已核26/26与A/B/C离线严格闭环/门禁，D/E/设备NOT_RUN，任务结束交45合流 | E:/creation-reading-assistant/task40-host-joint-integration-v4 |
+| 40 | CRA-HOST-JOINT-INTEGRATION-v4 | 已核26/26与A/B/C离线严格闭环/门禁，D/E/设备NOT_RUN，任务结束交45合流 | <证据根>/task40-host-joint-integration-v4 |
 
-| 41 | CRA-SAF-PERMISSION-CAPABILITY-MAP-v1 | 调查已核限定采纳，结束不重派；草案校正由42实现，无设备 | E:/creation-reading-assistant/task41-saf-permission-capability-map-v1 |
+| 41 | CRA-SAF-PERMISSION-CAPABILITY-MAP-v1 | 调查已核限定采纳，结束不重派；草案校正由42实现，无设备 | <证据根>/task41-saf-permission-capability-map-v1 |
 
 
 
 最新2026-10-14 20:23：[38-v5/39-v2实核](../../reviews/2026-10/2026-10-14-tasks38v5-39v2-review-integration-next.md)。停止双边schema循环返修，40唯一owner合流、41只读能力定位，原APK复用，不设备不构建。
 
 
-| 42 | CRA-SAF-RUN-CLEANUP-v3 | 已核1020清单/对象实际归属/最终编译exit0；仪器/Provider未实测，任务结束交45 | E:/creation-reading-assistant/task42-saf-run-cleanup-v3 |
-| 43 | CRA-DESKTOP-DELIVERY-REUSE-v1 | 历史索引限定采纳；调查结束，桌面后续排期已撤销，不重派 | E:/creation-reading-assistant/task43-desktop-delivery-reuse-v1 |
+| 42 | CRA-SAF-RUN-CLEANUP-v3 | 已核1020清单/对象实际归属/最终编译exit0；仪器/Provider未实测，任务结束交45 | <证据根>/task42-saf-run-cleanup-v3 |
+| 43 | CRA-DESKTOP-DELIVERY-REUSE-v1 | 历史索引限定采纳；调查结束，桌面后续排期已撤销，不重派 | <证据根>/task43-desktop-delivery-reuse-v1 |
 
 2026-10-14 22:03：[40/41核查与三线派发](../../reviews/2026-10/2026-10-14-tasks40-41-review-next.md)。40-v2、42-v1、43-v1可并行；完成后先核实际成果，不自动放行设备或D回灌。
 
-| 44 | CRA-DESKTOP-USABLE-CANDIDATE-v1 | 已撤销：2026-10-15用户明确排除桌面应用，原提示词作废；执行状态未核，不自动发消息或删除成果 | E:/creation-reading-assistant/task44-desktop-usable-candidate-v1 |
+| 44 | CRA-DESKTOP-USABLE-CANDIDATE-v1 | 已撤销：2026-10-15用户明确排除桌面应用，原提示词作废；执行状态未核，不自动发消息或删除成果 | <证据根>/task44-desktop-usable-candidate-v1 |
 
 2026-10-14 23:23：[三交付核查与下一三线](../../reviews/2026-10/2026-10-14-tasks40v2-42v1-43v1-review-next.md)。保留真实成果，40/42定向修复，44进入实际桌面交付；不自动放行Android设备/D回灌/Git/发布。
 
@@ -485,15 +485,15 @@
 
 2026-10-15 01:09：[Android两交付实核与下一步](../../reviews/2026-10/2026-10-15-tasks40v3-42v2-review-next.md)。40-v4/42-v3独立并行，桌面44撤销保持，不扩范围。
 
-| 45 | CRA-ANDROID-JOINT-CANDIDATE-FREEZE-v2 | v1冻结采纳；v2原23测试通过，默认/拒绝已核，real合法链仍缺，交47 | E:/creation-reading-assistant/task45-android-joint-candidate-freeze-v2 |
+| 45 | CRA-ANDROID-JOINT-CANDIDATE-FREEZE-v2 | v1冻结采纳；v2原23测试通过，默认/拒绝已核，real合法链仍缺，交47 | <证据根>/task45-android-joint-candidate-freeze-v2 |
 
 2026-10-15 01:48：[两修复核过转同版](../../reviews/2026-10/2026-10-15-tasks40v4-42v3-review-join-next.md)。40/42不重派，45只准备共同产物，核后再限定MuMu，不涉及桌面。
 
-| 46 | CRA-MUMU-READONLY-PREFLIGHT-v1 | 已核只读阻塞停点；当时MuMu未启动，设备NOT_RUN，不重派 | E:/creation-reading-assistant/task46-mumu-readonly-preflight-v1 |
+| 46 | CRA-MUMU-READONLY-PREFLIGHT-v1 | 已核只读阻塞停点；当时MuMu未启动，设备NOT_RUN，不重派 | <证据根>/task46-mumu-readonly-preflight-v1 |
 
 2026-10-15 08:29：[45实核与两线下一步](../../tasks/000-049/2026-10-15-task45-review-runtime-preflight-next.md)。产物复用，45-v2接线与46只读并行；尚未设备验收，桌面44不恢复。
 
-| 47 | CRA-REAL-RUNTIME-CLOSURE-v3 | v2原22测试/26清单通过；生产正向/缩减清单/真实记账未过，v3定向修复，禁设备/Gradle | E:/creation-reading-assistant/task47-real-runtime-closure-v3 |
+| 47 | CRA-REAL-RUNTIME-CLOSURE-v3 | v2原22测试/26清单通过；生产正向/缩减清单/真实记账未过，v3定向修复，禁设备/Gradle | <证据根>/task47-real-runtime-closure-v3 |
 
 2026-10-15 10:01：[45-v2/46-v1实核及47接续](../../reviews/2026-10/2026-10-15-tasks45v2-46v1-review-runtime-next.md)。原产物复用，先核合法执行链再设备，不重复预检。
 

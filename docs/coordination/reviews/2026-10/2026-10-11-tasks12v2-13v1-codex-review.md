@@ -18,7 +18,7 @@ Compose实际加载状态与二次测量的顺序、snapshotFlow唤醒、切源�
 
 ## 原始证据
 
-[Root核对JSON](<E:/creation-reading-assistant/tasks12v2-13v1-codex-review-20261011/verification.json>)、verify.py、verify13.py及[next-input-binding](<E:/creation-reading-assistant/tasks12v2-13v1-codex-review-20261011/next-input-binding.json>)。12原始XML位于joint-31-closure-task12-v2/evidence；13原始日志/工具/测试位于freeze-provenance-task13-v1。所有权：Root只维护本报告、current/index；13-v2只写独立冻结工具目录；6-v4只写自身材料目录，公共源码/设备无并行写者。
+[Root核对JSON](<<证据根>/tasks12v2-13v1-codex-review-20261011/verification.json>)、verify.py、verify13.py及[next-input-binding](<<证据根>/tasks12v2-13v1-codex-review-20261011/next-input-binding.json>)。12原始XML位于joint-31-closure-task12-v2/evidence；13原始日志/工具/测试位于freeze-provenance-task13-v1。所有权：Root只维护本报告、current/index；13-v2只写独立冻结工具目录；6-v4只写自身材料目录，公共源码/设备无并行写者。
 
 ## 恢复与副作用
 

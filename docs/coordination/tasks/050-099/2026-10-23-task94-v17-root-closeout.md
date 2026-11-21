@@ -6,7 +6,7 @@
 
 ## 所有权与改动、环境
 
-Claude交付后已Idle，相关执行进程为空；Root只读核验/写D交接，不改E源、不发新设备命令。唯一task59工作区及既有依赖/锁保留。执行目录 `E:/creation-reading-assistant/task94-organizing-export-integration-v1/v17`；原REPORT/ready/失败记录不改写。
+Claude交付后已Idle，相关执行进程为空；Root只读核验/写D交接，不改E源、不发新设备命令。唯一task59工作区及既有依赖/锁保留。执行目录 `<证据根>/task94-organizing-export-integration-v1/v17`；原REPORT/ready/失败记录不改写。
 
 ## 执行与结果、原始证据
 
@@ -23,7 +23,7 @@ run `T94V4-V17-20261023-160954`：evidence/device/04-run.json原stdout为 `OK (1
 
 summary primaryError=null，但recoveryErrors仍为 `protection-final returned failure`，ok=false，原样保留。首次保护wrapper rc2，内部为qahost.test私有枚举UNKNOWN/rc1，diffs非空且db_groups_match=false；不能称首次恢复全绿，也不能仅凭后续ls成功断言枚举异常根因已定位。
 
-后补只读保护实核：`E:/creation-reading-assistant/task83-selfuse-delivery-v1/B/v2/protection-root-r1/T94V4-V17-20261023-160954-final-rerun/readonly-protection-proof.json`及final-protection-result.json：ok=true/reasons=[]，71私有/820外部，diffs=[]，db_groups_match=true。采纳补核时保护恢复成立；首次异常保留为观察项，原因未确证。控制台日志有编码问题，以原UTF8 JSON为精确证据。
+后补只读保护实核：`<证据根>/task83-selfuse-delivery-v1/B/v2/protection-root-r1/T94V4-V17-20261023-160954-final-rerun/readonly-protection-proof.json`及final-protection-result.json：ok=true/reasons=[]，71私有/820外部，diffs=[]，db_groups_match=true。采纳补核时保护恢复成立；首次异常保留为观察项，原因未确证。控制台日志有编码问题，以原UTF8 JSON为精确证据。
 
 原test代码0d18…、完整inventory UTF8/LF SHA d6ac3c5f…03e29和userState与合同逐项相等；产品卸载后精确包缺席。导出CREATED_AND_PRESERVED，设备probe SHA/size与E核同，精确删除/不存在各rc0。设置night=no、stay_on=0及其余合同恢复，keepalive同boot实例1 pid66432运行。均为本run历史状态，未来如有设备工作需fresh入场，不关闭或重启实例。
 

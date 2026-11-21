@@ -5,7 +5,7 @@ CRA-THREE-V3-DELIVERIES-CODEX-REVIEW-v1。用户报告三项完成；Codex只读
 
 ## 输入指纹 / 所有权与改动
 活动仓库 HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存区空。三个 v3 候选只读核查；三个独立 reviewer 分别负责 TXT、D2、J1，未改产品、未构建或操作设备。Root只维护本报告、current 与 E 原始核查文件。
-E 证据根：E:/creation-reading-assistant/three-v3-deliveries-codex-review-20261007。
+E 证据根：<证据根>/three-v3-deliveries-codex-review-20261007。
 reviewed-inputs.json 记录下一批完整源码指纹：TXT984项；D2由已核v2完整980项和两文件实际变化合成；J1当前982项实算。D2原v3清单仅两文件，不能称完整冻结。
 Root启动时未发现匹配三任务路径的java/gradle/python进程，不等于外部应用完整占用检查；下一owner启动仍须核占用。
 

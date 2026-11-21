@@ -17,7 +17,7 @@
 
 同owner跑新增删除交错+相关全库重建并发/BookRepositorySearchIndex定向测试及必要main编译，不跑全库/161/旧98设备/99/97充分矩阵。测试绑定实际输入SHA/原红绿XML，失败修本问题必要hunk直到闭环。必要一次产品候选构建交付实际实现；当前产品3e2ef0ea52763889B覆盖前先找同SHA原字节保全，无则只保全必要单份；旧17bb在98/v2-integration/preserved已保全不复制，test23a2618e已保全不重建。此批无ADB/设备操作，不用Mock或JVM称实际数据库设备/实体手机通过；若只能测局部，准确列剩余事务验证边界。
 
-唯一workspace E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android；Gradle D:/develop/env/gradle，JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk，锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock，你是唯一构建owner。输出E:/creation-reading-assistant/task101-index-deletion-race-v1，最小源码/patch/日志XML原证据预算4MiB，必要build预计256MiB，若无既有3e2ef0ea保全则必要单份52763889B另列。复制前估空间，报告实际字节/保留理由/build增量条件；不复制工程/build/.gradle/.kotlin/缓存/依赖/历史证据/APK对，不删移动压缩迁移存量。
+唯一workspace <证据根>/task59-common-candidate-v1/candidate/android；Gradle <开发盘>/env/gradle，JDK <开发盘>/Java/jdk-17.0.14，SDK <开发盘>/Android/Sdk，锁<证据根>/locks/android-gradle-exclusive.lock，你是唯一构建owner。输出<证据根>/task101-index-deletion-race-v1，最小源码/patch/日志XML原证据预算4MiB，必要build预计256MiB，若无既有3e2ef0ea保全则必要单份52763889B另列。复制前估空间，报告实际字节/保留理由/build增量条件；不复制工程/build/.gradle/.kotlin/缓存/依赖/历史证据/APK对，不删移动压缩迁移存量。
 
 交付源最小patch/前后SHA/实际输入产物清单/红绿原日志exitcode/XML/REPORT/ready，区分实现/离线/JVM/构建/设备未验、恢复无新操作；无Git暂存提交pushPR发布、D回灌、正式库/HOLD/云部署/关闭其他进程。Root核后继续已有实际未闭合目标，不把单批完成当项目停止。最终最末单独写：这是任务101-v1。
 ````

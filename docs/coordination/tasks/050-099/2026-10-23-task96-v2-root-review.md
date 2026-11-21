@@ -4,7 +4,7 @@
 
 ## 输入指纹、所有权与改动、环境
 
-Root只读核验E:/creation-reading-assistant/task96-library-settings-closure-v1/v2。输出9/9大小与SHA匹配；22冻结输入中20项当前匹配，两项已变为修后仪器b9fb760b5f13b1ebf9740e8722e4c6c131f85b929f22aaff43611710893e45cd与test54369035d9cb1aeadf6717a5b2e6e617608224385f2a6c27b76ada50a736c9c7。运行d2f6783a原APK遗失，不称完整运行输入现物全匹配、不重建补造。产品110不变，唯一task59工作区/依赖不变。D归Root；Claude继续独占D2仪器/宿主/构建/设备。
+Root只读核验<证据根>/task96-library-settings-closure-v1/v2。输出9/9大小与SHA匹配；22冻结输入中20项当前匹配，两项已变为修后仪器b9fb760b5f13b1ebf9740e8722e4c6c131f85b929f22aaff43611710893e45cd与test54369035d9cb1aeadf6717a5b2e6e617608224385f2a6c27b76ada50a736c9c7。运行d2f6783a原APK遗失，不称完整运行输入现物全匹配、不重建补造。产品110不变，唯一task59工作区/依赖不变。D归Root；Claude继续独占D2仪器/宿主/构建/设备。
 
 ## 执行与结果、原始证据
 
@@ -16,7 +16,7 @@ Root只读核验E:/creation-reading-assistant/task96-library-settings-closure-v1
 
 summary保留ok=false、collect缺结果目录和protection-final两条原错误、产品KEPT_BLOCKED。06-original-test-restored原记录与入场代码SHA0d18、完整inventory/userState一致。首次保护DB组一致但consumer差异含夜间设置，不能改成全绿。
 
-补只读原证据：E:/creation-reading-assistant/task83-selfuse-delivery-v1/B/v2/protection-root-r1/T96V2-20261023-204114-final-rerun/readonly-protection-proof.json实际ok=true、71/820、diffs=[]、DB组一致、reasons=[]。Root本轮fresh adb devices后绑定127.0.0.1:16416精确包清单：仅qahost/qahost.test及原test，产品包缺席；cmd uimode night输出no。未操作设备持久状态。执行者手工卸载前“仅profileInstalled24B”的原始命令证据未在交付内定位，不将口头描述补造为完整证据；新批入场必须fresh独立确认。
+补只读原证据：<证据根>/task83-selfuse-delivery-v1/B/v2/protection-root-r1/T96V2-20261023-204114-final-rerun/readonly-protection-proof.json实际ok=true、71/820、diffs=[]、DB组一致、reasons=[]。Root本轮fresh adb devices后绑定127.0.0.1:16416精确包清单：仅qahost/qahost.test及原test，产品包缺席；cmd uimode night输出no。未操作设备持久状态。执行者手工卸载前“仅profileInstalled24B”的原始命令证据未在交付内定位，不将口头描述补造为完整证据；新批入场必须fresh独立确认。
 
 ## 未覆盖项、交付状态与下一步
 

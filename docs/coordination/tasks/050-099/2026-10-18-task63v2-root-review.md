@@ -6,7 +6,7 @@
 
 ## 输入指纹
 
-E:/creation-reading-assistant/task63-common-device-entry-v1/REPORT-v2.md、ready-v2.json及v2目录。ready列出的6个差量文件SHA **6/6匹配**。实际新入口SHA `32bce4d5b69c3d0d1d6a79a026adf21994c7657a681ff740d1c92916818a608b`；100项绑定SHA `d8e3a32d92a7c347415b0471db9289135167f8f02e9202e4a76ae19f1243dad1`。原Root-r1、冻结、APK及既有验证复用，不重新全量核工具或编译。
+<证据根>/task63-common-device-entry-v1/REPORT-v2.md、ready-v2.json及v2目录。ready列出的6个差量文件SHA **6/6匹配**。实际新入口SHA `32bce4d5b69c3d0d1d6a79a026adf21994c7657a681ff740d1c92916818a608b`；100项绑定SHA `d8e3a32d92a7c347415b0471db9289135167f8f02e9202e4a76ae19f1243dad1`。原Root-r1、冻结、APK及既有验证复用，不重新全量核工具或编译。
 
 ## 所有权与改动
 

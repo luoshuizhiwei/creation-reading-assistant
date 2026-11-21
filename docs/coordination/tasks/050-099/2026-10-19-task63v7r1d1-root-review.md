@@ -21,7 +21,7 @@ DE原结果53/53 accepted、contract_complete=true；总消费者7/7 all_ok且dr
 检查明细见E任务/root-review/v7r1d1-receive/checks.json；24项针对性断言全部成立，不把断言数当产品进度。未重复设备、完整测试或不变全工具核验。
 
 ## 原始证据
-E:/creation-reading-assistant/task63-common-device-entry-v1/REPORT-63-v7-root-r1-device-1.md、ready同名json；attempts/attempt_v7r1d1_20261019_185707中的attempt-state、a/abc-entry-result、logs/room-persistence-instrument、room-logcat-systemout、room-persistence-result、de-strict-result、overall-consumer-report、Room阶段spec、device_recovery原始归档/清单。
+<证据根>/task63-common-device-entry-v1/REPORT-63-v7-root-r1-device-1.md、ready同名json；attempts/attempt_v7r1d1_20261019_185707中的attempt-state、a/abc-entry-result、logs/room-persistence-instrument、room-logcat-systemout、room-persistence-result、de-strict-result、overall-consumer-report、Room阶段spec、device_recovery原始归档/清单。
 root-review/v7-r1/device-run-r1d1/adb-final-fresh.txt为空列表原文，主机关闭时刻offline快照与随后空列表区分，不改写旧A证据。
 
 ## 未覆盖项

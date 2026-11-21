@@ -10,8 +10,8 @@
 
 执行与结果：
 - 3：完整mtime前置探针失败，31 NOT_RUN。原touch空格格式bad date；同设备ISO形式纳秒恢复精确。判定驱动格式兼容缺陷，不能说设备不具备纳秒恢复能力。正确停在安装前；报告“没有任何写入”应限定为没有应用/设置写入，因为探针有任务暂存写改删。
-- Root3-v3准备：[新候选报告](<E:/creation-reading-assistant/joint-mtime-contract-v3-20261009/REPORT.md>)；8定向正反例、37真实驱动离线用例exit0，严格绑定无错无警告。产品/APK和31合同不变。新完整设备能力探针尚未运行。
-- 4：报告实际位于[deliverables/REPORT.md](<E:/creation-reading-assistant/parallel-search-task4-v2/deliverables/REPORT.md>)。词项先于coverage提交、rollback不恢复旧代次、界面真实动作接线源码成立。CancelControl绿色Gradle日志exit0成立，但声称13/13的原始XML已被后续筛选覆盖，不能确认逐项数量；当前WorkerPolicy XML实际12/12，与报告“8项”不符，以原XML为准。
+- Root3-v3准备：[新候选报告](<<证据根>/joint-mtime-contract-v3-20261009/REPORT.md>)；8定向正反例、37真实驱动离线用例exit0，严格绑定无错无警告。产品/APK和31合同不变。新完整设备能力探针尚未运行。
+- 4：报告实际位于[deliverables/REPORT.md](<<证据根>/parallel-search-task4-v2/deliverables/REPORT.md>)。词项先于coverage提交、rollback不恢复旧代次、界面真实动作接线源码成立。CancelControl绿色Gradle日志exit0成立，但声称13/13的原始XML已被后续筛选覆盖，不能确认逐项数量；当前WorkerPolicy XML实际12/12，与报告“8项”不符，以原XML为准。
 
 剩余4-v3范围（静态可控交错推导，须实际红绿复现）：
 1. 共享userCancelRequested在新sweep占权后清零，旧取消sweep恢复时可能读false并PROGRESSED；取消必须归属具体代次/执行者。
@@ -19,7 +19,7 @@
 3. UI仅isRunning显示停止，排队/重试阶段入口缺失；反射类存在测试不能证明真实dispatch链。
 4. allowDiskReads为JVM存根而新增catch Throwable吞策略恢复错误，需尽量用定向测试mock恢复既有生产策略；保留本次有效修复，不扩大重构。
 
-原始证据：[Root实算](<E:/creation-reading-assistant/joint-mtime-contract-v3-20261009/evidence/delivery-verification.json>)、3原probe/绑定/基线与7SHA清单、4green-verify.log/policy-verify.log/red-evidence-rerun2.log及WorkerPolicy XML。旧专项缺XML不据此全量重跑；4-v3必要定向重跑后立即归档防覆盖。
+原始证据：[Root实算](<<证据根>/joint-mtime-contract-v3-20261009/evidence/delivery-verification.json>)、3原probe/绑定/基线与7SHA清单、4green-verify.log/policy-verify.log/red-evidence-rerun2.log及WorkerPolicy XML。旧专项缺XML不据此全量重跑；4-v3必要定向重跑后立即归档防覆盖。
 
 未覆盖项：31设备方法、搜索取消完整时序与排队UI行为、实体手机、X整机中断、Back专属归因/队列排空/初始新save。全产品分母未核。
 

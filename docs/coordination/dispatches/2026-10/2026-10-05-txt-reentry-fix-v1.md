@@ -1,7 +1,7 @@
 # TXT 重进回开头的最小修复（统一候选恢复链）
 
 - 任务编号/版本：`CRA-TXT-REENTRY-FIX-v1`；2026-10-05 指定，实际执行 2026-10-05T09:33–10:25+08:00，应用 ZCode / GLM（account:zai-start-plan / GLM-5.3-Flash）。角色=TXT 恢复链最小修复；未操作设备/ADB。
-- 输入指纹：HEAD `e39a78da9c62f02614207cffb36969a32492eaea`（开工=收工）；暂存区前后 0 条。源码基座只读 [unified-candidate-integration-v1/android](<E:/creation-reading-assistant/unified-candidate-integration-v1/android>)；**Codex 978 文件指纹复制后逐文件实算 978/978 匹配，零漂移**。设备失败原始证据 [unified-mumu-accept-v1/evidence](<E:/creation-reading-assistant/unified-mumu-accept-v1/evidence/>)（J1 两轮：退出保存 870/2553 落库正确，重进 UI=段落 1、DB 被改写 0）。
+- 输入指纹：HEAD `e39a78da9c62f02614207cffb36969a32492eaea`（开工=收工）；暂存区前后 0 条。源码基座只读 [unified-candidate-integration-v1/android](<<证据根>/unified-candidate-integration-v1/android>)；**Codex 978 文件指纹复制后逐文件实算 978/978 匹配，零漂移**。设备失败原始证据 [unified-mumu-accept-v1/evidence](<<证据根>/unified-mumu-accept-v1/evidence/>)（J1 两轮：退出保存 870/2553 落库正确，重进 UI=段落 1、DB 被改写 0）。
 - 所有权与改动：写入仅 `E:\creation-reading-assistant\txt-reentry-fix-v1\`（android 副本、payload、freeze、test-results、scripts、execution.json）与本唯一报告。D 产品源码/原仓库/current/TODO/其他窗口产物零改动；不 commit/push/reset/checkout；未触碰模拟器/正式书库；Gradle home（3.1G）为本任务私有（初次复制不完整导致两次构建失败，整目录重拷后成功，与任何并行窗口零共享）。
 - 环境：Windows / Git Bash / Python 3.13；JDK 17.0.14；Gradle 8.9 `--offline --no-daemon`；仅定向 JVM，无联合 APK 构建。
 
@@ -11,7 +11,7 @@
 
 调用链逐段核实：生产 DB 进度 `{"offset":2553,"locator_v2":{offset:2553,ci:0,co:2553}}` → `LegadoProgressMarker.decode`=null（无 legado_position_v1 键）→ `LocatorCodec.locatorFromProgress` 读 v2 顶层 offset → `parseStoredAbsoluteOffset`=2553 → `ReaderLoadedContent.Text.initialAbsoluteOffset`=2553 → `ReaderScreen.savedPlainOffset`=2553。**加载侧与保存侧全部正确**——与设备证据（退出保存 2553 落库成功）互相印证。
 
-缺陷锁定在恢复应用 effect（[ReaderProgressEffects.kt](<E:/creation-reading-assistant/txt-reentry-fix-v1/freeze/vs-base_ReaderProgressEffects.kt.patch>) 原 L443-477）：`pendingInitialPositionState=true && readingUnits 非空` 即执行 `plainListState.scrollToItem(...)` 并**无条件置 pending=false**。设备时序窗口：LazyColumn 尚未完成首次测量（`totalItemsCount==0`）时 scrollToItem 被静默忽略（列表停在 (0,0)），pending 却被释放；随后任何退出/暂停落库（`ReaderPlatformEffects` ON_PAUSE/ON_STOP/onDispose → `persistOnLeave`）经 `currentPlainListOffset` 读到 0，`mergeReaderProgress` 无条件采纳 incoming，把 2553 覆盖为 0。该模型同时解释 UI=段落 1、DB=0、保存侧正确三个事实。
+缺陷锁定在恢复应用 effect（[ReaderProgressEffects.kt](<<证据根>/txt-reentry-fix-v1/freeze/vs-base_ReaderProgressEffects.kt.patch>) 原 L443-477）：`pendingInitialPositionState=true && readingUnits 非空` 即执行 `plainListState.scrollToItem(...)` 并**无条件置 pending=false**。设备时序窗口：LazyColumn 尚未完成首次测量（`totalItemsCount==0`）时 scrollToItem 被静默忽略（列表停在 (0,0)），pending 却被释放；随后任何退出/暂停落库（`ReaderPlatformEffects` ON_PAUSE/ON_STOP/onDispose → `persistOnLeave`）经 `currentPlainListOffset` 读到 0，`mergeReaderProgress` 无条件采纳 incoming，把 2553 覆盖为 0。该模型同时解释 UI=段落 1、DB=0、保存侧正确三个事实。
 
 ### 修复（2 个生产文件 + 1 个新测试，补丁可应用于 978 基座）
 
@@ -19,9 +19,9 @@
 2. **ReaderProgressEffects.kt**（改 39 行）：恢复 effect 消费该裁决，`?: return@LaunchedEffect` 延迟重试；滚动、锚定、清 pending 仅在裁决通过后执行。
 3. **TxtReentryRestoreTest.kt**（新 7 用例）：①非零 2553 + 就绪 → 解析到包含该偏移的单元且 targetOffset=2553；②布局未就绪 → null + pending 门控拦截退出保存（契约联动断言）；③恢复后退出保存读出目标单元 charStart（≠0）；④0 进度新书放行且不被阻塞；⑤越界 clamp / 仅 percent / totalChars=0 安全；⑥分页在途偏移优先；⑦空 units 不崩溃。
 
-### 验证（[green-run.log](<E:/creation-reading-assistant/txt-reentry-fix-v1/test-results/red-green.log>) EXIT=0）
+### 验证（[green-run.log](<<证据根>/txt-reentry-fix-v1/test-results/red-green.log>) EXIT=0）
 
-定向 6 套件 **29 tests / 0 failures / 0 errors / 0 skipped**：新增 TxtReentryRestoreTest 7/7 + 邻接回归 ReaderScrollPositionTest 5、ReaderProgressActionsPersistTest 5、TxtScrollChapterTargetTest 7、EpubRepositorySaveProgressLocatorTest 3、MarkdownVisibleSourceOffsetTest 2（MD canonical 保存、EPUB S12-①、TXT 实时列表保存、章导航均未被本次修复破坏）。红证据：[red-evidence-run.txt](<E:/creation-reading-assistant/txt-reentry-fix-v1/freeze/evidence/red-evidence-run.txt>)（旧决策路径程序化复现"DB 被覆盖为 0"违反新契约）+ 新测试在基座上不可编译（`plainRestoreTarget` 不存在）。424 项未变证据按输入不变条件复用（生产改动仅 2 文件，本批受影响套件已全量重跑）。
+定向 6 套件 **29 tests / 0 failures / 0 errors / 0 skipped**：新增 TxtReentryRestoreTest 7/7 + 邻接回归 ReaderScrollPositionTest 5、ReaderProgressActionsPersistTest 5、TxtScrollChapterTargetTest 7、EpubRepositorySaveProgressLocatorTest 3、MarkdownVisibleSourceOffsetTest 2（MD canonical 保存、EPUB S12-①、TXT 实时列表保存、章导航均未被本次修复破坏）。红证据：[red-evidence-run.txt](<<证据根>/txt-reentry-fix-v1/freeze/evidence/red-evidence-run.txt>)（旧决策路径程序化复现"DB 被覆盖为 0"违反新契约）+ 新测试在基座上不可编译（`plainRestoreTarget` 不存在）。424 项未变证据按输入不变条件复用（生产改动仅 2 文件，本批受影响套件已全量重跑）。
 
 ## 原始证据
 

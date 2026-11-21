@@ -4,7 +4,7 @@
 
 ## 输入指纹、所有权与改动、环境
 Root维护本报告/current；两个独立explorer分别只读B恢复/attempt和进度语义，不改产品、设备或构建。相关进程查询未发现83执行脚本（不等于设备可随意接管）。A ready、metadata、构建原日志已读；Root实际debug APK SHA e59cf92286c6aad2b99e1c55f4dec17bc9b3cea52b9051db3d25560bbebf9b22，51846868B，与ready一致。原日志BUILD SUCCESSFUL in 5m17s，锁包装记录exit0/released。标准applicationId=com.creationreadingassistant，debug签名及MainActivity元数据支持应用产物身份，不证明各ABI全部设备适配或发布资格。
-A未新建变体，工作区task59-common-candidate-v1/candidate/android及缓存D:/develop/env/gradle复用。A以全E卷空闲差估计455892992B增量，这是卷级变化，不严格等于可归因构建物字节；不为此重扫/清理。APK无额外复制。
+A未新建变体，工作区task59-common-candidate-v1/candidate/android及缓存<开发盘>/env/gradle复用。A以全E卷空闲差估计455892992B增量，这是卷级变化，不严格等于可归因构建物字节；不为此重扫/清理。APK无额外复制。
 
 ## 执行与结果、原始证据
 B/evidence/run/flow.json记录首试install成功、launch成功后step1失败；logs/01-selfuse.log exit6。run2再次启动失败，之后04至09日志记录修驱动后多次继续。不能合并为合同规定的单main/run/attempt五步通过；失败后修脚本不重新安装也属于同批继续设备业务，未满足本批失败即停要求。

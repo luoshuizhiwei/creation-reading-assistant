@@ -6,10 +6,10 @@ CRA-J1-REAL-READER-ARTIFACTS-REPAIR-v5。本轮用户口头完成后，Root读�
 
 ## 输入指纹
 
-E:/creation-reading-assistant/j1-real-reader-artifacts-v5/patches/manifest-sha256.json 实算 d871dc4fc940aec1c80f8022bdd71226cb7339af373c9eb7f010d103c3ead36e。交付清单9/9 SHA与大小匹配，src三Kotlin与保留candidate_build/android对应3/3一致。原编译日志766e8365eba6b3771c97879136b1010f4bb8fa3bf53349ef17c6ee034d934c77，BUILD SUCCESSFUL；报告声明exit0但未发现独立exit文件，不把其静态检查当设备证据。
+<证据根>/j1-real-reader-artifacts-v5/patches/manifest-sha256.json 实算 d871dc4fc940aec1c80f8022bdd71226cb7339af373c9eb7f010d103c3ead36e。交付清单9/9 SHA与大小匹配，src三Kotlin与保留candidate_build/android对应3/3一致。原编译日志766e8365eba6b3771c97879136b1010f4bb8fa3bf53349ef17c6ee034d934c77，BUILD SUCCESSFUL；报告声明exit0但未发现独立exit文件，不把其静态检查当设备证据。
 
-Root证据：E:/creation-reading-assistant/j1-v5-codex-review-20261008/fingerprints.json。
-Root新副本：E:/creation-reading-assistant/j1-v5-codex-finalization-20261008/android。
+Root证据：<证据根>/j1-v5-codex-review-20261008/fingerprints.json。
+Root新副本：<证据根>/j1-v5-codex-finalization-20261008/android。
 Root overlay：同根src/J1RealReaderFixtures.kt SHA ac0f1ad26ba966ab6662a0bee014b16c988c258ad7c5b5022e12018c30f1fb99；src/J1RealReaderJourneyTest.kt SHA 34140ffad3a4a0e3dae923d9444054d5c10264c09b7d6d3b9168cb62e72b27a6。
 D HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存区空。
 
@@ -37,11 +37,11 @@ Root集成决定：真实NavController仅composable局部，ReaderViewModel属�
 
 ## 环境
 
-Windows/PowerShell，JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk，E任务候选和既有E Gradle缓存。无设备、无最终APK构建。
+Windows/PowerShell，JDK <开发盘>/Java/jdk-17.0.14，SDK <开发盘>/Android/Sdk，E任务候选和既有E Gradle缓存。无设备、无最终APK构建。
 
 ## 执行与结果
 
-Root运行 :app:compileQahostAndroidTestKotlin -PcraAndroidTestBuildType=qahost --offline --no-daemon --max-workers=1 --console=plain，缓存 E:/creation-reading-assistant/txt-persist-codex-completion-20261006/gradle-home。BUILD SUCCESSFUL in 2m3s，机器exit0。原197产品JVM输入未变、证据充分，复用不重跑。
+Root运行 :app:compileQahostAndroidTestKotlin -PcraAndroidTestBuildType=qahost --offline --no-daemon --max-workers=1 --console=plain，缓存 <证据根>/txt-persist-codex-completion-20261006/gradle-home。BUILD SUCCESSFUL in 2m3s，机器exit0。原197产品JVM输入未变、证据充分，复用不重跑。
 
 ## 原始证据
 

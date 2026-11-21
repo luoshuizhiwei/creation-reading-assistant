@@ -18,7 +18,7 @@
 | 项 | 值 |
 |---|---|
 | 设备 serial | `c49ac6cf`（每次先 `adb devices` 复核，不符就停下报告） |
-| adb 路径 | `D:/develop/Android/Sdk/platform-tools/` |
+| adb 路径 | `<开发盘>/Android/Sdk/platform-tools/` |
 | 模拟器 | **禁用 MuMu**；只用已连接真机 |
 | 命令形式 | 所有设备命令显式 `-s c49ac6cf` |
 
@@ -26,7 +26,7 @@
 
 ```bash
 cd android
-GRADLE_USER_HOME=D:/develop/env/gradle JAVA_HOME=D:/develop/Java/jdk-17.0.14 \
+GRADLE_USER_HOME=<开发盘>/env/gradle JAVA_HOME=<开发盘>/Java/jdk-17.0.14 \
   "$JAVA_HOME/bin/java" -Dorg.gradle.appname=gradlew \
   -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain \
   :app:assembleDebug --no-daemon

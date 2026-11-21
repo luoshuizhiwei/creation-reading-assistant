@@ -2,7 +2,7 @@
 
 > 可直接粘贴给该 agent 的提示词。与 **R3** 并行推进，两边不得互相改对方文件。
 
-请直接实施本任务。工作目录 `D:/develop/Code/Codex/creation-reading-assistant`。
+请直接实施本任务。工作目录 `<旧仓库>`。
 先完整阅读仓库 `AGENTS.md`、`docs/plans/android-parallel-delivery-2026-09-09/{README.md, COMMON.md}`（纪律以 COMMON.md 为准），
 以及本目录 `reports/` 下的 `codex-r1-s1-scroll-replace.md`、`qoder-r1.md`、`qoder-r1-s1-capability.md`、
 `workbuddy-r2-j1-i2-*.md`、`workbuddy-r2-s1-6-device-verification.md`、`workbuddy-r2-s1-7-index-sweep-fix.md`。

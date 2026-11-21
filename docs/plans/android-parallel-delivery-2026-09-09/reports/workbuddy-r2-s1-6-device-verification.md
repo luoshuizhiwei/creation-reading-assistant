@@ -16,7 +16,7 @@
 
 - 改用 **Bash 直调 `java` 运行 Gradle wrapper**（与 `gradlew.bat` 等价）：
   ```
-  GRADLE_USER_HOME=D:/develop/env/gradle JAVA_HOME=D:/develop/Java/jdk-17.0.14 \
+  GRADLE_USER_HOME=<开发盘>/env/gradle JAVA_HOME=<开发盘>/Java/jdk-17.0.14 \
   java -Dorg.gradle.appname=gradlew -classpath gradle/wrapper/gradle-wrapper.jar \
        org.gradle.wrapper.GradleWrapperMain <task> --no-daemon --console=plain
   ```
@@ -219,7 +219,7 @@ com.creationreadingassistant::timeout-total:  windowSizeMs=86400000, countLimit=
 
 ```bash
 # 全量 JVM（等价 gradlew.bat）
-cd android && GRADLE_USER_HOME=D:/develop/env/gradle JAVA_HOME=D:/develop/Java/jdk-17.0.14 \
+cd android && GRADLE_USER_HOME=<开发盘>/env/gradle JAVA_HOME=<开发盘>/Java/jdk-17.0.14 \
   java -Dorg.gradle.appname=gradlew -classpath gradle/wrapper/gradle-wrapper.jar \
        org.gradle.wrapper.GradleWrapperMain testDebugUnitTest --no-daemon
 

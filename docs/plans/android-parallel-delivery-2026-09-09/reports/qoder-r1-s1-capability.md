@@ -1,7 +1,7 @@
 # qoder-r1-s1：滚动 TXT 超限能力契约与导入分支核实
 
 - 日期：2026-09-10
-- 仓库/分支：`D:/develop/Code/Codex/creation-reading-assistant`，`main`，基线 HEAD `e31db92`
+- 仓库/分支：`<旧仓库>`，`main`，基线 HEAD `e31db92`
 - 工作方式：直接在主仓未提交的 R1 工作区上改（不新建 HEAD 工作树，否则缺少既有改动）；未 reset / checkout / reformat / stage / commit / push；未清理任何他人脏文件
 - 边界：桌面端、N1/D1 文件、`docs/handoff/current.md`、数据库/schema、导航、公共 `strings` 全部未触碰；改动只落在 5 个独占文件内
 - 验收状态：**未做真机验收**（任务边界），本文只给开发验证证据与 WorkBuddy 冻结后验收路径
@@ -82,7 +82,7 @@
 ## 四、命令、退出码、测试数（真实记录）
 
 ```bash
-# 均在 android/ 目录执行；GRADLE_USER_HOME=D:/develop/env/gradle
+# 均在 android/ 目录执行；GRADLE_USER_HOME=<开发盘>/env/gradle
 # 日志一律重定向到文件后再单独取退出码，避免管道掩盖失败
 ```
 

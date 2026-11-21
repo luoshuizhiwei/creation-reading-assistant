@@ -18,7 +18,7 @@ Root只维护项目AGENTS、交接与小型盘点报告。已将最小差量交�
 ### A批：推荐优先确认的旧任务Gradle缓存
 精确10项合计33.008 GiB；仅删除下列caches子目录，不删除gradle-home父目录，不动同级android、gradle.properties、wrapper及其他内容。内容为可再生成的依赖/转换/构建缓存，不含按此清单界定的产品源码/证据。旧脚本如仍指定这些home，需改用保留的共享home，或重新下载/转换依赖；首次旧环境重建会变慢。清理前需再次核当前进程占用、解析绝对目标及清单身份，不结束其他进程。
 
-| 精确目录（均在E:/creation-reading-assistant下） | GiB |
+| 精确目录（均在<证据根>下） | GiB |
 |---|---:|
 | d2-relink-identity-fix-v4/_cache/gradle-home/caches | 4.82 |
 | d2-relink-identity-fix-v3/_cache/gradle-home/caches | 3.24 |
@@ -31,7 +31,7 @@ Root只维护项目AGENTS、交接与小型盘点报告。已将最小差量交�
 | txt-reentry-fix-v4/gradle-home/caches | 3.04 |
 | txt-reentry-persist-fix-v1/gradle-home/caches | 3.08 |
 
-保留当前已知共用 E:/creation-reading-assistant/txt-persist-codex-completion-20261006/gradle-home（整体约5.99 GiB），以及D既有依赖缓存，不擅自迁移。A批已按后续授权完成10/10，实测净增32.97 GiB；不是所有旧缓存的清空许可。
+保留当前已知共用 <证据根>/txt-persist-codex-completion-20261006/gradle-home（整体约5.99 GiB），以及D既有依赖缓存，不擅自迁移。A批已按后续授权完成10/10，实测净增32.97 GiB；不是所有旧缓存的清空许可。
 
 ### B批：旧编译产物，需先精确保留证据
 169目录51.67 GiB只是上限候选，不能整批直接删除。可再生成的intermediates/generated/tmp/kotlin等优先；保留唯一测试XML/原始日志/冻结APK及恢复材料，逐项分离后另给精确清单。不以“旧版本”推断源码可删，不为腾空间删除当前48-v4、49-v4或共同工作根。

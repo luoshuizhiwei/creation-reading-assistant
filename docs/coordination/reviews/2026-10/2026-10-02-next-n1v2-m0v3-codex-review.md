@@ -12,7 +12,7 @@ M0-v3矩阵34×13、证据31×8、raw计数26/2/6及哈希成立。Root未运行
 
 ## 所有权与改动
 
-Root仅写本报告、现有current/项目页/TODO/规划及skill日志与自有E审查/功能跟踪。独立审查只读，无产品/设备/Git变更。五文档先保存[字节回退副本](<E:/creation-reading-assistant/n1v2-m0v3-codex-review-20261002/before>)；TODO其他项目和skill既有历史原字节保留。旧轮任务行退出日常表，完整快照保留可追溯。原报告/源码/CSV/HOLD不改，Claude独立库不访问。
+Root仅写本报告、现有current/项目页/TODO/规划及skill日志与自有E审查/功能跟踪。独立审查只读，无产品/设备/Git变更。五文档先保存[字节回退副本](<<证据根>/n1v2-m0v3-codex-review-20261002/before>)；TODO其他项目和skill既有历史原字节保留。旧轮任务行退出日常表，完整快照保留可追溯。原报告/源码/CSV/HOLD不改，Claude独立库不访问。
 
 ## 环境
 
@@ -45,7 +45,7 @@ N1五改均在授权六文件范围，当前生产@Singleton共享Mutex调用未
 - [已授权Android执行入口](../../../plans/android-parallel-delivery-2026-09-09/README.md)明确R1-D1删除/撤销、R2-D2重关联、R5-L1动态筛选、R6无障碍资源化及手机/平板/横屏。原矩阵漏删除/重关联且把R6改待决定，不能因此取消。Root加G1-05数据生命周期旅程，L1列入G1-04检查点，G7-01保留功能。
 - 签名/升级/R8/发布文档是交付门禁另计；实体硬件为当前MuMu限定证据边界，用户无需重复选设备；F公开发布独立授权。候选池未承诺，排期不强迫新取舍。
 
-Root独立[功能跟踪表](<E:/creation-reading-assistant/n1v2-m0v3-codex-review-20261002/functional-tracker.csv>)保留全部原行、父子关系/归类、补缺旅程和名称，计数功能23项（Android17/桌面6），不删已授权行为或历史证据。它是当前已列范围，不证明全产品穷尽。
+Root独立[功能跟踪表](<<证据根>/n1v2-m0v3-codex-review-20261002/functional-tracker.csv>)保留全部原行、父子关系/归类、补缺旅程和名称，计数功能23项（Android17/桌面6），不删已授权行为或历史证据。它是当前已列范围，不证明全产品穷尽。
 
 当前**交付/归属证据覆盖8/23≈34.8%**：六桌面源码归属、LAN限定实现、WebDAV七类。此数含不同证据层级，**不是完整开发完成率或联合验收百分比**。WebDAV既定验收闭合1项、LAN有限覆盖1项、恢复安全缺陷父项1项，其余20项证据仍需归属；未知不等于未开发，不能据此重开全部功能。
 
@@ -57,10 +57,10 @@ M0计数补正由Codex落盘，不派纯报表返修；并行一个窄只读Libr
 
 ## 原始证据
 
-- [Root审查JSON](<E:/creation-reading-assistant/n1v2-m0v3-codex-review-20261002/verification.json>)、[核查脚本](<E:/creation-reading-assistant/n1v2-m0v3-codex-review-20261002/audit.py>)。
-- [Root功能跟踪及计数](<E:/creation-reading-assistant/n1v2-m0v3-codex-review-20261002/functional-tracker-counts.json>)。
-- [N1-v2原报告](../../dispatches/2026-10/2026-10-02-next-n1-repair-v2.md)、[N1源码候选](<E:/creation-reading-assistant/next-round-n1-repair-v2/android>)、[原始XML](<E:/creation-reading-assistant/next-round-n1-repair-v2/results>)、[原始日志](<E:/creation-reading-assistant/next-round-n1-repair-v2/logs>)。
-- [M0-v3原报告](../../decisions/2026-10/2026-10-02-next-m0-scope-v3.md)、[原矩阵](<E:/creation-reading-assistant/next-round-m0-scope-v3/m0-scope-v3-matrix.csv>)、[原计数](<E:/creation-reading-assistant/next-round-m0-scope-v3/counts-v3.json>)。
+- [Root审查JSON](<<证据根>/n1v2-m0v3-codex-review-20261002/verification.json>)、[核查脚本](<<证据根>/n1v2-m0v3-codex-review-20261002/audit.py>)。
+- [Root功能跟踪及计数](<<证据根>/n1v2-m0v3-codex-review-20261002/functional-tracker-counts.json>)。
+- [N1-v2原报告](../../dispatches/2026-10/2026-10-02-next-n1-repair-v2.md)、[N1源码候选](<<证据根>/next-round-n1-repair-v2/android>)、[原始XML](<<证据根>/next-round-n1-repair-v2/results>)、[原始日志](<<证据根>/next-round-n1-repair-v2/logs>)。
+- [M0-v3原报告](../../decisions/2026-10/2026-10-02-next-m0-scope-v3.md)、[原矩阵](<<证据根>/next-round-m0-scope-v3/m0-scope-v3-matrix.csv>)、[原计数](<<证据根>/next-round-m0-scope-v3/counts-v3.json>)。
 - [前轮四方边界](2026-10-02-next-w2v3-n1-codex-review.md)、[产品规划](../../../plans/2026-10-01-product-roadmap-realignment.md)、[当前交接](../../../handoff/current.md)。
 
 ## 未覆盖项

@@ -57,7 +57,7 @@ RealSystemUiAcceptTest源码确实经NotesSheet发起真实系统交互，未使
 
 ## 原始证据
 
-[Root核查目录](<E:/creation-reading-assistant/task24-gap-codex-review-20261013>)：freeze-verify.txt为本轮独立verify输出；verification.json含源码差量/135快照/24runner/备份/恢复口径；binding-check.json含134harvest SHA及卸载原件检查。交付原件保留在任务24的freeze-t24v2、delivery-snapshot、runs/run_t24_device5、runs/real-ui-frozen和recovery-final-ledger。不改写外部REPORT/STATUS或原始summary。
+[Root核查目录](<<证据根>/task24-gap-codex-review-20261013>)：freeze-verify.txt为本轮独立verify输出；verification.json含源码差量/135快照/24runner/备份/恢复口径；binding-check.json含134harvest SHA及卸载原件检查。交付原件保留在任务24的freeze-t24v2、delivery-snapshot、runs/run_t24_device5、runs/real-ui-frozen和recovery-final-ledger。不改写外部REPORT/STATUS或原始summary。
 
 ## 未覆盖项
 

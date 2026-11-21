@@ -1,11 +1,11 @@
 # 126-v2 ZCode桌面端GLM-5.3-Flash：启动后条件式已保全基线恢复
 
-126-v1已如实FAIL收口：instance1关机（官方映射is_process_started=false）、serial 16416无监听、旧boot ed51bfd9不可验证；条件3本地49/49核同；设备零写入。ready854092f8/REPORTd61532b5在E:/creation-reading-assistant/task126-zcode-desktop-baseline-recovery-v1/。用户2026-10-26明确选择方案A并授权开始：一次官方启动既有instance1，记录真实新boot，显式覆盖"旧boot ed51bfd9仍一致"门禁（r2先例同款条款）；其余门禁与126-v1等强度，不放宽数据保护。
+126-v1已如实FAIL收口：instance1关机（官方映射is_process_started=false）、serial 16416无监听、旧boot ed51bfd9不可验证；条件3本地49/49核同；设备零写入。ready854092f8/REPORTd61532b5在<证据根>/task126-zcode-desktop-baseline-recovery-v1/。用户2026-10-26明确选择方案A并授权开始：一次官方启动既有instance1，记录真实新boot，显式覆盖"旧boot ed51bfd9仍一致"门禁（r2先例同款条款）；其余门禁与126-v1等强度，不放宽数据保护。
 
 ````text
-任务126-v2，ZCode桌面端GLM-5.3-Flash，唯一Android恢复执行owner。先核本文SHA再执行。接续126-v1全部只读成果，不重开目标。输出E:/creation-reading-assistant/task126-zcode-desktop-baseline-recovery-v2/REPORT.md、ready.json、必要原始回执与最小脚本。REPORT/差量<=1MiB，必要原始<=4MiB，复制前估体积；本地现成原件与APK全部只引用不复制。
+任务126-v2，ZCode桌面端GLM-5.3-Flash，唯一Android恢复执行owner。先核本文SHA再执行。接续126-v1全部只读成果，不重开目标。输出<证据根>/task126-zcode-desktop-baseline-recovery-v2/REPORT.md、ready.json、必要原始回执与最小脚本。REPORT/差量<=1MiB，必要原始<=4MiB，复制前估体积；本地现成原件与APK全部只引用不复制。
 
-1. 仅一次官方启动既有instance1：MuMuManager.exe control --vmindex 1 launch（D:/Application/NetEase/MuMuPlayer/nx_main/，r2已验证形式），执行前先--help核实语法。启动失败/超时/映射不显示instance1运行→停保留，不二次启动、不重启、不重置、不启其他实例。启动后以官方映射取本轮实际serial（不假设16416），命令全-s该serial；记录真实新boot_id（/proc/sys/kernel/random/boot_id）替代旧ed51bfd9条件。等待Android启动完成（is_android_started=true、boot_completed=1）。
+1. 仅一次官方启动既有instance1：MuMuManager.exe control --vmindex 1 launch（<MuMu adb>/，r2已验证形式），执行前先--help核实语法。启动失败/超时/映射不显示instance1运行→停保留，不二次启动、不重启、不重置、不启其他实例。启动后以官方映射取本轮实际serial（不假设16416），命令全-s该serial；记录真实新boot_id（/proc/sys/kernel/random/boot_id）替代旧ed51bfd9条件。等待Android启动完成（is_android_started=true、boot_completed=1）。
 
 2. 分支1（产品自启预案）：fresh ps完整有效表+pidof核产品com.creationreadingassistant/test/pkg:前缀；若有活跃进程，执行者绝不force-stop/kill，只做只读pidof轮询（间隔>=60秒，自首次检查起上限90分钟）等自然退出；超时未退或退出后复现→停保留另批处置。进程全部缺席后才开始门禁。
 

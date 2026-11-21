@@ -7,7 +7,7 @@
 - **报告日期**：2026-10-01
 - **上游基准**：
   - 恢复仓库 HEAD：`e39a78da9c62f02614207cffb36969a32492eaea`。
-  - 上游核查裁决：[J1-v2 / J2-v2 核查及下一轮所有权](file:///D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/coordination/reviews/2026-10/2026-10-01-next-j1v2-j2v2-codex-review.md)。
+  - 上游核查裁决：[J1-v2 / J2-v2 核查及下一轮所有权](file:///<仓库>/docs/coordination/reviews/2026-10/2026-10-01-next-j1v2-j2v2-codex-review.md)。
   - 当前冻结 APK 目录：`E:\creation-reading-assistant\next-round-joint-j1-v2\freeze\apk\`。
 - **本轮验收工件库**：`E:\creation-reading-assistant\next-round-j2-v3-room-acceptance\`。
 

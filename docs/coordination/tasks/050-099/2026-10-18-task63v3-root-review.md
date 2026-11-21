@@ -10,7 +10,7 @@
 
 ## 所有权与改动
 
-未见相关活动Python/Gradle执行者。Root不改外部交付、生产入口、适配器、绑定或共享原件；只在 `E:/creation-reading-assistant/task63-common-device-entry-v1/root-review/v3-r1` 交两个测试源码差量、patch和必要验证日志，并更新本报告/current。
+未见相关活动Python/Gradle执行者。Root不改外部交付、生产入口、适配器、绑定或共享原件；只在 `<证据根>/task63-common-device-entry-v1/root-review/v3-r1` 交两个测试源码差量、patch和必要验证日志，并更新本报告/current。
 
 ## 环境
 

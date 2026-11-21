@@ -10,7 +10,7 @@
 相关task65/67/68/59 Python/Java执行进程查询为空。Root仅只读相关证据/仪器源码，在task68/root-review/checks.json写小型核验输出并更新本报告/current；未改原交付、源码、APK、工具或冻结。并行下一批按互斥源码分工，最终构建/入口/绑定唯一集成owner。
 
 ## 环境
-复用59工作区、D:/develop/env/gradle及既有依赖。Root本轮没有设备命令、启动、构建、Git或外部应用消息。自动化保持原暂停决定，本轮未修改自动化配置。
+复用59工作区、<开发盘>/env/gradle及既有依赖。Root本轮没有设备命令、启动、构建、Git或外部应用消息。自动化保持原暂停决定，本轮未修改自动化配置。
 
 ## 执行与结果
 Root核对真实10-md-instrument.log、verdict和99-summary：MD rc0但Tests run:1 Failures:1，JUnit失败正确使入口exit1；取材没有被启动，未现场改码或第二试。
@@ -34,4 +34,4 @@ Root比较本run初末清单，71私有/820外部路径-size-SHA完全一致，s
 
 ## 原始证据
 
-E:/creation-reading-assistant/task68-md-material-device-v1/REPORT-68-v1.md、ready-68-v1.json、logs/10-attempt-stdout.log及start/end epoch；attempts/20261020-130429-d38375下10-md-instrument.log、99-summary.json、初末保护清单、recovery归档/卸载/临时资产/设置/宿主回执；evidence最终adb/实例记录。Root实算输出root-review/checks.json。均原路径引用，未复制历史。
+<证据根>/task68-md-material-device-v1/REPORT-68-v1.md、ready-68-v1.json、logs/10-attempt-stdout.log及start/end epoch；attempts/20261020-130429-d38375下10-md-instrument.log、99-summary.json、初末保护清单、recovery归档/卸载/临时资产/设置/宿主回执；evidence最终adb/实例记录。Root实算输出root-review/checks.json。均原路径引用，未复制历史。

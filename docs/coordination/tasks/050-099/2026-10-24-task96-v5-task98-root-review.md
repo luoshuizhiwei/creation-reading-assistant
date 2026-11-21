@@ -18,7 +18,7 @@ summary保留业务primaryError/ok=false，recoveryErrors=[]，collect成功；�
 
 ## 98差量接收与未覆盖项
 
-E:/creation-reading-assistant/task98-tts-focus-feedback-v1 revision2的6份artifact大小SHA核同；2个before指纹待集成时fresh复核。两文件：ReaderTtsController及批准的ReaderActions Ready拒绝提示接缝。Controller立即获焦点才play/resume、拒绝不报playing；单hasAudioFocus门控共享speakCurrent与排队onStart/onDone，防上下句绕过；拒绝Ready显示reason。静态差量71522B，未编译/行为测试/设备，不能当TTS验收通过。旧utterance跨新会话迟到身份风险未扩大为通用会话框架，列明确未覆盖项。
+<证据根>/task98-tts-focus-feedback-v1 revision2的6份artifact大小SHA核同；2个before指纹待集成时fresh复核。两文件：ReaderTtsController及批准的ReaderActions Ready拒绝提示接缝。Controller立即获焦点才play/resume、拒绝不报playing；单hasAudioFocus门控共享speakCurrent与排队onStart/onDone，防上下句绕过；拒绝Ready显示reason。静态差量71522B，未编译/行为测试/设备，不能当TTS验收通过。旧utterance跨新会话迟到身份风险未扩大为通用会话框架，列明确未覆盖项。
 
 ## 交付状态与下一步、方向自审
 

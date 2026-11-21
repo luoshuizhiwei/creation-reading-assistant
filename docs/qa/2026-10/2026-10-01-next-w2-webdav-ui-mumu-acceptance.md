@@ -8,7 +8,7 @@
 - **活动仓库基线**：
   - 仓库路径：`D:\develop\Code\Codex\creation-reading-assistant-recovery-20260919`
   - 恢复仓库 HEAD：`e39a78da9c62f02614207cffb36969a32492eaea`
-  - 上游核准裁决：[docs/coordination/reviews/2026-10/2026-10-01-next-w2-codex-review.md](file:///D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/docs/coordination/reviews/2026-10/2026-10-01-next-w2-codex-review.md)
+  - 上游核准裁决：[docs/coordination/reviews/2026-10/2026-10-01-next-w2-codex-review.md](file:///<仓库>/docs/coordination/reviews/2026-10/2026-10-01-next-w2-codex-review.md)
 - **设备与宿主指纹**：
   - 设备环境：MuMu 模拟器（`127.0.0.1:16416`，Android 12，x86_64）
   - 测试宿主 APK 路径：`E:\creation-reading-assistant\next-round-w2-webdav-ui-build\freeze\apk\app-qahost.apk`

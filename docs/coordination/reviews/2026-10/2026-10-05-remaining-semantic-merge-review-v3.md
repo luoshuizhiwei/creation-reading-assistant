@@ -1,7 +1,7 @@
 # 其余七文件语义复核（v2 清单"采用候选"建议核实）
 
 - 任务编号/版本：`CRA-REMAINING-SEMANTIC-MERGE-REVIEW-v3`；2026-10-05 指定，实际执行 2026-10-05T00:35–01:20+08:00，应用 ZCode / GLM（account:zai-start-plan / GLM-5.3-Flash）。只读复核，不实施合流。
-- 输入指纹：HEAD `e39a78da9c62f02614207cffb36969a32492eaea`（开工=收工）；暂存区前后 0 条；**D 工作树零写入，七文件 SHA 开工/收工两次实算零漂移**。候选 `E:\creation-reading-assistant\next-round-joint-final-v3\android`。七文件三方 SHA（完整值见 [execution.json](<E:/creation-reading-assistant/remaining-semantic-merge-review-v3/execution.json>)）：
+- 输入指纹：HEAD `e39a78da9c62f02614207cffb36969a32492eaea`（开工=收工）；暂存区前后 0 条；**D 工作树零写入，七文件 SHA 开工/收工两次实算零漂移**。候选 `E:\creation-reading-assistant\next-round-joint-final-v3\android`。七文件三方 SHA（完整值见 [execution.json](<<证据根>/remaining-semantic-merge-review-v3/execution.json>)）：
 
 | 文件 | HEAD | 候选 final-v3 | D WIP |
 |---|---|---|---|
@@ -20,7 +20,7 @@
 
 **方向核实（要求 1）**：自建候选→D 统一 diff（'-'=仅候选，'+'=仅 D），并用双侧实际源码核两个代表 hunk——SyncRepository h4（候选侧 optString R1 辅助块 vs D 侧 naive applyBook，方向与 v2 报告一致）与 EpubRepository h5（D 侧 S12-① globalOffset，v2 报告**漏判**处）。Codex 核查对 Profile 两文件的"方向读反"结论未在本七文件复现；但 v2 对本组文件的结论有两处需修正（见下）。
 
-**逐 hunk 分类（要求 2–7，完整逐 hunk 证据在 [hunk-verdicts.json](<E:/creation-reading-assistant/remaining-semantic-merge-review-v3/hunk-verdicts.json>)，diff 原文与 hunk 清单在 diffs/ 与 hunk-inventory.json）**。41 个 hunk 全部有结论：候选独有 15、D 独有（被替代旧实现）12、等价改写 6、no-op 2、真冲突 1、D 独有轻微（判弃留痕）5。
+**逐 hunk 分类（要求 2–7，完整逐 hunk 证据在 [hunk-verdicts.json](<<证据根>/remaining-semantic-merge-review-v3/hunk-verdicts.json>)，diff 原文与 hunk 清单在 diffs/ 与 hunk-inventory.json）**。41 个 hunk 全部有结论：候选独有 15、D 独有（被替代旧实现）12、等价改写 6、no-op 2、真冲突 1、D 独有轻微（判弃留痕）5。
 
 **逐文件处置（要求 8）**：
 

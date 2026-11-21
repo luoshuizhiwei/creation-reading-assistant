@@ -2,11 +2,11 @@
 
 ## 任务编号/版本、输入指纹
 
-2026-10-23香港时间，94-v3接收，94-v4为下一接续编号。直接输入`E:/creation-reading-assistant/task94-organizing-export-integration-v1/v3/ready.json`、REPORT、patch和原始设备证据。独立重算REPORT/patch/当前仪器源码/产品APK/test APK均与ready一致。产品fac29f55…f1e4705为52,763,889B；测试0d18d788…efbc9a9c为10,508,820B；仪器3433ff528bdc8d6aa534484f58f53b8addabc125fbea1a85f94561820b9706d9。
+2026-10-23香港时间，94-v3接收，94-v4为下一接续编号。直接输入`<证据根>/task94-organizing-export-integration-v1/v3/ready.json`、REPORT、patch和原始设备证据。独立重算REPORT/patch/当前仪器源码/产品APK/test APK均与ready一致。产品fac29f55…f1e4705为52,763,889B；测试0d18d788…efbc9a9c为10,508,820B；仪器3433ff528bdc8d6aa534484f58f53b8addabc125fbea1a85f94561820b9706d9。
 
 ## 所有权与改动、环境
 
-Root本轮只读核验E候选、维护本报告/current并创建当前聊天heartbeat；尚未新构建或发设备命令。唯一工作区task59-common-candidate-v1/candidate/android、D:/develop/env/gradle和独占锁复用。相关进程低成本查询未见task94/task59/GradleWrapperMain活动，不代表全机无人使用。
+Root本轮只读核验E候选、维护本报告/current并创建当前聊天heartbeat；尚未新构建或发设备命令。唯一工作区task59-common-candidate-v1/candidate/android、<开发盘>/env/gradle和独占锁复用。相关进程低成本查询未见task94/task59/GradleWrapperMain活动，不代表全机无人使用。
 
 ## 执行与结果、原始证据
 

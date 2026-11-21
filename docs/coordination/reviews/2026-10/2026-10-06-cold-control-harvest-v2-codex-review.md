@@ -4,7 +4,7 @@
 CRA-COLD-CONTROL-HARVEST-V2-CODEX-REVIEW-v1，2026-10-06。用户本轮要求后续使用Antigravity，按实际可用模型分配；不代替用户向应用发送消息。
 
 ## 输入指纹
-982源码清单/冻结APK/安装读回/43MD5账见[Root验证](<E:/creation-reading-assistant/cold-control-harvest-v2-codex-review-20261006/verification.json>)；驱动v2复制到Root E独立副本重跑，原外部证据未覆盖。
+982源码清单/冻结APK/安装读回/43MD5账见[Root验证](<<证据根>/cold-control-harvest-v2-codex-review-20261006/verification.json>)；驱动v2复制到Root E独立副本重跑，原外部证据未覆盖。
 
 ## 所有权与改动
 Root只读产品/原设备证据/驱动并独立离线执行；维护本报告/current/TODO/技能日志，不产品/Git/设备修改。外部[冷启报告](../../../qa/2026-10/2026-10-06-txt-cold-reentry-control-v1.md)、[驱动v2报告](../../dispatches/2026-10/2026-10-06-j1-post-item-harvest-v2.md)保留原件。
@@ -25,7 +25,7 @@ Windows/Python，驱动执行为fake-adb模型；未运行真实ADB，旧serial�
 规范轴0；需求轴驱动0，冷启报告限定采纳/产品保存冻结仍未解决。两交付可用于下一批，不等于TXT修复完成。
 
 ## 原始证据
-[独立离线总账](<E:/creation-reading-assistant/cold-control-harvest-v2-codex-review-20261006/offline-driver/offline/out/offline-verify-summary.json>)；[保存冻结原始时间线](<E:/creation-reading-assistant/txt-cold-reentry-control-v1/evidence/raw/timeline>)，重点A8/B3/B9/D3工件；原两报告按需链接。
+[独立离线总账](<<证据根>/cold-control-harvest-v2-codex-review-20261006/offline-driver/offline/out/offline-verify-summary.json>)；[保存冻结原始时间线](<<证据根>/txt-cold-reentry-control-v1/evidence/raw/timeline>)，重点A8/B3/B9/D3工件；原两报告按需链接。
 
 ## 恢复与副作用
 原设备批MD5前后43项一致与APK/设置后账按本批原始证据核对；本次未设备操作，不追溯关闭旧夜间/缺失前账边界。用户Antigravity偏好不构成自动接力、额度消耗或Git新授权。

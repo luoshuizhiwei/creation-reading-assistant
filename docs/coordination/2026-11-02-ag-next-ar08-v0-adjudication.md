@@ -31,6 +31,6 @@ current/state/V0矩阵及本卡裁决清单；不在此卡顺手改产品源码�
 
 ## 本卡交付
 
-E盘报告根：`E:/creation-reading-assistant/task209-navigation-coverage-v1/continuation-20261102/next-v2/ar08/`。目录已有先核owner，不覆盖。交REPORT.md、ready.json、实际source/patch/前后SHA及必要原rc/log/XML；每卡普通新增预算512KiB，必要构建/设备保护原件单列实bytes与保留原因，不因超预算删原证。APK/工程/cache原路径引用，禁止按卡复制整套。
+E盘报告根：`<证据根>/task209-navigation-coverage-v1/continuation-20261102/next-v2/ar08/`。目录已有先核owner，不覆盖。交REPORT.md、ready.json、实际source/patch/前后SHA及必要原rc/log/XML；每卡普通新增预算512KiB，必要构建/设备保护原件单列实bytes与保留原因，不因超预算删原证。APK/工程/cache原路径引用，禁止按卡复制整套。
 
 ready最后写并pin真实路径/size/SHA，不自引用；构建、业务、模拟器、恢复分别裁决。收尾核原证后更新current/state.nextContinuationQueue及受影响矩阵，成功直接转下一可执行卡；PARTIAL/NOT_RUN/BLOCKED如实，只有真实范围/权限/不可逆差额才问用户。

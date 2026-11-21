@@ -9,10 +9,10 @@
 
 | 项 | 值 |
 |----|----|
-| 工作树 | `D:/develop/Code/Codex/cra-android-qoder-r1` |
+| 工作树 | `<Codex 工作区>/cra-android-qoder-r1` |
 | 分支 | `codex/android-qoder-r1` |
 | HEAD | `e31db92`（等于要求基线；**未新增提交、未 stage、未 commit、未 push、未切分支**） |
-| 原项目目录 | 未修改（`D:/develop/Code/Codex/creation-reading-assistant` 全程只读，未被写入） |
+| 原项目目录 | 未修改（`<旧仓库>` 全程只读，未被写入） |
 
 工作区状态（`git status --porcelain`，全部落在 QODER.md 授予本人的路径内）：
 
@@ -221,7 +221,7 @@ fun restorable(activeNow: Boolean, currentStamp: String?): Boolean = when {
 
 ## 5. 定向命令、退出码与测试数
 
-工作目录 `D:/develop/Code/Codex/cra-android-qoder-r1/android`，均以 `ANDROID_HOME=/d/develop/Android/Sdk ANDROID_SDK_ROOT=/d/develop/Android/Sdk` 前缀调用 `./gradlew`。
+工作目录 `<Codex 工作区>/cra-android-qoder-r1/android`，均以 `ANDROID_HOME=/d/develop/Android/Sdk ANDROID_SDK_ROOT=/d/develop/Android/Sdk` 前缀调用 `./gradlew`。
 
 | # | 命令 | 退出码 | 结果 |
 |---|------|--------|------|

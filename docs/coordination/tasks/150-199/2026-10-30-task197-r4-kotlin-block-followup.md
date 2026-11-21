@@ -2,7 +2,7 @@
 任务197-r4续作裁决：已找到原始编译错误，继续本任务同owner闭环，不另建任务/不重置35分钟预算。
 
 Root已核你的ready1784B SHA6f713dff4d3b60e13dd770f54c3b94cd964ad3af0a19a657c61465e766b4c3b1。BLOCKED_KSP_COMPILATION不能当交付通过；你报告“无e:详细错误行”不符合原日志。准确证据就在 recheck-r4/raw/compile-main6.log 原文：
-e: file:///E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android/app/src/main/java/com/creationreadingassistant/ui/screen/reader/ReaderScreen.kt:922:6 Expecting '}'
+e: file:///<证据根>/task59-common-candidate-v1/candidate/android/app/src/main/java/com/creationreadingassistant/ui/screen/reader/ReaderScreen.kt:922:6 Expecting '}'
 compile-main5.log同922:6；compile-main3/4与compile-check.log为921:6 Expecting '}'。不是已经证明的KSP环境故障，首先修你本轮修改引入的Kotlin块结构错误，不清KSP/Gradle缓存、不改插件或依赖、不重复无变化构建。
 
 当前candidate ReaderScreen.kt SHA fdda0ffcbd1fd906cd43b896073f7ffc6ab1e631d16e16092d4c4dde1d437280。临时入口已移到pagedSessionAnchor/pagedAbsOffset声明后并实际传skipExitSave，方向有限接受；但保存策略、测试与构建尚未通过，不能称实现完成。

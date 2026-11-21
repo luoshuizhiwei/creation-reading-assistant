@@ -110,7 +110,7 @@ hunk 应用器以 SearchTermDao 命中 G0 报告发布 SHA 完成跨窗口自证
 
 1. 首次构建失败（EXIT=1）：基线目录误建为稀疏 overlay（`git archive -C "$G"` 落在 `$G/android`，而 overlay 写入自建 `$G/baseline/android`），cmd 找不到 `gradlew.bat`；定位后以完整 HEAD 树重建 baseline 并重放 overlay（13 SHA 复核后重跑，成功）。未盲目重试。
 2. 首次 `adb install` 失败一次：shell 变量 `$G` 未在当条命令定义，Git Bash 把设备侧路径改写为宿主路径；改用绝对 `/e/...` 路径成功（`Success`），无重复安装副作用。
-3. `adb push` 远端路径被 MSYS 改写（`/data/local/tmp/...` → `D:/develop/Git/Git/...`）与 `adb shell` 引号折叠（`sh -c 'for …'` 被截断）两次失败；改用 `MSYS_NO_PATHCONV=1` + Windows 风格本地路径、`run-as … tar -xf` 直执行、SHA 清单统一 `exec-out` 后成功。设备上无误写残留（`secure_mkdirs` 失败即止）。
+3. `adb push` 远端路径被 MSYS 改写（`/data/local/tmp/...` → `<开发盘>/Git/Git/...`）与 `adb shell` 引号折叠（`sh -c 'for …'` 被截断）两次失败；改用 `MSYS_NO_PATHCONV=1` + Windows 风格本地路径、`run-as … tar -xf` 直执行、SHA 清单统一 `exec-out` 后成功。设备上无误写残留（`secure_mkdirs` 失败即止）。
 4. 恢复阶段的 after 清单首取失败（引号折叠导致 0 行）后立即用 exec-out 重取，before 清单未被触碰。
 
 ## 9. 边界声明

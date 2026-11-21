@@ -12,7 +12,7 @@ Root只维护本协调报告、派发文件和current页首，不改产品或执
 
 ## 执行与结果、原始证据
 
-基线：[v11协调报告](2026-10-23-task94-v11-review.md)及`E:/creation-reading-assistant/task94-organizing-export-integration-v1/v11/REPORT.md`、ready与其直接原始恢复记录。两次attempt均保存前失败，不采纳为导出通过。第二次自动恢复有export-cleanup/protection-final错误，原始summary保留；后补恢复单列，不改写首次错误。
+基线：[v11协调报告](2026-10-23-task94-v11-review.md)及`<证据根>/task94-organizing-export-integration-v1/v11/REPORT.md`、ready与其直接原始恢复记录。两次attempt均保存前失败，不采纳为导出通过。第二次自动恢复有export-cleanup/protection-final错误，原始summary保留；后补恢复单列，不改写首次错误。
 
 Root将`06-original-test-restored.json`与恢复合同逐项核对，原test代码、完整数据清单、用户状态一致；补做保护final原始wrapper rc0、ok=true、reasons=[]、71私有/820外部、DB组一致、diffs=[]。人工恢复summary的presentAfter=true与卸载Success矛盾，故做一次只读精确package列表复核：命令rc0，产品精确包不存在、原test精确包存在；不采用包含匹配结果作产品仍在场依据。这些均为本轮核验时记录，未来设备入场fresh绑定。
 

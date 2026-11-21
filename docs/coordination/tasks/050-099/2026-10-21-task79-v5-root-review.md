@@ -7,7 +7,7 @@
 
 ## 执行与结果、原始证据
 唯一run20261021-111254-e1d7c7，11:12:54–11:18:03，exit1。probe_verify真实JUnit OK(1 test)。Material FAIL：导出文档必须含本轮摘录，源码1534行；后三旅程NOT_RUN。业务分母0PASS/1FAIL/3NOT_RUN。原tar内本轮MAT65V3-9f76e6的picker/destination/asset回执支持DocumentsUI包名、Downloads导航、唯一文件名、CreateDocument返回及URI读取，不能称完整导出通过。未现场修码/重绑/第二试。
-完整报告/ready/原字节/Root验证位于E:/creation-reading-assistant/task79-picker-runtime-v1/C/root-v5/；原始run位于同根attempts/20261021-111254-e1d7c7。E REPORT记载全部准确SHA及准备阶段非设备错误。
+完整报告/ready/原字节/Root验证位于<证据根>/task79-picker-runtime-v1/C/root-v5/；原始run位于同根attempts/20261021-111254-e1d7c7。E REPORT记载全部准确SHA及准备阶段非设备错误。
 
 ## 恢复与副作用
 原runner final_protection_check拒绝新增Downloads文件，保留原99-summary及恢复错误。与仪器“保留文档、不删除”的冻结合同冲突；不能静默PASS。用户精确批准后按本轮expectedDisplayName/runId、原基线无该资产证明，先保全再删唯一文件，无递归处理。

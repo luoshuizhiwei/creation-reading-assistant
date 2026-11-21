@@ -4,7 +4,7 @@
 
 ## 输入指纹、所有权与改动、环境
 
-Root只读核验E:/creation-reading-assistant/task96-library-settings-closure-v1，D协调由Root维护；Claude已交付且UI不再运行，下一批仍由Claude独占仪器/宿主/构建/设备。唯一task59 Android工作区、既有Gradle/JDK/SDK不变。独立S1源码与直接证据梳理由只读explorer并行，不触碰当前仪器/设备。
+Root只读核验<证据根>/task96-library-settings-closure-v1，D协调由Root维护；Claude已交付且UI不再运行，下一批仍由Claude独占仪器/宿主/构建/设备。唯一task59 Android工作区、既有Gradle/JDK/SDK不变。独立S1源码与直接证据梳理由只读explorer并行，不触碰当前仪器/设备。
 
 7/7 outputs文件大小/SHA匹配。22项冻结输入中20项当前仍匹配；运行test已被修后候选替换，22ab运行原APK保全件10555720B/SHA核同；运行源码65d1已改成b499候选，未找到独立运行源码原字节，不称22项现物全匹配。当前产品1102346485a9e47b7b12885310f678e56b5c86d36082834fbec8732906ffc30c未变，候选test8775434dcea12149002c97f7af7b876cb443a19e4123f060cdab4e27bc0758bc已构建未设备；候选源码b4993622f913df927b82b2a5f9762517a5e7c10611481d443c253929e61f2e0c。
 

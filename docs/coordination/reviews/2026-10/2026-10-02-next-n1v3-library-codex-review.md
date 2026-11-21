@@ -10,7 +10,7 @@ Codex-review-N1v3-Libraryv1-v1。用户“都完成了”后核实际输入、�
 
 ## 所有权与改动
 
-Root仅写本报告、五现有交接/项目/TODO/规划/skill文档和自有E审查/跟踪表；编辑前逐字节副本位于[E回退目录](<E:/creation-reading-assistant/n1v3-library-codex-review-20261002/before>)。独立reviewer只读，不写产品。原外部报告/候选/历史证据保留，无Git写入或原损坏仓库修改，Claude独立库未访问。
+Root仅写本报告、五现有交接/项目/TODO/规划/skill文档和自有E审查/跟踪表；编辑前逐字节副本位于[E回退目录](<<证据根>/n1v3-library-codex-review-20261002/before>)。独立reviewer只读，不写产品。原外部报告/候选/历史证据保留，无Git写入或原损坏仓库修改，Claude独立库未访问。
 
 ## 环境
 
@@ -43,9 +43,9 @@ N1四改在六文件授权内；无独立源码规范违例，0项。报告缺�
 
 ## 原始证据
 
-- [核查JSON](<E:/creation-reading-assistant/n1v3-library-codex-review-20261002/verification.json>)、[核查脚本](<E:/creation-reading-assistant/n1v3-library-codex-review-20261002/audit.py>)。
+- [核查JSON](<<证据根>/n1v3-library-codex-review-20261002/verification.json>)、[核查脚本](<<证据根>/n1v3-library-codex-review-20261002/audit.py>)。
 - [N1-v3原报告](../../dispatches/2026-10/2026-10-02-next-n1-repair-v3.md)、[Library-v1原报告](../../dispatches/2026-10/2026-10-02-next-library-evidence-v1.md)。
-- [本轮功能跟踪](<E:/creation-reading-assistant/n1v3-library-codex-review-20261002/functional-tracker.csv>)、[计数](<E:/creation-reading-assistant/n1v3-library-codex-review-20261002/functional-tracker-counts.json>)。
+- [本轮功能跟踪](<<证据根>/n1v3-library-codex-review-20261002/functional-tracker.csv>)、[计数](<<证据根>/n1v3-library-codex-review-20261002/functional-tracker-counts.json>)。
 - [既有书库UI沙箱构建方法](../../dispatches/2026-10/2026-10-01-next-w2-build-webdav-ui-sandbox.md)、[前轮审查](2026-10-02-next-n1v2-m0v3-codex-review.md)。
 
 ## 未覆盖项

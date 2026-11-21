@@ -1,6 +1,6 @@
 # Trae R1-N1.1 报告：类型安全的阅读笔记回源定位
 
-- 工作树：`D:/develop/Code/Codex/creation-reading-assistant`
+- 工作树：`<旧仓库>`
 - 状态：**Dev complete（未真机验收，交 WorkBuddy，真机验收留待两个并行修补冻结后统一安排）**
 - 变更性质：纯追加 + 既有文件局部修改，**未触碰** Qoder 的滚动 TXT 替换链、desktop、DAO/entity/schema、AppNavigation、ReaderRoute、ReaderScreen、共享 strings、`docs/handoff/current.md`；未 reset/checkout/format/commit/push。
 

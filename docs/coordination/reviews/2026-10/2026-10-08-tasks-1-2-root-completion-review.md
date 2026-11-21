@@ -5,13 +5,13 @@
 ## 任务编号/版本
 
 - 1：CRA-JOINT-J1-SEARCH-RETURN-FIX-v1。数字保持不变，不重复派发原v1。
-- 2：CRA-JOINT-RUNTIME-EVIDENCE-REPAIR-v1。外部交付保留，Root补齐目录为 `E:/creation-reading-assistant/joint-runtime-codex-completion-20261008`。
+- 2：CRA-JOINT-RUNTIME-EVIDENCE-REPAIR-v1。外部交付保留，Root补齐目录为 `<证据根>/joint-runtime-codex-completion-20261008`。
 - 3：限定MuMu联合验收，等待任务2与最终绑定通过。
 - 连续编号规则及可读状态见[编号索引](../../dispatches/2026-10/2026-10-08-numbered-task-index.md)。
 
 ## 输入指纹
 
-活动仓库HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，本轮复核暂存区空。原核查指纹见 `E:/creation-reading-assistant/joint-tasks-1-2-codex-review-20261008/fingerprints.json`。
+活动仓库HEAD `e39a78da9c62f02614207cffb36969a32492eaea`，本轮复核暂存区空。原核查指纹见 `<证据根>/joint-tasks-1-2-codex-review-20261008/fingerprints.json`。
 
 任务1源码manifest SHA `f8f0777ee4e00fe80ba263044eb7d195cf6cfb26162bbdef6604fea9062d4d10`，992/992匹配；相对freeze-v2仅 `J1RealReaderJourneyTest.kt` 搜索返回测试单hunk变化。宿主APK SHA `440514acd90de7bf38edb744851eefcf345f2c3b9d4710984358df2c142552ae`，新test APK SHA `3b4c8ab563a6301573596e8e13b0d0d1ba9eae491d950a19f9ec2a8f52d85d8d`。
 
@@ -41,10 +41,10 @@ Windows，E独立候选，Python纯内存/fake离线链。任务1复用已核宿
 
 ## 原始证据
 
-- 任务1：`E:/creation-reading-assistant/joint-j1-search-return-fix-v1/REPORT.md`、`logs/compile-and-assemble-test.log`与对应exit文件。
-- 任务2原件：`E:/creation-reading-assistant/joint-runtime-evidence-repair-v1/REPORT.md`及freeze清单。
-- Root补齐：`E:/creation-reading-assistant/joint-runtime-codex-completion-20261008/logs`。
-- 最终绑定预留：`E:/creation-reading-assistant/joint-final-bound-20261008`。当前992源码、41验收工件与双APK实算匹配；严格静态身份/31项合同验证通过，模板serial/run未绑定且runnable=false。设备须另生成磁盘有效config；静态验证未调用adb。
+- 任务1：`<证据根>/joint-j1-search-return-fix-v1/REPORT.md`、`logs/compile-and-assemble-test.log`与对应exit文件。
+- 任务2原件：`<证据根>/joint-runtime-evidence-repair-v1/REPORT.md`及freeze清单。
+- Root补齐：`<证据根>/joint-runtime-codex-completion-20261008/logs`。
+- 最终绑定预留：`<证据根>/joint-final-bound-20261008`。当前992源码、41验收工件与双APK实算匹配；严格静态身份/31项合同验证通过，模板serial/run未绑定且runnable=false。设备须另生成磁盘有效config；静态验证未调用adb。
 
 ## 恢复与副作用
 

@@ -5,11 +5,11 @@
 ## B 国内WorkBuddy DeepSeek：构建与绑定，同owner闭环
 
 ````text
-接续121-v1 B。Root已读A lane-a/host-final-review/REPORT.md与ready.json，必要host问题已闭合。现明确授权你作为唯一build owner，在唯一既有工程E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android执行一次必要:app:assembleDebug :app:assembleDebugAndroidTest，生成包含120/F1与119r3的新产品/test APK。该授权仅离线构建与输入绑定，不授权ADB、安装、设备探测、host主入口、attempt。你不是独自工作，保持其他owner资产，不改A文件或D/current。
+接续121-v1 B。Root已读A lane-a/host-final-review/REPORT.md与ready.json，必要host问题已闭合。现明确授权你作为唯一build owner，在唯一既有工程<证据根>/task59-common-candidate-v1/candidate/android执行一次必要:app:assembleDebug :app:assembleDebugAndroidTest，生成包含120/F1与119r3的新产品/test APK。该授权仅离线构建与输入绑定，不授权ADB、安装、设备探测、host主入口、attempt。你不是独自工作，保持其他owner资产，不改A文件或D/current。
 
 执行前核当前输入未漂移：host121.py 28167B SHA7ccf53867039d2ff13674dd12d96ea65e13ee8b897e6fdcd01ce8b2b970d39bc；AppNavigation34985B SHA7a6046a50550dad54a1a85f2cbf097b009fafb79d8169b889de1d27fb46f9fd9；SourceNavigationContract c6c5aebc9eb6db05ac11a65685de089f82a5d0fa86b3d1ffed96eb72227401ee；VM e4af886a393f4596bceadcaca80302faab4d09c92f6905fefedaa7ab0e4949b5；119r3仪器3db974d44042504e19b29d9d67c69eb9900c67378c59e9b74b3c17a5d294532c。未知漂移先报冲突，不覆盖。A终核报告8525B SHA2c0452ffa395f24ce6c10c12bc8b47520eccdf956030f743314ca31c96b0f42a。已充分24JVM与F1 Kotlin原始证据直接复用，不另重跑。
 
-构建环境固定Gradlehome D:/develop/env/gradle、JDK D:/develop/Java/jdk-17.0.14、SDK D:/develop/Android/Sdk，锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock。查实际活跃owner，不把文件存在等同占锁；不抢活跃构建，不杀进程。构建前核E可用空间/预计增量。旧产品6a6c65af30f8f7744e1ac666275ccb2b92a26a818a2b79cf84266cf38ce50ae4和test83d0e8bb2047999605a40a200e61978587a22f04f996098a8a930e996ed8aee5已有110/preserved、116/preserved同SHA单份保全，核同后复用不重复复制。若现APK另有未知SHA且无同SHA保全，先保全必要单份，不能覆盖未知WIP。禁止复制工程/build/.gradle/.kotlin/node_modules/Gradlehome/cache、历史证据/APK对，不硬链接可写缓存、不删移压迁存量。
+构建环境固定Gradlehome <开发盘>/env/gradle、JDK <开发盘>/Java/jdk-17.0.14、SDK <开发盘>/Android/Sdk，锁<证据根>/locks/android-gradle-exclusive.lock。查实际活跃owner，不把文件存在等同占锁；不抢活跃构建，不杀进程。构建前核E可用空间/预计增量。旧产品6a6c65af30f8f7744e1ac666275ccb2b92a26a818a2b79cf84266cf38ce50ae4和test83d0e8bb2047999605a40a200e61978587a22f04f996098a8a930e996ed8aee5已有110/preserved、116/preserved同SHA单份保全，核同后复用不重复复制。若现APK另有未知SHA且无同SHA保全，先保全必要单份，不能覆盖未知WIP。禁止复制工程/build/.gradle/.kotlin/node_modules/Gradlehome/cache、历史证据/APK对，不硬链接可写缓存、不删移压迁存量。
 
 原始构建stdout/stderr/真实exit写lane-b/apk-build/logs独立新路径；构建失败先保留红日志，明确编译错误可由你在本批已有所有权必要范围最小修复后继续定向验证；若需改产品/仪器语义、公共配置或超当前范围，报告Root不越权。不得仅为绿改断言/门禁。最终实算新APK size/SHA、源码指纹，指出实际task执行/UP-TO-DATE情况；用现有SDK只读工具核必要APK applicationId/test runner/119测试类，别新建通用探针或完整矩阵。旧6a/83d不冒充新源码。
 

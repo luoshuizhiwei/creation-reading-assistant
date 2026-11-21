@@ -3,7 +3,7 @@
 任务编号/版本：80-v4-F-Root。实现与恢复接线采纳；联合业务验收未通过。全产品分母未知。
 
 ## 输入指纹、所有权与改动、环境
-Root只读核验F/v4、integration/v4和唯一attempt，未发现匹配v4执行入口的活动执行者。外部REPORT实际SHA256为9a2737ade9b492c4e931b603843b200dbc614f4927cb62bc04be935944ad0a85。00-input-bytes.json四份冻结/绑定/ready/provenance原快照及当前路径全部SHA匹配（4/4），不存在v3那样事后回写。唯一构建工作区仍为task59-common-candidate-v1/candidate/android，缓存D:/develop/env/gradle。本次Root不构建、不发设备命令、不改产品或外部交付。
+Root只读核验F/v4、integration/v4和唯一attempt，未发现匹配v4执行入口的活动执行者。外部REPORT实际SHA256为9a2737ade9b492c4e931b603843b200dbc614f4927cb62bc04be935944ad0a85。00-input-bytes.json四份冻结/绑定/ready/provenance原快照及当前路径全部SHA匹配（4/4），不存在v3那样事后回写。唯一构建工作区仍为task59-common-candidate-v1/candidate/android，缓存<开发盘>/env/gradle。本次Root不构建、不发设备命令、不改产品或外部交付。
 
 ## 执行与结果、原始证据
 run 20261021-161703-6d3f53；核读10-probe_verify-verdict.json为PASS；10-material-verdict.json虽rc=0但JUnit失败、ok=false，不能按进程退出码判通过。99-summary.exit_code=1，main_error为material instrumentation failed，recovery_errors=[]。

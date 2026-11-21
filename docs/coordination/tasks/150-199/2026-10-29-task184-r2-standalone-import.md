@@ -1,6 +1,6 @@
 # 任务184-r2：纠正独立生产路径，补真实失败回执分支
 
-原184 owner同会话，10分钟自全文实际发送起评估。只新 E:/creation-reading-assistant/task184-strict-keepalive-entry-offline-v1/recheck-r2/，唯一ready.json。旧v1/r1不覆盖，Root维护state/current。无真实设备/probe/main/恢复/ADB/VM/Gradle，无candidate或APK修改。
+原184 owner同会话，10分钟自全文实际发送起评估。只新 <证据根>/task184-strict-keepalive-entry-offline-v1/recheck-r2/，唯一ready.json。旧v1/r1不覆盖，Root维护state/current。无真实设备/probe/main/恢复/ADB/VM/Gradle，无candidate或APK修改。
 
 Root接受r1已实现的current-b.write回执归属、取消重新loader/cwdfallback、已绑定b函数还原核心实现；不重复这些源码工作。r1 entry5333B SHA68efc739aec86e67b6688c0f6faad06ed11529b5aa206af72824c370e30c9caa。唯一实际生产阻塞与验证误报如下：
 
@@ -11,11 +11,11 @@ r1 `R1_DIR=...task184.../recheck-r1`，其parent是task184根；然后 `R3_DIR=R
 Root已在独立`python -I -B -c`进程、先将subprocess.run设为全部拒绝、仅importlib加载r1入口并运行_ensure_paths/make_resolver（未执行真实IO）得到：
 
 ```
-R3_EXISTS False E:/creation-reading-assistant/task184-strict-keepalive-entry-offline-v1/task179-instance-identity-adapter-offline-v1/recheck-r3
+R3_EXISTS False <证据根>/task184-strict-keepalive-entry-offline-v1/task179-instance-identity-adapter-offline-v1/recheck-r3
 ModuleNotFoundError No module named 'identity_adapter_r3'
 ```
 
-r1验证脚本先行sys.path插入正确179r3和host路径，掩盖默认生产入口错误。新r2仅纠正这些路径为实际公共E:/creation-reading-assistant根或复用179r3既有路径初始化，不增加fallback搜索、不搬复制工程/adapter。新独立验证进程不得在入口bind之前预导入host/adapter或手工加它们的正确sys.path；允许只通过绝对path加载被测r2入口。严格外部IO拦截必须在任何生产import前建立，未知调用抛错。
+r1验证脚本先行sys.path插入正确179r3和host路径，掩盖默认生产入口错误。新r2仅纠正这些路径为实际公共<证据根>根或复用179r3既有路径初始化，不增加fallback搜索、不搬复制工程/adapter。新独立验证进程不得在入口bind之前预导入host/adapter或手工加它们的正确sys.path；允许只通过绝对path加载被测r2入口。严格外部IO拦截必须在任何生产import前建立，未知调用抛错。
 
 ## 验证结论不能超出代码
 

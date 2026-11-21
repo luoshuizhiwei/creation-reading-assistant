@@ -7,7 +7,7 @@
 - 先读用户级/仓库 AGENTS、current、2026-11-06-rds-root-progress-review.md、Android 架构文档及实际 UI 调用链。
 - 现有动画入口：`android/app/src/main/java/com/creationreadingassistant/ui/theme/Motion.kt`、`GlassMotion.kt`；有 MotionTokens、rememberReducedMotion 和 bounceable，需检查实际行为而非根据注释认定正确。
 - 当前导航导入根包 HomeScreen/ShelfScreen/InspirationScreen；同时有子目录同名文件，必须沿 AppNavigation 的实际调用确认当前生效页面。
-- 交付根 `E:/creation-reading-assistant/uix-v1/`：PLAN.md（具体文件/hunk所有权、输入SHA、设计准则）、REPORT.md、必要before/after截图和短录像/原始性能输出、最小patch。新增存储预算300MiB；复制前查空间。引用已有APK/依赖，不默认复制工程、历史证据、缓存或整套备份。
+- 交付根 `<证据根>/uix-v1/`：PLAN.md（具体文件/hunk所有权、输入SHA、设计准则）、REPORT.md、必要before/after截图和短录像/原始性能输出、最小patch。新增存储预算300MiB；复制前查空间。引用已有APK/依赖，不默认复制工程、历史证据、缓存或整套备份。
 - Antigravity负责自己登记的UI呈现文件与必要的小范围动画参数修改。ZCode现有WIP不是UIX基线可以覆盖的内容，先核git diff。AppNavigation导航逻辑、ReaderRoute、分页/保存、搜索导航、TTS、ViewModel/Repository/Room不属于本批修改范围；共享文件或重叠hunk先独立提交最小差量供集成，不抢写。
 - 公共Gradle串行且单owner，沿current的工作区和锁约定；只有确认资源空闲并登记本批owner才构建，不强抢锁/覆盖待测APK。使用E盘现有构建资源，不复制工程绕过互斥；源码/构建输入与APK须绑定。
 - 可复用用户已授权的现有MuMu instance 1验证UI，先确认无其他owner占用、fresh身份与数据/设置基线，成为本批该模拟器唯一owner，收尾恢复。实体手机留给ZCode；UIX不接管手机。设备暂不可用时继续独立UI实施/静态检查，准确列设备验收待办，不冒充运行通过。

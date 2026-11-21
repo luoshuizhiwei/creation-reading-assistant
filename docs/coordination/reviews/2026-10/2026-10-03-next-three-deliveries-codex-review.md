@@ -30,7 +30,7 @@ Windows；Python3.13与文件SHA核对。只读ADB回读尝试启动了本机ADB
 - 阅读：不join books不足以证明删书后笔记仍可读；notes/highlights外键CASCADE，软删除与active流也需区分。移除正文保留书行、软删除/撤销、物理删行是三个合同，不能把“删书行仍可回看”直接列PASS。主要能力存在的方向可留，按真实E输入返修后再安排旅程验收，不重写笔记系统。
 
 ## 原始证据
-[Root核查目录](<E:/creation-reading-assistant/next-round-delivery-review-20261003>)：audit.json（25输入/设备差异、30日志SHA及OK/FAIL/crash、恢复对账、双APK实算），supplement.json（836→837源码差异、187PNG方向、3APK语义对账、9源码HEAD/D/E），verify.py。
+[Root核查目录](<<证据根>/next-round-delivery-review-20261003>)：audit.json（25输入/设备差异、30日志SHA及OK/FAIL/crash、恢复对账、双APK实算），supplement.json（836→837源码差异、187PNG方向、3APK语义对账、9源码HEAD/D/E），verify.py。
 [设备原报告](../../../qa/2026-10/2026-10-03-next-integration-mumu-accept-v1.md)、[重关联原报告](../../dispatches/2026-10/2026-10-03-next-relink-precheck-v1.md)、[阅读原报告](../../dispatches/2026-10/2026-10-03-next-read-note-return-precheck-v1.md)保留原件，引用它们必须附本补正。
 
 ## 未覆盖项

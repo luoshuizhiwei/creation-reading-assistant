@@ -2,9 +2,9 @@
 任务141-B-v1｜2026-10-26香港11:35后｜Claude桌面当前WorkBuddy AI/global:deepseek-v4.1-flash 1M｜20分钟
 作用：依据140-B规格实施可审阅的列表scroll验收测试与最小观察接缝差量，但只在新交付目录写候选补丁，不应用共享工程、不构建。A同时间独占唯一工程的JVM红复现与Gradle，B隔离差量保证真正并行无编译输入竞争。Root核实际补丁后另派集成/必要构建；不要为并行复制工程。
 
-只读基线E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android，140-B REPORT/list-scroll-spec Root已读：SearchViewModel query/tab/listState绑定search entry，SearchScreen真实LazyColumn无tag/snapshot，F1 Back仅query卡计数不足以证明index/offset。Root允许准备SearchScreen.kt最小纯观察semantics接缝和新SearchListScrollRetentionTest.kt的差量（尚不应用候选）。不修改列表行为/query/tab/排序/导航/生产持久逻辑。
+只读基线<证据根>/task59-common-candidate-v1/candidate/android，140-B REPORT/list-scroll-spec Root已读：SearchViewModel query/tab/listState绑定search entry，SearchScreen真实LazyColumn无tag/snapshot，F1 Back仅query卡计数不足以证明index/offset。Root允许准备SearchScreen.kt最小纯观察semantics接缝和新SearchListScrollRetentionTest.kt的差量（尚不应用候选）。不修改列表行为/query/tab/排序/导航/生产持久逻辑。
 
-隔离输出仅E:/creation-reading-assistant/task141-offline-implementation-v1/lane-b/。可放修改后SearchScreen.kt（单一必要源文件）、新instrumented测试、unified patch、REPORT与ready；不复制整个工程、Gradle/cache、APK对、历史原件或旧仪器全文。每一原文件读前实算sizeSHA，写patch基于此冻结精确前像；源文件在交付目录以相对android路径组织，不写共享candidate。A只修改ReaderViewModelTest，SearchScreen无并发owner；如发现其自身漂移先停告Root。
+隔离输出仅<证据根>/task141-offline-implementation-v1/lane-b/。可放修改后SearchScreen.kt（单一必要源文件）、新instrumented测试、unified patch、REPORT与ready；不复制整个工程、Gradle/cache、APK对、历史原件或旧仪器全文。每一原文件读前实算sizeSHA，写patch基于此冻结精确前像；源文件在交付目录以相对android路径组织，不写共享candidate。A只修改ReaderViewModelTest，SearchScreen无并发owner；如发现其自身漂移先停告Root。
 
 实现要求：
 - 生产观察接缝最小：结果LazyColumn添加专用testTag及类型明确的semantics快照（index/offset、tab/query、首可见item key/itemcount）；保持原LazyListState/key/导航不变。仅必要小类型/key，不新架构、无产品UI文案暴露实现。root可见的SemanticsPropertyKey保证androidTest能可靠读；不用reflection私有NavController/抓图猜index。Category selected语义仅若实际断言必要再加，不装饰性扩展。

@@ -5,13 +5,13 @@ CRA-THREE-V4-DELIVERIES-CODEX-REVIEW-v1。用户报告全部完成且GLM5.2现�
 
 ## 输入指纹
 D HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存区空。TXT/D2 v4报告可见；约定J1 v4目录/REPORT不存在，当前仅在E任务根按相关目录名做低成本定位，没有找到。已异步询问交付路径，不把“未找到”写成从未实施，也不重复派发原v4。
-E核查根：E:/creation-reading-assistant/three-v4-deliveries-codex-review-20261007。
+E核查根：<证据根>/three-v4-deliveries-codex-review-20261007。
 root-check.json：TXT15/15工件SHA匹配、原机器结果46/46，J1报告缺失。
 d2-source-current.json：980项当前完整SHA；相对v3恰两授权文件变化。manifest SHA 940bbca58cbe93c3c59ac9aba560d7ac267666cc15bbe4a748b7855b28624be0。
 Root补交d2-v4-vs-v3.patch SHA a3149ac03798808813ceb46b89ca646d9a5bd3db2236c541fd97b9f63df4ba55；不另派机械工件任务。
 
 ## 所有权与改动
-两独立reviewer只读核TXT/D2，不设备不构建。Root将TXT完整行严格校验窄补丁实施在新E:/creation-reading-assistant/txt-v4-codex-finalization-20261007；v4/v3产品与脚本不改。D仅维护本报告/current。J1未定位前不新派实现者。
+两独立reviewer只读核TXT/D2，不设备不构建。Root将TXT完整行严格校验窄补丁实施在新<证据根>/txt-v4-codex-finalization-20261007；v4/v3产品与脚本不改。D仅维护本报告/current。J1未定位前不新派实现者。
 
 ## Standards
 TXT v4 15工件SHA/46机器结果/4日志SHA成立；五个Android文件与v3相同，v4仅overlay。复制来的freeze仍指v3，不能当完整v4冻结。

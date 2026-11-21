@@ -7,14 +7,14 @@
 ## 输入指纹
 
 - HEAD `e39a78da9c62f02614207cffb36969a32492eaea`、暂存区空；未操作原损坏Git。
-- 候选 `E:/creation-reading-assistant/next-round-j3-n1-fix-accept-v2/android`；相对J3-v1仅单驱动和v7测试变化，没有新增/删除输入。
+- 候选 `<证据根>/next-round-j3-n1-fix-accept-v2/android`；相对J3-v1仅单驱动和v7测试变化，没有新增/删除输入。
 - 驱动实算/最终freeze SHA `b39f3cb1ea29c186ca4b2eb1f8af08466a762134c66b7c0efee683a2b7ee69ef`；报告§2的12ac7175是旧构建前值，不是最终输入。
 - v7 Test SHA `000b7c811abc1ac013d301203d52f6a4ef9c8161a641f6d76ee782573f01e8f3`；生产Backup SHA `f141941a628de19660d71875bb34faa5b4833f05f6db7d0025aba774165b298e`不变。八项输入七保持、一替换，runner/Profile/配置保持。
 - 冻结宿主SHA `d99fe746e5bb5f726f313c62159e16a46aba0df8eb0a76bbbb4523d211321082`；测试SHA `ab1210969860b809c208c13fc3f4ceee2c433e2bbb65925885a2253a7875c758`。均与build/outputs和记录的安装APK一致；Root签名/manifest工具验证成立。
 
 ## 所有权与改动
 
-Root只写本报告、交接/项目页/TODO/skill记录与独立E审查根；未改产品、测试驱动、脚本或旧报告，没有构建/安装/启动应用/修改设备。只读设备回查与源树核对不重复原场景。修改入口前原始副本在 [docs-before](<E:/creation-reading-assistant/j3v2-codex-review-20261002/docs-before>)。
+Root只写本报告、交接/项目页/TODO/skill记录与独立E审查根；未改产品、测试驱动、脚本或旧报告，没有构建/安装/启动应用/修改设备。只读设备回查与源树核对不重复原场景。修改入口前原始副本在 [docs-before](<<证据根>/j3v2-codex-review-20261002/docs-before>)。
 
 ## 环境
 
@@ -50,9 +50,9 @@ Root本轮 adb devices 与 Windows TCP/process重新核实：`127.0.0.1:16416` �
 
 ## 原始证据
 
-- [Root verify.py](<E:/creation-reading-assistant/j3v2-codex-review-20261002/verify.py>) / [源码、XML、27调用、三信号、25JSON、APK核查](<E:/creation-reading-assistant/j3v2-codex-review-20261002/verification.json>)。
-- [Root只读设备回查脚本](<E:/creation-reading-assistant/j3v2-codex-review-20261002/live_readback.py>) / [当前完整回查](<E:/creation-reading-assistant/j3v2-codex-review-20261002/live-readback.json>) / [MuMu宿主进程证据](<E:/creation-reading-assistant/j3v2-codex-review-20261002/mumu-host-identity.json>)；每条ADB原输出独立存档。
-- [外部原始运行](<E:/creation-reading-assistant/next-round-j3-n1-fix-accept-v2/device-runs>) / [JSON](<E:/creation-reading-assistant/next-round-j3-n1-fix-accept-v2/evidence/evidence>) / [freeze](<E:/creation-reading-assistant/next-round-j3-n1-fix-accept-v2/freeze>)；Root核索引与实际字节SHA。
+- [Root verify.py](<<证据根>/j3v2-codex-review-20261002/verify.py>) / [源码、XML、27调用、三信号、25JSON、APK核查](<<证据根>/j3v2-codex-review-20261002/verification.json>)。
+- [Root只读设备回查脚本](<<证据根>/j3v2-codex-review-20261002/live_readback.py>) / [当前完整回查](<<证据根>/j3v2-codex-review-20261002/live-readback.json>) / [MuMu宿主进程证据](<<证据根>/j3v2-codex-review-20261002/mumu-host-identity.json>)；每条ADB原输出独立存档。
+- [外部原始运行](<<证据根>/next-round-j3-n1-fix-accept-v2/device-runs>) / [JSON](<<证据根>/next-round-j3-n1-fix-accept-v2/evidence/evidence>) / [freeze](<<证据根>/next-round-j3-n1-fix-accept-v2/freeze>)；Root核索引与实际字节SHA。
 
 ## 未覆盖项
 
@@ -80,4 +80,4 @@ Root本轮 adb devices 与 Windows TCP/process重新核实：`127.0.0.1:16416` �
 
 功能归属/交付覆盖仍11/23≈47.8%；本批验收不自动改变功能实现归属分母。全产品分母未核定。未永久回灌、暂存或提交。
 
-入口与报告的相称验证见 [document-verification.json](<E:/creation-reading-assistant/j3v2-codex-review-20261002/document-verification.json>)：显式21文件及本地链接，无错误/告警。七条过期N1/G1返修行退出启动表，完整原文保留在已链接快照；TODO其他项目原始后缀、skill日志原始前缀逐字节保留。
+入口与报告的相称验证见 [document-verification.json](<<证据根>/j3v2-codex-review-20261002/document-verification.json>)：显式21文件及本地链接，无错误/告警。七条过期N1/G1返修行退出启动表，完整原文保留在已链接快照；TODO其他项目原始后缀、skill日志原始前缀逐字节保留。

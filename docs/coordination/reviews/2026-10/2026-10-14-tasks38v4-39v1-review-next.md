@@ -7,7 +7,7 @@
 活动D HEAD e39a78da9c62f02614207cffb36969a32492eaea、暂存空。沿用已核Root-v2源码1019与36-v1双APK冻结证据，不重复产品构建。本轮读取并记录38/39实际交付SHA，39 backup_restore实际SHA3559afc65cd4edb3247d9bbde0d415266ffb49417203750f6813ade277633e47与REPORT匹配。原测试仅在Root自有E运行，不覆盖原交付。
 
 ## 所有权与改动
-38-v5只库存/首次基线/冻结准入/schema/准入CLI，输出E:/creation-reading-assistant/task38-device-admission-restore-closure-v5；39-v2只备份/恢复/安全编排/模拟边界，输出E:/creation-reading-assistant/task39-device-backup-restore-completion-v2。38额外添加host/device_state.py是其测试夹具，后续应放tests/避免合流与39同名冲突；没有证据认为曾覆盖39目录。Root本轮只E取证与D全局文档。两项核后唯一owner合流，不设备/Android/构建。
+38-v5只库存/首次基线/冻结准入/schema/准入CLI，输出<证据根>/task38-device-admission-restore-closure-v5；39-v2只备份/恢复/安全编排/模拟边界，输出<证据根>/task39-device-backup-restore-completion-v2。38额外添加host/device_state.py是其测试夹具，后续应放tests/避免合流与39同名冲突；没有证据认为曾覆盖39目录。Root本轮只E取证与D全局文档。两项核后唯一owner合流，不设备/Android/构建。
 
 ## 环境
 Windows Python3.13。38测试编译载入时只重定位TEST_TMP到自有E；39测试逐函数调用、自有E子目录、不调用main的系统temp清理。两进程独立避免同名device_state污染。全部device argv注入mock，无实际ADB/设备/Gradle。首次39核查脚本误用forwards属性中止，按实际add_forward/_global_forwards修正后完整跑并记录，未修改外部代码。
@@ -26,7 +26,7 @@ Root实际独立阻断：
 8. 39读取actual38基线进入真实编排发现上述schema缺口，现有测试9只有手造baseline。库存callback也仍旧tuple签名，与上一约定dict不一致。无需改已核36；producer/consumer两owner定向修复。
 
 ## 原始证据
-[38实际核查](<E:/creation-reading-assistant/tasks38v4-39v1-codex-review-20261014/38-verification.json>)；[39实际核查](<E:/creation-reading-assistant/tasks38v4-39v1-codex-review-20261014/39-verification.json>)；[脚本](<E:/creation-reading-assistant/tasks38v4-39v1-codex-review-20261014/verify.py>)；[38重跑](<E:/creation-reading-assistant/tasks38v4-39v1-codex-review-20261014/38-tests.log>)；[39重跑](<E:/creation-reading-assistant/tasks38v4-39v1-codex-review-20261014/39-tests.log>)。
+[38实际核查](<<证据根>/tasks38v4-39v1-codex-review-20261014/38-verification.json>)；[39实际核查](<<证据根>/tasks38v4-39v1-codex-review-20261014/39-verification.json>)；[脚本](<<证据根>/tasks38v4-39v1-codex-review-20261014/verify.py>)；[38重跑](<<证据根>/tasks38v4-39v1-codex-review-20261014/38-tests.log>)；[39重跑](<<证据根>/tasks38v4-39v1-codex-review-20261014/39-tests.log>)。
 [AOSP Android14 shell命令实现](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android14-release/services/core/java/com/android/server/am/ActivityManagerShellCommand.java)。此源码检查是标准命令可用性边界，不是MuMu版本或实机已运行证明。
 
 ## 未覆盖项

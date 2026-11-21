@@ -20,7 +20,7 @@ HEAD e39a78da9c62f02614207cffb36969a32492eaea，暂存空。16-v2实算1001/1001
 
 独立专项复核：B可证明快速Back之前无persist_current_progress_dispatch、之后新位置保存，不能等同debounce collector未emit，因payload未计专门debounce_save_dispatch/blocked事件。C真实同index坐标1835→1841（6px）且退出不回旧行成立，不证明像素/字符精确比例。D不再反复强造设备重测量；E优先审真实命中offset恢复映射；F优先源码生命周期接线/可控协程合同，不能把紧邻重进写真正迟到并发。16-v3仅发现明确缺陷并修复后才做必要受影响设备补验，不启动无意义重复批次。
 
-[Rootverification](<E:/creation-reading-assistant/tasks16v2-6v9-19-20-codex-review-20261012/verification.json>)及脚本；外部原REPORT/原XML/冻结/harvest保留。Root实际强freeze verify PASS。16完整inventory前后各71、files逐项相同、stdout14720字节同字节，关闭上轮截断缺口。原APK对/DB/WAL/SHM/8设置/端口/shell与后账需限定真实记录，本轮无创建物账本，报告用前后保护清单/tmp顶层/沙箱absence替代，不称覆盖任意tmp子目录所有资产。Root当前实例1关闭/adb空，无设备写入或Gradle。无D产品/Git变化。
+[Rootverification](<<证据根>/tasks16v2-6v9-19-20-codex-review-20261012/verification.json>)及脚本；外部原REPORT/原XML/冻结/harvest保留。Root实际强freeze verify PASS。16完整inventory前后各71、files逐项相同、stdout14720字节同字节，关闭上轮截断缺口。原APK对/DB/WAL/SHM/8设置/端口/shell与后账需限定真实记录，本轮无创建物账本，报告用前后保护清单/tmp顶层/沙箱absence替代，不称覆盖任意tmp子目录所有资产。Root当前实例1关闭/adb空，无设备写入或Gradle。无D产品/Git变化。
 
 ## 未覆盖项与里程碑复盘
 

@@ -23,7 +23,7 @@
 【填写具体用户流程、触发条件、期望与本轮证据边界；不能只写“修好”。】
 
 2. 基线与启动读取
-活动仓库D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919。
+活动仓库<仓库>。
 先读AGENTS/current及本任务直接原报告；旧路径查docs/document-map.csv。
 【填写输入绝对路径、size/SHA/版本、实际环境；未知明确列出。】
 

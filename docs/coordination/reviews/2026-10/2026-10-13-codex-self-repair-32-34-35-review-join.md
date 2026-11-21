@@ -12,7 +12,7 @@
 /root/fix32v4：GPT-6.1 Sol medium，关键数据安全，主机端脚本/tools/config；没有另复制1012源，全部绑定只读输入。修真实Shell计数、实际组后测与首次inventory绑定、无覆盖发布、完整原始日志和PENDING硬拒。
 /root/fix34v2：GPT-6 Luna medium，定向测试低成本；仅6个Task34新androidTest。Root在同批核查中纠正真实保存等待/退出后基线/可见性/唯一本任务来源动作/预存证据拒绝，未返给用户派发。
 /root/fix35v2：GPT-6.1 Sol medium，产品接缝与关键证据；main仅默认null onExportCompleted(Uri)成功关流后回调；测试记录真实URI/resolver字节与冷读/时钟频率/run阶段身份，严格consumer区分evidence_valid与contract_complete。
-Root独占核验、E合流、共同qahost编译与全局文档。所有增量路径/来源SHA在[来源绑定](<E:/creation-reading-assistant/second-look-fixed-root-v2-20261013/binding.json>)。
+Root独占核验、E合流、共同qahost编译与全局文档。所有增量路径/来源SHA在[来源绑定](<<证据根>/second-look-fixed-root-v2-20261013/binding.json>)。
 模型是本轮Codex可用资源选择，不把外部WorkBuddy/TRAE候选当内部路由；简单线用Luna，风险线用Sol，未增设无价值子代理。
 
 ## 环境
@@ -26,7 +26,7 @@ Windows/JDK17/已有E Gradle cache/offline；所有Gradle由24已有with_gradle_
 - 编译后source1019/acceptance58清单再次实际逐文件核对无漂移。
 
 ## 原始证据
-[三个成果指纹/所有权核查](<E:/creation-reading-assistant/codex-self-repair-20261013/delivery-deltas.json>)；[Root新实际反例](<E:/creation-reading-assistant/codex-self-repair-20261013/root-independent-checks.json>)；[合流后实际编译与指纹核查](<E:/creation-reading-assistant/codex-self-repair-20261013/post-compile-verification.json>)；[联合编译原始日志](<E:/creation-reading-assistant/second-look-fixed-root-v2-20261013/logs/joined-qahost-compile.log>)；[移入共同树的consumer输出](<E:/creation-reading-assistant/codex-self-repair-20261013/joined-consumer-selftest.log>)。
+[三个成果指纹/所有权核查](<<证据根>/codex-self-repair-20261013/delivery-deltas.json>)；[Root新实际反例](<<证据根>/codex-self-repair-20261013/root-independent-checks.json>)；[合流后实际编译与指纹核查](<<证据根>/codex-self-repair-20261013/post-compile-verification.json>)；[联合编译原始日志](<<证据根>/second-look-fixed-root-v2-20261013/logs/joined-qahost-compile.log>)；[移入共同树的consumer输出](<<证据根>/codex-self-repair-20261013/joined-consumer-selftest.log>)。
 原交付报告：32-v4/task34-v2/task35-v2对应E目录REPORT，保留失败编译与后续修复记录，不把中间绿灯当最终输入。
 
 ## Standards

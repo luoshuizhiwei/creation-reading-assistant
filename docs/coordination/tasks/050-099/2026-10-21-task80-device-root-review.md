@@ -8,7 +8,7 @@ C hostdc736485…1d95/testb8f615ce…0500、runner ea51a306…e18a及D/Root-r1�
 ## 执行与结果、原始证据
 唯一run20261021-142021-8246eb，14:20:21–14:24:12、exit1。baseline门禁拒绝，install_attempted=false/phase_started=false，probe及四旅程全NOT_RUN（业务0PASS/0FAIL/4NOT_RUN）。台账一次main，Root启动请求1、runner内部启动0分开统计，无shutdown/reboot。新C产品逻辑未在设备执行，不能称产品测试失败。
 根因已证：device_protection.py初始/最终检查重放original-settings.json中的value["argv"]，其-s参数固定127.0.0.1:16416；当前实际16417。inventory当前serial采集正常，但历史命令返回空值导致拒绝。Root未改共享producer/历史基线，未现场改码重绑第二试。
-完整原始日志和Root报告/ready位于E:/creation-reading-assistant/task80-export-content-v1/root-device-80v2/；原始attempt位于同根attempts/20261021-142021-8246eb。
+完整原始日志和Root报告/ready位于<证据根>/task80-export-content-v1/root-device-80v2/；原始attempt位于同根attempts/20261021-142021-8246eb。
 
 ## 恢复与副作用
 本run初始/结束protected_files/external_files/db_groups/apk_pair/settings/uri_permissions/pkg_states全部相同；未安装、未仪器、无新导出、无设备文件删除，因此D精确导出收尾不适用。

@@ -1,15 +1,15 @@
 # 回滚 WIP 保全合并 v3：临时文件全程清理与同书互斥闸
 
 - 任务编号/版本：`CRA-ROLLBACK-WIP-RECONCILE-v3`；2026-10-04 指定，实际执行 2026-10-04T17:59–18:47+08:00，应用 ZCode / GLM（account:zai-start-plan）。
-- 输入指纹：HEAD `e39a78da9c62f02614207cffb36969a32492eaea`（开工=收工，只读核实）；暂存区前后 0 条。固定输入 [v2 候选](<E:/creation-reading-assistant/next-round-rollback-wip-reconcile-v2/android>)（按 v2 报告 after-SHA 逐字节核对后复制，v2 原件未动）：EpubRepository `cb2a3cad…`、EpubParser `af223434…`、FileOps `904148cb…`、ShelfImporter `bfc37d71…`、ReplaceTest `3a30db8f…`、RollbackTest `6eab90bc…`、ShelfImporterTest `89e335be…`（见 [execution.json](<E:/creation-reading-assistant/next-round-rollback-wip-reconcile-v3/execution.json>)）。
+- 输入指纹：HEAD `e39a78da9c62f02614207cffb36969a32492eaea`（开工=收工，只读核实）；暂存区前后 0 条。固定输入 [v2 候选](<<证据根>/next-round-rollback-wip-reconcile-v2/android>)（按 v2 报告 after-SHA 逐字节核对后复制，v2 原件未动）：EpubRepository `cb2a3cad…`、EpubParser `af223434…`、FileOps `904148cb…`、ShelfImporter `bfc37d71…`、ReplaceTest `3a30db8f…`、RollbackTest `6eab90bc…`、ShelfImporterTest `89e335be…`（见 [execution.json](<<证据根>/next-round-rollback-wip-reconcile-v3/execution.json>)）。
 - 所有权与改动：v3 候选内改动恰五路径 —— EpubRepository.kt、EpubParser.kt、EpubRepositoryReplaceTest.kt（改）+ **EpubSwapGate.kt（新增模块内锁）**、EpubRepositoryConcurrencyTest.kt（新增并发测试，均列入 manifest）。未触碰 ShelfImporter、同步/Profile/MD、公共配置、FileOps.kt、EpubRepositoryReplaceRollbackTest.kt（保持 v2 SHA）；未操作设备；零 Git 写操作；未回灌 D。
 - 环境：Windows / Git Bash / Python 3.13；JDK 17.0.14；Gradle 8.9 `--offline --no-daemon`；独立缓存 `_cache\gradle-home`（3.3G，自 v2 缓存复制，自有可写）。
 
 ## 真实红绿证据
 
-**红（v2 实现上运行，XML/日志已存 [freeze/evidence](<E:/creation-reading-assistant/next-round-rollback-wip-reconcile-v3/freeze/evidence>)）**：先补两条**真实 Parser**（不 mock EpubParser，真实 ZIP 来源经 contentResolver）失败路径测试：①备份建立失败（renameTo 失败 + 兜底复制中途中断注入）；②DAO 持久化失败。断言 fresh 解析落下的来源临时副本按后缀全目录清零。v2 上 **28 tests / 2 failures**，两条新用例精确红 —— Codex 核查指出的缺口成立（v2 的 validatedFile 仅成功路径删除；且 fresh 副本实际落在**派生 id** 的 `<epub_hash>.importing`，点名单一固定路径会漏检，红断言按 `*.importing` 后缀全目录断言）。
+**红（v2 实现上运行，XML/日志已存 [freeze/evidence](<<证据根>/next-round-rollback-wip-reconcile-v3/freeze/evidence>)）**：先补两条**真实 Parser**（不 mock EpubParser，真实 ZIP 来源经 contentResolver）失败路径测试：①备份建立失败（renameTo 失败 + 兜底复制中途中断注入）；②DAO 持久化失败。断言 fresh 解析落下的来源临时副本按后缀全目录清零。v2 上 **28 tests / 2 failures**，两条新用例精确红 —— Codex 核查指出的缺口成立（v2 的 validatedFile 仅成功路径删除；且 fresh 副本实际落在**派生 id** 的 `<epub_hash>.importing`，点名单一固定路径会漏检，红断言按 `*.importing` 后缀全目录断言）。
 
-**绿（v3 修复后）**：7 套件 **147/147，0 failure/error/skipped**，EXIT=0（[green XML ×7](<E:/creation-reading-assistant/next-round-rollback-wip-reconcile-v3/freeze/evidence/green-TEST-com.creationreadingassistant.feature.reader.EpubRepositoryConcurrencyTest.xml>) + green-run.log）：EpubRepositoryReplaceTest 28、RollbackTest 11、**ConcurrencyTest 3（新）**、EpubParserTextTest 28、MalformedCorpusTest 11、MetadataTest 3、ShelfImporterTest 63。**v2 六套件 142 项测试名称逐一比对全部保留（0 missing）**，新增 5 项单列（2 清理回归 + 3 并发合同），未删除或放宽任何既有断言。
+**绿（v3 修复后）**：7 套件 **147/147，0 failure/error/skipped**，EXIT=0（[green XML ×7](<<证据根>/next-round-rollback-wip-reconcile-v3/freeze/evidence/green-TEST-com.creationreadingassistant.feature.reader.EpubRepositoryConcurrencyTest.xml>) + green-run.log）：EpubRepositoryReplaceTest 28、RollbackTest 11、**ConcurrencyTest 3（新）**、EpubParserTextTest 28、MalformedCorpusTest 11、MetadataTest 3、ShelfImporterTest 63。**v2 六套件 142 项测试名称逐一比对全部保留（0 missing）**，新增 5 项单列（2 清理回归 + 3 并发合同），未删除或放宽任何既有断言。
 
 ## 修复内容（不重做 v1/v2 已验修复）
 

@@ -11,7 +11,7 @@ Root实际SHA核同：host efd4a879c1c2c264254e88312a76b38bba29547d15b1ff9ad076b
 相关task69/59 Python/Java任务查询为空；Root仅只读原交付、实际源码/工件，写root-review-v3校验JSON和本报告/current。未改B源码、工作区、工件或旧冻结。下一窄修仍由原B唯一owner负责，不重派A。
 
 ## 环境
-复用59唯一工作区与D:/develop/env/gradle；Root无构建、设备、Git或外部消息。原A14项及分类74项输入未改，继续复用。
+复用59唯一工作区与<开发盘>/env/gradle；Root无构建、设备、Git或外部消息。原A14项及分类74项输入未改，继续复用。
 
 ## 执行与结果
 host真实assembleQahost日志BUILD SUCCESSFUL、test修正后compile/assemble日志BUILD SUCCESSFUL；host包内构造函数摘录含CreateCategory(String,String)，支持产品修复已打包。实际APK匹配，旧宿主问题采纳收口。
@@ -25,7 +25,7 @@ host真实assembleQahost日志BUILD SUCCESSFUL、test修正后compile/assemble�
 实现已有保存/内容严格断言，相比v2进展采纳；以上只修真实适配，不回退file://、预写文档、Mock或放松失败门禁。
 
 ## 原始证据
-E:/creation-reading-assistant/task69-md-material-closure-v1/B/v3下REPORT/ready/src；integration/v3下ready/STATUS、logs/01-assembleQahost-host.log和03-compile-assemble-test.log、evidence/dex/host-constructor-proof.json、counterexamples.json、candidate真实工具与冻结；Root输出root-review-v3/checks.json及00-*生产校验结果。原路径引用，旧FAIL保留。
+<证据根>/task69-md-material-closure-v1/B/v3下REPORT/ready/src；integration/v3下ready/STATUS、logs/01-assembleQahost-host.log和03-compile-assemble-test.log、evidence/dex/host-constructor-proof.json、counterexamples.json、candidate真实工具与冻结；Root输出root-review-v3/checks.json及00-*生产校验结果。原路径引用，旧FAIL保留。
 
 ## 恢复与副作用
 本轮未启动设备，无新恢复义务。下一导出文档保留须精确记录为新增资产，不声称外部目录零增量或整盘回滚。68已核保护面恢复及63有限链证据不重跑。Root仅新增数KiB JSON及必要D交接，无工程/缓存/APK复制或既有资产删除迁移；automation-2/3未改，维持PAUSED决定。

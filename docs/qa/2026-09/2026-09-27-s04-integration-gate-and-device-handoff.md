@@ -40,15 +40,15 @@
 ### 2.1 门禁 A：S04 定向 JVM（4 类）
 
 ```bash
-cd D:/develop/Code/Codex/creation-reading-assistant-recovery-20260919/android
-export GRADLE_USER_HOME=D:/develop/env/gradle
+cd <仓库>/android
+export GRADLE_USER_HOME=<开发盘>/env/gradle
 ./gradlew :app:testDebugUnitTest \
   --tests "com.creationreadingassistant.feature.reader.EpubRepositoryReplaceTest" \
   --tests "com.creationreadingassistant.ui.viewmodel.ShelfImporterTest" \
   --tests "com.creationreadingassistant.feature.library.ShelfSourceUpdateCheckerTest" \
   --tests "com.creationreadingassistant.data.repository.SearchIndexBookRefreshCoordinatorTest" \
-  --init-script E:/creation-reading-assistant/codex-s04-build-20260925/redirect-build-via-junction.gradle \
-  --offline > E:/creation-reading-assistant/codex-s04-build-20260925/gate-a-s04-jvm.log 2>&1
+  --init-script <证据根>/codex-s04-build-20260925/redirect-build-via-junction.gradle \
+  --offline > <证据根>/codex-s04-build-20260925/gate-a-s04-jvm.log 2>&1
 # GATE_A_EXIT=0，BUILD SUCCESSFUL in 45s（编译任务复用 09-27 终审轮的同源码增量，测试为本次真跑）
 ```
 
@@ -65,8 +65,8 @@ export GRADLE_USER_HOME=D:/develop/env/gradle
 
 ```bash
 ./gradlew :app:lintDebug :app:assembleDebug :app:compileDebugAndroidTestKotlin \
-  --init-script E:/creation-reading-assistant/codex-s04-build-20260925/redirect-build-via-junction.gradle \
-  --offline > E:/creation-reading-assistant/codex-s04-build-20260925/gate-b-lint-apk.log 2>&1
+  --init-script <证据根>/codex-s04-build-20260925/redirect-build-via-junction.gradle \
+  --offline > <证据根>/codex-s04-build-20260925/gate-b-lint-apk.log 2>&1
 # GATE_B_EXIT=0，BUILD SUCCESSFUL in 4m 50s
 # （备注：首次调用因 shell cwd 漂移到仓库根而 EXIT=127，未执行任何构建，原地修正后复跑；如实记录）
 ```
@@ -86,13 +86,13 @@ export GRADLE_USER_HOME=D:/develop/env/gradle
 
 ```bash
 # C-1 隔离宿主 APK
-./gradlew :app:assembleQahost --init-script E:/…/redirect-build-via-junction.gradle --offline
+./gradlew :app:assembleQahost --init-script <证据盘>/…/redirect-build-via-junction.gradle --offline
 # EXIT=0，BUILD SUCCESSFUL in 3m 8s（41 tasks: 23 executed）
 # C-2 隔离测试 APK（首次尝试 :app:compileQahostAndroidTestKotlin / 无属性 assembleQahostAndroidTest 均
 #     EXIT=1「task not found」——testBuildType 默认 debug 下 qahost androidTest 变体不存在，属预期机制而非缺陷；
 #     带属性重试通过）
 ./gradlew :app:assembleQahostAndroidTest -PcraAndroidTestBuildType=qahost \
-  --init-script E:/…/redirect-build-via-junction.gradle --offline
+  --init-script <证据盘>/…/redirect-build-via-junction.gradle --offline
 # EXIT=0，BUILD SUCCESSFUL in 24s
 ```
 

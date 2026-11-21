@@ -1,12 +1,12 @@
 # 任务187-v1：定位185 Notes列表入口超时，独立源差量
 
-原183 owner同会话，推荐当前ZCode模型；20分钟自实际收到全文起评估。你负责最小定位/源差量/必要定向验证/交付闭环。A186原设备owner同时recover-only；你立即独立并行，不等设备、不访问其新产物。Root维护state/current。唯一可写 E:/creation-reading-assistant/task187-notes-list-entry-source-v1/，唯一ready.json。当前candidate/APK只读，不Gradle/设备，待A恢复关闭后Root交接给你同owner集成编译。
+原183 owner同会话，推荐当前ZCode模型；20分钟自实际收到全文起评估。你负责最小定位/源差量/必要定向验证/交付闭环。A186原设备owner同时recover-only；你立即独立并行，不等设备、不访问其新产物。Root维护state/current。唯一可写 <证据根>/task187-notes-list-entry-source-v1/，唯一ready.json。当前candidate/APK只读，不Gradle/设备，待A恢复关闭后Root交接给你同owner集成编译。
 
 ## 已确认输入与故障
 
-candidate E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android，NestedTemporaryReaderEntryTest.kt位于app/src/androidTest/java/com/creationreadingassistant/acceptance/，31645B SHAcfc7af26b976127be77bb6eb1ad93941d8788fa46d26ee0e7a48bb373a0e05e4；fixture同目录55008B SHA0aea2c5eed35d7f189df72590013fdea1bdf658045b5ae7373d16617d9265ce9。product4d302/test5def固定，183编译原rc0/签名runner已接受直接复用，不重建。
+candidate <证据根>/task59-common-candidate-v1/candidate/android，NestedTemporaryReaderEntryTest.kt位于app/src/androidTest/java/com/creationreadingassistant/acceptance/，31645B SHAcfc7af26b976127be77bb6eb1ad93941d8788fa46d26ee0e7a48bb373a0e05e4；fixture同目录55008B SHA0aea2c5eed35d7f189df72590013fdea1bdf658045b5ae7373d16617d9265ce9。product4d302/test5def固定，183编译原rc0/签名runner已接受直接复用，不重建。
 
-185 ready5597B SHA2e3f4e65760b2c08109f7dc9324de0563dfb8410a2b64d5a2891700ff4ed3f90，scope E:/creation-reading-assistant/task176-contract-b-host-binding-offline-v1/recheck-r3/attempt-T165V1-20261029-023525；原instrument回执 evidence/instrument/actual-instrument-argv-T165V1-20261029-023525.json7825B，实际stdout evidence/instrument/t164collect/actual-argv-bundle-T165V1-20261029-023525/raw-instrument-stdout.txt6387B。Root已读原两方法均ComposeTimeout15000ms，失败openReadingNotesList313，caller普通508/第二536，Testsrun2Failures2/终端-1，shellrc0不等于通过；之前exitReaderToTopLevel本轮已走过，不能把失败推进称业务通过。185恢复部分成立但collectfalse产品KEEP，A独立收口；你不碰恢复driver/globalstate。
+185 ready5597B SHA2e3f4e65760b2c08109f7dc9324de0563dfb8410a2b64d5a2891700ff4ed3f90，scope <证据根>/task176-contract-b-host-binding-offline-v1/recheck-r3/attempt-T165V1-20261029-023525；原instrument回执 evidence/instrument/actual-instrument-argv-T165V1-20261029-023525.json7825B，实际stdout evidence/instrument/t164collect/actual-argv-bundle-T165V1-20261029-023525/raw-instrument-stdout.txt6387B。Root已读原两方法均ComposeTimeout15000ms，失败openReadingNotesList313，caller普通508/第二536，Testsrun2Failures2/终端-1，shellrc0不等于通过；之前exitReaderToTopLevel本轮已走过，不能把失败推进称业务通过。185恢复部分成立但collectfalse产品KEEP，A独立收口；你不碰恢复driver/globalstate。
 
 ## 定位与最小修复
 

@@ -16,13 +16,13 @@ A：106一次T106A-20261024-081057，生产DAO种本批两摘录+TXT来源，真
 
 A成功标准：给出可证的最小解释或明确剩余观测。优先用当前已有真实VM/Repository离线工具建立直接生产合并callback/参数测试核假设，不复制policy或只verify调用；若只能设备观察，交下一批具体观测点，不能本批自行ADB。必要可离线修改本仪器增加actionIDs/count、VM Loaded/包含ID、callback结果和选择态bounds/semantics、失败后DB/page/snackbar快照；这些必须是实际执行链观测，不把业务改到fixture直调来造绿、不放宽原断言。不改产品I1/I2/布局/公用配置凭猜测；若确证产品缺陷，先交根因与最小patch建议Root决定下一块，当前不自动扩实现/设备。无新run/attempt，本批无ADB。
 
-B：集成E:/creation-reading-assistant/task106-material-adoption-v1/lane-b最小差量。Root已核REPORT SHA480c12c8be56b03f8cef0d77b45185546684865801b1fc3c739a96e4f3fa086c/总23654B；当前workspace ShelfSavedViewsStore.kt before ebdc118ce504eb8761cb16847883297e8d2a4d146a086beb6926bfffb4eb19c3(3825B)，after8df4f1924f915a5c970f373b48b4eaca83517659c208424042aebd015876da4c(4026B)。新ShelfSavedViewsStoreTest.kt须初始缺席，after2a2493f8f299af557fb3ddae7315dd268c613bb7b6fbb81c33988baa86e506d8(4321B)。核指纹无冲突后只纳这两文件/必要编译修正，不改他人WIP。接缝internal DataStore<Preferences>+scope主构造，原@Inject Context/@ApplicationScope次构造仍委托context.shelfSavedViewsDataStore，不变存储名/格式/作用域和生产行为。
+B：集成<证据根>/task106-material-adoption-v1/lane-b最小差量。Root已核REPORT SHA480c12c8be56b03f8cef0d77b45185546684865801b1fc3c739a96e4f3fa086c/总23654B；当前workspace ShelfSavedViewsStore.kt before ebdc118ce504eb8761cb16847883297e8d2a4d146a086beb6926bfffb4eb19c3(3825B)，after8df4f1924f915a5c970f373b48b4eaca83517659c208424042aebd015876da4c(4026B)。新ShelfSavedViewsStoreTest.kt须初始缺席，after2a2493f8f299af557fb3ddae7315dd268c613bb7b6fbb81c33988baa86e506d8(4321B)。核指纹无冲突后只纳这两文件/必要编译修正，不改他人WIP。接缝internal DataStore<Preferences>+scope主构造，原@Inject Context/@ApplicationScope次构造仍委托context.shelfSavedViewsDataStore，不变存储名/格式/作用域和生产行为。
 
 B用真实PreferenceDataStoreFactory隔离临时文件，多维+保留项保存→cancelAndJoin整个scope→新store同文件读回→删目标留对照→再次完整关闭重开核删除持久化；非空保留对照防StateFlow空初值假通过。先 :app:testDebugUnitTest --tests com.creationreadingassistant.data.settings.ShelfSavedViewsStoreTest --console=plain，保原exitcode/XML；必要主源码/KSP编译验证Hilt次构造，无新增依赖/框架或storemock。若编译/测试失败同owner修本测试接缝直到闭环，不假装行为红或扩大全库。无需为了测试先造产品缺陷；无新产品/test APK构建，当前bf候选保持，B新增seam仅源码编译/JVM范围不宣称已在旧APK。
 
 可写所有权：A仅既有MaterialAdoptionJourneyDeviceTest.kt必要离线观测/直接VM test（若新建给独占名），B仅ShelfSavedViewsStore.kt与ShelfSavedViewsStoreTest.kt，其他seam具体报Root。不修改生产InspirationList/VM/Route或桌面。你唯一build owner，worker已结束，不占共享环境。独立A读/准备与B定向构建可并行，构建单owner，不自创第二工程。
 
-唯一workspace E:/creation-reading-assistant/task59-common-candidate-v1/candidate/android，Gradle home D:/develop/env/gradle，JDK D:/develop/Java/jdk-17.0.14，SDK D:/develop/Android/Sdk，锁E:/creation-reading-assistant/locks/android-gradle-exclusive.lock。输出E:/creation-reading-assistant/task107-material-diagnosis-savedviews-v1，A/B最小源码patch/日志XML/REPORT/ready合计4MiB，必要编译预计256MiB；APK复制/构建/设备新增0。既有bf/test29已在106保全只引用，禁止复制工程/build/.gradle/.kotlin/Gradle home/node_modules/缓存/历史证据/APK对，不硬链可写cache，不删移动压缩迁移存量。复制前估空间，报告实际字节/保留理由/build增量是否测量，同一REPORT分A诊断与B已验证/未验证。
+唯一workspace <证据根>/task59-common-candidate-v1/candidate/android，Gradle home <开发盘>/env/gradle，JDK <开发盘>/Java/jdk-17.0.14，SDK <开发盘>/Android/Sdk，锁<证据根>/locks/android-gradle-exclusive.lock。输出<证据根>/task107-material-diagnosis-savedviews-v1，A/B最小源码patch/日志XML/REPORT/ready合计4MiB，必要编译预计256MiB；APK复制/构建/设备新增0。既有bf/test29已在106保全只引用，禁止复制工程/build/.gradle/.kotlin/Gradle home/node_modules/缓存/历史证据/APK对，不硬链可写cache，不删移动压缩迁移存量。复制前估空间，报告实际字节/保留理由/build增量是否测量，同一REPORT分A诊断与B已验证/未验证。
 
 107不以A未定位阻塞B真实进展，也不以B通过冒充106整链通过。所有权/输入/预算不明停依赖工作具体报告。无Git暂存提交pushPR发布、D产品回灌、正式库/HOLD/云部署/实体手机/ADB/关闭其他进程/私库。Root核后安排有依据下一修复或绑定设备批，不同假设循环重试，不凭单批完成停项目。最终最末单独写：这是任务107-v1。
 ````
@@ -40,5 +40,5 @@ Root已看到B/logs/01-savedviews-test.log BUILD SUCCESSFUL 52s、B/evidence/TES
 
 A仍只离线核106 merge失败：仪器是Compose.performClick，不能凭可能零高就修布局；核实际selectedIds集合/action异步传参、Loaded状态/ID解析及fixture观测。Root另有只读explorer核此链，无人写共同源码。若现有证据不足，输出下一批应采的最小actionIDs/VM状态/callback/bounds观测及必要仪器差量，不自行设备重试或猜改产品。保留106原FAIL。
 
-最后在E:/creation-reading-assistant/task107-material-diagnosis-savedviews-v1完成REPORT/ready、最小源码patch/前后SHA、原日志XML绑定与实际字节，分A未闭合和B已验证；不要因服务错误重复充分验证。其他约束复用原107完整提示和Root106报告。最终单独一行：这是任务107-v1。
+最后在<证据根>/task107-material-diagnosis-savedviews-v1完成REPORT/ready、最小源码patch/前后SHA、原日志XML绑定与实际字节，分A未闭合和B已验证；不要因服务错误重复充分验证。其他约束复用原107完整提示和Root106报告。最终单独一行：这是任务107-v1。
 ````

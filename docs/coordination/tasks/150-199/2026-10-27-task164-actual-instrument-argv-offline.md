@@ -1,5 +1,5 @@
 # 任务164-v1：仪器实际argv回执接线
-编号164-v1；2026-10-27 HK15:20；推荐保持WorkBuddy global:deepseek-v4.1-flash 1M。与163原VM恢复真正独立。20分钟从实际UI发送起。仅新 E:/creation-reading-assistant/task164-actual-instrument-argv-offline-v1/ 内最小host/collector适配、inputs/patch/REPORT/ready和必要定向证据；候选、APK、Gradle、设备、VM及163全部只读，绝不发真实ADB/设备命令。不改旧161-r2/collector/父源。
+编号164-v1；2026-10-27 HK15:20；推荐保持WorkBuddy global:deepseek-v4.1-flash 1M。与163原VM恢复真正独立。20分钟从实际UI发送起。仅新 <证据根>/task164-actual-instrument-argv-offline-v1/ 内最小host/collector适配、inputs/patch/REPORT/ready和必要定向证据；候选、APK、Gradle、设备、VM及163全部只读，绝不发真实ADB/设备命令。不改旧161-r2/collector/父源。
 
 基线161-r2 ready现11512B SHA97f04e85f1a148626d7a0e6a7781478de6626833a62f65c4bcfed4083e4e3936。host161_r2.py17000B SHA4c96fef93a5a16589803df0ef2579d1d6f2dad7c057f3894d07dd6345e6fa940；inputs8441B SHA53bd9aa0d6065a7ccabdd7ae47fd7c2f05ca1cbb2050094df7f296d16802f775；collector161_r1.py20398B SHA0267792e0c63e6fef4589bc6cc65e8b1b16bc263658951f57840226756cfd3a2。它们真实main/parentrun_attempt、strict158fixture门、exactowner、host捕获stdout/stderr/rc已经离线充分，18pins/旧8case/旧9case及157编译/JVM充分不重刷。
 
