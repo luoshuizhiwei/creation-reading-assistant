@@ -1169,7 +1169,14 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       const timestamp = outcome.committedAt;
       this.touchProject(projectId, timestamp);
       const changes = outcome.modifiedSceneIds.flatMap((sceneId, index) => [
-        { entity: "scene" as const, id: sceneId, action: "updated" as const, revision: 0 },
+        // revision 必须是提交后的真实值：渲染层只在 change.revision > 已加载 revision 时才重读正文
+        // （useSceneEditorActions.handleEvent）。这里曾写死 0，正开着的编辑器于是永远停在替换前的旧正文。
+        {
+          entity: "scene" as const,
+          id: sceneId,
+          action: "updated" as const,
+          revision: store.getScene(sceneId)?.revision ?? 0
+        },
         {
           entity: "snapshot" as const,
           id: outcome.snapshotIds[index] ?? "",

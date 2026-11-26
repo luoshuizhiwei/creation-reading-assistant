@@ -818,6 +818,114 @@ async function run(): Promise<void> {
 
     await runReplacePlanTests(scenario);
 
+    await scenario("真实 store：新计划链路在真实 schema 上建计划（三范围）并应用落地", async () => {
+      // 回归朝向：replace-store.ts 的场景枚举 SQL 曾把 scenes 写成带 project_id（BD-256 记档线索），
+      // 假 schema 的内存 store 量不到这条生产路径；这里必须走真实 workspace 的 SQLite store。
+      // 自建场景自含词，不依赖前面场景对正文的副作用。
+      const mine = (await workspace!.transact({
+        type: "scene.create",
+        chapterId,
+        title: "回归场景"
+      })) as { entityId: string };
+      const sceneC = mine.entityId;
+      await workspace!.transact({
+        type: "scene.updateBody",
+        sceneId: sceneC,
+        baseRevision: 1,
+        body: {
+          type: "doc",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "回声塔的灯照着回声塔的街。" }] },
+            { type: "paragraph", content: [{ type: "text", text: "尾句。" }] }
+          ]
+        }
+      });
+
+      const plan = await workspace!.createReplacePlan({
+        projectId,
+        scope: "all",
+        find: "回声塔",
+        replaceWith: "钟鼓楼",
+        mode: "plain"
+      });
+      assert.equal(plan.totalHits, 2);
+      assert.equal(plan.scenes.length, 1);
+      assert.equal(plan.scenes[0]!.sceneId, sceneC);
+
+      const chapterPlan = await workspace!.createReplacePlan({
+        projectId,
+        scope: "chapter",
+        scopeId: chapterId,
+        find: "回声塔",
+        replaceWith: "钟鼓楼",
+        mode: "plain"
+      });
+      assert.equal(chapterPlan.totalHits, 2);
+
+      const scenePlan = await workspace!.createReplacePlan({
+        projectId,
+        scope: "scene",
+        scopeId: sceneC,
+        find: "回声塔",
+        replaceWith: "钟鼓楼",
+        mode: "plain"
+      });
+      assert.equal(scenePlan.totalHits, 2);
+      assert.equal(scenePlan.scenes[0]!.sceneId, sceneC);
+
+      // BD-256 的原始症状：合法正则走到 SQL 枚举一步。这里同样必须过真实 store。
+      const regexPlan = await workspace!.createReplacePlan({
+        projectId,
+        scope: "scene",
+        scopeId: sceneC,
+        find: "回声(塔)",
+        replaceWith: "钟鼓$1",
+        mode: "regex"
+      });
+      assert.equal(regexPlan.totalHits, 2);
+
+      type SeenEvent = {
+        projectId: string | null;
+        commandType: string;
+        changes: Array<{ entity: string; id: string; action: string; revision: number }>;
+      };
+      const seen: SeenEvent[] = [];
+      const unwatch = workspace!.watch({ projectId }, (event) => {
+        seen.push(event as unknown as SeenEvent);
+      });
+      const beforeApply = (await workspace!.read({ kind: "scene.body", sceneId: sceneC })) as { revision?: number } | undefined;
+      const outcome = await workspace!.applyReplacePlan(plan.planId, []);
+      unwatch();
+      assert.equal(outcome.appliedHitCount, 2);
+      assert.equal(outcome.modifiedSceneIds.length, 1);
+      const after = (await workspace!.read({
+        kind: "replace.preview",
+        projectId,
+        find: "回声塔",
+        replaceWith: "钟鼓楼",
+        scope: "project"
+      })) as ReplacePreviewView;
+      assert.equal(after.totalHits, 0);
+      const bodyC = await workspace!.read({ kind: "scene.body", sceneId: sceneC });
+      assert.equal(JSON.stringify(bodyC?.body).includes("钟鼓楼的灯照着钟鼓楼的街"), true);
+
+      // 提交事件里的场景 revision 必须是提交后的真实值。渲染层只在
+      // change.revision > 已加载 revision 时才重读正文（useSceneEditorActions.handleEvent），
+      // 发 0 等于让正开着的编辑器永远停在替换前的旧正文。
+      const afterApply = (await workspace!.read({ kind: "scene.body", sceneId: sceneC })) as { revision?: number } | undefined;
+      const applyEvent = seen.find((e) => e.commandType === "replace.applyPlan");
+      assert.ok(applyEvent, "应用替换后必须发出 replace.applyPlan 提交事件");
+      const sceneChange = applyEvent!.changes.find((c) => c.entity === "scene" && c.id === sceneC);
+      assert.ok(sceneChange, "replace.applyPlan 事件必须带上被改写的场景");
+      assert.equal(sceneChange!.action, "updated");
+      assert.ok((afterApply?.revision ?? 0) > (beforeApply?.revision ?? 0), "应用替换必须推进场景 revision");
+      assert.equal(
+        sceneChange!.revision,
+        afterApply?.revision,
+        "事件里的场景 revision 必须是提交后的真实 revision（渲染层据此决定重读正文）"
+      );
+    });
+
     process.stdout.write(`${JSON.stringify({ allPass: true, tests })}\n`);
   } finally {
     await workspace?.close();

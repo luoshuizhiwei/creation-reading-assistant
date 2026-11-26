@@ -21,7 +21,7 @@ export function createReplaceStoreModule(database: Database, workspaceDirectory:
   /** 全项目替换计划 store：scenes/snapshots/change_log 走 DB，计划本体落 JSON 文件。 */
   function buildReplacePlanStore(): ReplacePlanStore {
     const listSql = `
-      SELECT s.id, s.project_id, s.chapter_id, c.title AS chapter_title, s.title, s.body_json, s.revision, s.updated_at
+      SELECT s.id, c.project_id, s.chapter_id, c.title AS chapter_title, s.title, s.body_json, s.revision, s.updated_at
       FROM scenes s JOIN chapters c ON c.id = s.chapter_id
       WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL AND c.project_id = ?`;
     const getSceneStmt = database.prepare(
@@ -53,13 +53,13 @@ export function createReplaceStoreModule(database: Database, workspaceDirectory:
         const params: unknown[] = [projectId];
         if (scope === "chapter" && scopeId) {
           sql = `
-            SELECT s.id, s.project_id, s.chapter_id, c.title AS chapter_title, s.title, s.body_json, s.revision, s.updated_at
+            SELECT s.id, c.project_id, s.chapter_id, c.title AS chapter_title, s.title, s.body_json, s.revision, s.updated_at
             FROM scenes s JOIN chapters c ON c.id = s.chapter_id
             WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL AND s.chapter_id = ?`;
           params[0] = scopeId;
         } else if (scope === "scene" && scopeId) {
           sql = `
-            SELECT s.id, s.project_id, s.chapter_id, c.title AS chapter_title, s.title, s.body_json, s.revision, s.updated_at
+            SELECT s.id, c.project_id, s.chapter_id, c.title AS chapter_title, s.title, s.body_json, s.revision, s.updated_at
             FROM scenes s JOIN chapters c ON c.id = s.chapter_id
             WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL AND s.id = ?`;
           params[0] = scopeId;
