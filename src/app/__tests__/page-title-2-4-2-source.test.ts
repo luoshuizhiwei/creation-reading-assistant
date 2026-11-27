@@ -94,6 +94,13 @@ describe("BD-227 普查骨架：判据没了就是恒真", () => {
     expect(pkg).toContain('"audit:page-title": "node scripts/audit-page-title.mjs"');
   });
 
+  it("BD-259：工程根按脚本自身位置解析，不写死某个沙箱的绝对路径（写死了换台机器启动即败）", () => {
+    expect(census).toContain('import { fileURLToPath } from "node:url";');
+    expect(census).toContain("const __dirname = path.dirname(fileURLToPath(import.meta.url));");
+    expect(census).toContain('const root = path.resolve(__dirname, "..");');
+    expect(census).not.toMatch(/const root = "\//);
+  });
+
   it("五条判据都在，且对着 h1 算（不是对着硬写的期望文案）", () => {
     for (const marker of ["①「", "②「", "③「", "④工作台", "⑤全程"]) {
       expect(census, `判据「${marker}」丢了`).toContain(marker);

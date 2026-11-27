@@ -31,9 +31,12 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import { tmpdir, platform } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { _electron as electron } from "playwright-core";
 
-const root = "/data/creation-reading-assistant";
+// BD-259：工程根按脚本自身位置解析（原写死 Linux 沙箱路径 /data/…，在 Windows 与任意克隆路径上启动即败）。
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(__dirname, "..");
 const profileDir = mkdtempSync(path.join(tmpdir(), "creation-heading-"));
 const electronPath = path.join(root, "node_modules", "electron", "dist", platform() === "win32" ? "electron.exe" : "electron");
 const mainJs = path.join(root, "out", "main", "index.js");

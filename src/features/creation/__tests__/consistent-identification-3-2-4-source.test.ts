@@ -118,6 +118,13 @@ describe("BD-226 普查骨架：口径没了判据就是空的", () => {
     expect(pkg).toContain('"audit:identification": "node scripts/audit-consistent-identification.mjs"');
   });
 
+  it("BD-259：工程根按脚本自身位置解析，不写死某个沙箱的绝对路径（写死了换台机器启动即败）", () => {
+    expect(census).toContain('import { fileURLToPath } from "node:url";');
+    expect(census).toContain("const __dirname = path.dirname(fileURLToPath(import.meta.url));");
+    expect(census).toContain('const root = path.resolve(__dirname, "..");');
+    expect(census).not.toMatch(/const root = "\//);
+  });
+
   it("美术签名＝全部几何属性＋CSS 朝向；尺寸不进签名", () => {
     expect(census).toContain('a.name !== "class" && a.name !== "style"');
     expect(census).toContain('n.tagName + ":" + at');
