@@ -166,3 +166,34 @@ describe("BD-210 产品侧修复锚", () => {
     expect(census).toMatch(/if \(sbc && sbc\.a >= 1 && !shellBorderColors\.some\(/);
   });
 });
+
+describe("BD-258 判边门槛按设备像素比折算", () => {
+  const dprLine = "const dpr = window.devicePixelRatio || 1;";
+  const helper = "const visibleBorder = (w) => w * dpr >= 1 - 1e-4;";
+  const own = '.some((w) => visibleBorder(w) && cs.borderStyle !== "none" && cs.borderStyle !== "hidden");';
+  const shell = "if (!visibleBorder(parseFloat(pcs[`border${side}Width`]) || 0)) continue;";
+  const count = (hay: string, needle: string) => hay.split(needle).length - 1;
+  it("㉒像素比读数在场且缺读回 1，并落在 collectScript 里、TARGETS 之前（在页内读 window）", () => {
+    expect(count(census, dprLine)).toBe(1);
+    const iOpen = census.indexOf("const collectScript = () => {");
+    const iDpr = census.indexOf(dprLine);
+    const iHelper = census.indexOf(helper);
+    const iTargets = census.indexOf("const TARGETS = ");
+    expect(iOpen).toBeGreaterThan(0);
+    expect(iDpr).toBeGreaterThan(iOpen);
+    expect(iHelper).toBeGreaterThan(iDpr);
+    expect(iTargets).toBeGreaterThan(iHelper);
+  });
+  it("㉓折算助手原文在场：换算成设备像素后 ≥1，留 1e-4 吃 computed 值只留 6 位小数的舍入", () => {
+    expect(count(census, helper)).toBe(1);
+  });
+  it("㉔两处判边门槛都改走 visibleBorder（自身四边 some、复合控件壳逐边收），调用恰 2 处", () => {
+    expect(count(census, own)).toBe(1);
+    expect(count(census, shell)).toBe(1);
+    expect(count(census, "visibleBorder(")).toBe(2);
+  });
+  it("㉕旧判据不许复活：自身四边写死 w >= 1、复合控件壳写死「宽度 || 0 < 1 就跳过」", () => {
+    expect(census).not.toMatch(/\.some\(\(w\) => w >= 1 /);
+    expect(census).not.toMatch(/\|\| 0\) < 1\) continue;/);
+  });
+});

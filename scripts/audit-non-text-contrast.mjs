@@ -30,6 +30,18 @@
  * 牙（teeth）锚：产品侧改动见 styles.css --border-field、editorial-studio.css
  * 字段族/desktop-canvas 重映射/.uni-search-shell/.reader-progress-slider 与
  * ReaderBottomBar.tsx 的滑杆类名。
+ *
+ * BD-258 勘误（量具的错，不是产品的错）：判边门槛原写「任一边宽 ≥ 1（CSS px）」，隐含
+ * 像素比 = 1。Chromium 把框宽落在整设备像素上再回报 computed 值——显示缩放 150% 时 1px
+ * 的框读回 0.666667px，账把 .paper-input 族这类真边框当成「边框=无」去要填色投票，
+ * 实测 17 处假红（留档 E:\AgentWork\CRA\desktop-bd257-replace-flow-v1\REPORT.md §8.1）。
+ * 现按设备像素判：边宽 × devicePixelRatio ≥ 1（visibleBorder），自身四边与复合控件壳
+ * 逐边两处同改；像素比 = 1 时判定集合与改前逐条相同，本机原生 150% 下也是同一集合
+ * （四路诊断副本对拍，去重 69 行逐条同键同判定，见
+ * E:\AgentWork\CRA\desktop-bd258-nontext-dpr-v1\）。本账红/绿账此前都产生于像素比 = 1
+ * 的 Linux 沙箱，所以到在 150% 的 Windows 上跑电池才暴露。
+ * ⚠ 汇总行与出口行里的个数按范围累加，随渲染时序 ±1 抖动（同一判定集合实测 219/220）；
+ * 拿两次绿账比「同形」时掩掉这两行里的数字，去重判定集合才是稳定的。
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync } from "node:fs";
@@ -174,6 +186,11 @@ const collectScript = () => {
     return { merged, colors, has: Object.keys(merged).length > 0 };
   };
   const out = { rows: [], counts: { F: 0, R: 0, B2: 0, C: 0, noSurface: 0, occluded: 0, live: 0, thumbBlind: 0, translucent: 0, labeled: 0, ua: 0 } };
+  // 判边门槛按设备像素计（BD-258 勘误）：框宽 computed 值是「整设备像素 ÷ 像素比」，150% 下
+  // 1px 的框读回 0.666667px；「≥1 CSS px」只是像素比 = 1 时「≥1 设备像素」的特例。
+  // 1e-4 吃掉 computed 值只留 6 位小数的舍入（2.25 档：0.444444 × 2.25 = 0.999999）。
+  const dpr = window.devicePixelRatio || 1;
+  const visibleBorder = (w) => w * dpr >= 1 - 1e-4;
   const TARGETS = document.querySelectorAll('a[href],button,input,select,textarea,[role=button],[role=menuitem],[role=tab],[role=switch]');
   for (const el of TARGETS) {
     const tag = el.tagName.toLowerCase();
@@ -196,7 +213,7 @@ const collectScript = () => {
     const inner = solidBg(el, true);
     const sides = ["borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth"]
       .map((k) => parseFloat(cs[k]) || 0)
-      .some((w) => w >= 1 && cs.borderStyle !== "none" && cs.borderStyle !== "hidden");
+      .some((w) => visibleBorder(w) && cs.borderStyle !== "none" && cs.borderStyle !== "hidden");
     const ownBg = parse(cs.backgroundColor);
     const hasFill = ownBg && ownBg.a > 0;
     const texts = el.textContent?.trim() || "";
@@ -237,7 +254,7 @@ const collectScript = () => {
         const pcs = getComputedStyle(cur);
         if (pcs.borderStyle !== "none" && pcs.borderStyle !== "hidden") {
           for (const side of sideNames) {
-            if ((parseFloat(pcs[`border${side}Width`]) || 0) < 1) continue;
+            if (!visibleBorder(parseFloat(pcs[`border${side}Width`]) || 0)) continue;
             const sbc = parse(pcs[`border${side}Color`]);
             if (sbc && sbc.a >= 1 && !shellBorderColors.some((c) => c.r === sbc.r && c.g === sbc.g && c.b === sbc.b)) {
               shellBorderColors.push(sbc);
