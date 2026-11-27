@@ -1,6 +1,6 @@
 # 文档索引
 
-更新日期：2026-09-13
+更新日期：2026-11-27
 
 本仓库包含桌面端、独立原生 Android（当前移动端主线 `android/`）。旧 Capacitor `mobile/` 产品线已于 2026-07-30 删除，其许可证与上游存档见 `archives/frozen-mobile/`；历史文档里提到的 `mobile/` 是指该已删除产品线，不能当作当前 `android/` 的实现依据。
 
@@ -23,6 +23,7 @@
 | [`architecture/desktop-creation-adapter-decision.md`](architecture/desktop-creation-adapter-decision.md) | desktop 创作适配层的边界与技术决策 |
 | [`architecture/native-android-reader.md`](architecture/native-android-reader.md) | 当前独立原生 Android 阅读器架构与已知边界 |
 | [`architecture/android-code-quality-and-evolution-guide.md`](architecture/android-code-quality-and-evolution-guide.md) | 原生 Android 代码质量、架构解耦、Compose 性能与演进规范指南 |
+| [`testing/desktop-gates-handoff-2026-11-27.md`](testing/desktop-gates-handoff-2026-11-27.md) | desktop 普查/门禁战役（BD-257…BD-260）交接：当前状态、门禁基线数字、jsdom rAF 等机制与量具坑、开放项、接手步骤，以及可直接复制给下一个 agent 的提示词 |
 | [`testing/native-android-gap-audit-2026-07-29.md`](testing/native-android-gap-audit-2026-07-29.md) | 可直接分派给其他 agent 的缺口与验收标准；P0 已全部收口（2026-08-16），剩余为真机复核、EPUB 语料/基线、桌面门禁与同步冒烟 |
 | [`plans/legado-feature-backlog.md`](plans/legado-feature-backlog.md) | 阅读体验增强候选；不是已承诺路线图 |
 | [`plans/2026-08-16-android-followup-roadmap.md`](plans/2026-08-16-android-followup-roadmap.md) | 现行后续计划：收口与真机验证 → 首次发版 → 质量门禁 → 功能深化 |
